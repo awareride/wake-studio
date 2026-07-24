@@ -34,5 +34,16 @@ build/
 _archive/
 .wrangler/
 
+# Lockfiles (pnpm is canonical; ignore npm/yarn)
+package-lock.json
+
+# TypeScript build info
+*.tsbuildinfo
+node_modules/.tmp/
+
+# Playwright
+playwright-report/
+test-results/
+
 # Agents
 .agents/
