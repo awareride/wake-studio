@@ -1,0 +1,92 @@
+{
+  "$schema": "./model-registry.schema.json",
+  "version": 1,
+  "updated": "2025-01-01",
+  "note": "Catalog of lazily-fetched models (ADR-011). Weights are never bundled. Each entry's 'license' and 'commercial' fields drive the Phase 4 export license gate.",
+  "models": [
+    {
+      "id": "melspectrogram",
+      "name": "openWakeWord melspectrogram (16 kHz log-Mel front-end)",
+      "tier": ["low-power", "high-performance"],
+      "source": "dscripka/openWakeWord",
+      "url": "https://github.com/dscripka/openWakeWord/raw/main/openwakeword/resources/models/melspectrogram.onnx",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase1",
+      "sizeBytes": null,
+      "notes": "Shared Mel front-end; same params as the MCU model so features match."
+    },
+    {
+      "id": "speech_embedding",
+      "name": "Google speech_embedding backbone (re-implemented in openWakeWord)",
+      "tier": ["low-power", "high-performance"],
+      "source": "dscripka/openWakeWord (re-impl of google/speech_embedding)",
+      "url": "https://github.com/dscripka/openWakeWord/raw/main/openwakeword/resources/models/embedding_model.onnx",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase1",
+      "sizeBytes": null,
+      "notes": "~1.4M params; MCU-friendly; frozen feature backbone shared by tiny classifiers."
+    },
+    {
+      "id": "openwakeword-alexa",
+      "name": "openWakeWord 'alexa' pre-trained model (DEMO ONLY)",
+      "tier": ["high-performance"],
+      "source": "davidscripka/openwakeword",
+      "url": "https://huggingface.co/davidscripka/openwakeword/resolve/main/alexa.onnx",
+      "format": "onnx",
+      "license": "CC-BY-NC-SA-4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": null,
+      "notes": "Non-commercial. Usable for in-browser demo only; NEVER exported commercially. Phase 4 gate blocks it; Phase 5 trains a clean replacement."
+    },
+    {
+      "id": "wavlm-base-plus-int8",
+      "name": "WavLM-base-plus encoder (int8, Few-Shot backbone)",
+      "tier": ["high-performance"],
+      "source": "microsoft/wavlm-base-plus",
+      "url": "https://huggingface.co/microsoft/wavlm-base-plus/resolve/main/model.onnx",
+      "format": "onnx",
+      "license": "MIT",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": null,
+      "notes": "Frozen universal speech encoder for Few-Shot prototype matching. ~95M params."
+    },
+    {
+      "id": "silero-vad",
+      "name": "Silero VAD (voice activity detection)",
+      "tier": ["low-power", "high-performance"],
+      "source": "snakers4/silero-vad",
+      "url": "https://github.com/snakers4/silero-vad/raw/refs/heads/master/files/silero_vad.onnx",
+      "format": "onnx",
+      "license": "MIT",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase1",
+      "sizeBytes": null,
+      "notes": "Gates KWS to reduce compute and false alarms."
+    },
+    {
+      "id": "microwakeword-demo",
+      "name": "microWakeWord demo model (e.g. 'okay_nabu')",
+      "tier": ["low-power"],
+      "source": "esphome/micro-wake-word-models",
+      "url": "TODO-phase2",
+      "format": "tflite",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase2",
+      "sizeBytes": null,
+      "notes": "Used as a browser-demo MCU model until Phase 5 trains a WaveStudio-owned word."
+    }
+  ]
+}
