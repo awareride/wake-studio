@@ -3,7 +3,7 @@ export function Footer() {
     <footer className="border-t border-white/10">
       <div className="mx-auto max-w-5xl px-6 py-8 text-xs text-slate-500">
         <p className="mb-2">
-          WaveStudio is a productization layer over open-source models and DSP
+          WakeStudio is a productization layer over open-source models and DSP
           components. We do not invent models.
         </p>
         <p>

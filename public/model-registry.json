@@ -86,7 +86,7 @@
       "class": "redistributable",
       "sha256": "TODO-phase2",
       "sizeBytes": null,
-      "notes": "Used as a browser-demo MCU model until Phase 5 trains a WaveStudio-owned word."
+      "notes": "Used as a browser-demo MCU model until Phase 5 trains a WakeStudio-owned word."
     }
   ]
 }

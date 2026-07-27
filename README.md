@@ -1,9 +1,9 @@
-# WaveStudio
+# WakeStudio
 
 > Go from "I have a wake-word idea" to "a deployable, testable KWS bundle for my
 > target chip" - **without installing any toolchain, runtime, or Python.**
 
-WaveStudio is a Progressive Web App (PWA) that wraps the full far-field voice
+WakeStudio is a Progressive Web App (PWA) that wraps the full far-field voice
 pipeline and makes every stage trainable, visible, and exportable.
 
 ```
@@ -68,7 +68,7 @@ pnpm preview
 
 ## License
 
-WaveStudio source is [MIT](./LICENSE). Integrated third-party models and
+WakeStudio source is [MIT](./LICENSE). Integrated third-party models and
 components retain their own licenses; see [`LICENSES.md`](./LICENSES.md). In
 particular, **openWakeWord pre-trained models are CC BY-NC-SA 4.0** and are
 demo-only; commercial exports always use models we train ourselves.

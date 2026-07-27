@@ -4,7 +4,7 @@ function Logo() {
       viewBox="0 0 512 512"
       className="h-8 w-8"
       role="img"
-      aria-label="WaveStudio logo"
+      aria-label="WakeStudio logo"
     >
       <rect width="512" height="512" rx="96" fill="#0b1020" />
       <g stroke="#38bdf8" strokeLinecap="round" fill="none">
@@ -25,7 +25,7 @@ export function Header() {
         <Logo />
         <div className="flex flex-col leading-tight">
           <span className="text-base font-semibold tracking-tight text-white">
-            WaveStudio
+            WakeStudio
           </span>
           <span className="text-xs text-slate-400">
             On-device wake-word pipeline studio

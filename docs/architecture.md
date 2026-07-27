@@ -1,7 +1,7 @@
-# WaveStudio - Architecture
+# WakeStudio - Architecture
 
 > Status: Accepted (durable overview)
-> Scope: High-level architecture of WaveStudio. This document describes *what the
+> Scope: High-level architecture of WakeStudio. This document describes *what the
 > system is* and *how the pieces fit*, not phase-by-phase status (see
 > `.agents/plan/goal.plan` for that). It is kept in sync with `DECISIONS.md` (ADR
 > log) and `LICENSES.md` (third-party license matrix).
@@ -13,16 +13,16 @@
 
 ## 1. Vision
 
-WaveStudio is a Progressive Web App (PWA) console that takes a developer or product
+WakeStudio is a Progressive Web App (PWA) console that takes a developer or product
 engineer from "I have a wake word idea" to "I have a deployable, testable KWS bundle
 for my target chip" - **without installing any toolchain, runtime, or Python
 environment**.
 
-**Core product principle:** _Do not invent new models._ WaveStudio is a
+**Core product principle:** _Do not invent new models._ WakeStudio is a
 **productization layer** over existing open-source models and DSP components. We
 select, integrate, harden, and package - we do not train new foundation models.
 
-WaveStudio wraps the full far-field voice pipeline:
+WakeStudio wraps the full far-field voice pipeline:
 
 ```
 AEC ──> BSS ──> NS ──> KWS
@@ -61,7 +61,7 @@ ESP-SR, Infineon audio-front-end, and XMOS voice-interface docs):
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                      WaveStudio PWA (browser)                    │
+│                      WakeStudio PWA (browser)                    │
 │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐  │
 │  │  Capture   │->│  AFE graph │->│  KWS engine│->│  Visualize │  │
 │  │ WebAudio + │  │ AEC->BF->NS│  │ ONNX-rt web│  │  + Export  │  │
@@ -99,7 +99,7 @@ This section defines **what we do NOT invent** and **what we integrate**. Every
 entry is an existing, open-source project. Licenses are noted because they directly
 affect commercial productization; the authoritative matrix lives in `LICENSES.md`.
 
-> **Core principle:** WaveStudio never redistributes the openWakeWord **pre-trained
+> **Core principle:** WakeStudio never redistributes the openWakeWord **pre-trained
 > models** (CC BY-NC-SA 4.0) commercially. We train our own models (plan Phase 5)
 > so they are commercially ownable. The export license gate (plan Phase 4) enforces
 > this.
@@ -154,7 +154,7 @@ reference C/C++ pipelines for target chips.
 
 ## 5. Model training execution backends (ADR-013)
 
-Model training in WaveStudio is **backend-agnostic**: the PWA presents the same
+Model training in WakeStudio is **backend-agnostic**: the PWA presents the same
 "train a custom word" flow regardless of where the compute runs. The user picks one
 of three execution backends; the choice trades off zero-setup convenience against
 training capacity and cost.
@@ -163,7 +163,15 @@ training capacity and cost.
 |---|---|---|---|---|
 | 1 | **In-Browser (WASM)** | 100% client-side, same PWA | Light jobs: Few-Shot prototype computation and any future browser-feasible training | Truest to "zero setup". Limited by browser memory/CPU; **not** suitable for synthetic-data generation + full PyTorch classifier training. |
 | 2 | **Self-hosted Service** | A service the user runs themselves: locally on `localhost` **or deployed on Google Cloud** | Heavy Traditional/MCU training (Piper TTS synthetic data + openWakeWord/microWakeWord training) | Evolution of the "Studio Engine" (ADR-005). PyInstaller binary (default) + Docker image. When on Google Cloud, the PWA connects to the user's own hosted endpoint. |
-| 3 | **Cloud Training Provider** | Managed ML platform of the selected provider | Users who want turnkey managed training without running any service | Providers: **AWS, Google Cloud, Hugging Face, Alibaba Cloud, Tencent Cloud, Volcengine**. User selects a provider and enters its credentials; WaveStudio **automatically executes training, monitors training status, and exports training artifacts** within that service. |
+| 3 | **Cloud Training Provider** | Managed ML platform of the selected provider | Users who want turnkey managed training without running any service | Providers: **AWS, Google Cloud, Hugging Face, Alibaba Cloud, Tencent Cloud, Volcengine**. User selects a provider and enters its credentials; WakeStudio **automatically executes training, monitors training status, and exports training artifacts** within that service. |
+
+> **Self-hosted engine candidate (Q10, open):** [`TigreGotico/wakeforge`](https://github.com/TigreGotico/wakeforge)
+> (Python package `ww_trainer`, Apache-2.0, NLnet/NGI0-funded) is a research-grade,
+> ONNX-first "phrase -> ONNX" wake-word training suite and a strong candidate for
+> the Self-hosted Service backend - potentially replacing a direct wrap of the
+> openWakeWord training pipeline. It is **complementary, not duplicative**: training
+> layer only; none of WakeStudio's AFE / live in-browser experience / Few-Shot
+> enrollment / per-chip export kits. Evaluate in Phase 5 (see plan Q10).
 
 **Cloud-provider credential flow:**
 
@@ -175,8 +183,8 @@ training capacity and cost.
    Alibaba Cloud AccessKey ID/Secret + region; Tencent Cloud SecretId/SecretKey +
    region; Volcengine AccessKey ID/Secret + region).
 4. Credentials are held **client-side only** (in memory / IndexedDB; never sent to
-   any WaveStudio server) and are used solely to drive the provider's training API.
-5. WaveStudio submits the training job, polls/streams training status back into the
+   any WakeStudio server) and are used solely to drive the provider's training API.
+5. WakeStudio submits the training job, polls/streams training status back into the
    PWA, and retrieves the resulting model artifacts (`.onnx` / `.tflite` + metadata)
    for in-browser testing and export.
 
@@ -210,7 +218,7 @@ script. A **license gate** refuses to export a non-commercial-licensed model int
 
 ## 7. Cross-cutting concerns
 
-- **License policy (ADR-009 / ADR-011).** WaveStudio source is MIT. Models are
+- **License policy (ADR-009 / ADR-011).** WakeStudio source is MIT. Models are
   fetched lazily from a `model-registry.json` catalog (URL, checksum, license, tier,
   commercial-use flag) - never bundled. The openWakeWord pre-trained models (CC
   BY-NC-SA) never enter a commercial export; the gate enforces it. See
@@ -234,7 +242,7 @@ script. A **license gate** refuses to export a non-commercial-licensed model int
   encoder), ADR-003 (vendor vs portable AFE), ADR-004 (React+Vite+TS), ADR-005
   (self-hosted service packaging), ADR-006 (first targets), ADR-009 (MIT license),
   ADR-011 (lazy model registry), ADR-012 (deploy base path), ADR-013 (training
-  backends).
+  backends), ADR-014 (project name "WakeStudio").
 - **License matrix:** `LICENSES.md`.
 - **Living plan & phased roadmap:** `.agents/plan/goal.plan` (gitignored; the source
   of truth for phase status and open questions).

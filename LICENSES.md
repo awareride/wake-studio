@@ -1,6 +1,6 @@
 # LICENSES — Third-Party Component & Model License Matrix
 
-> WaveStudio is a **productization layer** over open-source models and DSP
+> WakeStudio is a **productization layer** over open-source models and DSP
 > components. We do not invent models (see the plan, §1 core principle). This
 > file is the source of truth for **what we may bundle, what is demo-only, and
 > what we must train ourselves**. It is reviewed and signed off by the human
@@ -8,10 +8,10 @@
 >
 > **Last verified:** Phase 0 license audit (see "How verified" column).
 
-## WaveStudio itself
+## WakeStudio itself
 
-- **WaveStudio source code:** MIT (see `LICENSE`, ADR-009).
-- **WaveStudio-trained models** (produced by the Phase 5 Studio Engine): owned
+- **WakeStudio source code:** MIT (see `LICENSE`, ADR-009).
+- **WakeStudio-trained models** (produced by the Phase 5 Studio Engine): owned
   by the user / commercially usable — they do **not** inherit the restrictive
   licenses of the data or tooling, provided we honor each training-data source's
   terms (documented per training run).

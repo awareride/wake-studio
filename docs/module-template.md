@@ -20,7 +20,7 @@
 ## 1. Purpose
 
 One or two paragraphs: what this module does, who uses it, and why it exists in
-WaveStudio. State the single responsibility clearly.
+WakeStudio. State the single responsibility clearly.
 
 ## 2. Scope & boundaries
 

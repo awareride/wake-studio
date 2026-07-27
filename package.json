@@ -1,8 +1,8 @@
 {
-  "name": "wave-studio",
+  "name": "wake-studio",
   "version": "0.0.1",
   "private": true,
-  "description": "WaveStudio - a PWA console for training, visualizing, and exporting on-device wake-word (KWS) pipelines. AEC -> BSS -> NS -> KWS.",
+  "description": "WakeStudio - a PWA console for training, visualizing, and exporting on-device wake-word (KWS) pipelines. AEC -> BSS -> NS -> KWS.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@9.15.4",

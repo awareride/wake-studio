@@ -1,6 +1,6 @@
 # DECISIONS — Architecture Decision Records (ADR)
 
-> This log records the decisions that shape WaveStudio. Each entry lists the
+> This log records the decisions that shape WakeStudio. Each entry lists the
 > decision, its status, the rationale, and any consequences. Append new
 > decisions; never delete historical ones — supersede them.
 
@@ -41,7 +41,7 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 - **Origin:** Plan Q3
 - **Decision:** Exported reference integrations lean on each vendor's own AFE
   (e.g. ESP-SR for ESP32, Infineon `audio-front-end` for PSoC). A portable
-  RNNoise/WebRTC-based AFE is offered as an opt-in, WaveStudio-controlled
+  RNNoise/WebRTC-based AFE is offered as an opt-in, WakeStudio-controlled
   alternative for cross-target consistency.
 - **Rationale:** We do not compete with vendor tuning; we provide a unified
   baseline when a portable path is wanted.
@@ -87,19 +87,19 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   scoped (e.g. `README.zh.md`).
 - **Rationale:** Keeps scope and the license/data story bounded.
 
-## ADR-008 — WaveStudio is open source; license chosen in Phase 0
+## ADR-008 — WakeStudio is open source; license chosen in Phase 0
 
 - **Status:** Accepted (license chosen); superseding note below
 - **Origin:** Plan Q8 (resolved by human: open source)
-- **Decision:** WaveStudio is open source. **Chosen license: MIT** (see ADR-009).
+- **Decision:** WakeStudio is open source. **Chosen license: MIT** (see ADR-009).
 - **Rationale:** Maximizes adoption and avoids copyleft friction with the
   permissively-licensed OSS components we integrate.
 
-## ADR-009 — WaveStudio source license is MIT
+## ADR-009 — WakeStudio source license is MIT
 
 - **Status:** Accepted (Phase 0 choice)
 - **Origin:** ADR-008 follow-up
-- **Decision:** All WaveStudio-authored source in this repository is licensed
+- **Decision:** All WakeStudio-authored source in this repository is licensed
   under the MIT License. A top-level `LICENSE` file is added.
 - **Rationale:** Permissive, compatible with React/Vite/Tailwind/onnxruntime/
   RNNoise/WebRTC/Silero/WavLM. Note: this does **not** change the licenses of
@@ -149,7 +149,7 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 
 - **Status:** Accepted
 - **Origin:** Plan Q9 (resolved by human)
-- **Decision:** Model training in WaveStudio runs on one of three user-selected
+- **Decision:** Model training in WakeStudio runs on one of three user-selected
   execution backends, behind a common "training job" interface so the PWA flow is
   identical regardless of backend:
   1. **In-Browser (WASM)** - 100% client-side; for browser-feasible light jobs
@@ -159,7 +159,7 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
      on Google Cloud**; the PWA connects to the user's own endpoint.
   3. **Cloud Training Provider** - managed ML platform of a selected provider:
      **AWS, Google Cloud, Hugging Face, Alibaba Cloud, Tencent Cloud, or
-     Volcengine**. The user enters provider-specific credentials; WaveStudio
+     Volcengine**. The user enters provider-specific credentials; WakeStudio
      automatically executes training, monitors training status, and exports
      training artifacts within that service.
 - **Rationale:** A single in-browser backend cannot cover heavy Traditional/MCU
@@ -170,12 +170,37 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 - **Consequences:** Six cloud-provider integrations to maintain - abstracted behind
   one common training-job interface with one adapter per provider (mitigation in
   plan §9). Cloud-provider credentials are secrets held client-side only; never
-  sent to a WaveStudio server, never logged or embedded in exported artifacts
+  sent to a WakeStudio server, never logged or embedded in exported artifacts
   (enforced by the Phase 5/6 security review). See `docs/architecture.md` §5 and
   plan §5.1 for the full credential/monitor/export flow.
 
+## ADR-014 - Project name is WakeStudio
+
+- **Status:** Accepted
+- **Origin:** Naming review (resolved by human)
+- **Decision:** The product is named **WakeStudio** (package/repo slug
+  `wake-studio`), superseding the working name "WaveStudio".
+- **Rationale:** The working name "WaveStudio" collides with **Creative
+  Technology's "Creative WaveStudio"** - a long-standing audio-editing application
+  bundled with Sound Blaster cards since 1992 and still distributed - in the same
+  audio-software domain, creating trademark, SEO, and user-confusion risk.
+  "WakeForge" was considered and rejected: it collides with
+  **`TigreGotico/wakeforge`** (Python package `ww_trainer`), an active,
+  NLnet/NGI0-funded wake-word training suite - a direct same-domain collision.
+  "WakeStudio" leads with "Wake" (specific to the product's wake-word purpose),
+  retains the familiar "Studio" suffix, and a collision search found no same-domain
+  product. It is the same character length as "WaveStudio", so ASCII diagrams stay
+  aligned.
+- **Consequences:** Bulk rename across docs/UI/config in this change. The GitHub
+  repository and Cloudflare Pages project should be created/renamed to
+  `wake-studio` when set up (human action; no remote is configured yet). The
+  `--project-name` in `.github/workflows/deploy.yml` still reads `wave-studio` and
+  is flagged for explicit human authorization (a deploy-workflow change per
+  `AGENTS.md`).
+
 ---
 
-_Open questions still pending human input: none blocking Phase 0. Q9 (training
-backends) is resolved as ADR-013. Defaults from Q2/Q3/Q4/Q7 are applied per this
-log and may be overridden._
+_Open questions still pending human input: Q10 (self-hosted training engine) is
+open for Phase 5. Q9 (training backends) is resolved as ADR-013; the project name
+is resolved as ADR-014. Defaults from Q2/Q3/Q4/Q7 are applied per this log and may
+be overridden._

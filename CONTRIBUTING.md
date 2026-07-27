@@ -1,6 +1,6 @@
-# Contributing to WaveStudio
+# Contributing to WakeStudio
 
-WaveStudio is built with a human in the loop. This guide complements
+WakeStudio is built with a human in the loop. This guide complements
 [`AGENTS.md`](./AGENTS.md) (the ground rules for agents and humans alike) and
 [`DECISIONS.md`](./DECISIONS.md) (the architecture decision log). Read all
 three before making changes.
@@ -89,7 +89,7 @@ pnpm dev
 
 ## Documentation-first (docs-first)
 
-WaveStudio follows a **documentation-first** workflow (see plan §11):
+WakeStudio follows a **documentation-first** workflow (see plan §11):
 
 - **Durable design lives in `docs/`.** The high-level architecture is in
   `docs/architecture.md`; the ADR log is `DECISIONS.md`; the license matrix is
@@ -127,7 +127,7 @@ WaveStudio follows a **documentation-first** workflow (see plan §11):
 
 ## License policy reminder
 
-- WaveStudio source is MIT (ADR-009).
+- WakeStudio source is MIT (ADR-009).
 - **Never** bundle an openWakeWord pre-trained model into a commercial export -
   they are CC BY-NC-SA 4.0 (see `LICENSES.md`). The export gate enforces this.
 - When in doubt about a license, stop and add it to `LICENSES.md` before

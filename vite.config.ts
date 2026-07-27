@@ -14,8 +14,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'model-registry.json'],
       manifest: {
-        name: 'WaveStudio',
-        short_name: 'WaveStudio',
+        name: 'WakeStudio',
+        short_name: 'WakeStudio',
         description:
           'Train, visualize, and export on-device wake-word (KWS) pipelines: AEC -> BSS -> NS -> KWS.',
         theme_color: '#0ea5e9',
