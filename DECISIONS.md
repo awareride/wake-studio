@@ -145,7 +145,37 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 - **Rationale:** Project-page GitHub Pages need a sub-path; Cloudflare Pages
   serves at root. One config switch covers both.
 
+## ADR-013 - Model training has three execution backends
+
+- **Status:** Accepted
+- **Origin:** Plan Q9 (resolved by human)
+- **Decision:** Model training in WaveStudio runs on one of three user-selected
+  execution backends, behind a common "training job" interface so the PWA flow is
+  identical regardless of backend:
+  1. **In-Browser (WASM)** - 100% client-side; for browser-feasible light jobs
+     (e.g. Few-Shot prototype computation). No credentials, no network.
+  2. **Self-hosted Service** - the "Studio Engine" (ADR-005) packaged as a
+     PyInstaller binary + Docker image, run locally on `localhost` **or deployed
+     on Google Cloud**; the PWA connects to the user's own endpoint.
+  3. **Cloud Training Provider** - managed ML platform of a selected provider:
+     **AWS, Google Cloud, Hugging Face, Alibaba Cloud, Tencent Cloud, or
+     Volcengine**. The user enters provider-specific credentials; WaveStudio
+     automatically executes training, monitors training status, and exports
+     training artifacts within that service.
+- **Rationale:** A single in-browser backend cannot cover heavy Traditional/MCU
+  training (synthetic-data generation + PyTorch). Offering three backends keeps
+  "zero setup" for light jobs and the primary live/enrollment/export journey
+  (In-Browser) while giving users turnkey options (Self-hosted or Cloud) for heavy
+  training without shipping Python into the browser.
+- **Consequences:** Six cloud-provider integrations to maintain - abstracted behind
+  one common training-job interface with one adapter per provider (mitigation in
+  plan §9). Cloud-provider credentials are secrets held client-side only; never
+  sent to a WaveStudio server, never logged or embedded in exported artifacts
+  (enforced by the Phase 5/6 security review). See `docs/architecture.md` §5 and
+  plan §5.1 for the full credential/monitor/export flow.
+
 ---
 
-_Open questions still pending human input: none blocking Phase 0. Defaults from
-Q2/Q3/Q4/Q7 are applied per this log and may be overridden._
+_Open questions still pending human input: none blocking Phase 0. Q9 (training
+backends) is resolved as ADR-013. Defaults from Q2/Q3/Q4/Q7 are applied per this
+log and may be overridden._

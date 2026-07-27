@@ -29,6 +29,10 @@ three before making changes.
 ├─ LICENSES.md          # third-party license matrix + policy
 ├─ CONTRIBUTING.md      # this file
 ├─ README.md            # project overview + quick start
+├─ docs/                # architecture + per-module specs (docs-first)
+│  ├─ architecture.md   # durable high-level architecture
+│  ├─ module-template.md# template for module specs
+│  └─ modules/          # per-module specs, written just-in-time (plan §11)
 ├─ index.html           # Vite entry
 ├─ vite.config.ts       # Vite + PWA + Tailwind plugin
 ├─ tsconfig*.json       # TS project references
@@ -82,6 +86,34 @@ pnpm dev
   the plan phase and any ADR, e.g. `Phase 0: scaffold PWA shell (ADR-004)`.
 - Commit logical units locally. Group related work. Do not commit generated
   artifacts (`dist/`, lockfiles are the exception - `pnpm-lock.yaml` IS tracked).
+
+## Documentation-first (docs-first)
+
+WaveStudio follows a **documentation-first** workflow (see plan §11):
+
+- **Durable design lives in `docs/`.** The high-level architecture is in
+  `docs/architecture.md`; the ADR log is `DECISIONS.md`; the license matrix is
+  `LICENSES.md`. The `.agents/plan/goal.plan` is the *living* planning doc and is
+  gitignored - promote durable design out of it into `docs/`.
+- **Module specs are written just-in-time, before code.** At the start of each
+  phase (Phase 1+), copy `docs/module-template.md` to `docs/modules/<name>.md`
+  and fill in the contract (purpose, scope, public API/types, data flow,
+  configuration, error model, testing). Get that reviewed *before* implementing
+  the module.
+- **Docs and code ship together.** A module doc is a living document: update it
+  in the **same change** as the code it describes. A change that touches a
+  module's contract without updating its doc is incomplete; reviewers should
+  reject drift.
+- **Decisions become ADRs.** Anything resolved in a module's "Open questions"
+  becomes an ADR in `DECISIONS.md`; never delete historical ADRs - supersede them.
+
+| Phase | Module doc to write first |
+|---|---|
+| 1 | `docs/modules/afe.md` |
+| 2 | `docs/modules/kws.md` |
+| 3 | `docs/modules/few-shot.md` |
+| 4 | `docs/modules/export.md` |
+| 5 | `docs/modules/training.md` |
 
 ## How to add things later (forward references)
 
