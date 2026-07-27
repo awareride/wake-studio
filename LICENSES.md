@@ -111,5 +111,5 @@ Every model or component that enters an **export bundle** is classified:
 
 ## Sign-off
 
-- [ ] Human review of this matrix (Phase 0 exit gate).
-- [ ] Confirm Phase 5 Studio Engine distribution/license model (ADR pending).
+- [x] Human review of this matrix (Phase 0 exit gate).
+- [x] Confirm Phase 5 Studio Engine distribution/license model (ADR pending).
