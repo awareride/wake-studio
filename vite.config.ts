@@ -1,6 +1,64 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type ViteDevServer, type PreviewServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { createReadStream, statSync } from 'node:fs'
+import { resolve, dirname, extname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+
+const projectRoot = dirname(fileURLToPath(import.meta.url))
+const prebuiltsRoot = resolve(projectRoot, 'prebuilts')
+
+/**
+ * Dev/preview plugin: serve the local `prebuilts/` directory at `/prebuilts/`
+ * (ADR-011 amendment - pre-fetched local assets). These are dev-only; they are
+ * gitignored and never bundled into the PWA build (dist/). In a deployed build
+ * the registry falls back to remote URLs.
+ */
+function servePrebuilts() {
+  const contentTypes: Record<string, string> = {
+    '.onnx': 'application/octet-stream',
+    '.tflite': 'application/octet-stream',
+    '.wasm': 'application/wasm',
+    '.json': 'application/json',
+  }
+  const handler = (req: IncomingMessage, res: ServerResponse, next: () => void) => {
+    const url = req.url ?? ''
+    if (!url.startsWith('/prebuilts/')) return next()
+    // Strip query and the leading "/prebuilts/".
+    const rel = url.split('?')[0].slice('/prebuilts/'.length)
+    const filePath = resolve(prebuiltsRoot, rel)
+    // Path-traversal guard: must stay under prebuilts/.
+    if (!filePath.startsWith(prebuiltsRoot + '/') && filePath !== prebuiltsRoot) {
+      return next()
+    }
+    try {
+      const stat = statSync(filePath)
+      if (!stat.isFile()) {
+        res.statusCode = 404
+        res.end('Not found')
+        return
+      }
+      res.setHeader('Content-Type', contentTypes[extname(filePath).toLowerCase()] ?? 'application/octet-stream')
+      res.setHeader('Content-Length', stat.size)
+      createReadStream(filePath).pipe(res)
+    } catch {
+      // File missing or unreadable - return 404 (don't fall through to the SPA
+      // fallback, which would serve index.html and confuse fetch()/onnxruntime).
+      res.statusCode = 404
+      res.end('Not found')
+    }
+  }
+  return {
+    name: 'wake-studio:serve-prebuilts',
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use(handler)
+    },
+    configurePreviewServer(server: PreviewServer) {
+      server.middlewares.use(handler)
+    },
+  }
+}
 
 // Deploy base path is configurable (ADR-012): GitHub Pages project sites need a
 // sub-path (/<repo>/); Cloudflare Pages serves at root (/).
@@ -10,6 +68,7 @@ export default defineConfig({
   base,
   plugins: [
     react(),
+    servePrebuilts(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'model-registry.json'],

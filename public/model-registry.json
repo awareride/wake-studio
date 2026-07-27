@@ -9,28 +9,28 @@
       "name": "openWakeWord melspectrogram (16 kHz log-Mel front-end)",
       "tier": ["low-power", "high-performance"],
       "source": "dscripka/openWakeWord",
-      "url": "https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/pretrained/mel-spectrogram.onnx",
+      "url": "/prebuilts/openWakeWord/melspectrogram.onnx",
       "format": "onnx",
-      "license": "CC-BY-4.0",
+      "license": "Apache-2.0",
       "commercial": true,
       "class": "redistributable",
       "sha256": "TODO-phase2",
       "sizeBytes": 1087958,
-      "notes": "Hey-buddy Mel front-end; 16 kHz log-Mel. Commercially clean (CC-BY-4.0)."
+      "notes": "openWakeWord Mel front-end (Apache-2.0); 16 kHz log-Mel. Byte-identical to the hey-buddy re-host. Served from local prebuilts in dev (ADR-011 amendment)."
     },
     {
       "id": "speech_embedding",
       "name": "Google speech_embedding backbone (re-implemented in openWakeWord)",
       "tier": ["low-power", "high-performance"],
       "source": "dscripka/openWakeWord (re-impl of google/speech_embedding)",
-      "url": "https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/pretrained/speech-embedding.onnx",
+      "url": "/prebuilts/openWakeWord/embedding_model.onnx",
       "format": "onnx",
-      "license": "CC-BY-4.0",
+      "license": "Apache-2.0",
       "commercial": true,
       "class": "redistributable",
       "sha256": "TODO-phase2",
       "sizeBytes": 1326578,
-      "notes": "Hey-buddy speech embedding backbone (~1.4M params). Commercially clean (CC-BY-4.0)."
+      "notes": "Google speech_embedding backbone re-implemented in openWakeWord (Apache-2.0, ~1.4M params). Byte-identical to the hey-buddy re-host. Local prebuilt."
     },
     {
       "id": "hey-buddy",
@@ -65,14 +65,14 @@
       "name": "Silero VAD (voice activity detection)",
       "tier": ["low-power", "high-performance"],
       "source": "snakers4/silero-vad",
-      "url": "https://github.com/snakers4/silero-vad/raw/refs/heads/master/files/silero_vad.onnx",
+      "url": "/prebuilts/openWakeWord/silero_vad.onnx",
       "format": "onnx",
       "license": "MIT",
       "commercial": true,
       "class": "redistributable",
       "sha256": "TODO-phase1",
-      "sizeBytes": null,
-      "notes": "Gates KWS to reduce compute and false alarms."
+      "sizeBytes": 1807522,
+      "notes": "Gates KWS to reduce compute and false alarms. Local prebuilt (bundled in openWakeWord release). Not loaded in v1 (RNNoise VAD is used, ADR-018)."
     },
     {
       "id": "microwakeword-demo",

@@ -47,3 +47,6 @@ test-results/
 
 # Agents
 .agents/
+
+# Pre-fetched local assets (ADR-011 amendment; dev-only, not committed)
+prebuilts/

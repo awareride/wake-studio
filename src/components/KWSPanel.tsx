@@ -15,14 +15,13 @@ import type {
 } from '../kws'
 import { MEL_WINDOW_SIZE } from '../kws'
 
-// Model URLs from benjamin-paine/hey-buddy (CC-BY-4.0, commercially clean).
-// Replaces the openWakeWord models (CC BY-NC-SA) per the human's finding.
-// The hey-buddy pipeline: audio -> mel-spectrogram -> speech-embedding -> classifier.
+// Model URLs (ADR-011). The feature models (melspectrogram, speech-embedding)
+// are served from local prebuilts (ADR-011 amendment) - byte-identical to the
+// hey-buddy re-hosts and Apache-2.0. The classifier stays on the remote
+// hey-buddy model (CC-BY-4.0, commercially clean) - see ADR-018 Q-KWS-1.
 const MODEL_URLS: BackendModelUrls = {
-  melspectrogram:
-    'https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/pretrained/mel-spectrogram.onnx',
-  embedding:
-    'https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/pretrained/speech-embedding.onnx',
+  melspectrogram: '/prebuilts/openWakeWord/melspectrogram.onnx',
+  embedding: '/prebuilts/openWakeWord/embedding_model.onnx',
   classifier:
     'https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/models/hey-buddy.onnx',
 }
