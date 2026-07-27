@@ -9,6 +9,7 @@
 import type {
   AFEConfig,
   AFEOutputFrame,
+  RecordedClip,
   StageFrameData,
   StageState,
 } from './types'
@@ -36,6 +37,10 @@ export class AFEPipeline {
 
   private _frameCallbacks = new Set<FrameCallback>()
   private _outputCallbacks = new Set<OutputCallback>()
+
+  // Recording promise resolver.
+  private _recordResolver: ((clip: RecordedClip) => void) | null = null
+  private _recordSeconds = 0
 
   // ---- public readonly state ----
 
@@ -166,25 +171,15 @@ export class AFEPipeline {
     this._send({ type: 'absource', source })
   }
 
-  async record(
-    seconds: number,
-  ): Promise<{ raw: Float32Array; processed: Float32Array }> {
-    // For v1, record is a simple capture of the output stream.
-    // Full raw+processed recording is a follow-up.
-    const sampleCount = seconds * INTERNAL_SAMPLE_RATE
-    const processed = new Float32Array(sampleCount)
-    let offset = 0
-
-    const stop = this.onOutput((frame) => {
-      for (let i = 0; i < frame.samples.length && offset < sampleCount; i++) {
-        processed[offset++] = frame.samples[i]
-      }
+  async record(seconds: number): Promise<RecordedClip> {
+    if (!this._running || !this._node) {
+      throw new Error('Pipeline is not running.')
+    }
+    this._recordSeconds = seconds
+    this._send({ type: 'record', seconds })
+    return new Promise<RecordedClip>((resolve) => {
+      this._recordResolver = resolve
     })
-
-    await new Promise((resolve) => setTimeout(resolve, seconds * 1000))
-    stop()
-
-    return { raw: new Float32Array(0), processed }
   }
 
   // ---- config panel (ADR-017) ----
@@ -244,6 +239,18 @@ export class AFEPipeline {
 
       case 'error':
         console.error('[AFE worklet]', msg.message)
+        break
+
+      case 'recorded':
+        if (this._recordResolver) {
+          this._recordResolver({
+            raw: msg.raw,
+            processed: msg.processed,
+            sampleRate: msg.sampleRate,
+            durationMs: this._recordSeconds * 1000,
+          })
+          this._recordResolver = null
+        }
         break
     }
   }

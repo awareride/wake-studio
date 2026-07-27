@@ -59,6 +59,8 @@ export interface StageFrameData {
   levelDb?: number
   /** VAD probability [0,1] (from RNNoise for v1, ADR-016). */
   vadProbability?: number
+  /** Magnitude spectrum for the spectrogram display (NS stage). */
+  spectrum?: Float32Array
   /** Stage-specific metrics. */
   metrics?: Record<string, number>
 }
@@ -69,6 +71,14 @@ export interface AFEOutputFrame {
   samples: Float32Array
   capturedAtMs: number
   vadActive: boolean
+}
+
+/** A recorded audio clip (raw + processed) for offline A/B replay. */
+export interface RecordedClip {
+  raw: Float32Array
+  processed: Float32Array
+  sampleRate: number
+  durationMs: number
 }
 
 /** Runtime status of a single AFE stage. */
@@ -90,6 +100,7 @@ export type WorkletMessage =
   | { type: 'ready' }
   | { type: 'frame'; frames: StageFrameData[] }
   | { type: 'output'; samples: Float32Array; capturedAtMs: number; vad: number }
+  | { type: 'recorded'; raw: Float32Array; processed: Float32Array; sampleRate: number }
   | { type: 'error'; message: string }
 
 /** Messages sent from the main thread to the worklet. */

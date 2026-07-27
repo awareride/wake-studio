@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AFEPipeline } from '../afe'
 import type { StageFrameData } from '../afe'
 import { describeParameters } from '../afe'
+import { PipelineOverview } from './PipelineOverview'
+import { RecordReplay } from './RecordReplay'
 
 export function AFEPanel() {
   const pipelineRef = useRef<AFEPipeline | null>(null)
@@ -113,6 +115,17 @@ export function AFEPanel() {
         )}
       </div>
 
+      {/* Pipeline overview (flow + scrolling curve) */}
+      {running && (
+        <div className="mb-6">
+          <PipelineOverview
+            frameData={frameData}
+            running={running}
+            latencyMs={latencyMs}
+          />
+        </div>
+      )}
+
       {/* Per-stage panels */}
       {running && (
         <div className="grid gap-4 sm:grid-cols-3">
@@ -177,9 +190,24 @@ export function AFEPanel() {
                     </span>
                   </div>
                 )}
+
+                {/* Spectrum (NS only) */}
+                {id === 'ns' && data?.spectrum && (
+                  <div className="mt-2">
+                    <div className="mb-1 text-xs text-slate-500">Spectrum</div>
+                    <SpectrogramCanvas data={data.spectrum} />
+                  </div>
+                )}
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Record & replay */}
+      {running && (
+        <div className="mt-4">
+          <RecordReplay pipeline={pipelineRef.current} running={running} />
         </div>
       )}
 
@@ -279,5 +307,40 @@ function LevelBar({ db }: { db: number }) {
         style={{ width: `${pct}%` }}
       />
     </div>
+  )
+}
+
+/** Mini spectrum display for the NS stage (frequency analyzer bars). */
+function SpectrogramCanvas({ data }: { data: Float32Array }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const w = canvas.width
+    const h = canvas.height
+    ctx.clearRect(0, 0, w, h)
+
+    const barWidth = w / data.length
+    for (let i = 0; i < data.length; i++) {
+      // Logarithmic scale: emphasize lower frequencies.
+      const mag = Math.min(1, data[i] * 4)
+      const barH = mag * h
+      const hue = 200 - mag * 120 // blue -> green -> red
+      ctx.fillStyle = `hsl(${hue}, 70%, ${30 + mag * 40}%)`
+      ctx.fillRect(i * barWidth, h - barH, barWidth - 1, barH)
+    }
+  }, [data])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={256}
+      height={48}
+      className="w-full rounded bg-slate-950/60"
+    />
   )
 }

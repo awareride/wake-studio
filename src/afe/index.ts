@@ -19,6 +19,7 @@ export type {
   AFETopology,
   FrameConfig,
   ParameterDescriptor,
+  RecordedClip,
   StageFrameData,
   StageState,
   StageStatus,

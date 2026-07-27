@@ -22,6 +22,55 @@ import { CIRCULAR_BUFFER_SIZE, DOWNSAMPLE_RATIO, RNNOISE_FRAME_SIZE } from './de
 
 const PROCESSOR_NAME = 'pipeline-processor'
 
+/** FFT size for spectrum computation (must be power of 2, <= RNNOISE_FRAME_SIZE). */
+const FFT_SIZE = 256
+/** Number of magnitude bins emitted for the spectrogram (FFT_SIZE / 4). */
+const SPECTRUM_BINS = 64
+
+/** Pre-computed Hann window for FFT. */
+const HANN_WINDOW = new Float32Array(FFT_SIZE)
+for (let i = 0; i < FFT_SIZE; i++) {
+  HANN_WINDOW[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (FFT_SIZE - 1)))
+}
+
+/** In-place radix-2 Cooley-Tukey FFT (n must be a power of 2). */
+function fft(real: Float32Array, imag: Float32Array, n: number): void {
+  // Bit-reversal permutation.
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1
+    for (; j & bit; bit >>= 1) j ^= bit
+    j ^= bit
+    if (i < j) {
+      ;[real[i], real[j]] = [real[j], real[i]]
+      ;[imag[i], imag[j]] = [imag[j], imag[i]]
+    }
+  }
+  // Butterfly.
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = (-2 * Math.PI) / len
+    const wR = Math.cos(ang)
+    const wI = Math.sin(ang)
+    const half = len >> 1
+    for (let i = 0; i < n; i += len) {
+      let cR = 1
+      let cI = 0
+      for (let j = 0; j < half; j++) {
+        const uR = real[i + j]
+        const uI = imag[i + j]
+        const tR = real[i + j + half] * cR - imag[i + j + half] * cI
+        const tI = real[i + j + half] * cI + imag[i + j + half] * cR
+        real[i + j] = uR + tR
+        imag[i + j] = uI + tI
+        real[i + j + half] = uR - tR
+        imag[i + j + half] = uI - tI
+        const nR = cR * wR - cI * wI
+        cI = cR * wI + cI * wR
+        cR = nR
+      }
+    }
+  }
+}
+
 class PipelineProcessor extends AudioWorkletProcessor {
   private _rnnoise: RnnoiseProcessor | null = null
   private _nsOk = false
@@ -42,6 +91,17 @@ class PipelineProcessor extends AudioWorkletProcessor {
   // Config (updated via messages).
   private _bypass = { aec: true, bss: true, ns: false }
   private _abSource: 'raw' | 'processed' = 'processed'
+
+  // Recording state.
+  private _recording = false
+  private _recordRemaining = 0
+  private _rawRecord: Float32Array | null = null
+  private _processedRecord: Float32Array | null = null
+  private _recordOffset = 0
+
+  // Pre-allocated FFT buffers (avoid GC in process()).
+  private _fftReal = new Float32Array(FFT_SIZE)
+  private _fftImag = new Float32Array(FFT_SIZE)
 
   constructor() {
     super()
@@ -72,6 +132,15 @@ class PipelineProcessor extends AudioWorkletProcessor {
       case 'absource':
         this._abSource = msg.source
         break
+      case 'record': {
+        const total = Math.floor(msg.seconds * sampleRate)
+        this._rawRecord = new Float32Array(total)
+        this._processedRecord = new Float32Array(total)
+        this._recordRemaining = total
+        this._recordOffset = 0
+        this._recording = true
+        break
+      }
       case 'stop':
         // The node is destroyed from the main thread; nothing to do here.
         break
@@ -165,13 +234,35 @@ class PipelineProcessor extends AudioWorkletProcessor {
         this._denoisedIndex,
         this._denoisedIndex + outData.length,
       )
-      if (this._abSource === 'processed') {
+      // During recording, always output processed so the user hears denoised audio.
+      const source = this._recording ? 'processed' : this._abSource
+      if (source === 'processed') {
         outData.set(chunk)
       } else {
         // Raw: the input we just received (for A/B comparison).
         outData.set(inData)
       }
       this._denoisedIndex += outData.length
+    }
+
+    // --- 3b. Recording: capture raw + processed ---
+    if (this._recording && this._rawRecord && this._processedRecord) {
+      const n = Math.min(inData.length, this._recordRemaining)
+      this._rawRecord.set(inData.subarray(0, n), this._recordOffset)
+      this._processedRecord.set(outData.subarray(0, n), this._recordOffset)
+      this._recordOffset += n
+      this._recordRemaining -= n
+      if (this._recordRemaining <= 0) {
+        this._recording = false
+        this._post({
+          type: 'recorded',
+          raw: this._rawRecord,
+          processed: this._processedRecord,
+          sampleRate,
+        })
+        this._rawRecord = null
+        this._processedRecord = null
+      }
     }
 
     // --- 4. Handle circular buffer wrap-around ---
@@ -224,6 +315,7 @@ class PipelineProcessor extends AudioWorkletProcessor {
         capturedAtMs,
         waveform: this._downsampleForViz(nsFrame, vizPoints),
         levelDb: this._levelDb(nsFrame),
+        spectrum: this._computeSpectrum(nsFrame),
       })
     } else {
       frames.push({
@@ -234,6 +326,24 @@ class PipelineProcessor extends AudioWorkletProcessor {
     }
 
     this._post({ type: 'frame', frames })
+  }
+
+  /** Compute a magnitude spectrum (SPECTRUM_BINS bins) from a frame. */
+  private _computeSpectrum(frame: Float32Array): Float32Array {
+    const real = this._fftReal
+    const imag = this._fftImag
+    // Copy first FFT_SIZE samples with Hann window.
+    for (let i = 0; i < FFT_SIZE; i++) {
+      real[i] = frame[i] * HANN_WINDOW[i]
+      imag[i] = 0
+    }
+    fft(real, imag, FFT_SIZE)
+    // Magnitude of the first SPECTRUM_BINS bins (low-to-mid frequencies).
+    const mag = new Float32Array(SPECTRUM_BINS)
+    for (let i = 0; i < SPECTRUM_BINS; i++) {
+      mag[i] = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]) / FFT_SIZE
+    }
+    return mag
   }
 }
 
