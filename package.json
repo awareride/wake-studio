@@ -15,7 +15,7 @@
     "preview": "vite preview --port 4173",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright install chromium && playwright test",
     "gen-icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {

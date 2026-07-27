@@ -76,7 +76,7 @@ pnpm dev
 | `pnpm preview` | Serve the production build locally. |
 | `pnpm lint` | Run ESLint over the project. |
 | `pnpm typecheck` | Run `tsc` without emitting. |
-| `pnpm test:e2e` | Run Playwright e2e tests (installs browsers on first run). |
+| `pnpm test:e2e` | Run Playwright e2e tests (auto-installs the Chromium browser if needed). |
 | `pnpm pwa-assets` | Regenerate raster PWA icons from `public/icon.svg`. |
 
 ## Branching & commits
