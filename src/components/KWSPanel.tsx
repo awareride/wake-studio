@@ -13,14 +13,16 @@ import type {
 } from '../kws'
 import { MEL_WINDOW_SIZE } from '../kws'
 
-// Model registry URLs (ADR-011; from public/model-registry.json).
+// Model URLs from benjamin-paine/hey-buddy (CC-BY-4.0, commercially clean).
+// Replaces the openWakeWord models (CC BY-NC-SA) per the human's finding.
+// The hey-buddy pipeline: audio -> mel-spectrogram -> speech-embedding -> classifier.
 const MODEL_URLS = {
   melspectrogram:
-    'https://github.com/dscripka/openWakeWord/raw/main/openwakeword/resources/models/melspectrogram.onnx',
+    'https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/pretrained/mel-spectrogram.onnx',
   embedding:
-    'https://github.com/dscripka/openWakeWord/raw/main/openwakeword/resources/models/embedding_model.onnx',
+    'https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/pretrained/speech-embedding.onnx',
   classifier:
-    'https://huggingface.co/davidscripka/openwakeword/resolve/main/alexa.onnx',
+    'https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/models/hey-buddy.onnx',
 }
 
 const HISTORY_MAX = 300 // ~3 s at ~100 fps
@@ -129,10 +131,10 @@ export const KWSPanel = memo(function KWSPanel({
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-white">KWS detection</h2>
         <p className="text-sm text-slate-400">
-          Phase 2 · openWakeWord pipeline (melspectrogram -&gt; embedding -&gt;
+          Phase 2 · hey-buddy pipeline (mel-spectrogram -&gt; speech-embedding -&gt;
           classifier) in a Web Worker (ADR-018). Demo model:{' '}
-          <span className="text-amber-300/80">alexa</span> (CC BY-NC-SA,
-          demo-only). VAD gating via AFE RNNoise VAD.
+          <span className="text-emerald-300/80">hey-buddy</span> (CC-BY-4.0,
+          commercially clean). VAD gating via AFE RNNoise VAD.
         </p>
       </div>
 

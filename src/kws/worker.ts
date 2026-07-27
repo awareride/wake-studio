@@ -44,7 +44,7 @@ const trigger = new TriggerDetector(
   config.threshold,
   config.minDurationMs,
   config.cooldownMs,
-  'alexa',
+  'hey-buddy',
 )
 
 // ---------------------------------------------------------------------------
@@ -189,44 +189,93 @@ async function handleAudio(
   }
 }
 
-/** Run the melspectrogram -> embedding -> classifier pipeline. */
+/** Run the melspectrogram -> speech-embedding -> classifier pipeline.
+ *
+ * The hey-buddy model I/O (benjamin-paine/hey-buddy, CC-BY-4.0):
+ *   1. mel-spectrogram.onnx:  [1, samples] -> [time, 1, mel_dim, 32]
+ *   2. speech-embedding.onnx:  [batch, 76, 32, 1] -> [batch, 1, 1, 96]
+ *   3. classifier (hey-buddy.onnx): [1, 16, 96] -> [1, 1] (sigmoid score)
+ *
+ * We collect 16 consecutive embeddings (one per mel time step) before running
+ * the classifier.
+ */
+
+// Ring buffer of 16 embeddings, each 96-dim.
+const EMBEDDING_COUNT = 16
+const EMBEDDING_DIM = 96
+const embeddingBuffer = new Float32Array(EMBEDDING_COUNT * EMBEDDING_DIM)
+let embeddingIndex = 0
+let embeddingFilled = false
+
 async function runInference(audio: Float32Array): Promise<number> {
   if (!melSession || !embedSession || !classifierSession) return 0
 
-  // Step 1: melspectrogram.
+  // Step 1: melspectrogram - [1, samples] -> [time, 1, mel_dim, 32]
   const melInputName = melSession.inputNames[0]
   const audioTensor = new ort.Tensor('float32', audio, [1, audio.length])
   const melOutputs = await melSession.run({ [melInputName]: audioTensor })
   const melOutputName = melSession.outputNames[0]
   const melFeatures = melOutputs[melOutputName] as ort.Tensor
+  // melFeatures shape: [time, 1, mel_dim, 32]. We need to reshape to
+  // [time, 76, 32, 1] for the embedding model. The mel model outputs `time`
+  // frames; each frame is [1, mel_dim, 32] which we transpose to [76, 32, 1].
+  const melData = melFeatures.data as Float32Array
+  const melShape = melFeatures.dims as number[]
+  const melTimeSteps = melShape[0]
 
-  // Step 2: embedding.
+  // Step 2: speech-embedding - for each mel time step, extract an embedding.
+  // Input: [1, 76, 32, 1], Output: [1, 1, 1, 96]
   const embedInputName = embedSession.inputNames[0]
-  const embedOutputs = await embedSession.run({ [embedInputName]: melFeatures })
   const embedOutputName = embedSession.outputNames[0]
-  const embedding = embedOutputs[embedOutputName] as ort.Tensor
 
-  // Step 3: classifier -> score.
+  // The mel output [time, 1, mel_dim, 32] - mel_dim should be 76.
+  // We process one time step at a time: reshape [1, 76, 32, 1] -> embed -> [1,1,1,96]
+  const melDim = melShape[2] // should be 76
+  const melFeatureSize = melDim * 32 // 76 * 32 = 2432
+
+  for (let t = 0; t < melTimeSteps; t++) {
+    // Extract one time step: [1, mel_dim, 32] -> transpose to [1, 76, 32, 1]
+    const melSlice = melData.subarray(t * melFeatureSize, (t + 1) * melFeatureSize)
+    // The mel output is [1, mel_dim, 32] per time step. The embedding model
+    // expects [batch, 76, 32, 1]. We reshape: the data is already [mel_dim, 32]
+    // in row-major, which maps to [76, 32, 1] when we add the channel dim.
+    const embedInput = new Float32Array(melFeatureSize)
+    embedInput.set(melSlice)
+    const embedTensor = new ort.Tensor('float32', embedInput, [1, melDim, 32, 1])
+    const embedOutputs = await embedSession.run({ [embedInputName]: embedTensor })
+    const embedding = embedOutputs[embedOutputName] as ort.Tensor
+    const embedData = embedding.data as Float32Array
+
+    // Push the 96-dim embedding into the ring buffer.
+    embeddingBuffer.set(embedData.subarray(0, EMBEDDING_DIM), embeddingIndex * EMBEDDING_DIM)
+    embeddingIndex = (embeddingIndex + 1) % EMBEDDING_COUNT
+    if (embeddingIndex === 0) embeddingFilled = true
+  }
+
+  // Not enough embeddings yet - return 0.
+  if (!embeddingFilled) return 0
+
+  // Step 3: classifier - [1, 16, 96] -> [1, 1]
+  // Unroll the ring buffer into [1, 16, 96] (oldest first).
+  const classifierInput = new Float32Array(EMBEDDING_COUNT * EMBEDDING_DIM)
+  for (let i = 0; i < EMBEDDING_COUNT; i++) {
+    const srcIdx = ((embeddingIndex + i) % EMBEDDING_COUNT) * EMBEDDING_DIM
+    classifierInput.set(
+      embeddingBuffer.subarray(srcIdx, srcIdx + EMBEDDING_DIM),
+      i * EMBEDDING_DIM,
+    )
+  }
+
   const classifierInputName = classifierSession.inputNames[0]
+  const classifierTensor = new ort.Tensor('float32', classifierInput, [1, EMBEDDING_COUNT, EMBEDDING_DIM])
   const classifierOutputs = await classifierSession.run({
-    [classifierInputName]: embedding,
+    [classifierInputName]: classifierTensor,
   })
   const classifierOutputName = classifierSession.outputNames[0]
   const scores = classifierOutputs[classifierOutputName] as ort.Tensor
-
-  // The classifier outputs [background_score, positive_score] or a single score.
-  // Take the positive class (last element) or the single output.
   const scoreData = scores.data as Float32Array
-  if (scoreData.length >= 2) {
-    // Softmax the last two logits and take the positive probability.
-    const bg = scoreData[scoreData.length - 2]
-    const pos = scoreData[scoreData.length - 1]
-    const maxLogit = Math.max(bg, pos)
-    const expBg = Math.exp(bg - maxLogit)
-    const expPos = Math.exp(pos - maxLogit)
-    return expPos / (expBg + expPos)
-  }
-  // Single output: assume it's already a probability (possibly sigmoid).
+
+  // The classifier outputs [1, 1] - a single score (sigmoid probability).
   const raw = scoreData[0]
   return raw < 0 ? 1 / (1 + Math.exp(-raw)) : Math.max(0, Math.min(1, raw))
 }
