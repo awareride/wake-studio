@@ -319,10 +319,12 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 - **Status:** Accepted
 - **Origin:** Phase 2 `docs/modules/kws.md` open questions Q-KWS-1..4 (resolved by human)
 - **Decision:** Four KWS implementation choices are locked:
-  1. **Demo model (Q-KWS-1): `alexa.onnx`** (openWakeWord, CC BY-NC-SA, demo-only).
-     Used for the Phase 2 in-browser demo only - never exported commercially (the
-     Phase 4 license gate blocks it); Phase 5 trains a clean, commercially-ownable
-     replacement. Already in `model-registry.json` as `class: demo-only`.
+  1. **Demo model (Q-KWS-1): `hey-buddy`** (`benjamin-paine/hey-buddy`, CC-BY-4.0,
+     commercially clean). **Amended** - originally planned as openWakeWord
+     `alexa.onnx` (CC BY-NC-SA, demo-only); switched to hey-buddy (commercially
+     clean, browser-first) so the demo model can also serve as a redistributable
+     export baseline. Used for the Phase 2 in-browser demo; the Phase 4 license
+     gate still applies to any CC-BY-NC-SA model added later.
   2. **Inference thread (Q-KWS-2): Web Worker.** KWS inference runs off-main-thread
      to avoid blocking the UI (ONNX inference at 10 ms/frame can take 2-10 ms). The
      main thread owns the `KWSEngine` controller + visualization; the worker owns
