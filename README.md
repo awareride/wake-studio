@@ -27,8 +27,8 @@ backend). See `.agents/plan/goal.plan` for the full phased roadmap and
 |---|---|---|
 | 0 | Foundation, decisions & scaffold | ✅ Complete |
 | 1 | In-browser AFE + pipeline visualization | ✅ Complete |
-| 2 | KWS inference in the browser | ⏸ Paused (ADR-019..023 docs revision) |
-| 3 | Few-Shot custom wake-word enrollment | ⏳ Pending |
+| 2 | KWS inference in the browser | ✅ Complete (pluggable KWSBackend, ADR-020; OpenWakeWord pipeline fixed) |
+| 3 | Few-Shot custom wake-word enrollment | ✅ Complete (WavLM embed + cosine prototype, client-side) |
 | 4 | Model export & integration kits (device SDK) | ⏳ Pending |
 | 5 | Custom-model training (multi-backend) | ⏳ Pending |
 | 6 | Polish, PWA, packaging, docs | ⏳ Pending |

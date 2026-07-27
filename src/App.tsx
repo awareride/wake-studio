@@ -34,7 +34,7 @@ export default function App() {
             ready-to-build package for your target chip.
           </p>
           <p className="mt-4 text-xs uppercase tracking-widest text-amber-300/80">
-            Phase 1 · in-browser AFE + pipeline visualization · in progress
+            Phase 1-3 · AFE + KWS + Few-Shot enrollment · in progress
           </p>
         </section>
 

@@ -30,3 +30,13 @@ test('KWS panel renders with the pluggable-backend UI (ADR-020)', async ({ page 
   await loadButton.click()
   await expect(loadButton).toBeHidden({ timeout: 5_000 })
 })
+
+test('Few-Shot enrollment panel renders (Phase 3)', async ({ page }) => {
+  await page.goto('/')
+
+  // The Few-Shot section heading is visible.
+  await expect(page.getByRole('heading', { name: /Few-Shot enrollment/i })).toBeVisible()
+
+  // The "Load WavLM encoder" button is visible in the idle state.
+  await expect(page.getByRole('button', { name: /Load WavLM encoder/i })).toBeVisible()
+})
