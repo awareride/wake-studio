@@ -175,7 +175,22 @@ async function handleAudio(
     inferring = false
   }
 
-  if (score === null) return // warmup - no score this frame
+  if (score === null) {
+    // Warmup (backend accumulating mel frames / embeddings). Post a 0 so the
+    // score curve renders from the start rather than gaping for ~2 s.
+    const smoothed = smoother.push(0)
+    post({
+      type: 'score',
+      sample: {
+        capturedAtMs,
+        rawScore: 0,
+        smoothedScore: smoothed,
+        triggered: false,
+        vadProbability,
+      },
+    })
+    return
+  }
 
   const smoothed = smoother.push(score)
   const triggerEvent = trigger.process(smoothed, capturedAtMs)

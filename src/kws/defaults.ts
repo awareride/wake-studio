@@ -12,6 +12,11 @@ export const MEL_WINDOW_SIZE = 1280
 /** The melspectrogram hop size in samples (10 ms @ 16 kHz = 1 AFE frame). */
 export const MEL_HOP_SIZE = 160
 
+/** Audio overlap (samples) fed to the mel model for streaming frame-rate
+ *  consistency with openWakeWord (160*3 = 480). Each 1280-sample chunk uses
+ *  the previous 480 samples as context, yielding ~8 mel frames per chunk. */
+export const MEL_OVERLAP = 480
+
 /** Default KWS configuration (ADR-018, ADR-020). */
 export const DEFAULT_CONFIG: KWSConfig = {
   backend: 'openwakeword',

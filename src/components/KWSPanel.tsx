@@ -42,6 +42,7 @@ export const KWSPanel = memo(function KWSPanel({
   const [error, setError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
   const [triggerFlash, setTriggerFlash] = useState(false)
+  const [warmup, setWarmup] = useState(false)
   const [config, setConfig] = useState<KWSConfig>({ ...DEFAULT_CONFIG })
   const [executionProvider, setExecutionProvider] = useState<'webgpu' | 'wasm'>(
     'wasm',
@@ -86,6 +87,10 @@ export const KWSPanel = memo(function KWSPanel({
       onOutput: (cb) => afePipeline.onOutput(cb),
     })
     setRunning(true)
+    setWarmup(true)
+    // Warmup: the backend needs ~76 mel frames + 16 embeddings (~2 s) before
+    // producing real scores. Clear the badge after 3 s.
+    setTimeout(() => setWarmup(false), 3000)
   }, [afePipeline, afeRunning])
 
   const handleStop = useCallback(() => {
@@ -180,6 +185,12 @@ export const KWSPanel = memo(function KWSPanel({
         {status === 'ready' && (
           <span className="text-xs text-slate-500">
             EP: {executionProvider === 'webgpu' ? 'WebGPU' : 'WASM'}
+          </span>
+        )}
+
+        {running && warmup && (
+          <span className="text-xs text-amber-300/80">
+            Warming up… (collecting ~2 s of audio context)
           </span>
         )}
 

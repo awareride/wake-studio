@@ -5,16 +5,30 @@
  *   melspectrogram.onnx -> speech_embedding.onnx -> classifier.onnx
  *
  * Extracted from the Phase 2 worker so the engine is backend-agnostic. The
- * backend owns its own audio windowing (1280-sample mel window, 160-sample hop)
- * and the 16-step embedding ring buffer; the engine owns VAD gating, smoothing,
- * and trigger logic.
+ * backend owns its own audio windowing, mel-frame buffer, and the 16-step
+ * embedding ring buffer; the engine owns VAD gating, smoothing, and trigger
+ * logic.
+ *
+ * Model I/O (verified against the ONNX graphs + openWakeWord utils.py):
+ *   1. melspectrogram.onnx:  input [1, samples] -> output [1, 1, time, 32]
+ *      (32 mel bins; time = floor((samples - 400) / 160) + 1, no center pad)
+ *      A post-model transform x/10 + 2 is REQUIRED (openWakeWord melspec_transform).
+ *   2. embedding_model.onnx: input [1, 76, 32, 1] (76 mel FRAMES) -> [1, 1, 1, 96]
+ *   3. classifier:           input [1, 16, 96]    -> [1, 1] (already sigmoid'd)
+ *
+ * Streaming: each 1280-sample chunk (80 ms) + 480-sample overlap (openWakeWord's
+ * 160*3) feeds the mel model, producing ~8 frames. Frames accumulate in a mel
+ * buffer; the last 76 frames produce one 96-dim embedding per chunk. 16
+ * embeddings fill the classifier's receptive field (~1.3 s); after that, one
+ * score per 80 ms.
  *
  * @see docs/modules/kws.md §4-§5 (ADR-020)
+ * @see openWakeWord openwakeword/utils.py AudioFeatures (_streaming_features)
  */
 
 import * as ort from 'onnxruntime-web'
 import type { BackendModelUrls, KWSBackend } from '../types'
-import { MEL_HOP_SIZE, MEL_WINDOW_SIZE } from '../defaults'
+import { MEL_OVERLAP, MEL_WINDOW_SIZE } from '../defaults'
 
 // Use the CDN for the onnxruntime-web WASM runtime files (Phase 6 will vendor
 // these for offline support, consistent with the RNNoise vendoring in Phase 1).
@@ -39,17 +53,24 @@ async function loadModel(
   })
 }
 
+/** openWakeWord melspectrogram post-transform (utils.py melspec_transform). */
+function melTransform(x: number): number {
+  return x / 10 + 2
+}
+
+/** Mel-frame window the embedding model consumes (openWakeWord window_size). */
+const EMBEDDING_WINDOW = 76
+/** Embedding dimensionality (speech_embedding output). */
+const EMBEDDING_DIM = 96
+/** Classifier receptive field: 16 consecutive embeddings. */
+const CLASSIFIER_STEPS = 16
+/** Max mel frames kept in the sliding buffer (~1 s at 100 Hz). */
+const MEL_MAX_FRAMES = 100
+/** Rolling audio buffer capacity (>= MEL_WINDOW_SIZE + MEL_OVERLAP). */
+const AUDIO_RING_CAP = 2048
+
 /**
  * OpenWakeWord-style backend: mel-spectrogram -> speech-embedding -> classifier.
- *
- * Model I/O (hey-buddy / openWakeWord compatible):
- *   1. melspectrogram:  [1, samples]      -> [time, 1, mel_dim, 32]
- *   2. speech-embedding: [1, 76, 32, 1]   -> [1, 1, 1, 96]
- *   3. classifier:       [1, 16, 96]      -> [1, 1] (sigmoid score)
- *
- * The backend collects 16 consecutive embeddings (one per mel time step) before
- * running the classifier; until the ring buffer is full, processFrame returns
- * null (warmup).
  */
 export class OpenWakeWordBackend implements KWSBackend {
   readonly id = 'openwakeword' as const
@@ -59,15 +80,17 @@ export class OpenWakeWordBackend implements KWSBackend {
   private _embedSession: ort.InferenceSession | null = null
   private _classifierSession: ort.InferenceSession | null = null
 
-  // Audio window buffer (1280 samples = 80 ms @ 16 kHz).
-  private _audioBuffer = new Float32Array(MEL_WINDOW_SIZE)
-  private _bufferFill = 0
+  // Rolling audio buffer (keeps overlap context between mel computations).
+  private _audioRing = new Float32Array(AUDIO_RING_CAP)
+  private _audioLen = 0
+  private _newSamples = 0
 
-  // Embedding ring buffer: 16 x 96-dim.
-  private static readonly EMBEDDING_COUNT = 16
-  private static readonly EMBEDDING_DIM = 96
+  // Sliding mel-frame buffer: each entry is 32 mel values.
+  private _melFrames: Float32Array[] = []
+
+  // Embedding ring buffer: CLASSIFIER_STEPS x EMBEDDING_DIM.
   private _embeddingBuffer = new Float32Array(
-    OpenWakeWordBackend.EMBEDDING_COUNT * OpenWakeWordBackend.EMBEDDING_DIM,
+    CLASSIFIER_STEPS * EMBEDDING_DIM,
   )
   private _embeddingIndex = 0
   private _embeddingFilled = false
@@ -94,27 +117,30 @@ export class OpenWakeWordBackend implements KWSBackend {
   async processFrame(samples: Float32Array): Promise<number | null> {
     if (!this.ready) return null
 
+    // Append incoming samples to the rolling audio buffer.
+    this._pushAudio(samples)
+    this._newSamples += samples.length
+
     let score: number | null = null
 
-    for (let i = 0; i < samples.length; i++) {
-      this._audioBuffer[this._bufferFill++] = samples[i]
-      if (this._bufferFill >= MEL_WINDOW_SIZE) {
-        score = await this._runInference(this._audioBuffer)
-        // Shift the buffer by one hop (10 ms overlap).
-        this._audioBuffer.copyWithin(0, MEL_HOP_SIZE, MEL_WINDOW_SIZE)
-        this._bufferFill = MEL_WINDOW_SIZE - MEL_HOP_SIZE
-      }
+    // Process one 1280-sample chunk at a time (multiple if a large frame arrives).
+    while (this._newSamples >= MEL_WINDOW_SIZE) {
+      this._newSamples -= MEL_WINDOW_SIZE
+      const s = await this._processChunk()
+      if (s !== null) score = s
     }
 
     return score
   }
 
   reset(): void {
-    this._bufferFill = 0
+    this._audioLen = 0
+    this._newSamples = 0
+    this._melFrames.length = 0
     this._embeddingIndex = 0
     this._embeddingFilled = false
     this._embeddingBuffer.fill(0)
-    this._audioBuffer.fill(0)
+    this._audioRing.fill(0)
   }
 
   async dispose(): Promise<void> {
@@ -124,94 +150,123 @@ export class OpenWakeWordBackend implements KWSBackend {
     this.reset()
   }
 
-  /** Run the mel -> speech-embedding -> classifier pipeline on one window. */
-  private async _runInference(audio: Float32Array): Promise<number | null> {
+  // ---- internals ----
+
+  /** Append samples to the rolling audio buffer, evicting old data if needed. */
+  private _pushAudio(samples: Float32Array): void {
+    if (this._audioLen + samples.length > AUDIO_RING_CAP) {
+      // Evict oldest to make room (keep as much overlap context as possible).
+      const keep = AUDIO_RING_CAP - samples.length
+      if (keep > 0) {
+        this._audioRing.copyWithin(0, this._audioLen - keep, this._audioLen)
+      }
+      this._audioLen = keep
+    }
+    this._audioRing.set(samples, this._audioLen)
+    this._audioLen += samples.length
+  }
+
+  /** Process one 1280-sample chunk (+ overlap) through mel -> embed -> classify. */
+  private async _processChunk(): Promise<number | null> {
     if (!this._melSession || !this._embedSession || !this._classifierSession) {
       return null
     }
 
-    // Step 1: melspectrogram - [1, samples] -> [time, 1, mel_dim, 32]
+    // Take the last (MEL_WINDOW_SIZE + MEL_OVERLAP) samples for mel, with the
+    // 480-sample overlap matching openWakeWord's streaming frame rate (~8 frames).
+    const inputLen = Math.min(this._audioLen, MEL_WINDOW_SIZE + MEL_OVERLAP)
+    const melAudio = this._audioRing.subarray(
+      this._audioLen - inputLen,
+      this._audioLen,
+    )
+
+    // Step 1: melspectrogram -> [1, 1, time, 32]
     const melInputName = this._melSession.inputNames[0]
-    const audioTensor = new ort.Tensor('float32', audio, [1, audio.length])
-    const melOutputs = await this._melSession.run({ [melInputName]: audioTensor })
-    const melOutputName = this._melSession.outputNames[0]
-    const melFeatures = melOutputs[melOutputName] as ort.Tensor
-    const melData = melFeatures.data as Float32Array
-    const melShape = melFeatures.dims as number[]
-    const melTimeSteps = melShape[0]
-    const melDim = melShape[2] // should be 76
-    const melFeatureSize = melDim * 32 // 76 * 32 = 2432
+    const melTensor = new ort.Tensor('float32', melAudio, [1, inputLen])
+    const melOutputs = await this._melSession.run({ [melInputName]: melTensor })
+    const melResult = melOutputs[this._melSession.outputNames[0]] as ort.Tensor
+    const melData = melResult.data as Float32Array
+    const melDims = melResult.dims as number[]
+    // melDims = [1, 1, time, 32]; time frames, 32 mel bins each.
+    const melTime = melDims[2]
+    const melBins = melDims[3] // 32
 
-    // Step 2: speech-embedding - for each mel time step, extract an embedding.
-    // Input: [1, 76, 32, 1], Output: [1, 1, 1, 96]
-    const embedInputName = this._embedSession.inputNames[0]
-    const embedOutputName = this._embedSession.outputNames[0]
-
-    for (let t = 0; t < melTimeSteps; t++) {
-      const melSlice = melData.subarray(
-        t * melFeatureSize,
-        (t + 1) * melFeatureSize,
-      )
-      const embedInput = new Float32Array(melFeatureSize)
-      embedInput.set(melSlice)
-      const embedTensor = new ort.Tensor('float32', embedInput, [
-        1,
-        melDim,
-        32,
-        1,
-      ])
-      const embedOutputs = await this._embedSession.run({
-        [embedInputName]: embedTensor,
-      })
-      const embedding = embedOutputs[embedOutputName] as ort.Tensor
-      const embedData = embedding.data as Float32Array
-
-      // Push the 96-dim embedding into the ring buffer.
-      this._embeddingBuffer.set(
-        embedData.subarray(0, OpenWakeWordBackend.EMBEDDING_DIM),
-        this._embeddingIndex * OpenWakeWordBackend.EMBEDDING_DIM,
-      )
-      this._embeddingIndex =
-        (this._embeddingIndex + 1) % OpenWakeWordBackend.EMBEDDING_COUNT
-      if (this._embeddingIndex === 0) this._embeddingFilled = true
+    // Squeeze + transform: extract [time, 32] frames, apply x/10 + 2.
+    for (let t = 0; t < melTime; t++) {
+      const frame = new Float32Array(melBins)
+      const base = t * melBins
+      for (let b = 0; b < melBins; b++) {
+        frame[b] = melTransform(melData[base + b])
+      }
+      this._melFrames.push(frame)
+    }
+    // Trim the mel-frame buffer (sliding window).
+    if (this._melFrames.length > MEL_MAX_FRAMES) {
+      this._melFrames.splice(0, this._melFrames.length - MEL_MAX_FRAMES)
     }
 
-    // Not enough embeddings yet - warmup.
+    // Not enough mel frames for one embedding window yet (warmup).
+    if (this._melFrames.length < EMBEDDING_WINDOW) return null
+
+    // Step 2: speech-embedding - take last 76 frames -> [1, 76, 32, 1] -> [1,1,1,96]
+    const embedInput = new Float32Array(EMBEDDING_WINDOW * melBins)
+    const startFrame = this._melFrames.length - EMBEDDING_WINDOW
+    for (let i = 0; i < EMBEDDING_WINDOW; i++) {
+      embedInput.set(this._melFrames[startFrame + i], i * melBins)
+    }
+    const embedInputName = this._embedSession.inputNames[0]
+    const embedTensor = new ort.Tensor('float32', embedInput, [
+      1,
+      EMBEDDING_WINDOW,
+      melBins,
+      1,
+    ])
+    const embedOutputs = await this._embedSession.run({
+      [embedInputName]: embedTensor,
+    })
+    const embedResult = embedOutputs[
+      this._embedSession.outputNames[0]
+    ] as ort.Tensor
+    const embedData = embedResult.data as Float32Array
+
+    // Push the 96-dim embedding into the ring buffer.
+    this._embeddingBuffer.set(
+      embedData.subarray(0, EMBEDDING_DIM),
+      this._embeddingIndex * EMBEDDING_DIM,
+    )
+    this._embeddingIndex = (this._embeddingIndex + 1) % CLASSIFIER_STEPS
+    if (this._embeddingIndex === 0) this._embeddingFilled = true
+
+    // Not enough embeddings for the classifier yet (warmup).
     if (!this._embeddingFilled) return null
 
-    // Step 3: classifier - [1, 16, 96] -> [1, 1]
-    // Unroll the ring buffer into [1, 16, 96] (oldest first).
+    // Step 3: classifier - unroll ring -> [1, 16, 96] -> [1, 1] (already sigmoid'd)
     const classifierInput = new Float32Array(
-      OpenWakeWordBackend.EMBEDDING_COUNT * OpenWakeWordBackend.EMBEDDING_DIM,
+      CLASSIFIER_STEPS * EMBEDDING_DIM,
     )
-    for (let i = 0; i < OpenWakeWordBackend.EMBEDDING_COUNT; i++) {
+    for (let i = 0; i < CLASSIFIER_STEPS; i++) {
       const srcIdx =
-        ((this._embeddingIndex + i) % OpenWakeWordBackend.EMBEDDING_COUNT) *
-        OpenWakeWordBackend.EMBEDDING_DIM
+        ((this._embeddingIndex + i) % CLASSIFIER_STEPS) * EMBEDDING_DIM
       classifierInput.set(
-        this._embeddingBuffer.subarray(
-          srcIdx,
-          srcIdx + OpenWakeWordBackend.EMBEDDING_DIM,
-        ),
-        i * OpenWakeWordBackend.EMBEDDING_DIM,
+        this._embeddingBuffer.subarray(srcIdx, srcIdx + EMBEDDING_DIM),
+        i * EMBEDDING_DIM,
       )
     }
-
     const classifierInputName = this._classifierSession.inputNames[0]
     const classifierTensor = new ort.Tensor('float32', classifierInput, [
       1,
-      OpenWakeWordBackend.EMBEDDING_COUNT,
-      OpenWakeWordBackend.EMBEDDING_DIM,
+      CLASSIFIER_STEPS,
+      EMBEDDING_DIM,
     ])
     const classifierOutputs = await this._classifierSession.run({
       [classifierInputName]: classifierTensor,
     })
-    const classifierOutputName = this._classifierSession.outputNames[0]
-    const scores = classifierOutputs[classifierOutputName] as ort.Tensor
-    const scoreData = scores.data as Float32Array
-
-    // The classifier outputs [1, 1] - a single score (sigmoid probability).
-    const raw = scoreData[0]
-    return raw < 0 ? 1 / (1 + Math.exp(-raw)) : Math.max(0, Math.min(1, raw))
+    const classifierResult = classifierOutputs[
+      this._classifierSession.outputNames[0]
+    ] as ort.Tensor
+    const raw = (classifierResult.data as Float32Array)[0]
+    // The classifier has a Sigmoid output node (verified in the ONNX graph), so
+    // `raw` is already a probability [0,1]. Clamp for floating-point safety.
+    return Math.max(0, Math.min(1, raw))
   }
 }
