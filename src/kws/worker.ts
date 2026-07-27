@@ -42,6 +42,15 @@ const trigger = new TriggerDetector(
   'hey-buddy',
 )
 
+// Serialization guards: ONNX InferenceSessions are not re-entrant. The AFE
+// delivers a frame every ~10 ms, but inference (mel -> embedding -> classifier)
+// can take longer. Without these guards, a second processFrame()/embed() call
+// would hit session.run() while the first is still in flight, producing
+// "Session already started". When a guard is set, the incoming frame/request
+// is dropped (documented behavior, kws.md §7: "drop the oldest frames").
+let inferring = false
+let embedding = false
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -147,6 +156,13 @@ async function handleAudio(
   }
 
   // Backend inference (ADR-020). Returns null during warmup.
+  //
+  // Serialization: if the previous frame's inference is still in flight, drop
+  // this frame. ONNX sessions are not re-entrant ("Session already started").
+  // The backend's sliding mel window retains enough context that dropping a
+  // few 10 ms frames does not break detection (kws.md §7).
+  if (inferring) return
+  inferring = true
   let score: number | null
   try {
     score = await backend.processFrame(samples)
@@ -155,6 +171,8 @@ async function handleAudio(
       `Inference failed: ${err instanceof Error ? err.message : String(err)}`,
     )
     return
+  } finally {
+    inferring = false
   }
 
   if (score === null) return // warmup - no score this frame
@@ -188,13 +206,21 @@ async function handleEmbed(
     return
   }
 
+  // Serialization: WavLM's session is not re-entrant either.
+  if (embedding) {
+    postError('Embed already in progress; retry after the current request completes.')
+    return
+  }
+  embedding = true
   try {
-    const embedding = await embedProvider.embed(samples, sampleRate)
-    post({ type: 'embed-result', requestId, embedding })
+    const embeddingResult = await embedProvider.embed(samples, sampleRate)
+    post({ type: 'embed-result', requestId, embedding: embeddingResult })
   } catch (err) {
     postError(
       `Embed failed: ${err instanceof Error ? err.message : String(err)}`,
     )
+  } finally {
+    embedding = false
   }
 }
 

@@ -357,3 +357,4 @@ All Phase 2 open questions are resolved (ADR-018); the contract is locked.
 | 2026-07-27 | Initial draft (docs-first, pending human review). | agent |
 | 2026-07-27 | Human review: resolved Q-KWS-1..4 (ADR-018). Status -> Accepted. | agent |
 | 2026-07-27 | ADR-020: add `KWSBackend` pluggable-interface contract (§4/§5/§6/§11); docs-sync demo model to hey-buddy (CC-BY-4.0, matches shipped code + registry). | agent |
+| 2026-07-27 | Implement the §7 serialization guard: drop frames during in-flight inference (ONNX sessions are not re-entrant; "Session already started"). | agent |
