@@ -31,6 +31,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,wasm,json}'],
+        // The onnxruntime-web WASM files are large (13-27 MB); we load them from
+        // a CDN at runtime (ADR-018), so exclude them from the precache.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        globIgnores: ['**/ort-wasm-*'],
         // Keep the service worker out of the precache so a broken network on
         // first load doesn't deadlock updates.
         navigateFallback: 'index.html',

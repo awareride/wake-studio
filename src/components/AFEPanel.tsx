@@ -1,12 +1,17 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { AFEPipeline } from '../afe'
+import type { AFEPipeline } from '../afe'
+import { AFEPipeline as AFEPipelineClass } from '../afe'
 import type { StageFrameData } from '../afe'
 import { describeParameters } from '../afe'
 import { PipelineOverview } from './PipelineOverview'
 import { RecordReplay } from './RecordReplay'
 
-export function AFEPanel() {
-  const pipelineRef = useRef<AFEPipeline | null>(null)
+interface AFEPanelProps {
+  afeRef: React.MutableRefObject<AFEPipeline | null>
+  onRunningChange: (running: boolean) => void
+}
+
+export function AFEPanel({ afeRef, onRunningChange }: AFEPanelProps) {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [latencyMs, setLatencyMs] = useState(0)
@@ -22,52 +27,57 @@ export function AFEPanel() {
 
   const handleStart = useCallback(async () => {
     setError(null)
-    if (!pipelineRef.current) {
-      pipelineRef.current = new AFEPipeline()
+    if (!afeRef.current) {
+      afeRef.current = new AFEPipelineClass()
     }
-    const p = pipelineRef.current
+    const p = afeRef.current
     p.onFrame((f) => {
       setFrameData((prev) => ({ ...prev, [f.stageId]: f }))
     })
     try {
       await p.start()
       setRunning(true)
+      onRunningChange(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
-  }, [])
+  }, [afeRef, onRunningChange])
 
   const handleStop = useCallback(() => {
-    pipelineRef.current?.stop()
+    afeRef.current?.stop()
     setRunning(false)
+    onRunningChange(false)
     setFrameData({})
     setLatencyMs(0)
-  }, [])
+  }, [afeRef, onRunningChange])
 
   const toggleBypass = useCallback(
     (stageId: 'aec' | 'bss' | 'ns') => {
       const newVal = !bypassRef.current[stageId]
       setBypass((prev) => ({ ...prev, [stageId]: newVal }))
-      pipelineRef.current?.setBypassed(stageId, newVal)
+      afeRef.current?.setBypassed(stageId, newVal)
     },
-    [],
+    [afeRef],
   )
 
   // Poll latency while running.
   useEffect(() => {
     if (!running) return
     const id = setInterval(() => {
-      if (pipelineRef.current) {
-        setLatencyMs(pipelineRef.current.latencyMs)
+      if (afeRef.current) {
+        setLatencyMs(afeRef.current.latencyMs)
       }
     }, 200)
     return () => clearInterval(id)
-  }, [running])
+  }, [running, afeRef])
 
   // Cleanup on unmount.
   useEffect(() => {
-    return () => pipelineRef.current?.stop()
-  }, [])
+    return () => {
+      afeRef.current?.stop()
+      onRunningChange(false)
+    }
+  }, [afeRef, onRunningChange])
 
   const latencyColor =
     latencyMs > 150
@@ -148,7 +158,7 @@ export function AFEPanel() {
       {/* Record & replay */}
       {running && (
         <div className="mt-4">
-          <RecordReplay pipeline={pipelineRef.current} running={running} />
+          <RecordReplay pipeline={afeRef.current} running={running} />
         </div>
       )}
 
@@ -170,7 +180,7 @@ export function AFEPanel() {
               onChange={(e) => {
                 const v = Number(e.target.value)
                 setVizFps(v)
-                pipelineRef.current?.setConfig({ vizFps: v })
+                afeRef.current?.setConfig({ vizFps: v })
               }}
               className="flex-1 accent-brand-400"
             />

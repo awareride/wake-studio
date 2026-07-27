@@ -1,0 +1,117 @@
+/**
+ * KWS module - default configuration and parameter descriptors.
+ *
+ * The parameter descriptors feed the Studio config panel (ADR-017).
+ */
+
+import type { KWSConfig, ParameterDescriptor } from './types'
+
+/** The melspectrogram window size in samples (80 ms @ 16 kHz). */
+export const MEL_WINDOW_SIZE = 1280
+
+/** The melspectrogram hop size in samples (10 ms @ 16 kHz = 1 AFE frame). */
+export const MEL_HOP_SIZE = 160
+
+/** Default KWS configuration (ADR-018). */
+export const DEFAULT_CONFIG: KWSConfig = {
+  mode: 'traditional',
+  threshold: 0.5,
+  minDurationMs: 500,
+  smoothingWindowFrames: 10,
+  vadGateEnabled: true,
+  vadThreshold: 0.3,
+  cooldownMs: 2000,
+  executionProvider: 'webgpu',
+}
+
+/**
+ * Declare all tunable KWS parameters for the Studio config panel (ADR-017).
+ */
+export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
+  return [
+    {
+      id: 'mode',
+      label: 'Detection mode',
+      type: 'select',
+      default: 'traditional',
+      options: [
+        { value: 'traditional', label: 'Traditional (openWakeWord)' },
+        { value: 'few-shot-scaffold', label: 'Few-Shot scaffold (WavLM)' },
+      ],
+      description:
+        'Traditional = melspectrogram -> embedding -> classifier; few-shot-scaffold = WavLM embed only (Phase 3 prep).',
+    },
+    {
+      id: 'threshold',
+      label: 'Trigger threshold',
+      type: 'number',
+      default: 0.5,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      description: 'Smoothed score must exceed this to trigger.',
+    },
+    {
+      id: 'minDurationMs',
+      label: 'Min. duration',
+      type: 'number',
+      default: 500,
+      min: 100,
+      max: 3000,
+      step: 100,
+      unit: 'ms',
+      description: 'Score must exceed threshold for this long to trigger.',
+    },
+    {
+      id: 'smoothingWindowFrames',
+      label: 'Smoothing window',
+      type: 'number',
+      default: 10,
+      min: 1,
+      max: 30,
+      step: 1,
+      unit: 'frames',
+      description: 'Sliding-window size for max-pooling (~10 ms/frame).',
+    },
+    {
+      id: 'vadGateEnabled',
+      label: 'VAD gate',
+      type: 'boolean',
+      default: true,
+      description: 'Skip inference when VAD < threshold (saves compute).',
+    },
+    {
+      id: 'vadThreshold',
+      label: 'VAD threshold',
+      type: 'number',
+      default: 0.3,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      description: 'VAD probability below which KWS is gated.',
+    },
+    {
+      id: 'cooldownMs',
+      label: 'Cooldown',
+      type: 'number',
+      default: 2000,
+      min: 500,
+      max: 10000,
+      step: 500,
+      unit: 'ms',
+      description: 'Minimum time between triggers.',
+    },
+    {
+      id: 'executionProvider',
+      label: 'Execution provider',
+      type: 'select',
+      default: 'webgpu',
+      options: [
+        { value: 'webgpu', label: 'WebGPU (faster)' },
+        { value: 'wasm', label: 'WASM (universal)' },
+      ],
+      description:
+        'WebGPU first with WASM fallback (ADR-018). Override here if needed.',
+    },
+  ]
+}

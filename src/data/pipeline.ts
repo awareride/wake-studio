@@ -47,8 +47,8 @@ export const PIPELINE: readonly PipelineStage[] = [
     abbr: 'KWS',
     name: 'Keyword Spotting',
     role: 'Detects the wake word and raises a trigger.',
-    browserRuntime: 'onnxruntime-web (WebGPU / WASM)',
+    browserRuntime: 'onnxruntime-web (WebGPU / WASM) · Web Worker',
     exportRuntime: 'TFLite-Micro / ONNX Runtime',
-    status: 'pending',
+    status: 'in-progress',
   },
 ]
