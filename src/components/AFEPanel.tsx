@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { AFEPipeline } from '../afe'
 import type { StageFrameData } from '../afe'
 import { describeParameters } from '../afe'
@@ -13,6 +13,10 @@ export function AFEPanel() {
   const [frameData, setFrameData] = useState<Record<string, StageFrameData>>({})
   const [vizFps, setVizFps] = useState(30)
   const [bypass, setBypass] = useState({ aec: true, bss: true, ns: false })
+
+  // Keep a ref to bypass so toggleBypass has a stable identity (for memo).
+  const bypassRef = useRef(bypass)
+  bypassRef.current = bypass
 
   const params = describeParameters()
 
@@ -42,11 +46,11 @@ export function AFEPanel() {
 
   const toggleBypass = useCallback(
     (stageId: 'aec' | 'bss' | 'ns') => {
-      const newVal = !bypass[stageId]
+      const newVal = !bypassRef.current[stageId]
       setBypass((prev) => ({ ...prev, [stageId]: newVal }))
       pipelineRef.current?.setBypassed(stageId, newVal)
     },
-    [bypass],
+    [],
   )
 
   // Poll latency while running.
@@ -129,78 +133,15 @@ export function AFEPanel() {
       {/* Per-stage panels */}
       {running && (
         <div className="grid gap-4 sm:grid-cols-3">
-          {(['aec', 'bss', 'ns'] as const).map((id) => {
-            const data = frameData[id]
-            const isBypassed = bypass[id]
-            return (
-              <div
-                key={id}
-                className="rounded-xl border border-white/10 bg-white/[0.03] p-5"
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm font-semibold uppercase text-brand-300">
-                    {id}
-                  </span>
-                  <button
-                    onClick={() => toggleBypass(id)}
-                    className={`rounded px-2 py-0.5 text-[10px] font-medium uppercase ${
-                      isBypassed
-                        ? 'bg-slate-700 text-slate-400'
-                        : 'bg-emerald-500/20 text-emerald-300'
-                    }`}
-                  >
-                    {isBypassed ? 'Bypassed' : 'Active'}
-                  </button>
-                </div>
-
-                {/* Waveform */}
-                <div className="mb-3">
-                  <WaveformCanvas data={data?.waveform} />
-                </div>
-
-                {/* Level */}
-                {data?.levelDb != null && (
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="w-12 text-slate-500">Level</span>
-                    <div className="flex-1">
-                      <LevelBar db={data.levelDb} />
-                    </div>
-                    <span className="w-14 text-right font-mono text-slate-400">
-                      {data.levelDb.toFixed(1)} dB
-                    </span>
-                  </div>
-                )}
-
-                {/* VAD (NS only for v1) */}
-                {id === 'ns' && data?.vadProbability != null && (
-                  <div className="mt-2 flex items-center gap-2 text-xs">
-                    <span className="w-12 text-slate-500">VAD</span>
-                    <div className="flex-1">
-                      <div className="h-2 overflow-hidden rounded-full bg-slate-700">
-                        <div
-                          className="h-full rounded-full bg-sky-400 transition-all"
-                          style={{
-                            width: `${data.vadProbability * 100}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <span className="w-14 text-right font-mono text-slate-400">
-                      {(data.vadProbability * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                )}
-
-                {/* Spectrum (NS only) */}
-                {id === 'ns' && data?.spectrum && (
-                  <div className="mt-2">
-                    <div className="mb-1 text-xs text-slate-500">Spectrum</div>
-                    <SpectrogramCanvas data={data.spectrum} />
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {(['aec', 'bss', 'ns'] as const).map((id) => (
+            <StagePanel
+              key={id}
+              id={id}
+              data={frameData[id]}
+              isBypassed={bypass[id]}
+              onToggleBypass={toggleBypass}
+            />
+          ))}
         </div>
       )}
 
@@ -254,6 +195,86 @@ export function AFEPanel() {
   )
 }
 
+/** Memoized per-stage card. Only re-renders when this stage's data or bypass
+ *  changes, not when other stages update (avoids 30fps re-renders of all 3). */
+const StagePanel = memo(function StagePanel({
+  id,
+  data,
+  isBypassed,
+  onToggleBypass,
+}: {
+  id: 'aec' | 'bss' | 'ns'
+  data?: StageFrameData
+  isBypassed: boolean
+  onToggleBypass: (id: 'aec' | 'bss' | 'ns') => void
+}) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-sm font-semibold uppercase text-brand-300">
+          {id}
+        </span>
+        <button
+          onClick={() => onToggleBypass(id)}
+          className={`rounded px-2 py-0.5 text-[10px] font-medium uppercase ${
+            isBypassed
+              ? 'bg-slate-700 text-slate-400'
+              : 'bg-emerald-500/20 text-emerald-300'
+          }`}
+        >
+          {isBypassed ? 'Bypassed' : 'Active'}
+        </button>
+      </div>
+
+      {/* Waveform */}
+      <div className="mb-3">
+        <WaveformCanvas data={data?.waveform} />
+      </div>
+
+      {/* Level */}
+      {data?.levelDb != null && (
+        <div className="flex items-center gap-2 text-xs">
+          <span className="w-12 text-slate-500">Level</span>
+          <div className="flex-1">
+            <LevelBar db={data.levelDb} />
+          </div>
+          <span className="w-14 text-right font-mono text-slate-400">
+            {data.levelDb.toFixed(1)} dB
+          </span>
+        </div>
+      )}
+
+      {/* VAD (NS only for v1) */}
+      {id === 'ns' && data?.vadProbability != null && (
+        <div className="mt-2 flex items-center gap-2 text-xs">
+          <span className="w-12 text-slate-500">VAD</span>
+          <div className="flex-1">
+            <div className="h-2 overflow-hidden rounded-full bg-slate-700">
+              <div
+                className="h-full rounded-full bg-sky-400"
+                style={{
+                  width: `${data.vadProbability * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+          <span className="w-14 text-right font-mono text-slate-400">
+            {(data.vadProbability * 100).toFixed(0)}%
+          </span>
+        </div>
+      )}
+
+      {/* Spectrum (NS only) */}
+      {id === 'ns' && data?.spectrum && (
+        <div className="mt-2">
+          <div className="mb-1 text-xs text-slate-500">Spectrum</div>
+          <SpectrogramCanvas data={data.spectrum} />
+        </div>
+      )}
+    </div>
+  )
+})
+
 /** Mini Canvas waveform display. */
 function WaveformCanvas({ data }: { data?: Float32Array }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -295,7 +316,7 @@ function WaveformCanvas({ data }: { data?: Float32Array }) {
   )
 }
 
-/** Level meter (dBFS, -60 to 0). */
+/** Level meter (dBFS, -60 to 0). No transition: updates 30fps. */
 function LevelBar({ db }: { db: number }) {
   const pct = Math.max(0, Math.min(100, ((db + 60) / 60) * 100))
   const color =
@@ -303,7 +324,7 @@ function LevelBar({ db }: { db: number }) {
   return (
     <div className="h-2 overflow-hidden rounded-full bg-slate-700">
       <div
-        className={`h-full rounded-full ${color} transition-all`}
+        className={`h-full rounded-full ${color}`}
         style={{ width: `${pct}%` }}
       />
     </div>

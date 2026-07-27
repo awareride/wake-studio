@@ -114,7 +114,7 @@ export function RecordReplay({ pipeline, running }: Props) {
         <button
           onClick={handleRecord}
           disabled={recording}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+          className={`min-w-[140px] rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             recording
               ? 'cursor-not-allowed bg-slate-700 text-slate-500'
               : 'bg-red-500/80 text-white hover:bg-red-500'
@@ -125,21 +125,24 @@ export function RecordReplay({ pipeline, running }: Props) {
             : 'Record 10 s'}
         </button>
 
-        {recording && (
-          <div className="h-2 w-48 overflow-hidden rounded-full bg-slate-700">
-            <div
-              className="h-full rounded-full bg-red-400 transition-all"
-              style={{ width: `${recordProgress * 100}%` }}
-            />
-          </div>
-        )}
+        {/* Always rendered to prevent layout shift; hidden when idle. */}
+        <div
+          className={`h-2 w-48 overflow-hidden rounded-full bg-slate-700 transition-opacity ${
+            recording ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <div
+            className="h-full rounded-full bg-red-400"
+            style={{ width: `${recordProgress * 100}%` }}
+          />
+        </div>
 
         {clip && !recording && (
           <>
             <button
               onClick={() => handlePlay('raw')}
               disabled={playing !== null}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 playing === 'raw'
                   ? 'bg-amber-500/30 text-amber-300'
                   : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
@@ -150,7 +153,7 @@ export function RecordReplay({ pipeline, running }: Props) {
             <button
               onClick={() => handlePlay('processed')}
               disabled={playing !== null}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 playing === 'processed'
                   ? 'bg-emerald-500/30 text-emerald-300'
                   : 'bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50'
