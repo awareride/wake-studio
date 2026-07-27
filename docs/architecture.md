@@ -129,9 +129,9 @@ reference C/C++ pipelines for target chips.
 
 | Stage | Browser runtime | Embedded runtime (export) | License | Source |
 |---|---|---|---|---|
-| **AEC** | WebRTC AEC3 (WASM) | WebRTC `audio_processing` C++; or SpeexDSP AEC | BSD-3 / BSD | google/webrtc; xiph/speexdsp |
+| **AEC** | WebRTC AEC3 (WASM) - **deferred to v1.x**; passthrough for v1 (ADR-016) | WebRTC `audio_processing` C++; or SpeexDSP AEC | BSD-3 / BSD | google/webrtc; xiph/speexdsp |
 | **BSS** | 2-mic beamforming *approximation* or passthrough | Vendor BSS (ESP-SR BSS) or portable ICA-based BSS | BSD-3 / varies | espressif/esp-sr; WebRTC beamforming fallback |
-| **NS** | **RNNoise** (WASM, AudioWorklet) | RNNoise (C, MCU-portable) or vendor Deep NS | BSD-3 | xiph/rnnoise; WASM ports: `@timephy/rnnoise-wasm` (Apache-2.0), `simple-rnnoise-wasm` (MIT) |
+| **NS** | **RNNoise** (WASM, AudioWorklet) - prebuilt vendored at `src/afe/vendor/rnnoise/` (ADR-016) | RNNoise (C, MCU-portable) or vendor Deep NS | BSD-3 / Apache-2.0 | xiph/rnnoise; port: `@timephy/rnnoise-wasm` (Apache-2.0) |
 | VAD (helper) | Silero VAD (ONNX, onnxruntime-web) | Silero VAD (ONNX/TFLite) | MIT | snakers4/silero-vad |
 
 > **AFE export decision (ADR-003):** vendor AFE for the reference demo (vendor-tuned),

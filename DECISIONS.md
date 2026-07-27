@@ -247,6 +247,24 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   first; node-per-stage deferred). Per-engine frames require internal stage
   buffering. All tunables are surfaced in the Studio config panel (ADR-017).
 
+**Amendment (2026-07-27) - AEC3, sample rate, VAD, vendoring:**
+5. **WebRTC AEC3 deferred to v1.x.** No prebuilt AEC3 WASM npm package exists, and
+   in-browser AEC on a laptop is weak (no real reference path). For v1 the AEC
+   stage is **passthrough**; true AEC3 lives in exported demos (ADR-003). Revisited
+   in v1.x. (Originally listed as a v1 dependency; corrected.)
+6. **AFE DSP runs at 48 kHz.** RNNoise requires 480-sample frames at 48 kHz; the
+   AFE runs AEC/BSS/NS at the 48 kHz AudioContext rate and resamples to 16 kHz
+   only at the KWS output boundary (ADR-001's 16 kHz applies to the KWS input, not
+   the AFE internals).
+7. **VAD from RNNoise for v1.** `RnnoiseProcessor.processAudioFrame` returns a VAD
+   score; Phase 1 uses it for the viz VAD curve. Silero VAD (onnxruntime-web) is
+   deferred to Phase 2 for KWS gating - so Phase 1's only WASM dependency is RNNoise.
+8. **Prebuilt WASM vendored into the repo.** The `@timephy/rnnoise-wasm@1.0.0`
+   prebuilt JS (Apache-2.0; WASM embedded as base64 in `generated/rnnoise-sync.js`)
+   is committed under `src/afe/vendor/rnnoise/` - no npm dependency, no runtime
+   fetch (deterministic, offline-capable). Per human instruction: prebuilt WASM is
+   pre-downloaded into the repo rather than fetched at runtime.
+
 ## ADR-017 - Studio provides a per-component parameter configuration panel
 
 - **Status:** Accepted

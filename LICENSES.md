@@ -50,7 +50,7 @@ Every model or component that enters an **export bundle** is classified:
 | WebRTC AEC3 / `audio_processing` | `google/webrtc` | BSD-3-Clause | Yes | ✅ | WebRTC license (BSD-3). |
 | SpeexDSP AEC (alt) | `xiph/speexdsp` | BSD (revised) | Yes | ✅ | Speex license. |
 | RNNoise (C, NS) | `xiph/rnnoise` | BSD-3-Clause | Yes | ✅ | Xiph RNNoise COPYING. |
-| `@timephy/rnnoise-wasm` (browser NS) | `timephy/rnnoise-wasm` | Apache-2.0 | Yes | ✅ | Repo + npm license field. Fork of `jitsi/rnnoise-wasm`. |
+| `@timephy/rnnoise-wasm` (browser NS) | `timephy/rnnoise-wasm` | Apache-2.0 | Yes | ✅ | Repo + npm license field. Fork of `jitsi/rnnoise-wasm`. **Vendored prebuilt** at `src/afe/vendor/rnnoise/` (ADR-016); WASM embedded in `generated/rnnoise-sync.js`. |
 | ESP-SR (AEC+NS+BSS, ESP32 export) | `espressif/esp-sr` | Espressif MIT (code) — verify per release | Yes (code, per ESP-SR terms) | ✅ (code) | ESP-SR is MIT-licensed for the audio_front_end; confirm the exact release tag in Phase 4. |
 | Vendor AFE (Infineon/TI) | vendor SDKs | Varies | Varies | 🟡 per target | Per-target `LICENSES.md` in Phase 4; some vendor refs may be demo-only. |
 

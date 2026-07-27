@@ -16,7 +16,8 @@ delivers the first half of the in-browser experience (requirements R1 and R5).
 
 ## 2. Scope & boundaries
 
-- **In scope:** mic capture + resample to 16 kHz mono; the AEC, BSS, and NS stages;
+- **In scope:** mic capture; the AEC, BSS, and NS stages (run at the native 48 kHz
+  context rate); resample to 16 kHz mono at the KWS output boundary;
   per-stage bypass; real-time visualization data emission; A/B raw-vs-processed
   toggle; 10 s record/replay; end-to-end latency measurement.
 - **Out of scope:** KWS inference (Phase 2 - consumes the AFE output); Few-Shot
@@ -33,10 +34,17 @@ delivers the first half of the in-browser experience (requirements R1 and R5).
 - **Downstream (provides to):** KWS engine (Phase 2) consumes the NS output frame
   stream.
 - **External libraries / models** (see `LICENSES.md`):
-  - WebRTC AEC3 (WASM) - BSD-3 - AEC stage.
+  - WebRTC AEC3 (WASM) - BSD-3 - AEC stage. **Deferred to v1.x (ADR-016):** no
+    prebuilt AEC3 WASM npm package exists, and in-browser AEC on a laptop is weak
+    (no real reference path); for v1 the AEC stage is **passthrough**. True AEC3
+    lives in exported demos (ADR-003).
   - RNNoise via **`@timephy/rnnoise-wasm`** (Apache-2.0 port of the BSD-3 RNNoise
-    core) - NS stage (ADR-016).
-  - Silero VAD (ONNX, onnxruntime-web) - MIT - VAD helper for visualization/gating.
+    core) - NS stage (ADR-016). The prebuilt WASM is **vendored into the repo** at
+    `src/afe/vendor/rnnoise/` (the `.wasm` is embedded as base64 in
+    `generated/rnnoise-sync.js`); no runtime fetch, no npm dependency.
+  - VAD: for v1 the viz VAD curve uses **RNNoise's built-in VAD score** (returned
+    by `processAudioFrame`). Silero VAD (ONNX, onnxruntime-web, MIT) is deferred to
+    Phase 2 for KWS gating.
   - BSS: single-mic passthrough by default for v1 (ADR-016); 2-mic beamforming is
     an opt-in when a stereo mic array is detected. Custom DSP, no external dep.
 
@@ -161,17 +169,21 @@ The plan's original "each an AudioWorklet node" wording is superseded by this.
    noiseSuppression: false, autoGainControl: false } })` - browser DSP disabled so
    ours is the only processing. Request 2 channels only if `config.channels === 2`
    (stereo mic array for BSS); otherwise mono (default, single-mic passthrough).
-2. **Graph:** `AudioContext` (native rate, usually 48 kHz) -> `MediaStreamSource` ->
+2. **Graph:** `new AudioContext({ sampleRate: 48000 })` (48 kHz so RNNoise's
+   480-sample frames are exactly 10 ms) -> `MediaStreamSource` ->
    `AudioWorkletNode('pipeline-processor')`. The worklet receives 128-sample render
-   quanta at the context rate.
-3. **Inside the worklet, per processing frame (`frameMs`, §6):**
-   1. Accumulate + linear-resample to 16 kHz mono.
-   2. Run the stage chain **AEC -> BSS -> NS**, each a WASM DSP core, honoring
-      per-stage bypass (bypass = copy through). AEC consumes a reference signal
-      (loopback from a played test track or file) when available.
-   3. Compute per-stage visualization data, throttle to `vizFps`, and
+   quanta at 48 kHz.
+3. **Inside the worklet, per render quantum (128 samples @ 48 kHz):**
+   1. Accumulate quanta until a stage frame is full. NS (RNNoise) consumes
+      **480-sample frames @ 48 kHz** (= 10 ms); AEC and BSS are passthrough for v1
+      (ADR-016), so they copy through at the quantum level.
+   2. Run the stage chain **AEC -> BSS -> NS** at 48 kHz, honoring per-stage bypass
+      (bypass = copy through). NS returns a VAD score per frame (used for the viz
+      VAD curve in v1).
+   3. Resample the NS output to **16 kHz mono** for the KWS output frame (ADR-001).
+   4. Compute per-stage visualization data, throttle to `vizFps`, and
       `port.postMessage({ type: 'frame', data })`.
-   4. `port.postMessage({ type: 'output', frame })` for downstream KWS.
+   5. `port.postMessage({ type: 'output', frame })` for downstream KWS.
 4. **Main thread:** frame data drives Canvas/WebGL visualizations + the latency
    meter. The A/B toggle selects which stream (raw vs processed) the viz renders.
 5. **Record:** the worklet accumulates raw + processed for N seconds and posts both
@@ -187,10 +199,11 @@ controls generically.
 |---|---|---|---|
 | `topology` | `single-worklet` | `single-worklet` \| `node-per-stage` | AFE topology (ADR-016). single-worklet implemented first. |
 | `channels` | 1 | 1-2 | 2 only for BSS stereo input; default 1 = single-mic passthrough (ADR-016). |
-| `frameMs.aec` | 10 | - | AEC processing frame; configurable per engine (ADR-016). |
-| `frameMs.bss` | 10 | - | BSS processing frame; configurable per engine. |
-| `frameMs.ns` | 10 | - | NS (RNNoise) processing frame; configurable per engine. |
-| `sampleRate` | 16000 | fixed | 16 kHz throughout (ADR-001). |
+| `frameMs.aec` | 10 | - | AEC frame; configurable per engine (ADR-016). AEC is passthrough for v1 (deferred to v1.x). |
+| `frameMs.bss` | 10 | - | BSS frame; configurable per engine. Passthrough for v1. |
+| `frameMs.ns` | 10 | - | NS (RNNoise) frame = 480 samples @ 48 kHz; configurable per engine (ADR-016). |
+| `internalSampleRate` | 48000 | fixed | AFE DSP runs at the AudioContext rate (48 kHz; RNNoise-native). |
+| `outputSampleRate` | 16000 | fixed | KWS output is 16 kHz mono, resampled at the output boundary (ADR-001). |
 | `latencyBudgetMs` | 150 | - | End-to-end capture -> display target (R5). |
 | `vizFps` | 30 | 15-60 | Throttle for visualization frame emission. |
 | `waveformPoints` | 128 | - | Downsampled points per waveform display. |
@@ -198,13 +211,15 @@ controls generically.
 
 > **Per-engine frame size (ADR-016):** `frameMs` is configurable **per engine**
 > (AEC/BSS/NS independently) to accommodate WebRTC AEC3 vs RNNoise frame
->> requirements; default is 10 ms for all three. Stages buffer/resample internally
-> when their frames differ.
+> requirements; default is 10 ms for all three. Stages buffer/resample internally
+> when their frames differ. For v1 only NS is active (RNNoise, 480 samples @ 48 kHz);
+> AEC and BSS are passthrough.
 
 
-**Latency budget breakdown** (target < 150 ms; expected ~45-55 ms on a mid-range
-laptop): capture buffer ~10-21 ms + resample <1 ms + AEC ~5 ms + BSS ~2 ms + NS
-~5 ms + `postMessage` ~1-5 ms + Canvas render ~5 ms + display refresh ~16 ms.
+**Latency budget breakdown** (target < 150 ms; expected ~40-50 ms on a mid-range
+laptop for v1): capture buffer ~10-21 ms + AEC ~0 ms (passthrough) + BSS ~0 ms
+(passthrough) + NS ~5 ms + resample to 16 kHz <1 ms + `postMessage` ~1-5 ms +
+Canvas render ~5 ms + display refresh ~16 ms.
 
 ## 7. Error model & failure modes
 
@@ -213,9 +228,10 @@ laptop): capture buffer ~10-21 ms + resample <1 ms + AEC ~5 ms + BSS ~2 ms + NS
 - **AudioWorklet unsupported** (no `AudioWorkletNode`): `start()` rejects with
   `UnsupportedBrowserError`; UI shows a "use Chrome / Firefox / Edge" message.
   Safari is best-effort.
-- **WASM module load failure** (network/CSP): the affected stage falls back to
-  passthrough (auto-bypassed) and the UI flags the pipeline as degraded; audio
-  continues through the remaining stages.
+- **RNNoise init failure** (WASM compile/CSP): the WASM is vendored (no network
+  fetch), so load failure is rare; if it occurs, NS falls back to passthrough
+  (auto-bypassed) and the UI flags the pipeline as degraded; audio continues. AEC
+  and BSS are already passthrough for v1.
 - **Audio context suspended** (autoplay policy): `start()` calls `ctx.resume()`;
   if still suspended, the UI shows a "click to start" affordance.
 - **Frame underrun** (processing slower than realtime): drop the oldest frames,
@@ -253,9 +269,9 @@ laptop): capture buffer ~10-21 ms + resample <1 ms + AEC ~5 ms + BSS ~2 ms + NS
   permission.
 - Browser AEC/NS/AGC are disabled on the `getUserMedia` track so our DSP is the
   only processing (avoids double-processing and opaque vendor DSP).
-- WASM modules are fetched over HTTPS from the lazy model registry (ADR-011); the
-  Content Security Policy must allow `wasm-unsafe-eval` and the registry asset
-  origins.
+- RNNoise WASM is **vendored into the repo** at `src/afe/vendor/rnnoise/`
+  (ADR-016) - no runtime fetch. Other WASM/models follow the lazy registry (ADR-011)
+  from Phase 2 onward. The Content Security Policy must allow `wasm-unsafe-eval`.
 
 ## 11. Resolved decisions
 
@@ -273,6 +289,19 @@ All Phase 1 open questions are resolved (ADR-016); the contract is locked.
 - **Per-component config panel (ADR-017).** The Studio renders a parameter panel
   with defaults for every component; the AFE exposes its tunables via
   `describeParameters()` (§4).
+- **AEC3 deferred to v1.x (ADR-016 amendment).** No prebuilt WebRTC AEC3 WASM npm
+  package exists, and in-browser AEC on a laptop is weak (no real reference path).
+  For v1 the AEC stage is **passthrough**; true AEC3 lives in exported demos
+  (ADR-003). Revisited in v1.x.
+- **AFE DSP runs at 48 kHz (ADR-016 amendment).** RNNoise requires 480-sample
+  frames at 48 kHz; the AFE runs AEC/BSS/NS at the 48 kHz context rate and
+  resamples to 16 kHz only at the KWS output boundary.
+- **VAD from RNNoise for v1 (ADR-016 amendment).** `RnnoiseProcessor.processAudioFrame`
+  returns a VAD score; Phase 1 uses it for the viz VAD curve. Silero VAD
+  (onnxruntime-web) is deferred to Phase 2 for KWS gating.
+- **Prebuilt WASM vendored into the repo (ADR-016 amendment).** The RNNoise
+  prebuilt JS (with embedded WASM) is committed under `src/afe/vendor/rnnoise/`;
+  no npm dependency, no runtime fetch.
 
 ## 12. References
 
@@ -281,6 +310,8 @@ All Phase 1 open questions are resolved (ADR-016); the contract is locked.
   AFE), ADR-011 (lazy model registry for WASM/model fetch).
 - Upstream: WebRTC `audio_processing` (AEC3); RNNoise (xiph); Silero VAD; Web
   Audio API / AudioWorklet spec (W3C).
+- Vendored prebuilt: `src/afe/vendor/rnnoise/` (`@timephy/rnnoise-wasm@1.0.0`,
+  Apache-2.0; WASM embedded in `generated/rnnoise-sync.js`).
 - Related module docs: `docs/modules/kws.md` (Phase 2, downstream consumer - not
   yet written).
 
@@ -290,3 +321,4 @@ All Phase 1 open questions are resolved (ADR-016); the contract is locked.
 |---|---|---|
 | 2026-07-27 | Initial draft (docs-first, pending human review). | agent |
 | 2026-07-27 | Human review: resolved Q-AFE-1..4 (ADR-016); added config panel API + per-engine frame config (ADR-017). Status -> Accepted. | agent |
+| 2026-07-27 | ADR-016 amendment: AEC3 deferred to v1.x (passthrough for v1); AFE DSP at 48 kHz (resample to 16 kHz at output); VAD from RNNoise for v1 (Silero -> Phase 2); RNNoise prebuilt WASM vendored at src/afe/vendor/rnnoise/. | agent |
