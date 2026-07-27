@@ -198,9 +198,30 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   is flagged for explicit human authorization (a deploy-workflow change per
   `AGENTS.md`).
 
+## ADR-015 - CI/CD activation is deferred to post-MVP
+
+- **Status:** Accepted
+- **Origin:** Human decision during Phase 0 validation
+- **Decision:** CI/CD - reviewing/activating `.github/workflows/*`, configuring
+  GitHub Pages + Cloudflare Pages secrets, and the first deploy - is deferred to
+  post-MVP (targeted at the Phase 6 pre-release). The scaffolded workflow files
+  (`ci.yml`, `deploy.yml`) remain in the repo but **dormant**: `deploy.yml` is
+  manual (`workflow_dispatch`) and `ci.yml` only runs on push/PR to the remote,
+  which is not yet in use. Local validation
+  (`pnpm lint`/`typecheck`/`build`/`test:e2e`) remains the source of truth during
+  the MVP build.
+- **Rationale:** Focus effort on building the MVP; defer infra setup (Pages
+  environment, Cloudflare secrets, workflow review) until the product is worth
+  deploying. Avoids premature CI/CD tuning while the build is changing rapidly.
+- **Consequences:** No automated CI guardrails during Phases 1-5; developers must
+  run `pnpm lint && pnpm typecheck && pnpm build && pnpm test:e2e` locally before
+  committing. The `deploy.yml` Cloudflare `--project-name=wave-studio` rename
+  leftover (from ADR-014) is also deferred to the Phase 6 CI/CD activation. Phase
+  6 Tasks updated to explicitly include CI/CD activation.
+
 ---
 
 _Open questions still pending human input: Q10 (self-hosted training engine) is
 open for Phase 5. Q9 (training backends) is resolved as ADR-013; the project name
-is resolved as ADR-014. Defaults from Q2/Q3/Q4/Q7 are applied per this log and may
-be overridden._
+is resolved as ADR-014; CI/CD deferral is recorded as ADR-015. Defaults from
+Q2/Q3/Q4/Q7 are applied per this log and may be overridden._

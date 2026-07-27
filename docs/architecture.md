@@ -233,6 +233,12 @@ script. A **license gate** refuses to export a non-commercial-licensed model int
   feature-detects and falls back to WASM, surfacing a "performance" indicator.
 - **Deploy (ADR-012).** `VITE_BASE_PATH` configures the base path - `/` for
   Cloudflare Pages, `/<repo-name>/` for GitHub Pages project sites.
+- **CI/CD (ADR-015).** Workflow files (`ci.yml`, `deploy.yml`) are scaffolded but
+  **dormant** until post-MVP: deploy is manual (`workflow_dispatch`), and CI runs
+  only on push/PR to the remote (not yet in use). Local
+  `pnpm lint`/`typecheck`/`build`/`test:e2e` is the source of truth during the
+  MVP build; activation (Pages/Cloudflare secrets, workflow review, first deploy)
+  happens in Phase 6.
 
 ---
 
@@ -242,7 +248,8 @@ script. A **license gate** refuses to export a non-commercial-licensed model int
   encoder), ADR-003 (vendor vs portable AFE), ADR-004 (React+Vite+TS), ADR-005
   (self-hosted service packaging), ADR-006 (first targets), ADR-009 (MIT license),
   ADR-011 (lazy model registry), ADR-012 (deploy base path), ADR-013 (training
-  backends), ADR-014 (project name "WakeStudio").
+  backends), ADR-014 (project name "WakeStudio"), ADR-015 (CI/CD deferred to
+  post-MVP).
 - **License matrix:** `LICENSES.md`.
 - **Living plan & phased roadmap:** `.agents/plan/goal.plan` (gitignored; the source
   of truth for phase status and open questions).
