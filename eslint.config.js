@@ -33,4 +33,20 @@ export default tseslint.config(
       globals: globals.node,
     },
   },
+  {
+    // Vitest test files.
+    files: ['src/**/__tests__/**/*.test.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        describe: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+      },
+    },
+  },
 )

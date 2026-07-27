@@ -9,6 +9,9 @@
  * Emits per-stage visualization data (throttled to vizFps) and 16 kHz output
  * frames (160 samples / 10 ms) for downstream KWS.
  *
+ * Pure DSP functions (FFT, level, downsample, spectrum) are extracted to
+ * `./dsp` for unit testability - see docs/modules/afe.md §9.
+ *
  * The circular-buffer approach follows the vendored NoiseSuppressorWorklet:
  * buffer size = LCM(128, 480) = 1920, so residues never split on wrap-around.
  */
@@ -18,58 +21,10 @@ import './vendor/rnnoise/polyfills'
 import RnnoiseProcessor from './vendor/rnnoise/RnnoiseProcessor'
 import createRNNWasmModuleSync from './vendor/rnnoise/generated/rnnoise-sync'
 import type { MainMessage, StageFrameData, WorkletMessage } from './types'
-import { CIRCULAR_BUFFER_SIZE, DOWNSAMPLE_RATIO, RNNOISE_FRAME_SIZE } from './defaults'
+import { CIRCULAR_BUFFER_SIZE, RNNOISE_FRAME_SIZE } from './defaults'
+import { computeSpectrum, downsample48to16, downsampleForViz, levelDb } from './dsp'
 
 const PROCESSOR_NAME = 'pipeline-processor'
-
-/** FFT size for spectrum computation (must be power of 2, <= RNNOISE_FRAME_SIZE). */
-const FFT_SIZE = 256
-/** Number of magnitude bins emitted for the spectrogram (FFT_SIZE / 4). */
-const SPECTRUM_BINS = 64
-
-/** Pre-computed Hann window for FFT. */
-const HANN_WINDOW = new Float32Array(FFT_SIZE)
-for (let i = 0; i < FFT_SIZE; i++) {
-  HANN_WINDOW[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (FFT_SIZE - 1)))
-}
-
-/** In-place radix-2 Cooley-Tukey FFT (n must be a power of 2). */
-function fft(real: Float32Array, imag: Float32Array, n: number): void {
-  // Bit-reversal permutation.
-  for (let i = 1, j = 0; i < n; i++) {
-    let bit = n >> 1
-    for (; j & bit; bit >>= 1) j ^= bit
-    j ^= bit
-    if (i < j) {
-      ;[real[i], real[j]] = [real[j], real[i]]
-      ;[imag[i], imag[j]] = [imag[j], imag[i]]
-    }
-  }
-  // Butterfly.
-  for (let len = 2; len <= n; len <<= 1) {
-    const ang = (-2 * Math.PI) / len
-    const wR = Math.cos(ang)
-    const wI = Math.sin(ang)
-    const half = len >> 1
-    for (let i = 0; i < n; i += len) {
-      let cR = 1
-      let cI = 0
-      for (let j = 0; j < half; j++) {
-        const uR = real[i + j]
-        const uI = imag[i + j]
-        const tR = real[i + j + half] * cR - imag[i + j + half] * cI
-        const tI = real[i + j + half] * cI + imag[i + j + half] * cR
-        real[i + j] = uR + tR
-        imag[i + j] = uI + tI
-        real[i + j + half] = uR - tR
-        imag[i + j + half] = uI - tI
-        const nR = cR * wR - cI * wI
-        cI = cR * wI + cI * wR
-        cR = nR
-      }
-    }
-  }
-}
 
 class PipelineProcessor extends AudioWorkletProcessor {
   private _rnnoise: RnnoiseProcessor | null = null
@@ -80,9 +35,6 @@ class PipelineProcessor extends AudioWorkletProcessor {
   private _inputLength = 0
   private _denoisedLength = 0
   private _denoisedIndex = 0
-
-  // Downsampled output (160 samples at 16 kHz per RNNoise frame).
-  private _output160 = new Float32Array(RNNOISE_FRAME_SIZE / DOWNSAMPLE_RATIO)
 
   // Viz throttling.
   private _lastVizTime = 0
@@ -98,10 +50,6 @@ class PipelineProcessor extends AudioWorkletProcessor {
   private _rawRecord: Float32Array | null = null
   private _processedRecord: Float32Array | null = null
   private _recordOffset = 0
-
-  // Pre-allocated FFT buffers (avoid GC in process()).
-  private _fftReal = new Float32Array(FFT_SIZE)
-  private _fftImag = new Float32Array(FFT_SIZE)
 
   // Last denoised NS frame (always available for viz, even during buffer wrap-around).
   private _lastNsFrame = new Float32Array(RNNOISE_FRAME_SIZE)
@@ -155,39 +103,6 @@ class PipelineProcessor extends AudioWorkletProcessor {
     this.port.postMessage(msg)
   }
 
-  /** Compute RMS level in dBFS for a frame. */
-  private _levelDb(frame: Float32Array): number {
-    let sum = 0
-    for (let i = 0; i < frame.length; i++) {
-      sum += frame[i] * frame[i]
-    }
-    const rms = Math.sqrt(sum / frame.length)
-    return rms < 1e-10 ? -120 : 20 * Math.log10(rms)
-  }
-
-  /** Downsample 48 kHz -> 16 kHz by averaging groups of 3 samples. */
-  private _downsample(frame480: Float32Array): Float32Array {
-    const out = this._output160
-    for (let i = 0, j = 0; i < frame480.length; i += DOWNSAMPLE_RATIO, j++) {
-      let sum = 0
-      for (let k = 0; k < DOWNSAMPLE_RATIO; k++) {
-        sum += frame480[i + k]
-      }
-      out[j] = sum / DOWNSAMPLE_RATIO
-    }
-    return out
-  }
-
-  /** Downsample a frame to N points for waveform display. */
-  private _downsampleForViz(frame: Float32Array, points: number): Float32Array {
-    const out = new Float32Array(points)
-    const step = frame.length / points
-    for (let i = 0; i < points; i++) {
-      out[i] = frame[Math.floor(i * step)]
-    }
-    return out
-  }
-
   process(inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
     const inData = inputs[0]?.[0]
     const outData = outputs[0]?.[0]
@@ -219,10 +134,10 @@ class PipelineProcessor extends AudioWorkletProcessor {
       this._hasNsFrame = true
 
       // Downsample to 16 kHz and post output for KWS.
-      const out160 = this._downsample(frame)
+      const out160 = downsample48to16(frame)
       this._post({
         type: 'output',
-        samples: new Float32Array(out160),
+        samples: out160,
         capturedAtMs: currentTime,
         vad,
       })
@@ -302,8 +217,8 @@ class PipelineProcessor extends AudioWorkletProcessor {
       stageId: 'aec',
       kind: 'aec',
       capturedAtMs,
-      waveform: this._downsampleForViz(rawInput, vizPoints),
-      levelDb: this._levelDb(rawInput),
+      waveform: downsampleForViz(rawInput, vizPoints),
+      levelDb: levelDb(rawInput),
     })
 
     // BSS stage (passthrough): same as AEC output.
@@ -311,7 +226,7 @@ class PipelineProcessor extends AudioWorkletProcessor {
       stageId: 'bss',
       kind: 'bss',
       capturedAtMs,
-      levelDb: this._levelDb(rawInput),
+      levelDb: levelDb(rawInput),
     })
 
     // NS stage: always use the last denoised frame (stable, no intermittent gaps).
@@ -322,30 +237,12 @@ class PipelineProcessor extends AudioWorkletProcessor {
       stageId: 'ns',
       kind: 'ns',
       capturedAtMs,
-      waveform: this._downsampleForViz(nsFrame, vizPoints),
-      levelDb: this._levelDb(nsFrame),
-      spectrum: this._computeSpectrum(nsFrame),
+      waveform: downsampleForViz(nsFrame, vizPoints),
+      levelDb: levelDb(nsFrame),
+      spectrum: computeSpectrum(nsFrame),
     })
 
     this._post({ type: 'frame', frames })
-  }
-
-  /** Compute a magnitude spectrum (SPECTRUM_BINS bins) from a frame. */
-  private _computeSpectrum(frame: Float32Array): Float32Array {
-    const real = this._fftReal
-    const imag = this._fftImag
-    // Copy first FFT_SIZE samples with Hann window.
-    for (let i = 0; i < FFT_SIZE; i++) {
-      real[i] = frame[i] * HANN_WINDOW[i]
-      imag[i] = 0
-    }
-    fft(real, imag, FFT_SIZE)
-    // Magnitude of the first SPECTRUM_BINS bins (low-to-mid frequencies).
-    const mag = new Float32Array(SPECTRUM_BINS)
-    for (let i = 0; i < SPECTRUM_BINS; i++) {
-      mag[i] = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]) / FFT_SIZE
-    }
-    return mag
   }
 }
 
