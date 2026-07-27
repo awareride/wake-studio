@@ -4,8 +4,10 @@ import {
   KWSEngine,
   DEFAULT_CONFIG,
   describeParameters,
+  BACKEND_REGISTRY,
 } from '../kws'
 import type {
+  BackendModelUrls,
   KWSConfig,
   KWSScoreSample,
   KWSTriggerEvent,
@@ -16,7 +18,7 @@ import { MEL_WINDOW_SIZE } from '../kws'
 // Model URLs from benjamin-paine/hey-buddy (CC-BY-4.0, commercially clean).
 // Replaces the openWakeWord models (CC BY-NC-SA) per the human's finding.
 // The hey-buddy pipeline: audio -> mel-spectrogram -> speech-embedding -> classifier.
-const MODEL_URLS = {
+const MODEL_URLS: BackendModelUrls = {
   melspectrogram:
     'https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/pretrained/mel-spectrogram.onnx',
   embedding:
@@ -131,8 +133,10 @@ export const KWSPanel = memo(function KWSPanel({
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-white">KWS detection</h2>
         <p className="text-sm text-slate-400">
-          Phase 2 · hey-buddy pipeline (mel-spectrogram -&gt; speech-embedding -&gt;
-          classifier) in a Web Worker (ADR-018). Demo model:{' '}
+          Phase 2 · pluggable KWS backend (ADR-020) running in a Web Worker
+          (ADR-018). Active backend:{' '}
+          <span className="text-emerald-300/80">OpenWakeWord</span> (hey-buddy,
+          mel-spectrogram -&gt; speech-embedding -&gt; classifier). Demo model:{' '}
           <span className="text-emerald-300/80">hey-buddy</span> (CC-BY-4.0,
           commercially clean). VAD gating via AFE RNNoise VAD.
         </p>
@@ -224,6 +228,21 @@ export const KWSPanel = memo(function KWSPanel({
             </span>
           </h3>
           <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
+              <span className="w-32 shrink-0 text-slate-400">KWS backend</span>
+              <select
+                value={config.backend}
+                disabled
+                className="flex-1 rounded bg-slate-800/80 px-2 py-1 text-slate-300"
+                title="Only OpenWakeWord is browser-feasible in v1 (ADR-020). Other backends arrive in later phases."
+              >
+                {BACKEND_REGISTRY.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label} — {r.availabilityNote}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
               <span className="w-32 shrink-0 text-slate-400">Threshold</span>
               <input

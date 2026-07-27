@@ -12,9 +12,9 @@ export const MEL_WINDOW_SIZE = 1280
 /** The melspectrogram hop size in samples (10 ms @ 16 kHz = 1 AFE frame). */
 export const MEL_HOP_SIZE = 160
 
-/** Default KWS configuration (ADR-018). */
+/** Default KWS configuration (ADR-018, ADR-020). */
 export const DEFAULT_CONFIG: KWSConfig = {
-  mode: 'traditional',
+  backend: 'openwakeword',
   threshold: 0.5,
   minDurationMs: 500,
   smoothingWindowFrames: 10,
@@ -30,16 +30,18 @@ export const DEFAULT_CONFIG: KWSConfig = {
 export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
   return [
     {
-      id: 'mode',
-      label: 'Detection mode',
+      id: 'backend',
+      label: 'KWS backend',
       type: 'select',
-      default: 'traditional',
+      default: 'openwakeword',
       options: [
-        { value: 'traditional', label: 'Traditional (openWakeWord)' },
-        { value: 'few-shot-scaffold', label: 'Few-Shot scaffold (WavLM)' },
+        { value: 'openwakeword', label: 'OpenWakeWord (available)' },
+        { value: 'microwakeword', label: 'micro-wake-word (MCU / Phase 5)' },
+        { value: 'wavlm-few-shot', label: 'WavLM Few-Shot (Phase 3)' },
+        { value: 'pocketsphinx', label: 'PocketSphinx (pending)' },
       ],
       description:
-        'Traditional = melspectrogram -> embedding -> classifier; few-shot-scaffold = WavLM embed only (Phase 3 prep).',
+        'Pluggable KWS backend (ADR-020). Only openwakeword is browser-feasible in v1; the others are registered for the device SDK (ADR-021) and later phases.',
     },
     {
       id: 'threshold',
