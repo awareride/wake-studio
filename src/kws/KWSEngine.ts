@@ -69,10 +69,11 @@ export class KWSEngine {
 
   /**
    * Load models from the registry (ADR-011) into the selected backend
-   * (ADR-020). The backend id comes from `config.backend`. Resolves when ready
-   * to detect.
+   * (ADR-020). The backend id comes from `config.backend`. For the
+   * `wavlm-few-shot` backend, pass the enrolled prototype vector. Resolves
+   * when ready to detect.
    */
-  async load(models: BackendModelUrls): Promise<void> {
+  async load(models: BackendModelUrls, prototype?: Float32Array): Promise<void> {
     if (this._status === 'loading' || this._status === 'ready') return
 
     this._status = 'loading'
@@ -95,7 +96,12 @@ export class KWSEngine {
         }
       }
       this._worker!.addEventListener('message', onMessage)
-      this._send({ type: 'load', backend: this._config.backend, models })
+      this._send({
+        type: 'load',
+        backend: this._config.backend,
+        models,
+        prototype: prototype ? Array.from(prototype) : undefined,
+      })
     })
   }
 

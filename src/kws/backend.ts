@@ -54,11 +54,11 @@ export const BACKEND_REGISTRY: ReadonlyArray<KWSBackendRegistration> = [
     label: 'WavLM Few-Shot (cosine prototype)',
     create: () => {
       throw new Error(
-        'WavLM Few-Shot detection backend is Phase 3. The embed() scaffold is available separately.',
+        'WavLM Few-Shot is created directly by the worker (needs a shared embedProvider + prototype). See worker.ts handleLoad.',
       )
     },
-    browserFeasible: false,
-    availabilityNote: 'Phase 3 (enrollment)',
+    browserFeasible: true,
+    availabilityNote: 'Phase 3 (enrollment required)',
   },
   {
     id: 'pocketsphinx',

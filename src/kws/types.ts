@@ -94,6 +94,7 @@ export interface KWSBackend {
 
 /** Optional capability: extract a speaker embedding for Few-Shot (Phase 3). */
 export interface EmbedProvider {
+  readonly ready: boolean
   embed(audio: Float32Array, sampleRate: number): Promise<Float32Array>
 }
 
@@ -117,7 +118,7 @@ export type KWSStatus = 'idle' | 'loading' | 'ready' | 'running' | 'error'
 
 /** Messages sent from the main thread to the worker. */
 export type KWSWorkerMessage =
-  | { type: 'load'; backend: KWSBackendId; models: BackendModelUrls }
+  | { type: 'load'; backend: KWSBackendId; models: BackendModelUrls; prototype?: number[] }
   | { type: 'config'; config: KWSConfig }
   | {
       type: 'audio'

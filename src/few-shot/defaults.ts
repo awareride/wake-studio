@@ -1,0 +1,92 @@
+/**
+ * Few-Shot module - default configuration and parameter descriptors (ADR-017).
+ */
+
+import type { FewShotConfig, ParameterDescriptor } from './types'
+
+/** Default Few-Shot configuration. */
+export const DEFAULT_CONFIG: FewShotConfig = {
+  threshold: 0.7,
+  minDurationMs: 500,
+  cooldownMs: 2000,
+  smoothingWindowFrames: 10,
+  vadGateEnabled: true,
+  vadThreshold: 0.3,
+  windowMs: 1500,
+  hopMs: 80,
+  useNegativePrototype: false,
+}
+
+/** Declare all tunable Few-Shot parameters for the Studio config panel. */
+export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
+  return [
+    {
+      id: 'threshold',
+      label: 'Cosine threshold',
+      type: 'number',
+      default: 0.7,
+      min: 0.5,
+      max: 0.95,
+      step: 0.01,
+      description: 'Cosine-similarity score (rescaled [0,1]) must exceed this to trigger.',
+    },
+    {
+      id: 'minDurationMs',
+      label: 'Min. duration',
+      type: 'number',
+      default: 500,
+      min: 100,
+      max: 3000,
+      step: 100,
+      unit: 'ms',
+      description: 'Score must exceed threshold for this long to trigger.',
+    },
+    {
+      id: 'cooldownMs',
+      label: 'Cooldown',
+      type: 'number',
+      default: 2000,
+      min: 500,
+      max: 10000,
+      step: 500,
+      unit: 'ms',
+      description: 'Minimum time between triggers.',
+    },
+    {
+      id: 'smoothingWindowFrames',
+      label: 'Smoothing window',
+      type: 'number',
+      default: 10,
+      min: 1,
+      max: 30,
+      step: 1,
+      unit: 'frames',
+      description: 'Sliding-window size for max-pooling.',
+    },
+    {
+      id: 'windowMs',
+      label: 'Detection window',
+      type: 'number',
+      default: 1500,
+      min: 500,
+      max: 3000,
+      step: 100,
+      unit: 'ms',
+      description: 'Audio window fed to WavLM for each embedding.',
+    },
+    {
+      id: 'vadGateEnabled',
+      label: 'VAD gate',
+      type: 'boolean',
+      default: true,
+      description: 'Skip inference when VAD < threshold (reuses AFE RNNoise VAD).',
+    },
+    {
+      id: 'useNegativePrototype',
+      label: 'Negative prototype',
+      type: 'boolean',
+      default: false,
+      description: 'Subtract the negative prototype for a tighter decision boundary.',
+    },
+  ]
+}

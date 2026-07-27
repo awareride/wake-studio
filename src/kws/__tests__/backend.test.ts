@@ -22,9 +22,9 @@ describe('BACKEND_REGISTRY', () => {
     ])
   })
 
-  it('only openwakeword is browser-feasible in v1', () => {
+  it('openwakeword and wavlm-few-shot are browser-feasible', () => {
     const feasible = BACKEND_REGISTRY.filter((r) => r.browserFeasible)
-    expect(feasible.map((r) => r.id)).toEqual(['openwakeword'])
+    expect(feasible.map((r) => r.id)).toEqual(['openwakeword', 'wavlm-few-shot'])
   })
 
   it('every entry has a label and an availability note', () => {
@@ -68,8 +68,8 @@ describe('createBackend', () => {
     expect(() => createBackend('microwakeword')).toThrow(/not browser-feasible/)
   })
 
-  it('throws for wavlm-few-shot (Phase 3)', () => {
-    expect(() => createBackend('wavlm-few-shot')).toThrow(/Phase 3/)
+  it('throws for wavlm-few-shot (created by the worker, not the factory)', () => {
+    expect(() => createBackend('wavlm-few-shot')).toThrow(/created directly by the worker/)
   })
 
   it('throws for pocketsphinx (pending WASM port)', () => {

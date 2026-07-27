@@ -20,6 +20,7 @@ import type {
 } from './types'
 import { createBackend } from './backend'
 import { WavLMEmbedProvider } from './backends/wavlm-embed'
+import { WavLMFewShotBackend } from './backends/wavlm-few-shot'
 import { DEFAULT_CONFIG } from './defaults'
 import { ScoreSmoother, TriggerDetector, shouldGateByVad } from './dsp'
 
@@ -86,6 +87,7 @@ async function detectExecutionProvider(): Promise<'webgpu' | 'wasm'> {
 async function handleLoad(
   backendId: KWSBackendId,
   urls: BackendModelUrls,
+  prototypeVector?: number[],
 ): Promise<void> {
   actualExecutionProvider =
     config.executionProvider === 'webgpu'
@@ -93,11 +95,8 @@ async function handleLoad(
       : 'wasm'
 
   try {
-    backend = createBackend(backendId)
-    await backend.load(urls, actualExecutionProvider)
-
-    // WavLM is optional (Few-Shot embed scaffold, Phase 3). Load failure is
-    // non-fatal for traditional KWS detection.
+    // WavLM is required for the wavlm-few-shot backend AND for the embed()
+    // scaffold. Load it first.
     if (urls.wavlm) {
       try {
         embedProvider = new WavLMEmbedProvider()
@@ -105,6 +104,36 @@ async function handleLoad(
       } catch {
         embedProvider = null
       }
+    }
+
+    if (backendId === 'wavlm-few-shot') {
+      // Few-Shot backend: reuse the shared WavLM embedProvider + the prototype.
+      if (!embedProvider || !embedProvider.ready) {
+        throw new Error(
+          'WavLM Few-Shot backend requires a loaded WavLM encoder (provide a wavlm URL).',
+        )
+      }
+      if (!prototypeVector || prototypeVector.length === 0) {
+        throw new Error(
+          'WavLM Few-Shot backend requires a prototype vector in the load message.',
+        )
+      }
+      const proto = {
+        id: 'enrolled',
+        word: 'enrolled-word',
+        vector: new Float32Array(prototypeVector),
+        sampleIds: [],
+        createdAtMs: Date.now(),
+      }
+      backend = new WavLMFewShotBackend(
+        embedProvider,
+        proto,
+        1500,
+        false,
+      )
+    } else {
+      backend = createBackend(backendId)
+      await backend.load(urls, actualExecutionProvider)
     }
 
     post({ type: 'loaded', executionProvider: actualExecutionProvider })
@@ -248,7 +277,7 @@ self.onmessage = async (e: MessageEvent<KWSWorkerMessage>) => {
   try {
     switch (msg.type) {
       case 'load':
-        await handleLoad(msg.backend, msg.models)
+        await handleLoad(msg.backend, msg.models, msg.prototype)
         break
       case 'config':
         handleConfig(msg.config)
