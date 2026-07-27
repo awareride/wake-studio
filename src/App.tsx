@@ -1,5 +1,6 @@
 import { Header } from './components/Header'
 import { PipelineView } from './components/PipelineView'
+import { AFEPanel } from './components/AFEPanel'
 import { Domains } from './components/Domains'
 import { Footer } from './components/Footer'
 
@@ -24,10 +25,11 @@ export default function App() {
             ready-to-build package for your target chip.
           </p>
           <p className="mt-4 text-xs uppercase tracking-widest text-amber-300/80">
-            Phase 0 · foundation &amp; scaffold · in progress
+            Phase 1 · in-browser AFE + pipeline visualization · in progress
           </p>
         </section>
 
+        <AFEPanel />
         <PipelineView />
         <Domains />
       </main>

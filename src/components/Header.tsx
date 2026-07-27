@@ -32,7 +32,7 @@ export function Header() {
           </span>
         </div>
         <span className="ml-auto rounded-md border border-white/10 px-3 py-1.5 text-xs text-slate-300">
-          v0.0.1 · Phase 0
+          v0.0.1 · Phase 1
         </span>
       </div>
     </header>

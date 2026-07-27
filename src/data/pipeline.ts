@@ -20,9 +20,9 @@ export const PIPELINE: readonly PipelineStage[] = [
     abbr: 'AEC',
     name: 'Acoustic Echo Cancellation',
     role: 'Removes loudspeaker / echo feedback from the microphone signal.',
-    browserRuntime: 'WebRTC AEC3 (WASM)',
+    browserRuntime: 'Passthrough (v1) · AEC3 deferred to v1.x',
     exportRuntime: 'WebRTC audio_processing / SpeexDSP',
-    status: 'pending',
+    status: 'in-progress',
   },
   {
     id: 'bss',
@@ -38,9 +38,9 @@ export const PIPELINE: readonly PipelineStage[] = [
     abbr: 'NS',
     name: 'Noise Suppression',
     role: 'Spectral post-filter that suppresses stationary / non-stationary noise.',
-    browserRuntime: 'RNNoise (WASM, AudioWorklet)',
+    browserRuntime: 'RNNoise (WASM, AudioWorklet) · vendored prebuilt',
     exportRuntime: 'RNNoise (C) / vendor Deep NS',
-    status: 'pending',
+    status: 'in-progress',
   },
   {
     id: 'kws',
