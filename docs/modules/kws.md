@@ -1,9 +1,9 @@
 # KWS (Keyword Spotting) - Module Specification
 
-- **Status:** Draft (docs-first - pending human review before implementation)
+- **Status:** Accepted (human review complete; open questions resolved - ADR-018)
 - **Owner:** WakeStudio team
 - **Plan phase:** Phase 2
-- **Related ADRs:** ADR-001 (pipeline stages), ADR-002 (WavLM encoder), ADR-011 (lazy model registry), ADR-017 (per-component config panel)
+- **Related ADRs:** ADR-001 (pipeline stages), ADR-002 (WavLM encoder), ADR-011 (lazy model registry), ADR-017 (per-component config panel), ADR-018 (KWS Phase 2 design decisions)
 - **Depends on (modules):** AFE (consumes the 16 kHz output stream)
 - **Last updated:** 2026-07-27
 
@@ -43,13 +43,14 @@ experience (requirement R5).
     log-Mel front-end. Commercially clean.
   - **Google speech_embedding** (`embedding_model.onnx`, Apache-2.0) - frozen
     feature backbone (~1.4M params). Commercially clean.
-  - **Demo classifier model** - see [Q-KWS-1]: the openWakeWord `alexa.onnx`
-    (CC BY-NC-SA, demo-only) is the simplest option; a permissively-licensed or
-    self-trained model is the clean option.
+  - **Demo classifier model** - the openWakeWord `alexa.onnx` (CC BY-NC-SA,
+    demo-only) for the Phase 2 demo (ADR-018). Not exported commercially (the
+    Phase 4 license gate blocks it); Phase 5 trains a clean replacement.
   - **WavLM-base-plus** (`wavlm-base-plus-int8`, MIT) - frozen Few-Shot encoder
     (~95M params, int8 ~95 MB). Scaffolded for Phase 3.
-  - **Silero VAD** (`silero-vad.onnx`, MIT) - voice activity detection for KWS
-    gating. See [Q-KWS-4] (may defer to v1.x if the AFE's RNNoise VAD suffices).
+  - **VAD**: the AFE's RNNoise VAD score (already in `AFEOutputFrame.vadActive`)
+    is used for KWS gating for v1 (ADR-018). Silero VAD (ONNX, MIT) is deferred to
+    v1.x when more accurate gating is needed.
 
 ## 4. Public API & types
 
@@ -139,7 +140,7 @@ export interface KWSEngine {
 
 ## 5. Data flow / sequence
 
-**Threading (ADR-018, proposed):** KWS inference runs in a **Web Worker**
+**Threading (ADR-018):** KWS inference runs in a **Web Worker**
 (off-main-thread) to avoid blocking the UI. The main thread owns the `KWSEngine`
 controller and visualization; the worker owns the ONNX sessions + inference loop.
 They communicate via `postMessage` (scores/triggers out, config in). Rationale:
@@ -170,7 +171,7 @@ AFE (AudioWorklet)                KWS Worker                  Main thread (UI)
    full (openWakeWord uses 1280 samples = 80 ms per mel frame, with 10 ms hops).
 2. **VAD gate:** if `vadGateEnabled` and VAD probability < `vadThreshold`, skip
    inference for this frame (saves compute, suppresses false alarms in silence).
-   VAD source: see [Q-KWS-4].
+   VAD source: the AFE's RNNoise VAD (`AFEOutputFrame.vadActive`, ADR-018).
 3. **Melspectrogram:** run `melspectrogram.onnx` on the audio window -> mel
    features.
 4. **Embedding:** run `embedding_model.onnx` on the mel features -> embedding
@@ -261,35 +262,28 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
 - WebGPU/WASM feature detection ensures the app degrades gracefully without
   transmitting device fingerprints.
 
-## 11. Open questions
+## 11. Resolved decisions
 
-- **[Q-KWS-1] Demo model choice.** The openWakeWord `alexa.onnx` (CC BY-NC-SA,
-  demo-only) is the simplest demo model - already in the registry, marked
-  `class: demo-only`. Alternatively, train/find a permissively-licensed model
-  first (Phase 5's job). Recommendation: **use alexa.onnx for the Phase 2 demo**
-  (it's not exported commercially; the license gate blocks export), and note that
-  Phase 5 trains a clean replacement. Confirm.
-- **[Q-KWS-2] Inference thread: Web Worker vs main thread.** Recommendation: **Web
-  Worker** (off-main-thread) to avoid blocking the UI during inference. This adds
-  a `postMessage` hop (~1 ms) but keeps the score curve smooth. Confirm; if
-  confirmed, this becomes ADR-018.
-- **[Q-KWS-3] Execution provider: WebGPU-first vs WASM-only for v1.** WebGPU is
-  faster but less widely supported (Chrome/Edge only; Firefox/Safari lag).
-  Recommendation: **WebGPU-first with automatic WASM fallback** (feature-detect
-  `navigator.gpu`). The config panel exposes the choice. Confirm.
-- **[Q-KWS-4] VAD source: Silero VAD vs AFE's RNNoise VAD.** The AFE already
-  provides `vadActive` (from RNNoise's VAD score) in `AFEOutputFrame`. Loading
-  Silero VAD (a separate ONNX model + inference) adds ~2 MB + compute. Recommendation:
-  **use the AFE's RNNoise VAD for v1** (it's already computed, free); defer Silero
-  VAD to v1.x when we need more accurate gating for KWS. Confirm; if confirmed,
-  update the plan's Phase 2 task ("Silero VAD integration") to "VAD gating via
-  AFE's RNNoise VAD (Silero deferred to v1.x)."
+All Phase 2 open questions are resolved (ADR-018); the contract is locked.
+
+- **[Q-KWS-1] Demo model -> `alexa.onnx`** (CC BY-NC-SA, demo-only) (ADR-018).
+  Used for the Phase 2 in-browser demo only; never exported commercially (the
+  Phase 4 license gate blocks it); Phase 5 trains a clean replacement.
+- **[Q-KWS-2] Inference thread -> Web Worker** (ADR-018). Off-main-thread to
+  avoid blocking the UI; the main thread owns the controller + visualization.
+- **[Q-KWS-3] Execution provider -> WebGPU-first with WASM fallback** (ADR-018).
+  Feature-detect `navigator.gpu`; fall back to WASM automatically. The config
+  panel exposes the choice.
+- **[Q-KWS-4] VAD source -> AFE's RNNoise VAD** (ADR-018). The AFE already
+  provides `vadActive` in `AFEOutputFrame` (free, no extra model). Silero VAD is
+  deferred to v1.x. The plan's "Silero VAD integration" task is superseded by
+  "VAD gating via AFE's RNNoise VAD."
 
 ## 12. References
 
 - Plan: §4.1 Domain B (KWS models), §4.3 (inference stack), Phase 2 tasks/validation.
 - ADR-001 (pipeline stages), ADR-002 (WavLM encoder), ADR-011 (lazy model registry),
-  ADR-017 (per-component config panel).
+  ADR-017 (per-component config panel), ADR-018 (KWS Phase 2 design decisions).
 - Upstream: onnxruntime-web; openWakeWord (`dscripka/openWakeWord`); WavLM
   (`microsoft/wavlm-base-plus`); Silero VAD (`snakers4/silero-vad`).
 - Model registry: `public/model-registry.json` (melspectrogram, speech_embedding,
@@ -303,3 +297,4 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
 | Date | Change | Author |
 |---|---|---|
 | 2026-07-27 | Initial draft (docs-first, pending human review). | agent |
+| 2026-07-27 | Human review: resolved Q-KWS-1..4 (ADR-018). Status -> Accepted. | agent |

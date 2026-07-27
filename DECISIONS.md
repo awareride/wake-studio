@@ -283,10 +283,42 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   updated to require this. The panel itself is built incrementally - the AFE panel
   lands in Phase 1, and each subsequent phase adds its component's panel.
 
+## ADR-018 - KWS Phase 2 design decisions
+
+- **Status:** Accepted
+- **Origin:** Phase 2 `docs/modules/kws.md` open questions Q-KWS-1..4 (resolved by human)
+- **Decision:** Four KWS implementation choices are locked:
+  1. **Demo model (Q-KWS-1): `alexa.onnx`** (openWakeWord, CC BY-NC-SA, demo-only).
+     Used for the Phase 2 in-browser demo only - never exported commercially (the
+     Phase 4 license gate blocks it); Phase 5 trains a clean, commercially-ownable
+     replacement. Already in `model-registry.json` as `class: demo-only`.
+  2. **Inference thread (Q-KWS-2): Web Worker.** KWS inference runs off-main-thread
+     to avoid blocking the UI (ONNX inference at 10 ms/frame can take 2-10 ms). The
+     main thread owns the `KWSEngine` controller + visualization; the worker owns
+     the ONNX sessions + inference loop; they communicate via `postMessage`.
+  3. **Execution provider (Q-KWS-3): WebGPU-first with WASM fallback.** Feature-detect
+     `navigator.gpu`; use WebGPU when available (faster), fall back to WASM
+     automatically (universal). The config panel exposes the choice.
+  4. **VAD source (Q-KWS-4): AFE's RNNoise VAD.** The AFE already provides
+     `vadActive` (from RNNoise's VAD score) in `AFEOutputFrame` - free, no extra
+     model. Silero VAD (a separate ONNX model, ~2 MB + compute) is deferred to
+     v1.x when more accurate KWS gating is needed. The plan's "Silero VAD
+     integration" task is superseded by "VAD gating via AFE's RNNoise VAD."
+- **Rationale:** `alexa.onnx` is the simplest path to a working demo without
+  waiting for Phase 5 training; the license gate makes it safe. Off-main-thread
+  inference keeps the UI smooth. WebGPU-first gets the best perf where available
+  while WASM guarantees universal support. Reusing the AFE's already-computed VAD
+  avoids loading a redundant model and defers Silero complexity to v1.x.
+- **Consequences:** The KWS module adds a Web Worker to the architecture
+  (`src/kws/worker.ts`). WebGPU support varies by browser (Chrome/Edge yes;
+  Firefox/Safari lag) - the WASM fallback handles this. The CC BY-NC-SA demo model
+  must never enter a commercial export (enforced by the Phase 4 gate). Silero VAD
+  remains in the model registry but is not loaded in v1.
+
 ---
 
 _Open questions still pending human input: Q10 (self-hosted training engine) is
-open for Phase 5. Q9 (training backends) is resolved as ADR-013; the project name
-is ADR-014; CI/CD deferral is ADR-015; AFE Phase 1 design is ADR-016; the config
-panel is ADR-017. Defaults from Q2/Q3/Q4/Q7 are applied per this log and may be
-overridden._
+open for Phase 5. Q9 (training backends) is ADR-013; project name is ADR-014; CI/CD
+deferral is ADR-015; AFE Phase 1 design is ADR-016; the config panel is ADR-017;
+KWS Phase 2 design is ADR-018. Defaults from Q2/Q3/Q4/Q7 are applied per this log
+and may be overridden._

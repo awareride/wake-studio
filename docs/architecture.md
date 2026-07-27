@@ -143,7 +143,7 @@ reference C/C++ pipelines for target chips.
 
 | Concern | Choice | License |
 |---|---|---|
-| ML inference | **onnxruntime-web** (WASM + WebGPU) | Apache-2.0 |
+| ML inference | **onnxruntime-web** (WebGPU + WASM fallback) - runs in a Web Worker (ADR-018) | Apache-2.0 |
 | TFLite/TF models in browser | **@tensorflow/tfjs** (only if a model is TFLite-only) | Apache-2.0 |
 | Audio capture/processing | Web Audio API + AudioWorklet | W3C standard |
 | TTS for synthetic training data | **Piper** (`OHF-Voice/piper1-gpl` GPL-3.0 active / `rhasspy/piper` MIT archived) | GPL-3.0 / MIT (verify voices) |
@@ -254,7 +254,8 @@ script. A **license gate** refuses to export a non-commercial-licensed model int
   (self-hosted service packaging), ADR-006 (first targets), ADR-009 (MIT license),
   ADR-011 (lazy model registry), ADR-012 (deploy base path), ADR-013 (training
   backends), ADR-014 (project name "WakeStudio"), ADR-015 (CI/CD deferred to
-  post-MVP), ADR-016 (AFE Phase 1 design), ADR-017 (per-component config panel).
+  post-MVP), ADR-016 (AFE Phase 1 design), ADR-017 (per-component config panel),
+  ADR-018 (KWS Phase 2 design).
 - **License matrix:** `LICENSES.md`.
 - **Living plan & phased roadmap:** `.agents/plan/goal.plan` (gitignored; the source
   of truth for phase status and open questions).
