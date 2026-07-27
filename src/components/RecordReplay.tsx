@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, memo } from 'react'
 import type { RecordedClip } from '../afe'
 import type { AFEPipeline } from '../afe'
 
@@ -9,7 +9,7 @@ interface Props {
 
 type PlaybackMode = 'raw' | 'processed'
 
-export function RecordReplay({ pipeline, running }: Props) {
+export const RecordReplay = memo(function RecordReplay({ pipeline, running }: Props) {
   const [recording, setRecording] = useState(false)
   const [recordProgress, setRecordProgress] = useState(0)
   const [clip, setClip] = useState<RecordedClip | null>(null)
@@ -99,8 +99,6 @@ export function RecordReplay({ pipeline, running }: Props) {
     }
   }, [stopPlayback])
 
-  if (!running) return null
-
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
       <h3 className="mb-4 text-sm font-semibold text-white">
@@ -114,7 +112,7 @@ export function RecordReplay({ pipeline, running }: Props) {
         <button
           onClick={handleRecord}
           disabled={recording}
-          className={`min-w-[140px] rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+          className={`min-w-[140px] whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             recording
               ? 'cursor-not-allowed bg-slate-700 text-slate-500'
               : 'bg-red-500/80 text-white hover:bg-red-500'
@@ -194,7 +192,7 @@ export function RecordReplay({ pipeline, running }: Props) {
       )}
     </div>
   )
-}
+})
 
 /** Static waveform overview of a recorded clip. */
 function RecordingWaveform({
@@ -238,7 +236,7 @@ function RecordingWaveform({
       ref={canvasRef}
       width={400}
       height={64}
-      className="w-full rounded bg-slate-950/60"
+      className="h-16 w-full rounded bg-slate-950/60"
     />
   )
 }

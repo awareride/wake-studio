@@ -103,6 +103,10 @@ class PipelineProcessor extends AudioWorkletProcessor {
   private _fftReal = new Float32Array(FFT_SIZE)
   private _fftImag = new Float32Array(FFT_SIZE)
 
+  // Last denoised NS frame (always available for viz, even during buffer wrap-around).
+  private _lastNsFrame = new Float32Array(RNNOISE_FRAME_SIZE)
+  private _hasNsFrame = false
+
   constructor() {
     super()
 
@@ -209,6 +213,11 @@ class PipelineProcessor extends AudioWorkletProcessor {
         vad = this._rnnoise.processAudioFrame(frame, true)
       }
 
+      // Keep a copy of the last NS frame for stable visualization
+      // (avoids intermittent missing data during circular-buffer wrap-around).
+      this._lastNsFrame.set(frame)
+      this._hasNsFrame = true
+
       // Downsample to 16 kHz and post output for KWS.
       const out160 = this._downsample(frame)
       this._post({
@@ -305,25 +314,18 @@ class PipelineProcessor extends AudioWorkletProcessor {
       levelDb: this._levelDb(rawInput),
     })
 
-    // NS stage: the last denoised frame (if available).
-    if (this._denoisedLength >= RNNOISE_FRAME_SIZE) {
-      const nsStart = this._denoisedLength - RNNOISE_FRAME_SIZE
-      const nsFrame = this._buffer.subarray(nsStart, this._denoisedLength)
-      frames.push({
-        stageId: 'ns',
-        kind: 'ns',
-        capturedAtMs,
-        waveform: this._downsampleForViz(nsFrame, vizPoints),
-        levelDb: this._levelDb(nsFrame),
-        spectrum: this._computeSpectrum(nsFrame),
-      })
-    } else {
-      frames.push({
-        stageId: 'ns',
-        kind: 'ns',
-        capturedAtMs,
-      })
-    }
+    // NS stage: always use the last denoised frame (stable, no intermittent gaps).
+    const nsFrame = this._hasNsFrame
+      ? this._lastNsFrame
+      : rawInput.subarray(0, Math.min(RNNOISE_FRAME_SIZE, rawInput.length))
+    frames.push({
+      stageId: 'ns',
+      kind: 'ns',
+      capturedAtMs,
+      waveform: this._downsampleForViz(nsFrame, vizPoints),
+      levelDb: this._levelDb(nsFrame),
+      spectrum: this._computeSpectrum(nsFrame),
+    })
 
     this._post({ type: 'frame', frames })
   }

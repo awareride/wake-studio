@@ -7,6 +7,13 @@
     color-scheme: dark;
   }
 
+  /* Always show the scrollbar: prevents a feedback loop where content height
+     changes cause the scrollbar to appear/disappear, which changes the viewport
+     width, which re-wraps text, which changes content height (ADR: flicker fix). */
+  html {
+    overflow-y: scroll;
+  }
+
   body {
     @apply bg-slate-950 text-slate-100 antialiased;
   }

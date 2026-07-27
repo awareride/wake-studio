@@ -87,7 +87,7 @@ export function AFEPanel() {
       </div>
 
       {/* Controls */}
-      <div className="mb-6 flex flex-wrap items-center gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="mb-6 flex flex-nowrap items-center gap-4 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.03] p-5">
         {!running ? (
           <button
             onClick={handleStart}
@@ -105,9 +105,9 @@ export function AFEPanel() {
         )}
 
         {running && (
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-sm whitespace-nowrap">
             <span className="text-slate-400">Latency:</span>
-            <span className={`font-mono font-semibold ${latencyColor}`}>
+            <span className={`inline-block w-14 text-right font-mono font-semibold ${latencyColor}`}>
               {latencyMs.toFixed(0)} ms
             </span>
             <span className="text-slate-500">/ 150 ms budget</span>
@@ -132,7 +132,7 @@ export function AFEPanel() {
 
       {/* Per-stage panels */}
       {running && (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-3 items-start">
           {(['aec', 'bss', 'ns'] as const).map((id) => (
             <StagePanel
               key={id}
@@ -231,44 +231,44 @@ const StagePanel = memo(function StagePanel({
         <WaveformCanvas data={data?.waveform} />
       </div>
 
-      {/* Level */}
-      {data?.levelDb != null && (
-        <div className="flex items-center gap-2 text-xs">
-          <span className="w-12 text-slate-500">Level</span>
-          <div className="flex-1">
-            <LevelBar db={data.levelDb} />
-          </div>
-          <span className="w-14 text-right font-mono text-slate-400">
-            {data.levelDb.toFixed(1)} dB
-          </span>
+      {/* Level - always rendered for stable card height */}
+      <div className="flex items-center gap-2 text-xs whitespace-nowrap">
+        <span className="w-12 shrink-0 text-slate-500">Level</span>
+        <div className="flex-1">
+          <LevelBar db={data?.levelDb ?? -60} />
         </div>
-      )}
+        <span className="w-20 shrink-0 text-right font-mono text-slate-400">
+          {data?.levelDb != null ? `${data.levelDb.toFixed(1)} dB` : '-'}
+        </span>
+      </div>
 
-      {/* VAD (NS only for v1) */}
-      {id === 'ns' && data?.vadProbability != null && (
-        <div className="mt-2 flex items-center gap-2 text-xs">
-          <span className="w-12 text-slate-500">VAD</span>
+      {/* VAD (NS only for v1) - always rendered for stable card height */}
+      {id === 'ns' && (
+        <div className="mt-2 flex items-center gap-2 text-xs whitespace-nowrap">
+          <span className="w-12 shrink-0 text-slate-500">VAD</span>
           <div className="flex-1">
             <div className="h-2 overflow-hidden rounded-full bg-slate-700">
               <div
                 className="h-full rounded-full bg-sky-400"
                 style={{
-                  width: `${data.vadProbability * 100}%`,
+                  width: `${(data?.vadProbability ?? 0) * 100}%`,
                 }}
               />
             </div>
           </div>
-          <span className="w-14 text-right font-mono text-slate-400">
-            {(data.vadProbability * 100).toFixed(0)}%
+          <span className="w-20 shrink-0 text-right font-mono text-slate-400">
+            {data?.vadProbability != null
+              ? `${(data.vadProbability * 100).toFixed(0)}%`
+              : '-'}
           </span>
         </div>
       )}
 
-      {/* Spectrum (NS only) */}
-      {id === 'ns' && data?.spectrum && (
+      {/* Spectrum (NS only) - always rendered for stable card height */}
+      {id === 'ns' && (
         <div className="mt-2">
           <div className="mb-1 text-xs text-slate-500">Spectrum</div>
-          <SpectrogramCanvas data={data.spectrum} />
+          <SpectrogramCanvas data={data?.spectrum ?? new Float32Array(64)} />
         </div>
       )}
     </div>
@@ -311,7 +311,7 @@ function WaveformCanvas({ data }: { data?: Float32Array }) {
       ref={canvasRef}
       width={256}
       height={64}
-      className="w-full rounded bg-slate-950/60"
+      className="h-16 w-full rounded bg-slate-950/60"
     />
   )
 }
@@ -361,7 +361,7 @@ function SpectrogramCanvas({ data }: { data: Float32Array }) {
       ref={canvasRef}
       width={256}
       height={48}
-      className="w-full rounded bg-slate-950/60"
+      className="h-12 w-full rounded bg-slate-950/60"
     />
   )
 }

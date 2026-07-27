@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, memo } from 'react'
 import type { StageFrameData } from '../afe'
 
 interface Props {
@@ -23,7 +23,7 @@ const STAGE_COLORS: Record<string, string> = {
   ns: '#38bdf8', // sky-400
 }
 
-export function PipelineOverview({ frameData, running, latencyMs }: Props) {
+export const PipelineOverview = memo(function PipelineOverview({ frameData, running, latencyMs }: Props) {
   const historyRef = useRef<HistoryPoint[]>([])
   const scrollCanvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -112,7 +112,7 @@ export function PipelineOverview({ frameData, running, latencyMs }: Props) {
       </div>
     </div>
   )
-}
+})
 
 /** A stage node in the flow diagram with a mini waveform. */
 function FlowNode({
@@ -275,7 +275,7 @@ function ScrollingCurve({
       ref={canvasRef}
       width={800}
       height={120}
-      className="w-full rounded bg-slate-950/60"
+      className="h-[120px] w-full rounded bg-slate-950/60"
     />
   )
 }

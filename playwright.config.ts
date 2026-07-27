@@ -14,6 +14,14 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:4173',
     trace: 'on-first-retry',
+    // Fake media stream: auto-grants mic permission + provides a synthetic audio
+    // device, so audio tests can run headlessly without real hardware.
+    launchOptions: {
+      args: [
+        '--use-fake-device-for-media-stream',
+        '--use-fake-ui-for-media-stream',
+      ],
+    },
   },
   projects: [
     {
