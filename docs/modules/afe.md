@@ -1,9 +1,9 @@
 # AFE (Audio Front-End) - Module Specification
 
-- **Status:** Draft (docs-first - pending human review before implementation)
+- **Status:** Accepted (human review complete; open questions resolved - ADR-016/017)
 - **Owner:** WakeStudio team
 - **Plan phase:** Phase 1
-- **Related ADRs:** ADR-001 (pipeline stages AEC -> BSS -> NS -> KWS), ADR-003 (vendor vs portable AFE)
+- **Related ADRs:** ADR-001 (pipeline stages AEC -> BSS -> NS -> KWS), ADR-003 (vendor vs portable AFE), ADR-016 (AFE Phase 1 design decisions), ADR-017 (per-component config panel)
 - **Depends on (modules):** none (capture is the source of the audio graph)
 - **Last updated:** 2026-07-27
 
@@ -34,11 +34,11 @@ delivers the first half of the in-browser experience (requirements R1 and R5).
   stream.
 - **External libraries / models** (see `LICENSES.md`):
   - WebRTC AEC3 (WASM) - BSD-3 - AEC stage.
-  - RNNoise (WASM) - BSD-3 core; ports: `@timephy/rnnoise-wasm` (Apache-2.0) or
-    `simple-rnnoise-wasm` (MIT) - NS stage. _Which port: see [Q-AFE-2]._
+  - RNNoise via **`@timephy/rnnoise-wasm`** (Apache-2.0 port of the BSD-3 RNNoise
+    core) - NS stage (ADR-016).
   - Silero VAD (ONNX, onnxruntime-web) - MIT - VAD helper for visualization/gating.
-  - BSS: 2-mic beamforming approximation or single-mic passthrough - custom DSP,
-    no external dep. _Multi-mic default: see [Q-AFE-4]._
+  - BSS: single-mic passthrough by default for v1 (ADR-016); 2-mic beamforming is
+    an opt-in when a stereo mic array is detected. Custom DSP, no external dep.
 
 ## 4. Public API & types
 
@@ -75,6 +75,43 @@ export interface AFEOutputFrame {
   vadActive: boolean;
 }
 
+/** AFE topology: how the stage DSP cores are wired (ADR-016). */
+export type AFETopology = 'single-worklet' | 'node-per-stage';
+
+/** Per-engine processing frame size in ms (ADR-016; configurable per engine). */
+export interface FrameConfig {
+  aec: number; // default 10
+  bss: number; // default 10
+  ns: number;  // default 10
+}
+
+/** Full AFE configuration; every field has a default and is surfaced in the
+ *  Studio config panel (ADR-017). */
+export interface AFEConfig {
+  topology: AFETopology;        // default 'single-worklet'
+  channels: 1 | 2;              // default 1 (single-mic passthrough)
+  frameMs: FrameConfig;         // default { aec:10, bss:10, ns:10 }
+  latencyBudgetMs: number;      // default 150
+  vizFps: number;               // default 30
+  // Stage-specific DSP params (e.g. AEC ERLE target, NS attenuation) are
+  // declared via describeParameters() below.
+}
+
+/** Descriptor for one tunable parameter, used to build the Studio config panel
+ *  (ADR-017). Every module exposes its parameters this way. */
+export interface ParameterDescriptor {
+  id: string;
+  label: string;
+  type: 'number' | 'boolean' | 'select';
+  default: number | boolean | string;
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: ReadonlyArray<{ value: string; label: string }>;
+  unit?: string;
+  description: string;
+}
+
 /** Top-level controller the UI drives. */
 export interface AFEPipeline {
   /** Request mic permission and start the pipeline. Resolves on first audio frame. */
@@ -99,6 +136,13 @@ export interface AFEPipeline {
   /** Record N seconds of both raw and processed audio for offline replay. */
   record(seconds: number): Promise<{ raw: Float32Array; processed: Float32Array }>;
 
+  /** Current configuration (ADR-016/017). */
+  readonly config: AFEConfig;
+  /** Update configuration; applied live where safe, otherwise on next start(). */
+  setConfig(patch: Partial<AFEConfig>): void;
+  /** Declare all tunable parameters + defaults for the Studio config panel. */
+  describeParameters(): ReadonlyArray<ParameterDescriptor>;
+
   /** Live end-to-end latency in ms (capture -> display), for the latency meter. */
   readonly latencyMs: number;
 }
@@ -106,17 +150,17 @@ export interface AFEPipeline {
 
 ## 5. Data flow / sequence
 
-**Architecture decision [Q-AFE-1]:** a **single `pipeline-processor` AudioWorklet**
-hosts all three stage DSP cores internally, rather than one AudioWorkletNode per
-stage. Rationale: lower latency (no inter-node buffer copying, shared WASM heap),
-a single `postMessage` stream for visualization, and simpler per-frame state
-sharing. The plan's literal "each an AudioWorklet node" wording is superseded by
-this recommendation pending human sign-off.
+**Topology (ADR-016, resolved):** the AFE supports **both** a single
+`pipeline-processor` AudioWorklet (all stage DSP cores in one node) and a
+node-per-stage layout, selectable via `AFEConfig.topology`. The **single-worklet**
+topology is **implemented first** (lower latency: no inter-node buffer copying,
+shared WASM heap, one `postMessage` stream); node-per-stage is a later option.
+The plan's original "each an AudioWorklet node" wording is superseded by this.
 
 1. **Capture:** `getUserMedia({ audio: { echoCancellation: false,
    noiseSuppression: false, autoGainControl: false } })` - browser DSP disabled so
-   ours is the only processing. Request 2 channels only if BSS multi-mic is enabled
-   ([Q-AFE-4]); otherwise mono.
+   ours is the only processing. Request 2 channels only if `config.channels === 2`
+   (stereo mic array for BSS); otherwise mono (default, single-mic passthrough).
 2. **Graph:** `AudioContext` (native rate, usually 48 kHz) -> `MediaStreamSource` ->
    `AudioWorkletNode('pipeline-processor')`. The worklet receives 128-sample render
    quanta at the context rate.
@@ -135,15 +179,28 @@ this recommendation pending human sign-off.
 
 ## 6. Configuration & constants
 
+All parameters are surfaced in the **Studio config panel** with the defaults below
+(ADR-017). Each is declared via `describeParameters()` (§4) so the UI can render
+controls generically.
+
 | Parameter | Default | Range | Notes |
 |---|---|---|---|
-| `sampleRate` | 16000 | fixed | 16 kHz mono throughout (ADR-001). |
-| `frameMs` | 10 | - | RNNoise-native frame; AEC/NS process per frame. _Confirm vs AEC3 frame: [Q-AFE-3]._ |
+| `topology` | `single-worklet` | `single-worklet` \| `node-per-stage` | AFE topology (ADR-016). single-worklet implemented first. |
+| `channels` | 1 | 1-2 | 2 only for BSS stereo input; default 1 = single-mic passthrough (ADR-016). |
+| `frameMs.aec` | 10 | - | AEC processing frame; configurable per engine (ADR-016). |
+| `frameMs.bss` | 10 | - | BSS processing frame; configurable per engine. |
+| `frameMs.ns` | 10 | - | NS (RNNoise) processing frame; configurable per engine. |
+| `sampleRate` | 16000 | fixed | 16 kHz throughout (ADR-001). |
 | `latencyBudgetMs` | 150 | - | End-to-end capture -> display target (R5). |
-| `vizFps` | 30 | 15-60 | Throttle for visualization frame emission (audio runs at ~100 fps; viz is downsampled). |
+| `vizFps` | 30 | 15-60 | Throttle for visualization frame emission. |
 | `waveformPoints` | 128 | - | Downsampled points per waveform display. |
 | `spectrumBins` | 65 | - | Magnitude bins for the spectrogram. |
-| `channels` | 1 | 1-2 | 2 only if BSS multi-mic is enabled ([Q-AFE-4]). |
+
+> **Per-engine frame size (ADR-016):** `frameMs` is configurable **per engine**
+> (AEC/BSS/NS independently) to accommodate WebRTC AEC3 vs RNNoise frame
+>> requirements; default is 10 ms for all three. Stages buffer/resample internally
+> when their frames differ.
+
 
 **Latency budget breakdown** (target < 150 ms; expected ~45-55 ms on a mid-range
 laptop): capture buffer ~10-21 ms + resample <1 ms + AEC ~5 ms + BSS ~2 ms + NS
@@ -200,22 +257,22 @@ laptop): capture buffer ~10-21 ms + resample <1 ms + AEC ~5 ms + BSS ~2 ms + NS
   Content Security Policy must allow `wasm-unsafe-eval` and the registry asset
   origins.
 
-## 11. Open questions
+## 11. Resolved decisions
 
-- **[Q-AFE-1] Node-per-stage vs single pipeline worklet.** Recommendation: a
-  single `pipeline-processor` worklet hosting all stage cores (lower latency,
-  shared state, one `postMessage` stream) over the plan's literal "each an
-  AudioWorklet node". Confirm; if confirmed, update plan Phase 1 task wording.
-- **[Q-AFE-2] Which RNNoise WASM port:** `@timephy/rnnoise-wasm` (Apache-2.0) vs
-  `simple-rnnoise-wasm` (MIT)? Decide on API ergonomics, maintenance, and
-  frame-size compatibility.
-- **[Q-AFE-3] Processing frame size.** RNNoise native = 10 ms; WebRTC AEC3 may
-  expect a different frame. Need a common frame or an internal resampling buffer
-  between stages. Confirm against the chosen WASM ports.
-- **[Q-AFE-4] BSS multi-mic.** Default to single-mic passthrough for v1 (most
-  laptops have one mic), with 2-mic beamforming as an opt-in when a stereo mic
-  array is detected? Or always passthrough in-browser and leave real BSS to
-  exported demos (ADR-003)?
+All Phase 1 open questions are resolved (ADR-016); the contract is locked.
+
+- **[Q-AFE-1] Topology -> configurable (ADR-016).** Support **both** single-worklet
+  and node-per-stage; **single-worklet implemented first** (lower latency, shared
+  heap, one `postMessage` stream). Selected via `AFEConfig.topology`.
+- **[Q-AFE-2] RNNoise port -> `@timephy/rnnoise-wasm`** (Apache-2.0) (ADR-016).
+- **[Q-AFE-3] Frame size -> configurable per engine** (ADR-016). `frameMs.aec` /
+  `frameMs.bss` / `frameMs.ns` are set independently; **default 10 ms** for all
+  three. Stages buffer/resample internally when frames differ.
+- **[Q-AFE-4] BSS -> single-mic passthrough by default for v1** (ADR-016);
+  2-mic beamforming is an opt-in when a stereo mic array is detected.
+- **Per-component config panel (ADR-017).** The Studio renders a parameter panel
+  with defaults for every component; the AFE exposes its tunables via
+  `describeParameters()` (§4).
 
 ## 12. References
 
@@ -232,3 +289,4 @@ laptop): capture buffer ~10-21 ms + resample <1 ms + AEC ~5 ms + BSS ~2 ms + NS
 | Date | Change | Author |
 |---|---|---|
 | 2026-07-27 | Initial draft (docs-first, pending human review). | agent |
+| 2026-07-27 | Human review: resolved Q-AFE-1..4 (ADR-016); added config panel API + per-engine frame config (ADR-017). Status -> Accepted. | agent |

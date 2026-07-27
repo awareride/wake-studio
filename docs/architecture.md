@@ -231,6 +231,11 @@ script. A **license gate** refuses to export a non-commercial-licensed model int
   are client-side only and never logged or exported.
 - **Runtime feature detection.** WebGPU/WASM-SIMD support varies; the app
   feature-detects and falls back to WASM, surfacing a "performance" indicator.
+- **Per-component config panel (ADR-017).** The Studio renders a parameter panel
+  with defaults for every component (AFE, KWS, Few-Shot, Export, Training). Each
+  module exposes its tunables via a shared `describeParameters()` descriptor; the
+  UI renders controls generically and persists user values. Built incrementally -
+  the AFE panel lands in Phase 1, each later phase adds its component's panel.
 - **Deploy (ADR-012).** `VITE_BASE_PATH` configures the base path - `/` for
   Cloudflare Pages, `/<repo-name>/` for GitHub Pages project sites.
 - **CI/CD (ADR-015).** Workflow files (`ci.yml`, `deploy.yml`) are scaffolded but
@@ -249,7 +254,7 @@ script. A **license gate** refuses to export a non-commercial-licensed model int
   (self-hosted service packaging), ADR-006 (first targets), ADR-009 (MIT license),
   ADR-011 (lazy model registry), ADR-012 (deploy base path), ADR-013 (training
   backends), ADR-014 (project name "WakeStudio"), ADR-015 (CI/CD deferred to
-  post-MVP).
+  post-MVP), ADR-016 (AFE Phase 1 design), ADR-017 (per-component config panel).
 - **License matrix:** `LICENSES.md`.
 - **Living plan & phased roadmap:** `.agents/plan/goal.plan` (gitignored; the source
   of truth for phase status and open questions).

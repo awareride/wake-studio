@@ -219,9 +219,56 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   leftover (from ADR-014) is also deferred to the Phase 6 CI/CD activation. Phase
   6 Tasks updated to explicitly include CI/CD activation.
 
+## ADR-016 - AFE Phase 1 design decisions
+
+- **Status:** Accepted
+- **Origin:** Phase 1 `docs/modules/afe.md` open questions Q-AFE-1..4 (resolved by human)
+- **Decision:** Four AFE implementation choices are locked:
+  1. **Topology (Q-AFE-1): configurable.** Support **both** a single
+     `pipeline-processor` AudioWorklet (all stage DSP cores in one node) and a
+     node-per-stage layout, selectable via `AFEConfig.topology`. The
+     **single-worklet topology is implemented first** (lower latency: no inter-node
+     buffer copying, shared WASM heap, one `postMessage` stream). This supersedes
+     the plan's original "each an AudioWorklet node" wording.
+  2. **RNNoise WASM port (Q-AFE-2): `@timephy/rnnoise-wasm`** (Apache-2.0 port of
+     the BSD-3 RNNoise core).
+  3. **Frame size (Q-AFE-3): configurable per engine.** `frameMs.aec` / `.bss` /
+     `.ns` are set independently to accommodate WebRTC AEC3 vs RNNoise frame
+     requirements; **default 10 ms** for all three. Stages buffer/resample
+     internally when their frames differ.
+  4. **BSS (Q-AFE-4): single-mic passthrough by default for v1.** 2-mic
+     beamforming is an opt-in when a stereo mic array is detected. True BSS stays
+     in exported demos (ADR-003).
+- **Rationale:** Configurability avoids premature foreclosing of the node-per-stage
+  option while shipping the lowest-latency path first. Per-engine frame size
+  accommodates differing WASM-port frame requirements without a forced common
+  frame. Single-mic passthrough matches real laptop hardware for v1.
+- **Consequences:** Two topology code paths are eventually supported (single-worklet
+  first; node-per-stage deferred). Per-engine frames require internal stage
+  buffering. All tunables are surfaced in the Studio config panel (ADR-017).
+
+## ADR-017 - Studio provides a per-component parameter configuration panel
+
+- **Status:** Accepted
+- **Origin:** Human addition during Phase 1 AFE review
+- **Decision:** The Studio (PWA UI) renders a **parameter configuration panel with
+  default values for every component** (AFE, KWS, Few-Shot, Export, Training).
+  Each module exposes its tunable parameters via a shared `describeParameters()`
+  descriptor (id, label, type, default, min/max/step/options, unit, description);
+  the UI renders controls generically from these descriptors, and values persist
+  with sensible defaults so the app works out-of-the-box.
+- **Rationale:** Gives users visible, adjustable control over each component's
+  behavior without editing code; defaults keep the zero-setup experience (R2).
+  A shared descriptor keeps the panel consistent across modules.
+- **Consequences:** Every module doc's §6 (Configuration & constants) must declare
+  its parameters via `describeParameters()`. The `docs/module-template.md` is
+  updated to require this. The panel itself is built incrementally - the AFE panel
+  lands in Phase 1, and each subsequent phase adds its component's panel.
+
 ---
 
 _Open questions still pending human input: Q10 (self-hosted training engine) is
 open for Phase 5. Q9 (training backends) is resolved as ADR-013; the project name
-is resolved as ADR-014; CI/CD deferral is recorded as ADR-015. Defaults from
-Q2/Q3/Q4/Q7 are applied per this log and may be overridden._
+is ADR-014; CI/CD deferral is ADR-015; AFE Phase 1 design is ADR-016; the config
+panel is ADR-017. Defaults from Q2/Q3/Q4/Q7 are applied per this log and may be
+overridden._

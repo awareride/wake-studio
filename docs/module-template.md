@@ -61,7 +61,10 @@ step-by-step list. Cover the happy path and note where decisions branch.
 ## 6. Configuration & constants
 
 All tunable parameters (thresholds, frame sizes, latency budgets, sample rates),
-their defaults, valid ranges, and where they are set. Example:
+their defaults, valid ranges, and where they are set. These are surfaced in the
+**Studio config panel** (ADR-017): the module exposes them via a
+`describeParameters()` descriptor (id, label, type, default, min/max/step/options,
+unit, description) so the UI can render controls generically. Example:
 
 | Parameter | Default | Range | Notes |
 |---|---|---|---|
