@@ -132,8 +132,15 @@ async function handleLoad(
         false,
       )
     } else {
-      backend = createBackend(backendId)
-      await backend.load(urls, actualExecutionProvider)
+      // Detection backend: only load if its required URLs are present. If only
+      // wavlm is provided (Few-Shot enrollment / embed-only mode), skip the
+      // detection backend - embed() still works via the WavLM provider above.
+      const hasDetectionUrls =
+        urls.melspectrogram && urls.embedding && urls.classifier
+      if (hasDetectionUrls) {
+        backend = createBackend(backendId)
+        await backend.load(urls, actualExecutionProvider)
+      }
     }
 
     post({ type: 'loaded', executionProvider: actualExecutionProvider })

@@ -52,8 +52,9 @@ experience (requirement R5).
     (CC BY-NC-SA, demo-only); see ADR-018 Q-KWS-1 amendment. The same pipeline
     (mel -> speech-embedding -> classifier) is used; only the classifier weights
     differ.
-  - **WavLM-base-plus** (`wavlm-base-plus-int8`, MIT) - frozen Few-Shot encoder
-    (~95M params, int8 ~95 MB). Scaffolded for Phase 3.
+  - **WavLM-base-plus-sv** (`wavlm-base-plus-int8`, MIT) - speaker-verification
+    fine-tune (int8 ONNX ~97 MB, 512-dim embedding). Loaded via the KWS module's
+    `WavLMEmbedProvider`. See `LICENSES.md`.
   - **VAD**: the AFE's RNNoise VAD score (already in `AFEOutputFrame.vadActive`)
     is used for KWS gating for v1 (ADR-018). Silero VAD (ONNX, MIT) is deferred to
     v1.x when more accurate gating is needed.

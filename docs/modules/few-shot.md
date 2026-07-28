@@ -162,10 +162,10 @@ unchanged.
 
 | Parameter | Default | Range | Notes |
 |---|---|---|---|
-| `threshold` | 0.7 | 0.5-0.95 | Cosine-similarity trigger threshold (rescaled [0,1]). |
-| `minDurationMs` | 500 | 100-3000 | Sustained activation before trigger. |
+| `threshold` | 0.7 | 0.5-0.95 | Cosine-similarity threshold (rescaled [0,1]). |
+| `minDurationMs` | 300 | 100-3000 | Sustained activation before trigger. |
 | `cooldownMs` | 2000 | 500-10000 | Min time between triggers. |
-| `smoothingWindowFrames` | 10 | 1-30 | Sliding-window max-pool. |
+| `smoothingWindowFrames` | 5 | 1-30 | Sliding-window max-pool. |
 | `vadGateEnabled` | true | - | Reuse AFE RNNoise VAD. |
 | `vadThreshold` | 0.3 | 0-1 | VAD gate threshold. |
 | `windowMs` | 1500 | 500-3000 | Detection window fed to WavLM. |
@@ -205,10 +205,12 @@ unchanged.
 
 ## 11. Open questions
 
-- `[Q-FS-1]` WavLM ONNX I/O shape: the `WavLMEmbedProvider` currently assumes
-  `[1, samples] -> [N, dim]`; verify the actual HuggingFace export's I/O and
-  whether frame-level pooling (mean over time) is needed. Resolve at Phase 3
-  implementation start.
+- **[Q-FS-1] WavLM ONNX I/O -> RESOLVED.** The encoder is `Xenova/wavlm-base-plus-sv`
+  (speaker-verification fine-tune, int8 ONNX ~97 MB). Verified I/O: input
+  `input_values` [batch, seq] -> outputs `embeddings`/`logits` [batch, 512]. The
+  `WavLMEmbedProvider` prefers the `embeddings` output and applies the
+  Wav2Vec2FeatureExtractor normalization (zero-mean, unit-variance). No
+  frame-level pooling needed - the SV head outputs a ready-to-use 512-dim vector.
 - `[Q-FS-2]` Whether to offer a distilled/smaller encoder for low-RAM devices
   (ADR-002 mitigation). Defer to v1.x.
 
@@ -225,3 +227,4 @@ unchanged.
 | Date | Change | Author |
 |---|---|---|
 | 2026-07-27 | Initial draft (docs-first, pending human review). | agent |
+| 2026-07-28 | Q-FS-1 resolved: WavLM-base-plus-sv (512-dim, int8 ONNX); defaults tuned (min-duration 300, smoothing 5). | agent |

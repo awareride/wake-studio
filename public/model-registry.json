@@ -48,17 +48,17 @@
     },
     {
       "id": "wavlm-base-plus-int8",
-      "name": "WavLM-base-plus encoder (int8, Few-Shot backbone)",
+      "name": "WavLM-base-plus-sv speaker-verification encoder (int8 ONNX)",
       "tier": ["high-performance"],
-      "source": "microsoft/wavlm-base-plus",
-      "url": "https://huggingface.co/microsoft/wavlm-base-plus/resolve/main/model.onnx",
+      "source": "Xenova/wavlm-base-plus-sv (ONNX export of microsoft/wavlm-base-plus-sv)",
+      "url": "/prebuilts/wavlm/wavlm-base-plus-sv-q8.onnx",
       "format": "onnx",
       "license": "MIT",
       "commercial": true,
       "class": "redistributable",
       "sha256": "TODO-phase3",
-      "sizeBytes": null,
-      "notes": "Frozen universal speech encoder for Few-Shot prototype matching. ~95M params."
+      "sizeBytes": 101683453,
+      "notes": "Speaker-verification fine-tune; outputs a 512-dim embedding for cosine-similarity matching (resolves Q-FS-1). Local prebuilt."
     },
     {
       "id": "silero-vad",

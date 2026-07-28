@@ -7,9 +7,9 @@ import type { FewShotConfig, ParameterDescriptor } from './types'
 /** Default Few-Shot configuration. */
 export const DEFAULT_CONFIG: FewShotConfig = {
   threshold: 0.7,
-  minDurationMs: 500,
+  minDurationMs: 300,
   cooldownMs: 2000,
-  smoothingWindowFrames: 10,
+  smoothingWindowFrames: 5,
   vadGateEnabled: true,
   vadThreshold: 0.3,
   windowMs: 1500,

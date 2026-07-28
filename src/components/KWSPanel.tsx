@@ -237,22 +237,24 @@ export const KWSPanel = memo(function KWSPanel({
               (ADR-017)
             </span>
           </h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
+          <div className="mb-4">
+            <label className="flex items-center gap-3 text-sm">
               <span className="w-32 shrink-0 text-slate-400">KWS backend</span>
               <select
                 value={config.backend}
                 disabled
-                className="flex-1 rounded bg-slate-800/80 px-2 py-1 text-slate-300"
+                className="flex-1 truncate rounded bg-slate-800/80 px-2 py-1 text-slate-300"
                 title="Only OpenWakeWord is browser-feasible in v1 (ADR-020). Other backends arrive in later phases."
               >
                 {BACKEND_REGISTRY.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.label} — {r.availabilityNote}
+                    {r.id} — {r.availabilityNote}
                   </option>
                 ))}
               </select>
             </label>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
               <span className="w-32 shrink-0 text-slate-400">Threshold</span>
               <input

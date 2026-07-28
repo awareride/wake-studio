@@ -5,8 +5,10 @@ import type { KWSScoreSample, KWSStatus } from '../kws'
 import { FewShotEngine, DEFAULT_CONFIG as FS_DEFAULTS } from '../few-shot'
 import type { EnrolledSample, FewShotConfig, WakeWordPrototype } from '../few-shot'
 
-// WavLM encoder URL (MIT, ~95 MB int8). Loaded on demand for enrollment.
-const WAVLM_URL = 'https://huggingface.co/microsoft/wavlm-base-plus/resolve/main/model.onnx'
+// WavLM-base-plus-sv speaker-verification encoder (MIT, int8 ONNX ~97 MB).
+// Outputs a 512-dim embedding for cosine-similarity matching. Served from
+// local prebuilts in dev (ADR-011 amendment); remote fallback for deployed builds.
+const WAVLM_URL = '/prebuilts/wavlm/wavlm-base-plus-sv-q8.onnx'
 
 const RECORD_MS = 1500
 const MIN_SAMPLES = 3

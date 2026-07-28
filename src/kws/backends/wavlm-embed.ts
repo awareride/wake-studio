@@ -1,11 +1,18 @@
 /**
- * WavLM embedding provider (ADR-020 EmbedProvider, Phase 3 scaffold).
+ * WavLM embedding provider (ADR-020 EmbedProvider, Phase 3).
  *
- * Loads the frozen WavLM-base-plus encoder (int8 ONNX) and extracts speaker
- * embeddings for Few-Shot prototype matching. This is an auxiliary capability,
- * independent of the detection `KWSBackend`: it is loaded when a `wavlm` URL is
- * provided so `KWSEngine.embed()` works for Phase 3 enrollment prep regardless
- * of which detection backend is active.
+ * Loads the WavLM-base-plus-sv speaker-verification model (ONNX, int8) and
+ * extracts 512-dim speaker embeddings for Few-Shot prototype matching. This is
+ * an auxiliary capability, independent of the detection `KWSBackend`: it is
+ * loaded when a `wavlm` URL is provided so `KWSEngine.embed()` works for
+ * enrollment regardless of which detection backend is active.
+ *
+ * Model I/O (verified: Xenova/wavlm-base-plus-sv, resolves Q-FS-1):
+ *   input  'input_values' : [batch, sequence_length] float32 (16 kHz mono)
+ *   output 'embeddings'   : [batch, 512]  (also 'logits' [batch, 512])
+ *
+ * Input normalization: the Wav2Vec2FeatureExtractor normalizes per-utterance
+ * (zero-mean, unit-variance). We apply the same so embeddings match training.
  *
  * @see docs/modules/kws.md §4 (EmbedProvider), §5 (Few-Shot scaffold)
  */
@@ -13,8 +20,25 @@
 import * as ort from 'onnxruntime-web'
 import type { EmbedProvider } from '../types'
 
+/** Per-utterance normalization (Wav2Vec2FeatureExtractor default: eps=1e-7). */
+function normalize(audio: Float32Array, eps = 1e-7): Float32Array {
+  let mean = 0
+  for (let i = 0; i < audio.length; i++) mean += audio[i]
+  mean /= audio.length
+  let variance = 0
+  for (let i = 0; i < audio.length; i++) {
+    const d = audio[i] - mean
+    variance += d * d
+  }
+  variance /= audio.length
+  const std = Math.sqrt(variance + eps)
+  const out = new Float32Array(audio.length)
+  for (let i = 0; i < audio.length; i++) out[i] = (audio[i] - mean) / std
+  return out
+}
+
 /**
- * WavLM-base-plus embedder. Expects 16 kHz mono float32 input; the caller is
+ * WavLM-base-plus-sv embedder. Expects 16 kHz mono float32 input; the caller is
  * responsible for resampling (the AFE output is already 16 kHz).
  */
 export class WavLMEmbedProvider implements EmbedProvider {
@@ -46,10 +70,19 @@ export class WavLMEmbedProvider implements EmbedProvider {
       throw new Error('WavLM model not loaded; embed() unavailable.')
     }
 
-    const inputName = this._session.inputNames[0]
-    const inputTensor = new ort.Tensor('float32', audio, [1, audio.length])
+    // Normalize input (Wav2Vec2FeatureExtractor: zero-mean, unit-variance).
+    const normalized = normalize(audio)
+    const inputName = this._session.inputNames[0] // 'input_values'
+    const inputTensor = new ort.Tensor('float32', normalized, [
+      1,
+      normalized.length,
+    ])
     const outputs = await this._session.run({ [inputName]: inputTensor })
-    const outputName = this._session.outputNames[0]
+
+    // Prefer the 'embeddings' output; fall back to the first output.
+    const outputName = this._session.outputNames.includes('embeddings')
+      ? 'embeddings'
+      : this._session.outputNames[0]
     const embedding = outputs[outputName] as ort.Tensor
     return embedding.data as Float32Array
   }
