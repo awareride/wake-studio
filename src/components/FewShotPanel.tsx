@@ -239,13 +239,20 @@ export const FewShotPanel = memo(function FewShotPanel({
             {building ? 'Building…' : `Build prototype (${samples.length} samples)`}
           </button>
         )}
-        {encoderReady && prototype && !detecting && afeRunning && (
-          <button
-            onClick={handleStartDetection}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
-          >
-            Start Few-Shot detection
-          </button>
+        {encoderReady && prototype && !detecting && (
+          <>
+            <button
+              onClick={handleStartDetection}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+            >
+              Start Few-Shot detection
+            </button>
+            {!afeRunning && (
+              <span className="text-sm text-amber-400">
+                Start the AFE microphone (top panel) first, then click above.
+              </span>
+            )}
+          </>
         )}
         {detecting && (
           <button
