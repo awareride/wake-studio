@@ -116,18 +116,21 @@ export const FewShotPanel = memo(function FewShotPanel({
       // load. Surface that clearly instead of a raw fetch/404 error.
       const variant = getPlixEncoderVariant(encoderVariant)
       const expected = variant?.onnxUrl ?? '/prebuilts/plixkws/plixkws-base.onnx'
-      if (runtime === 'transformers') {
+      if (
+        runtime === 'transformers' &&
+        /config\.json|model\.onnx|could not locate|404|not found/i.test(msg)
+      ) {
         // The transformers runtime loads the ONNX graph from a locally-exported
         // HF-style dir (config.json + onnx/model.onnx). The Hugging Face repo
-        // only ships .pt weights, so it cannot be fetched from the Hub.
+        // only ships .pt weights, so it cannot be fetched from the Hub. Only
+        // show this hint when the failure is actually a missing dir/file.
         setError(
           `PLiX (${encoderVariant}) 'transformers' runtime needs a locally-exported ` +
             `HF-style dir at ${variant?.transformersLocalDir ?? '/prebuilts/plixkws/hf/plixkws'} ` +
-            `(config.json + onnx/model.onnx). Export it with: ` +
-            'python scripts/export-plixkws-onnx.py --encoder ' +
+            `(config.json + onnx/model.onnx). Generate it with: ` +
+            'npm run gen-plix-hf-dir -- --variant ' +
             encoderVariant +
-            ' --hf-dir prebuilts/plixkws/hf/plixkws. ' +
-            'Alternatively, use the default ONNX runtime.',
+            '. Alternatively, use the default ONNX runtime.',
         )
       } else if (/fetch|404|load failed|not loaded/i.test(msg)) {
         setError(

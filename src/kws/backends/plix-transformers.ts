@@ -106,11 +106,21 @@ export class PlixTransformersEncoder implements PlixEncoder {
       mod.env.localModelPath = base
       this._TensorCtor = mod.Tensor
       // The 'small' export stores its large weight tensor as ONNX external
-      // data (onnx/plixkws-small.onnx.data, co-located with onnx/model.onnx),
-      // so tell the wrapped onnxruntime-web to resolve the external sidecar.
+      // data (onnx/plixkws-small.onnx.data, co-located with onnx/model.onnx).
+      // The browser build of onnxruntime-web cannot read the filesystem, so
+      // the external weights must be passed explicitly (same mechanism as the
+      // ONNX runtime's `_externalDataOptions`). Transformers.js maps each
+      // externalData entry to ORT-web's `mountExternalData`, which is the only
+      // reliable way to resolve the sidecar in the browser. The protobuf
+      // `location` is `plixkws-small.onnx.data`, resolved relative to the
+      // graph, so the path here must match exactly.
+      const externalDataUrl = `${this._modelId}/onnx/plixkws-small.onnx.data`
       this._model = await mod.AutoModel.from_pretrained(id, {
         dtype: 'fp32',
         use_external_data_format: true,
+        externalData: [
+          { path: 'plixkws-small.onnx.data', data: externalDataUrl },
+        ],
       })
       return
     }
