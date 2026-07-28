@@ -4,7 +4,7 @@
  * Runs off-main-thread to avoid blocking the UI. The worker owns the generic
  * loop (VAD gate, score smoothing, trigger) and delegates model-specific
  * inference to a pluggable {@link KWSBackend} (ADR-020). It also hosts an
- * optional {@link WavLMEmbedProvider} for the Few-Shot `embed()` scaffold
+ * optional {@link PlixKwsEmbedProvider} for the Few-Shot `embed()` scaffold
  * (Phase 3), independent of the detection backend.
  *
  * Pure logic (ScoreSmoother, TriggerDetector, VAD gate) is in ./dsp.
@@ -18,9 +18,10 @@ import type {
   KWSMainMessage,
   KWSWorkerMessage,
 } from './types'
+import { DEFAULT_MODEL_RUNTIME } from '../runtime'
 import { createBackend } from './backend'
-import { WavLMEmbedProvider } from './backends/wavlm-embed'
-import { WavLMFewShotBackend } from './backends/wavlm-few-shot'
+import { PlixKwsEmbedProvider } from './backends/plixkws-embed'
+import { PlixKwsBackend } from './backends/plixkws'
 import { DEFAULT_CONFIG } from './defaults'
 import { ScoreSmoother, TriggerDetector, shouldGateByVad } from './dsp'
 
@@ -31,7 +32,7 @@ import { ScoreSmoother, TriggerDetector, shouldGateByVad } from './dsp'
 let config: KWSConfig = { ...DEFAULT_CONFIG }
 
 let backend: KWSBackend | null = null
-let embedProvider: WavLMEmbedProvider | null = null
+let embedProvider: PlixKwsEmbedProvider | null = null
 let actualExecutionProvider: 'webgpu' | 'wasm' = 'wasm'
 
 // Generic inference state (backend-agnostic).
@@ -47,7 +48,7 @@ const trigger = new TriggerDetector(
 // delivers a frame every ~10 ms, but inference (mel -> embedding -> classifier)
 // can take longer. Each KWSBackend owns its own guard now (moved from the worker
 // so backends can buffer every frame); this `embedding` flag guards the
-// `handleEmbed` enrollment path (WavLM) which is separate from detection.
+// `handleEmbed` enrollment path (PLiX) which is separate from detection.
 let embedding = false
 
 // ---------------------------------------------------------------------------
@@ -92,35 +93,40 @@ async function handleLoad(
       ? await detectExecutionProvider()
       : 'wasm'
 
+  // Global model-runtime hint (ADR-002 amendment). Per-URL `runtime` overrides
+  // it; otherwise fall back to the config-level hint, then the default.
+  const globalRuntime = urls.runtime ?? config.runtime ?? DEFAULT_MODEL_RUNTIME
+
   try {
-    // WavLM is required for the wavlm-few-shot backend AND for the embed()
+    // PLiX encoder is required for the plixkws backend AND for the embed()
     // scaffold. Load it first.
-    if (urls.wavlm) {
+    if (urls.plixkws) {
       try {
-        embedProvider = new WavLMEmbedProvider()
-        await embedProvider.load(urls.wavlm, actualExecutionProvider)
+        const runtime = globalRuntime
+        embedProvider = new PlixKwsEmbedProvider(urls.plixkws, runtime)
+        await embedProvider.load(urls.plixkws, actualExecutionProvider)
       } catch {
         embedProvider = null
       }
     }
 
     // Tracks whether a GPU-capable detection backend was actually loaded. The
-    // WavLM embedder is always pinned to WASM (its ONNX graph is incompatible
-    // with ORT-Web's WebGPU EP - see WavLMEmbedProvider). So the EP reported
+    // PLiX embedder is always pinned to WASM (its ONNX graph is incompatible
+    // with ORT-Web's WebGPU EP - see PlixKwsEmbedProvider). So the EP reported
     // to the UI is only 'webgpu' when a WebGPU-feasible detection backend is
     // loaded; otherwise it is 'wasm' even if WebGPU is available.
     let gpuBackendLoaded = false
 
-    if (backendId === 'wavlm-few-shot') {
-      // Few-Shot backend: reuse the shared WavLM embedProvider + the prototype.
+    if (backendId === 'plixkws') {
+      // Few-Shot backend: reuse the shared PLiX embedProvider + the prototype.
       if (!embedProvider || !embedProvider.ready) {
         throw new Error(
-          'WavLM Few-Shot backend requires a loaded WavLM encoder (provide a wavlm URL).',
+          'PLiX Few-Shot backend requires a loaded PLiX encoder (provide a plixkws URL).',
         )
       }
       if (!prototypeVector || prototypeVector.length === 0) {
         throw new Error(
-          'WavLM Few-Shot backend requires a prototype vector in the load message.',
+          'PLiX Few-Shot backend requires a prototype vector in the load message.',
         )
       }
       const proto = {
@@ -130,7 +136,7 @@ async function handleLoad(
         sampleIds: [],
         createdAtMs: Date.now(),
       }
-      backend = new WavLMFewShotBackend(
+      backend = new PlixKwsBackend(
         embedProvider,
         proto,
         1500,
@@ -138,8 +144,8 @@ async function handleLoad(
       )
     } else {
       // Detection backend: only load if its required URLs are present. If only
-      // wavlm is provided (Few-Shot enrollment / embed-only mode), skip the
-      // detection backend - embed() still works via the WavLM provider above.
+      // plixkws is provided (Few-Shot enrollment / embed-only mode), skip the
+      // detection backend - embed() still works via the PLiX provider above.
       const hasDetectionUrls =
         urls.melspectrogram && urls.embedding && urls.classifier
       if (hasDetectionUrls) {
@@ -199,7 +205,7 @@ async function handleAudio(
   //
   // Concurrency: each backend owns its own serialization guard (ONNX sessions
   // are not re-entrant). The worker always calls processFrame so the backend
-  // can buffer every frame (the WavLM Few-Shot backend needs a continuous
+  // can buffer every frame (the PLiX Few-Shot backend needs a continuous
   // window; the OpenWakeWord backend tolerates dropped frames). The backend
   // returns null or a cached score when its inference is in flight.
   let score: number | null
@@ -258,11 +264,11 @@ async function handleEmbed(
   sampleRate: number,
 ): Promise<void> {
   if (!embedProvider || !embedProvider.ready) {
-    postError('WavLM model not loaded; embed() unavailable.')
+    postError('PLiX encoder not loaded; embed() unavailable.')
     return
   }
 
-  // Serialization: WavLM's session is not re-entrant either.
+  // Serialization: PLiX's session is not re-entrant either.
   if (embedding) {
     postError('Embed already in progress; retry after the current request completes.')
     return

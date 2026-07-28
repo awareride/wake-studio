@@ -22,13 +22,14 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
   return [
     {
       id: 'threshold',
-      label: 'Cosine threshold',
+      label: 'Distance threshold',
       type: 'number',
       default: 0.7,
       min: 0.5,
       max: 0.95,
       step: 0.01,
-      description: 'Cosine-similarity score (rescaled [0,1]) must exceed this to trigger.',
+      description:
+        'PLiX prototype-distance score (1 / (1 + d^2), rescaled [0,1]) must exceed this to trigger.',
     },
     {
       id: 'minDurationMs',
@@ -72,7 +73,7 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
       max: 3000,
       step: 100,
       unit: 'ms',
-      description: 'Audio window fed to WavLM for each embedding.',
+      description: 'Audio window fed to the PLiX encoder for each embedding.',
     },
     {
       id: 'vadGateEnabled',

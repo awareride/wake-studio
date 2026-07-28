@@ -28,7 +28,7 @@ export interface KWSBackendRegistration {
 
 /**
  * The backend registry. Add new browser adapters here as they land
- * (e.g. PocketSphinx WASM, WavLM Few-Shot detection).
+ * (e.g. PocketSphinx WASM, PLiX Few-Shot detection).
  */
 export const BACKEND_REGISTRY: ReadonlyArray<KWSBackendRegistration> = [
   {
@@ -50,11 +50,11 @@ export const BACKEND_REGISTRY: ReadonlyArray<KWSBackendRegistration> = [
     availabilityNote: 'MCU / export-only (Phase 5)',
   },
   {
-    id: 'wavlm-few-shot',
-    label: 'WavLM Few-Shot (cosine prototype)',
+    id: 'plixkws',
+    label: 'PLiX Few-Shot (prototype distance)',
     create: () => {
       throw new Error(
-        'WavLM Few-Shot is created directly by the worker (needs a shared embedProvider + prototype). See worker.ts handleLoad.',
+        'PLiX Few-Shot is created directly by the worker (needs a shared embedProvider + prototype). See worker.ts handleLoad.',
       )
     },
     browserFeasible: true,

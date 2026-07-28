@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   cosineSimilarity,
+  squaredEuclidean,
+  plixScore,
   meanPool,
   peakDbfs,
   rmsDbfs,
@@ -40,6 +42,63 @@ describe('cosineSimilarity', () => {
 
   it('returns 0 for mismatched lengths', () => {
     expect(cosineSimilarity(new Float32Array([1, 2]), new Float32Array([1]))).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// squaredEuclidean (PLiX prototype-distance metric)
+// ---------------------------------------------------------------------------
+
+describe('squaredEuclidean', () => {
+  it('is 0 for identical vectors', () => {
+    const a = new Float32Array([1, 2, 3])
+    expect(squaredEuclidean(a, a)).toBeCloseTo(0, 6)
+  })
+
+  it('computes the sum of squared differences', () => {
+    const a = new Float32Array([1, 2, 3])
+    const b = new Float32Array([4, 6, 8]) // diffs 3,4,5 -> 9+16+25 = 50
+    expect(squaredEuclidean(a, b)).toBeCloseTo(50, 6)
+  })
+
+  it('is symmetric', () => {
+    const a = new Float32Array([0.1, -2.3, 4.5])
+    const b = new Float32Array([1.9, 0.2, -0.4])
+    expect(squaredEuclidean(a, b)).toBeCloseTo(squaredEuclidean(b, a), 6)
+  })
+
+  it('returns 0 for mismatched lengths', () => {
+    expect(squaredEuclidean(new Float32Array([1, 2]), new Float32Array([1]))).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// plixScore (rescale squared distance to [0,1])
+// ---------------------------------------------------------------------------
+
+describe('plixScore', () => {
+  it('is 1.0 at zero distance (exact match)', () => {
+    expect(plixScore(0)).toBeCloseTo(1, 6)
+  })
+
+  it('decreases as distance grows', () => {
+    const s1 = plixScore(1)
+    const s2 = plixScore(10)
+    expect(s1).toBeCloseTo(0.5, 6)
+    expect(s2).toBeCloseTo(1 / 11, 6)
+    expect(s1).toBeGreaterThan(s2)
+  })
+
+  it('stays within [0,1]', () => {
+    expect(plixScore(0)).toBeLessThanOrEqual(1)
+    expect(plixScore(1e6)).toBeGreaterThanOrEqual(0)
+    expect(plixScore(1e6)).toBeLessThanOrEqual(1)
+  })
+
+  it('clamps negative / non-finite distances to 0', () => {
+    expect(plixScore(-1)).toBe(0)
+    expect(plixScore(NaN)).toBe(0)
+    expect(plixScore(Infinity)).toBe(0)
   })
 })
 

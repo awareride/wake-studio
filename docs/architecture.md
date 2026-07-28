@@ -118,14 +118,14 @@ affect commercial productization; the authoritative matrix lives in `LICENSES.md
 
 | Component | Source project | License | Role |
 |---|---|---|---|
-| Few-Shot encoder (ADR-002) | **WavLM** (`microsoft/wavlm-base-plus`) | MIT | Frozen universal speech encoder -> embedding; cosine-similarity prototype matching. ~95M params; int8 ~95 MB. |
+| Few-Shot encoder (ADR-002) | **PLiX** (`aaqibsaeed/plixkws`, Apache-2.0) | Apache-2.0 | Compact CNN (EfficientNet-v2 "base" / TinyNet-E "small") trained as a Prototypical Network -> 1280-dim embedding; prototype-distance matching. Replaces WavLM-base-plus (too heavy for end-side devices). **Runtime-pluggable:** served via ONNX (onnxruntime-web, default) OR browser-native via `@xenova/transformers` (no ONNX file; zero-Python deployment). See `docs/Technical Reference_ Resource Requirements and Zero-Python Deployment Strategies for WavLM-base-plus and plixkws.md`. |
 | Traditional KWS (Linux, optional) | **openWakeWord** (`dscripka/openWakeWord`) | Apache-2.0 (code) | ONNX/TFLite KWS for Linux; also the training pipeline that yields Domain-A-compatible models. ⚠️ Its *pre-trained models* are CC BY-NC-SA (non-commercial). |
 | Speaker-verifier (optional false-alarm filter) | openWakeWord `train_custom_verifier` (scikit-learn) | Apache-2.0 | Second-stage filter to cut false alarms for a known user. |
 | **PocketSphinx** (lightweight alternative) | `cmusphinx/pocketsphinx` | BSD-style (CMU); bundles WebRTC VAD (BSD-3) | Classic HMM/GMM KWS; viable on MCU-class and above. The lightweight alternative to openWakeWord (ADR-020). |
 
 > **Pluggable KWS backends (ADR-020):** KWS is a `KWSBackend` interface with
 > pluggable adapters - openWakeWord (app-class; relatively large), micro-wake-word
-> (MCU), WavLM Few-Shot (app-class, enrollment-based), and PocketSphinx
+> (MCU), PLiX Few-Shot (app-class, enrollment-based), and PocketSphinx
 > (lightweight, BSD). The "two domains" above map to backend selection per target,
 > not a fixed engine. openWakeWord's pre-trained models remain CC BY-NC-SA
 > (demo-only); the export license gate (Phase 4) still blocks them commercially.
@@ -229,13 +229,13 @@ package and offers to train a clean replacement instead.
 | Target | Tier | KWS backend(s) (ADR-020) | AFE | Model format | SDK binding (ADR-021) |
 |---|---|---|---|---|---|
 | **Arm Cortex-M** (STM32, Arduino) | MCU (primary) | micro-wake-word (TFLite-Micro); PocketSphinx (alt) | Portable RNNoise + WebRTC | `.tflite` / C | C / TFLite-Micro |
-| **Raspberry Pi** (Zero, 3, 4, 5) | App-class edge | openWakeWord / WavLM Few-Shot / PocketSphinx | RNNoise + WebRTC | `.onnx` | Python |
-| **Android** | Mobile | openWakeWord / WavLM Few-Shot (ONNX RT Android) | RNNoise + WebRTC | `.onnx` | Kotlin |
-| **iOS** | Mobile | openWakeWord / WavLM Few-Shot (ONNX RT / Core ML) | RNNoise + WebRTC | `.onnx` / Core ML | Swift |
-| **Browsers** (Chrome, Safari, Firefox, Edge) | Browser | openWakeWord / WavLM Few-Shot (onnxruntime-web) | RNNoise (WASM) | `.onnx` | JS / WASM |
-| **Linux** (x86_64) | Desktop | openWakeWord / WavLM Few-Shot / PocketSphinx | RNNoise + WebRTC | `.onnx` | Python |
-| **macOS** (x86_64, arm64) | Desktop | openWakeWord / WavLM Few-Shot (ONNX RT / Core ML on arm64) | RNNoise + WebRTC | `.onnx` / Core ML | Python / Swift |
-| **Windows** (x86_64, arm64) | Desktop | openWakeWord / WavLM Few-Shot (ONNX RT) | RNNoise + WebRTC | `.onnx` | Python |
+| **Raspberry Pi** (Zero, 3, 4, 5) | App-class edge | openWakeWord / PLiX Few-Shot / PocketSphinx | RNNoise + WebRTC | `.onnx` | Python |
+| **Android** | Mobile | openWakeWord / PLiX Few-Shot (ONNX RT Android) | RNNoise + WebRTC | `.onnx` | Kotlin |
+| **iOS** | Mobile | openWakeWord / PLiX Few-Shot (ONNX RT / Core ML) | RNNoise + WebRTC | `.onnx` / Core ML | Swift |
+| **Browsers** (Chrome, Safari, Firefox, Edge) | Browser | openWakeWord / PLiX Few-Shot (onnxruntime-web) | RNNoise (WASM) | `.onnx` | JS / WASM |
+| **Linux** (x86_64) | Desktop | openWakeWord / PLiX Few-Shot / PocketSphinx | RNNoise + WebRTC | `.onnx` | Python |
+| **macOS** (x86_64, arm64) | Desktop | openWakeWord / PLiX Few-Shot (ONNX RT / Core ML on arm64) | RNNoise + WebRTC | `.onnx` / Core ML | Python / Swift |
+| **Windows** (x86_64, arm64) | Desktop | openWakeWord / PLiX Few-Shot (ONNX RT) | RNNoise + WebRTC | `.onnx` | Python |
 | **ESP32-S3** (deferred) | MCU (extended) | micro-wake-word (TFLite-Micro) | ESP-SR (AEC/NS/BSS) | `.tflite` + C array | C / TFLite-Micro |
 
 > **Target matrix (ADR-019, supersedes ADR-006):** the full cross-device set is
@@ -289,7 +289,7 @@ package and offers to train a clean replacement instead.
 
 ## 8. Related decisions & docs
 
-- **ADR log:** `DECISIONS.md` - notably ADR-001 (pipeline stages), ADR-002 (WavLM
+- **ADR log:** `DECISIONS.md` - notably ADR-001 (pipeline stages), ADR-002 (PLiX Few-Shot
   encoder), ADR-003 (vendor vs portable AFE), ADR-004 (React+Vite+TS), ADR-005
   (self-hosted service packaging), ADR-006 (first targets), ADR-009 (MIT license),
   ADR-011 (lazy model registry), ADR-012 (deploy base path), ADR-013 (training

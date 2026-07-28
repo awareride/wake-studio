@@ -47,7 +47,7 @@ so the demo and the exports stay consistent.
 ## 3. Dependencies
 
 - **Upstream (consumes from):** KWS module (`KWSBackend` interface + adapters:
-  openWakeWord, micro-wake-word, WavLM Few-Shot, PocketSphinx - ADR-020); AFE
+  openWakeWord, micro-wake-word, PLiX Few-Shot, PocketSphinx - ADR-020); AFE
   module (portable NS/AEC cores).
 - **Downstream (provides to):** Export module (Phase 4 bundle generation); the
   in-browser PWA demo (JS/WASM binding).
@@ -103,7 +103,7 @@ bundle; on-hardware validation for golden-path targets.
 ## 11. Open questions
 
 - `[Q-SDK-1]` Concrete `KWSBackend` C interface shape (resolved at Phase 4 start).
-- `[Q-SDK-2]` Whether iOS uses ONNX Runtime or Core ML for the WavLM/openWakeWord
+- `[Q-SDK-2]` Whether iOS uses ONNX Runtime or Core ML for the PLiX/openWakeWord
   path (resolved at Phase 4 start).
 - `[Q-SDK-3]` ESP32 (deferred target, ADR-019) adapter scope vs Cortex-M-first
   sequencing.

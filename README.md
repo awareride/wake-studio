@@ -11,7 +11,7 @@ AEC ──> BSS ──> NS ──> KWS
 ```
 
 It is a **productization layer** over excellent open-source models and DSP
-components (microWakeWord, openWakeWord, WavLM, RNNoise, WebRTC, Silero VAD,
+components (microWakeWord, openWakeWord, PLiX, RNNoise, WebRTC, Silero VAD,
 ESP-SR). We select, integrate, harden, and package - **we do not invent
 models.**
 
@@ -28,7 +28,7 @@ backend). See `.agents/plan/goal.plan` for the full phased roadmap and
 | 0 | Foundation, decisions & scaffold | ✅ Complete |
 | 1 | In-browser AFE + pipeline visualization | ✅ Complete |
 | 2 | KWS inference in the browser | ✅ Complete (pluggable KWSBackend, ADR-020; OpenWakeWord pipeline fixed) |
-| 3 | Few-Shot custom wake-word enrollment | ✅ Complete (WavLM embed + cosine prototype, client-side) |
+| 3 | Few-Shot custom wake-word enrollment | ✅ Complete (PLiX embed + prototype-distance, client-side) |
 | 4 | Model export & integration kits (device SDK) | ⏳ Pending |
 | 5 | Custom-model training (multi-backend) | ⏳ Pending |
 | 6 | Polish, PWA, packaging, docs | ⏳ Pending |
@@ -38,13 +38,13 @@ backend). See `.agents/plan/goal.plan` for the full phased roadmap and
 - **Low-power / MCU** (ESP32-S3, STM32): Traditional classification KWS via
   microWakeWord + TFLite-Micro, with vendor ESP-SR AFE.
 - **High-performance** (Linux / Raspberry Pi, Android): Few-Shot metric-learning
-  KWS via a frozen WavLM-base-plus encoder + cosine-similarity prototypes, with
+  KWS via a frozen PLiX encoder (compact CNN) + prototype-distance scoring, with
   RNNoise + WebRTC AFE.
 
 > **Updated scope (ADR-019..023):** the validated target matrix is now the full
 > cross-device set (Arm Cortex-M primary MCU tier; Raspberry Pi; Android & iOS;
 > Chrome/Safari/Firefox/Edge; Linux/macOS/Windows desktop; ESP32-S3 deferred). KWS
-> is a pluggable `KWSBackend` interface (openWakeWord, micro-wake-word, WavLM
+> is a pluggable `KWSBackend` interface (openWakeWord, micro-wake-word, PLiX
 > Few-Shot, PocketSphinx); all exports build on a layered device-side SDK. See
 > `docs/architecture.md` §4–§6.
 

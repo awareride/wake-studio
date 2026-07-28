@@ -3,7 +3,7 @@
  *
  * Wraps the KWS module's `embed()` for sample embedding, builds prototypes
  * (mean-pool), and persists them to IndexedDB. Live detection is delegated to
- * the KWS worker via a `WavLMFewShotBackend` adapter (ADR-020).
+ * the KWS worker via a `PlixKwsBackend` adapter (ADR-020).
  *
  * Per ADR-013 amendment: prototype computation + cosine scoring are
  * enrollment/inference, not training - they stay 100% client-side.
@@ -46,15 +46,15 @@ export class FewShotEngine {
     return this._kws.ready
   }
 
-  /** Ensure the WavLM encoder is loaded (delegates to the KWS engine). */
+  /** Ensure the PLiX encoder is loaded (delegates to the KWS engine). */
   async loadEncoder(): Promise<void> {
-    // The KWS engine's load() must have been called with a wavlm URL.
+    // The KWS engine's load() must have been called with a plixkws URL.
     // If already loaded, this is a no-op (KWSEngine.load guards re-entry).
     if (this.encoderReady) return
-    // The caller is responsible for calling kws.load() with the wavlm URL first.
+    // The caller is responsible for calling kws.load() with the plixkws URL first.
     // This method just checks readiness.
     throw new Error(
-      'WavLM encoder not loaded. Call KWSEngine.load() with a wavlm URL first.',
+      'PLiX encoder not loaded. Call KWSEngine.load() with a plixkws URL first.',
     )
   }
 
@@ -64,7 +64,7 @@ export class FewShotEngine {
     sampleRate: number,
   ): Promise<EnrolledSample> {
     if (!this.encoderReady) {
-      throw new Error('WavLM encoder not ready.')
+      throw new Error('PLiX encoder not ready.')
     }
     const embedding = await this._kws.embed(samples, sampleRate)
     const quality = checkSampleQuality(samples, sampleRate)
