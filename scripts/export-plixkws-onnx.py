@@ -112,11 +112,13 @@ class EncoderTrunk(torch.nn.Module):
 
     def forward(self, mel: torch.Tensor) -> torch.Tensor:
         # mirroring Backbone.forward after the melspectrogram step:
-        #   x = log(mel + 1e-6); x = encoder(x); x = mean(2,3); squeeze
+        #   x = log(mel + 1e-6); x = encoder(x); x = mean(2,3)
+        # After mean(dim=(2,3)) the tensor is already [B, 1280] (2-D), so no
+        # squeeze is needed (a squeeze(-1) on a size-1280 dim is a no-op and
+        # triggers an exporter warning).
         x = torch.log(mel + 1e-6)
         x = self.backbone.encoder(x)
         x = x.mean(dim=(2, 3))
-        x = x.squeeze(-1)
         return x
 
 
@@ -169,13 +171,23 @@ def main() -> None:
     dummy = torch.randn(1, 1, 64, 100, device=device)
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
+    # Use the modern torch.export-based ONNX exporter (torch >= 2.9 default).
+    # It requires the `onnx` and `onnxscript` packages, which the CI workflow
+    # installs. The dummy input is a concrete 1x1x64x100 tensor, so the export
+    # is exact.
+    #
+    # Opset must be >= 18: the modern exporter only has implementations for
+    # opset 18+, and exporting at 17 then down-converting fails on some ops
+    # (e.g. Pad). The browser onnxruntime-web supports opset 18.
+    # `dynamic_axes` is intentionally omitted: with dynamo=True it is not
+    # recommended and can raise; the browser always runs a single clip
+    # (batch=1), so a fixed batch is fine.
     torch.onnx.export(
         trunk,
         dummy,
         args.out,
         input_names=["input"],
         output_names=["embeddings"],
-        dynamic_axes={"input": {0: "batch"}},
         opset_version=args.opset,
     )
     print(f"Exported {args.encoder}/{language} encoder -> {args.out}")

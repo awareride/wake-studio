@@ -5,8 +5,8 @@ name: Export PLiX ONNX
 # Why a workflow (not local conversion): per AGENTS.md, Python dependencies
 # (torch / torchaudio / timm) must not be installed on the developer machine,
 # and `main` is protected (no auto-push). This workflow runs the conversion in
-# CI and publishes the result as a **downloadable artifact** (and optionally a
-# GitHub Release asset) - it never commits or pushes to the repo.
+# CI and publishes the result as a **downloadable artifact** - it never commits
+# or pushes to the repo.
 #
 # The exported weights are intentionally NOT committed: `prebuilts/` is
 # gitignored (ADR-011 - dev-only / model artifacts are never bundled). The
@@ -37,15 +37,10 @@ on:
         default: 'en'
         type: string
       opset:
-        description: 'ONNX opset version'
+        description: 'ONNX opset version (must be >= 18 for the modern exporter)'
         required: false
-        default: '17'
+        default: '18'
         type: string
-      upload_release:
-        description: 'Also attach artifacts to a GitHub Release (plixkws-models)'
-        required: false
-        default: false
-        type: boolean
 
 concurrency:
   group: export-plixkws-${{ github.actor }}-${{ github.event.inputs.encoder }}-${{ github.event.inputs.language }}
@@ -68,12 +63,13 @@ jobs:
           python-version: '3.11'
 
       - name: Install conversion toolchain
-        # `plixkws` pulls torch, torchaudio, timm. `wget` is used by the script
-        # to fetch config.json + the Dropbox .pt weights. CPU torch is enough
-        # for tracing the export graph.
+        # `plixkws` pulls torch, torchaudio, timm. `wget` fetches the Dropbox
+        # .pt weights. `onnx` + `onnxscript` are required by torch's modern
+        # (torch.export-based) ONNX exporter used by the export script.
+        # CPU torch is enough for tracing the export graph.
         run: |
           python -m pip install --no-cache-dir --upgrade pip
-          python -m pip install --no-cache-dir plixkws wget
+          python -m pip install --no-cache-dir plixkws wget onnx onnxscript
 
       - name: Download PLiX config manifest
         # Fetch the published PLiX config.json (Dropbox) into
@@ -111,15 +107,3 @@ jobs:
           name: plixkws-${{ github.event.inputs.encoder }}-${{ github.event.inputs.language }}
           path: prebuilts/plixkws/**
           retention-days: 30
-
-      - name: Attach to Release (optional)
-        if: ${{ github.event.inputs.upload_release == 'true' }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag: plixkws-models
-          files: |
-            prebuilts/plixkws/plixkws-${{ github.event.inputs.encoder }}.onnx
-            prebuilts/plixkws/hf/plixkws/config.json
-            prebuilts/plixkws/hf/plixkws/onnx/model.onnx
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
