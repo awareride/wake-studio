@@ -5,8 +5,8 @@ name: Export PLiX ONNX
 # Why a workflow (not local conversion): per AGENTS.md, Python dependencies
 # (torch / torchaudio / timm) must not be installed on the developer machine,
 # and `main` is protected (no auto-push). This workflow runs the conversion in
-# CI and publishes the result as a **downloadable artifact** (and optionally a
-# GitHub Release asset) - it never commits or pushes to the repo.
+# CI and publishes the result as a **downloadable artifact** - it never commits
+# or pushes to the repo.
 #
 # The exported weights are intentionally NOT committed: `prebuilts/` is
 # gitignored (ADR-011 - dev-only / model artifacts are never bundled). The
@@ -41,11 +41,6 @@ on:
         required: false
         default: '18'
         type: string
-      upload_release:
-        description: 'Also attach artifacts to a GitHub Release (plixkws-models)'
-        required: false
-        default: false
-        type: boolean
 
 concurrency:
   group: export-plixkws-${{ github.actor }}-${{ github.event.inputs.encoder }}-${{ github.event.inputs.language }}
@@ -112,16 +107,3 @@ jobs:
           name: plixkws-${{ github.event.inputs.encoder }}-${{ github.event.inputs.language }}
           path: prebuilts/plixkws/**
           retention-days: 30
-
-      - name: Attach to Release (optional)
-        if: ${{ github.event.inputs.upload_release == 'true' }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: plixkws-models
-          name: PLiX ONNX models
-          files: |
-            prebuilts/plixkws/plixkws-${{ github.event.inputs.encoder }}.onnx
-            prebuilts/plixkws/hf/plixkws/config.json
-            prebuilts/plixkws/hf/plixkws/onnx/model.onnx
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
