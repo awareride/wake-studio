@@ -1,18 +1,35 @@
 /**
- * WavLM Few-Shot KWS backend (ADR-020).
+ * PLiX Few-Shot KWS backend (ADR-020).
  *
- * A `KWSBackend` adapter for live Few-Shot detection: accumulates AFE frames
- * into a `windowMs` sliding buffer, embeds the buffer via the shared
- * `EmbedProvider` (WavLM), computes cosine similarity to the enrolled
- * prototype, and returns the score [0,1].
+ * A `KWSBackend` adapter for live Few-Shot detection using the PLiX encoder
+ * (aaqibsaeed/plixkws, Apache-2.0). Accumulates AFE frames into a
+ * `windowMs` sliding buffer, embeds the buffer via the shared
+ * `EmbedProvider` (PLiX encoder -> 1280-dim vector), computes the
+ * Prototypical-Network score to the enrolled prototype, and returns the score
+ * [0,1].
+ *
+ * PLiX replaces WavLM-base-plus as the Few-Shot encoder because its compact
+ * CNN (EfficientNet-v2 "base" / TinyNet-E "small") is far lighter and was
+ * designed for end-side / IoT devices, whereas WavLM-base-plus is too heavy
+ * for on-device use.
+ *
+ * Scoring (PLiX paper §2.1.2 / §2.2): the prototype is the mean of the
+ * support-set embeddings. A query's score is the negative squared Euclidean
+ * distance to the prototype,
+ *     s = -|| f(x) - p ||^2
+ * which PLiX frames as a (softmax) classification logit. We rescale it to
+ * [0,1] via   score = 1 / (1 + || f(x) - p ||^2)
+ * so the existing threshold/min-duration trigger UI (tuned for [0,1]
+ * posteriors, higher = trigger) works unchanged. This is the PLiX metric
+ * (Euclidean / squared distance), not cosine similarity.
  *
  * Unlike `OpenWakeWordBackend`, this backend does NOT load its own models - it
- * reuses the WavLM encoder already loaded by the worker's `embedProvider`
- * (avoiding a second ~97 MB session). The worker constructs it with the shared
+ * reuses the PLiX encoder already loaded by the worker's `embedProvider`
+ * (avoiding a second session). The worker constructs it with the shared
  * provider + the enrolled prototype.
  *
- * Concurrency & smoothness (WavLM is a ~95M-param model; each embed() takes
- * ~100-300 ms in WASM, far longer than the 10 ms frame cadence):
+ * Concurrency & smoothness (the PLiX encoder is a CNN; each embed() still
+ * takes longer than the 10 ms frame cadence):
  * - A continuous ring buffer always receives every frame (no gaps during
  *   inference - gaps would make the sliding window discontinuous and break
  *   detection).
@@ -23,18 +40,19 @@
  * - A serialization guard prevents re-entrant session.run() calls.
  *
  * @see docs/modules/few-shot.md §4-§5
+ * @see docs/modules/kws.md §4 (KWSBackend), §5 (Few-Shot scaffold)
  */
 
 import type { EmbedProvider, KWSBackend } from '../types'
 import type { WakeWordPrototype } from '../../few-shot/types'
-import { cosineSimilarity } from '../../few-shot/dsp'
+import { squaredEuclidean, plixScore } from '../../few-shot/dsp'
 
 /** Detection hop in frames (80 ms / 10 ms = 8 frames at the AFE cadence). */
 const HOP_FRAMES = 8
 
-export class WavLMFewShotBackend implements KWSBackend {
-  readonly id = 'wavlm-few-shot' as const
-  readonly label = 'WavLM Few-Shot (cosine prototype)'
+export class PlixKwsBackend implements KWSBackend {
+  readonly id = 'plixkws' as const
+  readonly label = 'PLiX Few-Shot (prototype distance)'
 
   private _embedProvider: EmbedProvider
   private _prototype: WakeWordPrototype
@@ -70,7 +88,7 @@ export class WavLMFewShotBackend implements KWSBackend {
     return this._embedProvider.ready
   }
 
-  /** No-op: the WavLM encoder is loaded by the shared embedProvider. */
+  /** No-op: the PLiX encoder is loaded by the shared embedProvider. */
   async load(): Promise<void> {
     // Nothing to load - the encoder is shared.
   }
@@ -84,7 +102,7 @@ export class WavLMFewShotBackend implements KWSBackend {
     // 2. If inference is in flight, return the last score (zero-order hold).
     if (this._inferring) return this._hasScore ? this._lastScore : null
 
-    // 3. Hop check: only run WavLM every HOP_FRAMES (80 ms), not every 10 ms.
+    // 3. Hop check: only run the encoder every HOP_FRAMES (80 ms), not every 10 ms.
     this._hopCounter++
     if (this._hopCounter < HOP_FRAMES) {
       return this._hasScore ? this._lastScore : null
@@ -94,7 +112,7 @@ export class WavLMFewShotBackend implements KWSBackend {
     // 4. Need a full window before scoring (warmup).
     if (this._len < this._windowSamples) return null
 
-    // 5. Run WavLM on the latest window and score it.
+    // 5. Run the PLiX encoder on the latest window and score it.
     this._inferring = true
     try {
       const window = this._latestWindow()
@@ -148,13 +166,14 @@ export class WavLMFewShotBackend implements KWSBackend {
     return out
   }
 
-  /** Cosine similarity to the prototype (rescaled [0,1]). */
+  /** PLiX Prototypical-Network score to the prototype (rescaled [0,1]). */
   private _score(embedding: Float32Array): number {
-    let score = cosineSimilarity(embedding, this._prototype.vector)
+    const d2 = squaredEuclidean(embedding, this._prototype.vector)
     if (this._useNegative && this._prototype.negativeVector) {
-      const negScore = cosineSimilarity(embedding, this._prototype.negativeVector)
-      score = Math.max(0, score - negScore)
+      const negD2 = squaredEuclidean(embedding, this._prototype.negativeVector)
+      // Prefer the query's own class: subtract the negative-class distance.
+      return plixScore(Math.max(0, d2 - negD2))
     }
-    return score
+    return plixScore(d2)
   }
 }

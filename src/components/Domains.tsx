@@ -9,7 +9,7 @@ const DOMAINS = [
   {
     name: 'High-performance',
     chips: ['Linux / Pi', 'Android'],
-    kws: 'WavLM Few-Shot + openWakeWord',
+    kws: 'PLiX Few-Shot + openWakeWord',
     afe: 'RNNoise + WebRTC AEC',
     note: 'Few-Shot metric learning. User-defined wake words.',
   },

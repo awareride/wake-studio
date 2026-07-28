@@ -3,7 +3,7 @@
 - **Status:** Accepted (human review complete; ADR-018 + ADR-020)
 - **Owner:** WakeStudio team
 - **Plan phase:** Phase 2
-- **Related ADRs:** ADR-001 (pipeline stages), ADR-002 (WavLM encoder), ADR-011 (lazy model registry), ADR-017 (per-component config panel), ADR-018 (KWS Phase 2 design decisions), ADR-020 (pluggable KWS backends)
+- **Related ADRs:** ADR-001 (pipeline stages), ADR-002 (PLiX Few-Shot encoder), ADR-011 (lazy model registry), ADR-017 (per-component config panel), ADR-018 (KWS Phase 2 design decisions), ADR-020 (pluggable KWS backends)
 - **Depends on (modules):** AFE (consumes the 16 kHz output stream)
 - **Last updated:** 2026-07-27
 
@@ -13,7 +13,7 @@ The KWS module detects a wake word in real time from the AFE's processed 16 kHz
 output stream. It runs ONNX inference in the browser (onnxruntime-web), smooths
 the posterior score, applies a threshold + minimum-duration rule, and raises a
 trigger event. It also scaffolds the Few-Shot `embed(audio)` function (frozen
-WavLM encoder) for Phase 3 enrollment. Delivers the KWS half of the in-browser
+PLiX encoder) for Phase 3 enrollment. Delivers the KWS half of the in-browser
 experience (requirement R5).
 
 ## 2. Scope & boundaries
@@ -23,9 +23,9 @@ experience (requirement R5).
   (melspectrogram -> embedding -> classifier) as the v1 browser demo backend;
   score smoothing (sliding window); threshold + min-duration trigger logic; VAD
   gating via the AFE's RNNoise VAD; live score-curve visualization; the Few-Shot
-  `embed(audio)` scaffold (load WavLM, extract embeddings - matching is Phase 3);
+  `embed(audio)` scaffold (load PLiX, extract embeddings - matching is Phase 3);
   KWS config panel (ADR-017). Backend selection is exposed in the panel
-  (openWakeWord available in v1; micro-wake-word / WavLM Few-Shot / PocketSphinx
+  (openWakeWord available in v1; micro-wake-word / PLiX Few-Shot / PocketSphinx
   are registered but not browser-feasible until later phases).
 - **Out of scope:** Few-Shot enrollment + prototype matching (Phase 3); model
   export (Phase 4); model training (Phase 5); the AFE pipeline itself (Phase 1 -
@@ -52,15 +52,17 @@ experience (requirement R5).
     (CC BY-NC-SA, demo-only); see ADR-018 Q-KWS-1 amendment. The same pipeline
     (mel -> speech-embedding -> classifier) is used; only the classifier weights
     differ.
-  - **WavLM-base-plus-sv** (`wavlm-base-plus-int8`, MIT) - speaker-verification
-    fine-tune (int8 ONNX ~97 MB, 512-dim embedding). Loaded via the KWS module's
-    `WavLMEmbedProvider`. See `LICENSES.md`.
+  - **PLiX Few-Shot encoder** (`plixkws`, Apache-2.0) - compact CNN
+    (EfficientNet-v2 "base" / TinyNet-E "small") trained as a Prototypical
+    Network; outputs a 1280-dim embedding for prototype-distance matching.
+    Loaded via the KWS module's `PlixKwsEmbedProvider`. Replaces WavLM-base-plus
+    (too heavy for end-side devices). See `LICENSES.md`.
   - **VAD**: the AFE's RNNoise VAD score (already in `AFEOutputFrame.vadActive`)
     is used for KWS gating for v1 (ADR-018). Silero VAD (ONNX, MIT) is deferred to
     v1.x when more accurate gating is needed.
 
   The other registered backends (ADR-020) - **micro-wake-word** (Apache-2.0,
-  MCU/TFLite-Micro), **WavLM Few-Shot** (MIT, Phase 3), and **PocketSphinx**
+  MCU/TFLite-Micro), **PLiX Few-Shot** (Apache-2.0, Phase 3), and **PocketSphinx**
   (BSD, lightweight HMM/GMM) - are not browser-feasible in v1 and have no
   browser adapter yet; they are part of the interface so the SDK (ADR-021) and
   later phases can implement them.
@@ -80,7 +82,7 @@ import type { AFEOutputFrame } from '../afe'
 export type KWSBackendId =
   | 'openwakeword'   // mel -> speech_embedding -> classifier (app-class)
   | 'microwakeword'  // TFLite-Micro streaming CNN (MCU; not browser-feasible v1)
-  | 'wavlm-few-shot' // WavLM embedding + cosine prototype (app-class; Phase 3)
+  | 'plixkws'       // PLiX embedding + prototype-distance (app-class; Phase 3)
   | 'pocketsphinx'   // lightweight HMM/GMM (MCU+; WASM port pending)
 
 /** One score sample emitted per inference frame (~every 10 ms). */
@@ -165,7 +167,7 @@ export interface BackendModelUrls {
   melspectrogram?: string
   embedding?: string
   classifier?: string
-  wavlm?: string
+  plixkws?: string
 }
 
 /** Top-level controller the UI drives. */
@@ -188,7 +190,7 @@ export interface KWSEngine {
   setConfig(patch: Partial<KWSConfig>): void
   describeParameters(): ReadonlyArray<ParameterDescriptor>
 
-  /** Few-Shot scaffold (Phase 3): extract a WavLM embedding from audio. */
+  /** Few-Shot scaffold (Phase 3): extract a PLiX embedding from audio. */
   embed(audio: Float32Array, sampleRate: number): Promise<Float32Array>
 }
 ```
@@ -240,7 +242,7 @@ AFE (AudioWorklet)                KWS Worker                  Main thread (UI)
    consecutive frames, and the cooldown period has elapsed since the last trigger,
    fire a `KWSTriggerEvent`.
 
-**Few-Shot scaffold:** `embed(audio)` loads WavLM-base-plus (int8 ONNX), runs it
+**Few-Shot scaffold:** `embed(audio)` loads the PLiX encoder (ONNX), runs it
 on the audio, and returns the embedding vector. Phase 3 uses this for prototype
 matching (cosine similarity). The scaffold proves the encoder loads and runs in the
 browser; matching/triggering is Phase 3.
@@ -252,7 +254,7 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
 
 | Parameter | Default | Range | Notes |
 |---|---|---|---|
-| `backend` | `openwakeword` | `openwakeword` \| `microwakeword` \| `wavlm-few-shot` \| `pocketsphinx` | Pluggable KWS backend (ADR-020). Only `openwakeword` is browser-feasible in v1; the others are registered for later phases. |
+| `backend` | `openwakeword` | `openwakeword` \| `microwakeword` \| `plixkws` \| `pocketsphinx` | Pluggable KWS backend (ADR-020). Only `openwakeword` is browser-feasible in v1; the others are registered for later phases. |
 | `threshold` | 0.5 | 0-1 | Smoothed score must exceed this to trigger. |
 | `minDurationMs` | 500 | 100-3000 | Score must exceed threshold for this long to trigger. |
 | `smoothingWindowFrames` | 10 | 1-30 | Sliding-window size for max-pooling (~10 ms/frame). |
@@ -277,20 +279,21 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
   rejects; UI shows "KWS inference unavailable in this browser."
 - **WebGPU unavailable:** automatic fallback to WASM execution provider; UI shows
   a "performance" indicator (WASM is slower).
-- **WavLM embedder (Few-Shot / Phase 3):** the WavLM ONNX graph contains ops
+- **PLiX embedder (Few-Shot / Phase 3):** the PLiX ONNX graph contains ops
   (notably `Concat` with int64 shape tensors) that onnxruntime-web's WebGPU EP
   fails to compile, raising a cascade of `Invalid ComputePipeline "Concat"`
-  WebGPU validation errors at `run()` time. The `WavLMEmbedProvider` is
+  WebGPU validation errors at `run()` time. The `PlixKwsEmbedProvider` is
   therefore pinned to the **WASM** execution provider regardless of the
   configured `executionProvider`. The reported EP is `wasm` whenever only the
-  WavLM embedder is loaded; OpenWakeWord detection backends still use WebGPU
+  PLiX embedder is loaded; OpenWakeWord detection backends still use WebGPU
   where available. (Fix: force WASM for the embedder, report `wasm` as the
   effective EP in the few-shot-only case.)
 - **Inference slower than realtime** (frame underrun): drop the oldest frames,
   log a warning, surface via the score-curve (gaps); never block the audio thread.
-- **WavLM too large for browser memory** (Phase 3 concern): `embed()` rejects with
-  an out-of-memory error; UI suggests closing other tabs. Mitigation: int8
-  quantization (~95 MB); a distilled fallback is documented (ADR-002).
+- **WavLM / PLiX too large for browser memory** (Phase 3 concern): `embed()` rejects with
+  an out-of-memory error; UI suggests closing other tabs. Mitigation: the PLiX
+  encoder is a compact CNN (far smaller than the old WavLM-base-plus); a
+  distilled "small" variant is documented (ADR-002).
 
 ## 8. Observability
 
@@ -347,7 +350,7 @@ All Phase 2 open questions are resolved (ADR-018); the contract is locked.
   deferred to v1.x. The plan's "Silero VAD integration" task is superseded by
   "VAD gating via AFE's RNNoise VAD."
 - **[ADR-020] Pluggable KWS backends.** KWS is a `KWSBackend` interface with
-  adapters (openWakeWord, micro-wake-word, WavLM Few-Shot, PocketSphinx). The
+  adapters (openWakeWord, micro-wake-word, PLiX Few-Shot, PocketSphinx). The
   engine delegates inference to the selected backend; only `openwakeword` has a
   browser adapter in v1. This makes the in-browser demo and the device-side SDK
   (ADR-021) share one interface.
@@ -355,13 +358,13 @@ All Phase 2 open questions are resolved (ADR-018); the contract is locked.
 ## 12. References
 
 - Plan: §4.1 Domain B (KWS models), §4.3 (inference stack), Phase 2 tasks/validation.
-- ADR-001 (pipeline stages), ADR-002 (WavLM encoder), ADR-011 (lazy model registry),
+- ADR-001 (pipeline stages), ADR-002 (PLiX Few-Shot encoder), ADR-011 (lazy model registry),
   ADR-017 (per-component config panel), ADR-018 (KWS Phase 2 design decisions),
   ADR-020 (pluggable KWS backends).
-- Upstream: onnxruntime-web; openWakeWord (`dscripka/openWakeWord`); WavLM
-  (`microsoft/wavlm-base-plus`); Silero VAD (`snakers4/silero-vad`).
+- Upstream: onnxruntime-web; openWakeWord (`dscripka/openWakeWord`); PLiX
+  (`aaqibsaeed/plixkws`); Silero VAD (`snakers4/silero-vad`).
 - Model registry: `public/model-registry.json` (melspectrogram, speech_embedding,
-  openwakeword-alexa, wavlm-base-plus-int8, silero-vad).
+  openwakeword-alexa, plixkws, silero-vad).
 - Related module docs: `docs/modules/afe.md` (Phase 1, upstream provider - AFE
   output is KWS input); `docs/modules/few-shot.md` (Phase 3, downstream consumer
   of `embed(audio)` - not yet written).
@@ -376,3 +379,4 @@ All Phase 2 open questions are resolved (ADR-018); the contract is locked.
 | 2026-07-27 | Implement the §7 serialization guard: drop frames during in-flight inference (ONNX sessions are not re-entrant; "Session already started"). | agent |
 | 2026-07-27 | Fix the OpenWakeWord pipeline: correct mel output shape `[1,1,time,32]` (was misread as `[time,1,76,32]`), add the required `x/10+2` melspectrogram transform, window 76 mel FRAMES (not per-timestep) for the embedding model, use 480-sample streaming overlap. Post 0-scores during ~2 s warmup so the curve renders. | agent |
 | 2026-07-28 | VAD gate now suppresses triggers, not inference. The old gate dropped audio frames during VAD-off, losing wake-word onset (RNNoise VAD is conservative) and making triggering difficult. Inference always runs so the audio window stays current. | agent |
+| 2026-07-28 | Migrate the Few-Shot encoder from WavLM-base-plus to **PLiX** (`aaqibsaeed/plixkws`, Apache-2.0). WavLM-base-plus was too heavy for end-side devices; PLiX is a compact CNN (EfficientNet-v2 "base" / TinyNet-E "small") with Prototypical-Network scoring (embedding -> mean prototype -> distance). New `plixkws` backend id + `PlixKwsEmbedProvider` (log-Mel front-end, WASM-pinned). Scoring uses squared-Euclidean distance to the prototype, rescaled to [0,1] via `1/(1+d^2)`. Replaces `wavlm-few-shot` / `WavLMEmbedProvider`. | agent |

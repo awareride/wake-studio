@@ -40,7 +40,8 @@ Every model or component that enters an **export bundle** is classified:
 | Google `speech_embedding` backbone | re-implemented in openWakeWord; original on TFHub | Apache-2.0 | Yes | ✅ | openWakeWord README + TFHub module page. |
 | openWakeWord **code** | `dscripka/openWakeWord` | Apache-2.0 | Yes (code) | ✅ | Repo license badge + README "License" section. |
 | openWakeWord **pre-trained models** | `davidscripka/openwakeword` (HuggingFace) | **CC BY-NC-SA 4.0** | **No** | 🟡 Demo-only | README: "pre-trained models … CC BY-NC-SA 4.0 … due to … datasets with unknown or restrictive licensing". Highest-risk item. |
-| WavLM-base-plus encoder (Few-Shot) | `microsoft/wavlm-base-plus` | MIT | Yes | ✅ | HF model card → LICENSE file in `microsoft/unilm` (MIT). |
+| WavLM-base-plus encoder (Few-Shot, **superseded**) | `microsoft/wavlm-base-plus` | MIT | Yes | ✅ | Repo license (MIT). **Replaced by PLiX** as the Few-Shot encoder (WavLM-base-plus was too heavy for end-side devices - see PLiX row). Kept for reference only. |
+| PLiX Few-Shot encoder (`plixkws`) | `aaqibsaeed/plixkws` (FewshotML/plix) | Apache-2.0 | Yes | ✅ | Repo LICENSE (Apache-2.0). Compact CNN (EfficientNet-v2 "base" / TinyNet-E "small") trained as a Prototypical Network; 1280-dim embedding for prototype-distance matching. Replaces WavLM-base-plus as the in-browser Few-Shot encoder. Published weights are PyTorch `.pt` (Dropbox); export to ONNX before bundling. |
 | Custom-verifier (scikit-learn logistic regression) | openWakeWord `train_custom_verifier` | Apache-2.0 | Yes | ✅ | Part of openWakeWord code (Apache-2.0). |
 | PocketSphinx (lightweight KWS alt, ADR-020) | `cmusphinx/pocketsphinx` | BSD-style (CMU); bundles WebRTC VAD (BSD-3) in `src/vad` | Yes | ✅ | Repo `LICENSE` (Carnegie Mellon University, BSD-style redistribution terms); bundled WebRTC VAD is BSD-3. Verified via the repo LICENSE file.
 

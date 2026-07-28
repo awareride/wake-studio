@@ -17,14 +17,14 @@ describe('BACKEND_REGISTRY', () => {
     expect(ids).toEqual([
       'openwakeword',
       'microwakeword',
-      'wavlm-few-shot',
+      'plixkws',
       'pocketsphinx',
     ])
   })
 
-  it('openwakeword and wavlm-few-shot are browser-feasible', () => {
+  it('openwakeword and plixkws are browser-feasible', () => {
     const feasible = BACKEND_REGISTRY.filter((r) => r.browserFeasible)
-    expect(feasible.map((r) => r.id)).toEqual(['openwakeword', 'wavlm-few-shot'])
+    expect(feasible.map((r) => r.id)).toEqual(['openwakeword', 'plixkws'])
   })
 
   it('every entry has a label and an availability note', () => {
@@ -68,8 +68,8 @@ describe('createBackend', () => {
     expect(() => createBackend('microwakeword')).toThrow(/not browser-feasible/)
   })
 
-  it('throws for wavlm-few-shot (created by the worker, not the factory)', () => {
-    expect(() => createBackend('wavlm-few-shot')).toThrow(/created directly by the worker/)
+  it('throws for plixkws (created by the worker, not the factory)', () => {
+    expect(() => createBackend('plixkws')).toThrow(/created directly by the worker/)
   })
 
   it('throws for pocketsphinx (pending WASM port)', () => {
@@ -109,5 +109,63 @@ describe('OpenWakeWordBackend', () => {
     expect(() => backend.reset()).not.toThrow()
     await expect(backend.dispose()).resolves.toBeUndefined()
     expect(backend.ready).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PlixKwsBackend (shape only; ONNX/fetch are e2e-tested)
+// ---------------------------------------------------------------------------
+
+import { PlixKwsBackend } from '../backends/plixkws'
+import type { EmbedProvider, WakeWordPrototype } from '../../few-shot/types'
+
+// A minimal fake embedder that returns a fixed 1280-dim vector, so we can test
+// the backend's buffering / scoring without loading an ONNX model.
+class FakeEmbedder implements EmbedProvider {
+  ready = true
+  async embed(): Promise<Float32Array> {
+    return new Float32Array(1280).fill(0.5)
+  }
+}
+
+const FAKE_PROTOTYPE: WakeWordPrototype = {
+  id: 'p',
+  word: 'test',
+  vector: new Float32Array(1280).fill(0.5), // identical -> score 1.0
+  sampleIds: [],
+  createdAtMs: 0,
+}
+
+describe('PlixKwsBackend', () => {
+  it('is not ready before the embedder is ready', () => {
+    const notReady = new FakeEmbedder()
+    notReady.ready = false
+    const backend = new PlixKwsBackend(notReady, FAKE_PROTOTYPE)
+    expect(backend.ready).toBe(false)
+  })
+
+  it('processFrame returns null before a full window is buffered (warmup)', async () => {
+    const backend = new PlixKwsBackend(new FakeEmbedder(), FAKE_PROTOTYPE, 1500)
+    const score = await backend.processFrame(new Float32Array(160))
+    expect(score).toBeNull()
+  })
+
+  it('scores 1.0 for an embedding identical to the prototype', async () => {
+    const backend = new PlixKwsBackend(new FakeEmbedder(), FAKE_PROTOTYPE, 1500)
+    // Feed enough 160-sample frames that a hop boundary (every 8 frames) lands
+    // after a full ~1.5 s window has buffered (24000 samples).
+    let last: number | null = null
+    for (let i = 0; i < 200; i++) {
+      const s = await backend.processFrame(new Float32Array(160))
+      if (s !== null) last = s
+    }
+    expect(last).not.toBeNull()
+    expect(last!).toBeCloseTo(1.0, 3)
+  })
+
+  it('reset() and dispose() do not throw when unloaded', async () => {
+    const backend = new PlixKwsBackend(new FakeEmbedder(), FAKE_PROTOTYPE)
+    expect(() => backend.reset()).not.toThrow()
+    await expect(backend.dispose()).resolves.toBeUndefined()
   })
 })

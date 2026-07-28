@@ -8,6 +8,8 @@ export { FewShotEngine } from './FewShotEngine'
 export { DEFAULT_CONFIG, describeParameters } from './defaults'
 export {
   cosineSimilarity,
+  squaredEuclidean,
+  plixScore,
   meanPool,
   peakDbfs,
   rmsDbfs,

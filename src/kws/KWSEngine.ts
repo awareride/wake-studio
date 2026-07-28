@@ -70,7 +70,7 @@ export class KWSEngine {
   /**
    * Load models from the registry (ADR-011) into the selected backend
    * (ADR-020). The backend id comes from `config.backend`. For the
-   * `wavlm-few-shot` backend, pass the enrolled prototype vector. Resolves
+   * `plixkws` backend, pass the enrolled prototype vector. Resolves
    * when ready to detect.
    */
   async load(models: BackendModelUrls, prototype?: Float32Array): Promise<void> {

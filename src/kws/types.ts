@@ -16,7 +16,7 @@
 export type KWSBackendId =
   | 'openwakeword' // mel -> speech_embedding -> classifier (app-class)
   | 'microwakeword' // TFLite-Micro streaming CNN (MCU; not browser-feasible v1)
-  | 'wavlm-few-shot' // WavLM embedding + cosine prototype (app-class; Phase 3)
+  | 'plixkws' // PLiX Few-Shot (compact CNN encoder + prototype distance; edge-friendly)
   | 'pocketsphinx' // lightweight HMM/GMM (MCU+; WASM port pending)
 
 /** One score sample emitted per inference frame (~every 10 ms). */
@@ -106,7 +106,7 @@ export interface BackendModelUrls {
   melspectrogram?: string
   embedding?: string
   classifier?: string
-  wavlm?: string
+  plixkws?: string
 }
 
 /** Runtime status of the KWS engine. */

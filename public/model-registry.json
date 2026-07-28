@@ -47,18 +47,18 @@
       "notes": "Browser-first wake-word model. Commercially clean (CC-BY-4.0). Replaces the CC BY-NC-SA openWakeWord alexa demo model."
     },
     {
-      "id": "wavlm-base-plus-int8",
-      "name": "WavLM-base-plus-sv speaker-verification encoder (int8 ONNX)",
+      "id": "plixkws",
+      "name": "PLiX Few-Shot encoder (base / small)",
       "tier": ["high-performance"],
-      "source": "Xenova/wavlm-base-plus-sv (ONNX export of microsoft/wavlm-base-plus-sv)",
-      "url": "/prebuilts/wavlm/wavlm-base-plus-sv-q8.onnx",
+      "source": "aaqibsaeed/plixkws (ONNX export of FewshotML/plix)",
+      "url": "/prebuilts/plixkws/plixkws-base.onnx",
       "format": "onnx",
-      "license": "MIT",
+      "license": "Apache-2.0",
       "commercial": true,
       "class": "redistributable",
       "sha256": "TODO-phase3",
-      "sizeBytes": 101683453,
-      "notes": "Speaker-verification fine-tune; outputs a 512-dim embedding for cosine-similarity matching (resolves Q-FS-1). Local prebuilt."
+      "sizeBytes": null,
+      "notes": "Compact CNN (EfficientNet-v2 'base' / TinyNet-E 'small') trained as a Prototypical Network; outputs a 1280-dim embedding for prototype-distance matching. Replaces WavLM-base-plus as the Few-Shot encoder (WavLM was too heavy for end-side devices). Apache-2.0 (FewshotML/plix). The published weights are PyTorch .pt (Dropbox); export to ONNX via torch.onnx and drop into prebuilts/plixkws/. Local prebuilt."
     },
     {
       "id": "silero-vad",

@@ -37,6 +37,6 @@ test('Few-Shot enrollment panel renders (Phase 3)', async ({ page }) => {
   // The Few-Shot section heading is visible.
   await expect(page.getByRole('heading', { name: /Few-Shot enrollment/i })).toBeVisible()
 
-  // The "Load WavLM encoder" button is visible in the idle state.
-  await expect(page.getByRole('button', { name: /Load WavLM encoder/i })).toBeVisible()
+  // The "Load PLiX encoder" button is visible in the idle state.
+  await expect(page.getByRole('button', { name: /Load PLiX encoder/i })).toBeVisible()
 })

@@ -22,18 +22,34 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   use a 2-mic beamforming approximation or passthrough, with true BSS running
   device-side in exported demos.
 
-## ADR-002 — High-performance Few-Shot encoder is WavLM-base-plus (int8)
+## ADR-002 — High-performance Few-Shot encoder is PLiX (supersedes WavLM-base-plus)
 
 - **Status:** Accepted (default applied; human may override)
 - **Origin:** Plan Q2
 - **Decision:** The Few-Shot KWS track uses a frozen
-  `microsoft/wavlm-base-plus` encoder (MIT license), quantized to int8 (~95 MB),
-  with cosine-similarity prototype matching.
-- **Rationale:** WavLM is the SUPERB KWS head and supports few-shot via embedding
-  similarity. Fits the 30–100 MB RAM budget of a Linux gateway.
-- **Consequences:** May be too large for the smallest Linux gateways. Mitigation:
-  offer a distilled/quantized fallback and expose a RAM target in the UI
-  (revisit in Phase 3). wav2vec2-base is the documented fallback.
+  `aaqibsaeed/plixkws` encoder (Apache-2.0), a compact CNN
+  (EfficientNet-v2 "base" / TinyNet-E "small") trained as a Prototypical
+  Network; scoring is squared-Euclidean distance to the mean prototype
+  (rescaled to [0,1]). Replaces the earlier WavLM-base-plus choice below.
+- **Rationale:** WavLM-base-plus (~95 MB int8, 95M-param Wav2Vec2 front) was
+  too heavy for end-side / IoT devices. PLiX is purpose-built for few-shot
+  spoken-word detection on resource-constrained hardware and is far smaller,
+  while still supporting enrollment with a handful of support clips.
+- **Consequences:** The encoder expects a 1x64x100 log-Mel spectrogram front-end
+  (16 kHz, window 400 / hop 160, 60–7800 Hz). The "small" TinyNet-E variant
+  is offered for the lowest-RAM targets.
+
+> **Superseded (2026-07-28):** the original ADR-002 selected
+> `microsoft/wavlm-base-plus` (MIT, int8 ~95 MB) with cosine-similarity
+> prototype matching. That choice was overturned because the model's footprint
+> is excessive for end-side deployment; PLiX is the replacement.
+> Original decision (kept for history):
+> - **Decision:** frozen `microsoft/wavlm-base-plus` encoder (MIT), int8 (~95 MB),
+>   cosine-similarity prototype matching.
+> - **Rationale:** WavLM is a strong KWS head and supports few-shot via embedding
+>   similarity; fits a 30–100 MB RAM budget of a Linux gateway.
+> - **Consequences:** may be too large for the smallest gateways; mitigation was a
+>   distilled/quantized fallback (Wav2Vec2-base documented).
 
 ## ADR-003 — Vendor AFE for reference demos; portable AFE as alternative
 
@@ -74,8 +90,7 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 - **Status:** Superseded by ADR-019
 - **Origin:** Plan Q6 (resolved by human)
 - **Decision:** The "golden path" export targets are ESP32-S3 (Domain A,
-  microWakeWord + ESP-SR) and Linux/Raspberry Pi (Domain B, openWakeWord / WavLM
-  Few-Shot + RNNoise/WebRTC).
+  microWakeWord + ESP-SR) and Linux/Raspberry Pi (Domain B, openWakeWord / PLiX
 - **Rationale:** Most open-source reference material exists for these two.
 
 ## ADR-007 — English only for v1
@@ -102,7 +117,7 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 - **Decision:** All WakeStudio-authored source in this repository is licensed
   under the MIT License. A top-level `LICENSE` file is added.
 - **Rationale:** Permissive, compatible with React/Vite/Tailwind/onnxruntime/
-  RNNoise/WebRTC/Silero/WavLM. Note: this does **not** change the licenses of
+  RNNoise/WebRTC/Silero/PLiX. Note: this does **not** change the licenses of
   integrated third-party models — those retain their own terms (see
   `LICENSES.md`). Specifically, openWakeWord **pre-trained models are CC BY-NC-SA
   4.0** and must never enter a commercial bundle (enforced by the Phase 4 license
@@ -375,7 +390,7 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   for the deferred target; the original STM32/TI rows are superseded by the
   Cortex-M tier (TI drops off the v1 list).
 
-## ADR-020 - KWS is a pluggable-backend interface; openWakeWord, micro-wake-word, WavLM Few-Shot, and PocketSphinx are adapters
+## ADR-020 - KWS is a pluggable-backend interface; openWakeWord, micro-wake-word, PLiX Few-Shot, and PocketSphinx are adapters
 
 - **Status:** Accepted
 - **Origin:** Human product-direction update
@@ -389,8 +404,8 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   - **micro-wake-word** (Apache-2.0) - MCU tier (Cortex-M: STM32, Arduino; also
     ESP32). TFLite-Micro streaming int8 models, tens of KB. Synthetic-data
     training, like openWakeWord.
-  - **WavLM Few-Shot** (MIT) - app-class; enrollment-based, cosine-similarity
-    prototypes (ADR-002). Prototype computation + inference stay client-side
+  - **PLiX Few-Shot** (Apache-2.0) - app-class; enrollment-based, prototype-distance
+    scoring (ADR-002). Prototype computation + inference stay client-side
     (ADR-013 amendment).
   - **PocketSphinx** (CMU Sphinx, BSD-style; bundles WebRTC VAD under BSD-3) -
     lightweight classic HMM/GMM; viable on MCU-class and above as a lightweight /

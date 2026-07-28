@@ -28,10 +28,6 @@ export const DEFAULT_CONFIG: KWSConfig = {
   cooldownMs: 2000,
   executionProvider: 'webgpu',
 }
-
-/**
- * Declare all tunable KWS parameters for the Studio config panel (ADR-017).
- */
 export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
   return [
     {
@@ -42,7 +38,7 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
       options: [
         { value: 'openwakeword', label: 'OpenWakeWord (available)' },
         { value: 'microwakeword', label: 'micro-wake-word (MCU / Phase 5)' },
-        { value: 'wavlm-few-shot', label: 'WavLM Few-Shot (Phase 3)' },
+        { value: 'plixkws', label: 'PLiX Few-Shot (Phase 3)' },
         { value: 'pocketsphinx', label: 'PocketSphinx (pending)' },
       ],
       description:

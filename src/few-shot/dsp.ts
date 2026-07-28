@@ -1,5 +1,5 @@
 /**
- * Few-Shot module - pure logic (testable, no ONNX/WavLM dependency).
+ * Few-Shot module - pure logic (testable, no ONNX/encoder dependency).
  *
  * Cosine similarity, prototype mean-pooling, and sample-quality checks.
  * Extracted for unit testing per docs/modules/few-shot.md §9.
@@ -11,6 +11,9 @@
  * cos(a,b) = dot(a,b) / (||a|| * ||b||), then (cos + 1) / 2 so the existing
  * threshold/min-duration UI (tuned for [0,1] posteriors) works unchanged.
  * Returns 0 if either vector has zero norm (avoid NaN).
+ *
+ * NOTE: this is the metric used by the WavLM Few-Shot prototype. The PLiX
+ * backend uses Euclidean distance instead (see squaredEuclidean / plixScore).
  */
 export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   if (a.length !== b.length || a.length === 0) return 0
@@ -25,6 +28,39 @@ export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   if (normA === 0 || normB === 0) return 0
   const cos = dot / (Math.sqrt(normA) * Math.sqrt(normB))
   return (cos + 1) / 2
+}
+
+/**
+ * Squared Euclidean distance between two equal-length vectors.
+ * Used by the PLiX backend (Prototypical Network): the prototype is the mean
+ * of the support-set embeddings, and a query's score is the (negative) squared
+ * distance to that prototype (lower distance = closer = better match).
+ * Returns 0 if the vectors differ in length.
+ */
+export function squaredEuclidean(
+  a: Float32Array,
+  b: Float32Array,
+): number {
+  if (a.length !== b.length || a.length === 0) return 0
+  let sum = 0
+  for (let i = 0; i < a.length; i++) {
+    const d = a[i] - b[i]
+    sum += d * d
+  }
+  return sum
+}
+
+/**
+ * Rescale a squared-Euclidean distance to a [0,1] similarity score:
+ *     score = 1 / (1 + d^2)
+ *
+ * This mirrors PLiX's framing of the negative squared distance as a softmax
+ * logit, mapped into [0,1] so the existing threshold/min-duration trigger UI
+ * (higher = trigger) works unchanged. Returns 0 for a zero-norm vector.
+ */
+export function plixScore(squaredDistance: number): number {
+  if (!Number.isFinite(squaredDistance) || squaredDistance < 0) return 0
+  return 1 / (1 + squaredDistance)
 }
 
 /**

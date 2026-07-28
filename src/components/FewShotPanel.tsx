@@ -5,10 +5,13 @@ import type { KWSScoreSample, KWSStatus } from '../kws'
 import { FewShotEngine, DEFAULT_CONFIG as FS_DEFAULTS } from '../few-shot'
 import type { EnrolledSample, FewShotConfig, WakeWordPrototype } from '../few-shot'
 
-// WavLM-base-plus-sv speaker-verification encoder (MIT, int8 ONNX ~97 MB).
-// Outputs a 512-dim embedding for cosine-similarity matching. Served from
-// local prebuilts in dev (ADR-011 amendment); remote fallback for deployed builds.
-const WAVLM_URL = '/prebuilts/wavlm/wavlm-base-plus-sv-q8.onnx'
+// PLiX Few-Shot encoder (aaqibsaeed/plixkws, Apache-2.0) - compact CNN
+// (EfficientNet-v2 'base' / TinyNet-E 'small') trained as a Prototypical
+// Network on 16 kHz one-second clips. Far lighter than WavLM-base-plus, making
+// it suitable for end-side / IoT devices. Outputs a 1280-dim embedding for
+// prototype-distance matching. Served from local prebuilts in dev (ADR-011
+// amendment); remote fallback for deployed builds.
+const PLIX_URL = '/prebuilts/plixkws/plixkws-base.onnx'
 
 const RECORD_MS = 1500
 const MIN_SAMPLES = 3
@@ -62,10 +65,10 @@ export const FewShotPanel = memo(function FewShotPanel({
     const engine = ensureEngines()
     try {
       setStatus('loading')
-      // Load with wavlm only (for embedding). The backend id doesn't matter
-      // for enrollment - we just need the WavLM encoder for embed().
+      // Load with plixkws only (for embedding). The backend id doesn't matter
+      // for enrollment - we just need the PLiX encoder for embed().
       engine.setConfig({ ...KWS_DEFAULTS, backend: 'openwakeword' })
-      await engine.load({ wavlm: WAVLM_URL })
+      await engine.load({ plixkws: PLIX_URL })
       setStatus(engine.status)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -147,7 +150,7 @@ export const FewShotPanel = memo(function FewShotPanel({
       return
     }
     try {
-      // Reload the engine with the wavlm-few-shot backend + prototype.
+      // Reload the engine with the plixkws backend + prototype.
       // We need a fresh worker: dispose and recreate.
       engine.dispose()
       const fresh = new KWSEngine()
@@ -160,8 +163,8 @@ export const FewShotPanel = memo(function FewShotPanel({
         setTimeout(() => setTriggerFlash(false), 500)
       })
       engineRef.current = fresh
-      fresh.setConfig({ ...KWS_DEFAULTS, backend: 'wavlm-few-shot' })
-      await fresh.load({ wavlm: WAVLM_URL }, proto.vector)
+      fresh.setConfig({ ...KWS_DEFAULTS, backend: 'plixkws' })
+      await fresh.load({ plixkws: PLIX_URL }, proto.vector)
       fresh.start({ onOutput: (cb) => afePipeline.onOutput(cb) })
       setDetecting(true)
       setStatus('running')
@@ -202,8 +205,8 @@ export const FewShotPanel = memo(function FewShotPanel({
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-white">Few-Shot enrollment</h2>
         <p className="text-sm text-slate-400">
-          Phase 3 · enroll a custom wake word with {MIN_SAMPLES}+ samples (WavLM
-          embedding + cosine prototype, ADR-020). 100% client-side
+          Phase 3 · enroll a custom wake word with {MIN_SAMPLES}+ samples (PLiX
+          embedding + prototype-distance scoring, ADR-020). 100% client-side
           (enrollment/inference, not training - ADR-013).
         </p>
       </div>
@@ -215,11 +218,11 @@ export const FewShotPanel = memo(function FewShotPanel({
             onClick={handleLoadEncoder}
             className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-400"
           >
-            Load WavLM encoder (~95 MB)
+            Load PLiX encoder
           </button>
         )}
         {status === 'loading' && (
-          <span className="text-sm text-slate-400">Loading WavLM…</span>
+          <span className="text-sm text-slate-400">Loading PLiX…</span>
         )}
         {encoderReady && !detecting && (
           <button
@@ -310,7 +313,7 @@ export const FewShotPanel = memo(function FewShotPanel({
       {detecting && (
         <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] p-5">
           <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
-            <span>Few-Shot score curve (cosine similarity)</span>
+            <span>Few-Shot score curve (prototype-distance similarity)</span>
             <span className="font-mono">
               {historyRef.current.length > 0
                 ? `score: ${historyRef.current[historyRef.current.length - 1].smoothedScore.toFixed(3)}`
