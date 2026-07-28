@@ -45,7 +45,7 @@ import {
   PLIX_TARGET_FRAMES,
   PLIX_WINDOW_LENGTH,
   PLIX_HOP_LENGTH,
-  logMelSpectrogram,
+  melSpectrogram,
   fitFrames,
 } from './plix-frontend'
 import type {
@@ -75,7 +75,10 @@ export class PlixTransformersEncoder implements PlixEncoder {
     // specifier is held in a variable so the bundler does NOT statically
     // resolve it (it is an optional dep declared external in vite.config.ts).
     const spec = '@huggingface/transformers'
-    const mod = (await import(spec)) as unknown as {
+    // @vite-ignore: this specifier is an OPTIONAL dependency declared external
+    // in vite.config.ts - it is fetched at runtime (CDN) only when this runtime
+    // is selected, so Vite must not try to statically analyze/bundle it.
+    const mod = (await import(/* @vite-ignore */ spec)) as unknown as {
       AutoModel: AutoModelStatic
       env: TransformersEnv
       Tensor: typeof import('@huggingface/transformers').Tensor
@@ -113,8 +116,9 @@ export class PlixTransformersEncoder implements PlixEncoder {
       throw new Error('PLiX (transformers) encoder not loaded; embed() unavailable.')
     }
 
-    // Build the shared 1x64x100 log-Mel front-end (identical to ONNX path).
-    let mel = logMelSpectrogram(audio)
+    // Build the shared 1x64x100 raw-mel front-end (identical to ONNX path).
+    // The graph applies the log itself, so this is raw mel magnitude.
+    let mel = melSpectrogram(audio)
     const numFrames = Math.floor(
       (audio.length - PLIX_WINDOW_LENGTH) / PLIX_HOP_LENGTH + 1,
     )

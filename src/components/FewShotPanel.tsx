@@ -5,6 +5,13 @@ import type { KWSScoreSample, KWSStatus } from '../kws'
 import { FewShotEngine, DEFAULT_CONFIG as FS_DEFAULTS } from '../few-shot'
 import type { EnrolledSample, FewShotConfig, WakeWordPrototype } from '../few-shot'
 import recorderUrl from '../few-shot/recorder.worklet.ts?worker&url'
+import type { ModelRuntime } from '../runtime'
+import {
+  PLIX_ENCODER_VARIANTS,
+  getPlixEncoderVariant,
+  type PlixEncoderVariant,
+} from '../kws/backends/plix-encoder'
+import { RUNTIME_LABELS } from '../runtime'
 
 // PLiX Few-Shot encoder (aaqibsaeed/plixkws, Apache-2.0) - compact CNN
 // (EfficientNet-v2 'base' / TinyNet-E 'small') trained as a Prototypical
@@ -13,7 +20,7 @@ import recorderUrl from '../few-shot/recorder.worklet.ts?worker&url'
 // prototype-distance matching. Served from local prebuilts in dev (ADR-011
 // amendment); remote fallback for deployed builds.
 //
-// Runtime: 'onnx' (default) loads the exported plixkws-base.onnx via
+// Runtime: 'onnx' (default) loads the exported plixkws-<variant>.onnx via
 // onnxruntime-web; 'transformers' loads the encoder browser-native via
 // @huggingface/transformers v4 (loaded from the jsDelivr CDN, no .pt / no npm
 // install) - it fetches the ONNX weights itself (from a HF repo id or a
@@ -21,14 +28,12 @@ import recorderUrl from '../few-shot/recorder.worklet.ts?worker&url'
 // stays the default; switch to 'transformers' for a zero-Python deployment.
 // The type is the global ModelRuntime (see src/runtime.ts) so the same
 // selector can drive other modules' AFE/KWS models and future runtimes.
-import type { ModelRuntime } from '../runtime'
-const PLIX_RUNTIME: ModelRuntime = 'onnx'
-const PLIX_URL = '/prebuilts/plixkws/plixkws-base.onnx'
-// For PLIX_RUNTIME = 'transformers', PLIX_URL is either a Hugging Face repo id
-// (e.g. 'aaqibsaeed/plixkws', fetched from the Hub) or a local HF-style dir
-// served under /prebuilts/plixkws/hf/<id>/ (config.json + onnx/model.onnx).
-// Example local form:
-//   const PLIX_URL = '/prebuilts/plixkws/hf/plixkws'
+//
+// The encoder VARIANT ('base' / 'small') is now selectable in the UI (ADR-002):
+// the chosen variant selects which exported ONNX graph (or HF repo) the
+// embedder loads. Both emit a 1280-dim embedding, so scoring is identical.
+const PLIX_VARIANTS: ReadonlyArray<PlixEncoderVariant> = PLIX_ENCODER_VARIANTS
+const DEFAULT_VARIANT: PlixEncoderVariant['id'] = 'base'
 
 const RECORD_MS = 1500
 const MIN_SAMPLES = 3
@@ -54,8 +59,25 @@ export const FewShotPanel = memo(function FewShotPanel({
   const [prototype, setPrototype] = useState<WakeWordPrototype | null>(null)
   const [building, setBuilding] = useState(false)
   const [config] = useState<FewShotConfig>({ ...FS_DEFAULTS })
+  const [encoderVariant, setEncoderVariant] =
+    useState<PlixEncoderVariant['id']>(DEFAULT_VARIANT)
+  const [runtime, setRuntime] = useState<ModelRuntime>('onnx')
   const historyRef = useRef<KWSScoreSample[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  /** Resolve the PLiX model locator for the current variant + runtime. */
+  const resolvePlixLocator = useCallback((): { url: string; runtime: ModelRuntime } => {
+    const variant = getPlixEncoderVariant(encoderVariant)
+    if (!variant) {
+      throw new Error(`Unknown PLiX variant: ${encoderVariant}`)
+    }
+    const rt = runtime
+    const url =
+      rt === 'transformers'
+        ? variant.transformersModel
+        : variant.onnxUrl
+    return { url, runtime: rt }
+  }, [encoderVariant, runtime])
 
   // Initialize engines lazily.
   const ensureEngines = useCallback(() => {
@@ -84,25 +106,31 @@ export const FewShotPanel = memo(function FewShotPanel({
       // Load with plixkws only (for embedding). The backend id doesn't matter
       // for enrollment - we just need the PLiX encoder for embed().
       engine.setConfig({ ...KWS_DEFAULTS, backend: 'openwakeword' })
-      await engine.load({ plixkws: PLIX_URL, runtime: PLIX_RUNTIME })
+      const { url, runtime: rt } = resolvePlixLocator()
+      await engine.load({ plixkws: url, runtime: rt })
       setStatus(engine.status)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       // The PLiX weights ship as PyTorch .pt (Dropbox); they must be exported
       // to ONNX and dropped into prebuilts/plixkws/ before the encoder can
       // load. Surface that clearly instead of a raw fetch/404 error.
+      const variant = getPlixEncoderVariant(encoderVariant)
+      const expected = variant?.onnxUrl ?? '/prebuilts/plixkws/plixkws-base.onnx'
       if (/fetch|404|load failed|not loaded/i.test(msg)) {
         setError(
-          'PLiX encoder model not found. Export the PLiX ONNX ' +
-            '(see prebuilts/plixkws/README.md) and place it at ' +
-            PLIX_URL + '.',
+          `PLiX (${encoderVariant}) encoder model not found. Export the PLiX ` +
+            `ONNX (see prebuilts/plixkws/README.md) and place it at ` +
+            expected +
+            (encoderVariant === 'small'
+              ? ' (plus the co-located plixkws-small.onnx.data external weights file).'
+              : '.'),
         )
       } else {
         setError(msg)
       }
       setStatus('error')
     }
-  }, [ensureEngines])
+  }, [ensureEngines, resolvePlixLocator, encoderVariant])
 
   /** Record a 1.5 s sample from the mic at 16 kHz. */
   const handleRecord = useCallback(async () => {
@@ -200,7 +228,8 @@ export const FewShotPanel = memo(function FewShotPanel({
       })
       engineRef.current = fresh
       fresh.setConfig({ ...KWS_DEFAULTS, backend: 'plixkws' })
-      await fresh.load({ plixkws: PLIX_URL, runtime: PLIX_RUNTIME }, proto.vector)
+      const { url, runtime: rt } = resolvePlixLocator()
+      await fresh.load({ plixkws: url, runtime: rt }, proto.vector)
       fresh.start({ onOutput: (cb) => afePipeline.onOutput(cb) })
       setDetecting(true)
       setStatus('running')
@@ -208,7 +237,7 @@ export const FewShotPanel = memo(function FewShotPanel({
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
     }
-  }, [afePipeline, afeRunning, prototype])
+  }, [afePipeline, afeRunning, prototype, resolvePlixLocator])
 
   const handleStopDetection = useCallback(() => {
     engineRef.current?.stop()
@@ -250,12 +279,43 @@ export const FewShotPanel = memo(function FewShotPanel({
       {/* Controls */}
       <div className="mb-6 flex flex-wrap items-center gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-5">
         {status === 'idle' && (
-          <button
-            onClick={handleLoadEncoder}
-            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-400"
-          >
-            Load PLiX encoder
-          </button>
+          <>
+            <label className="flex items-center gap-2 text-sm text-slate-400">
+              <span className="shrink-0">Encoder</span>
+              <select
+                value={encoderVariant}
+                onChange={(e) =>
+                  setEncoderVariant(e.target.value as PlixEncoderVariant['id'])
+                }
+                className="rounded bg-slate-800/80 px-2 py-1 text-slate-200"
+                title="Select the PLiX encoder variant (ADR-002). 'base' = EfficientNet-v2-M; 'small' = TinyNet-E (lighter). Both emit a 1280-dim embedding."
+              >
+                {PLIX_VARIANTS.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-400">
+              <span className="shrink-0">Runtime</span>
+              <select
+                value={runtime}
+                onChange={(e) => setRuntime(e.target.value as ModelRuntime)}
+                className="rounded bg-slate-800/80 px-2 py-1 text-slate-200"
+                title="PLiX execution runtime (ADR-002). 'onnx' (default) loads the exported ONNX graph; 'transformers' runs browser-native via @huggingface/transformers (CDN, no ONNX file)."
+              >
+                <option value="onnx">ONNX (onnxruntime-web)</option>
+                <option value="transformers">{RUNTIME_LABELS.transformers}</option>
+              </select>
+            </label>
+            <button
+              onClick={handleLoadEncoder}
+              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-400"
+            >
+              Load PLiX encoder
+            </button>
+          </>
         )}
         {status === 'loading' && (
           <span className="text-sm text-slate-400">Loading PLiX…</span>

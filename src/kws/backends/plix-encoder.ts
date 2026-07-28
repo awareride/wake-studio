@@ -6,7 +6,9 @@
  * served by more than one runtime, and the choice depends on the deployment:
  *
  *   - 'onnx'        -> onnxruntime-web (default). Needs an exported
- *                       `plixkws-*.onnx` file (see scripts/export-plixkws-onnx.py).
+ *                       `plixkws-<variant>.onnx` file (see
+ *                       scripts/export-plixkws-onnx.py). The `small` export
+ *                       uses external data (plixkws-small.onnx.data).
  *   - 'transformers' -> @xenova/transformers `feature-extraction`
  *                       pipeline, run browser-native via WASM/WebGPU. **No ONNX
  *                       file required** - it loads safetensors/bin weights
@@ -36,3 +38,59 @@ export interface PlixEncoder {
 
 export const PLIX_EXPECTED_SAMPLE_RATE = 16000
 export const PLIX_EMBEDDING_DIM = 1280
+
+/**
+ * PLiX encoder variant descriptor (ADR-002).
+ *
+ * Both variants emit the SAME 1280-dim embedding from the same 1x64x100 log-Mel
+ * front-end, so prototype-distance scoring is identical (only compute/params
+ * differ). `base` = EfficientNet-v2-M; `small` = TinyNet-E (lighter, for
+ * low-RAM / end-side devices). The `small` export uses external data
+ * (`plixkws-small.onnx.data`), which must be served alongside the `.onnx`.
+ */
+export interface PlixEncoderVariant {
+  /** Variant key (stable identifier used in the UI + registry). */
+  id: 'base' | 'small'
+  /** Human-readable label shown in the encoder selector. */
+  label: string
+  /** Local ONNX URL served from /prebuilts/plixkws/ (onnx runtime). */
+  onnxUrl: string
+  /** Hugging Face repo id for the transformers runtime (zero-Python). */
+  transformersModel: string
+  /** One-line note shown in the encoder selector. */
+  note: string
+}
+
+/**
+ * The selectable PLiX encoder variants. The `onnxUrl` points at the ONNX
+ * graph exported by scripts/export-plixkws-onnx.py (see the
+ * `export-plixkws.yml` workflow with `--encoder base|small`).
+ */
+export const PLIX_ENCODER_VARIANTS: ReadonlyArray<PlixEncoderVariant> = [
+  {
+    id: 'base',
+    label: 'PLiX base (EfficientNet-v2-M, 1280-d)',
+    onnxUrl: '/prebuilts/plixkws/plixkws-base.onnx',
+    transformersModel: 'aaqibsaeed/plixkws',
+    note: 'Heavier CNN; default. Needs plixkws-base.onnx (exported ONNX).',
+  },
+  {
+    id: 'small',
+    label: 'PLiX small (TinyNet-E, 1280-d)',
+    onnxUrl: '/prebuilts/plixkws/plixkws-small.onnx',
+    transformersModel: 'aaqibsaeed/plixkws',
+    note: 'Lighter / low-RAM. Needs plixkws-small.onnx + plixkws-small.onnx.data (external weights).',
+  },
+]
+
+/** Look up a variant descriptor by id; undefined for unknown ids. */
+export function getPlixEncoderVariant(
+  id: 'base' | 'small',
+): PlixEncoderVariant | undefined {
+  return PLIX_ENCODER_VARIANTS.find((v) => v.id === id)
+}
+
+/** Local ONNX URL for a variant (onnx runtime). */
+export function plixVariantOnnxUrl(id: 'base' | 'small'): string | undefined {
+  return getPlixEncoderVariant(id)?.onnxUrl
+}

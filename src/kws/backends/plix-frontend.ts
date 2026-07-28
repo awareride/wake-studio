@@ -1,11 +1,11 @@
 /**
- * PLiX shared front-end: log-Mel spectrogram computation (browser-native).
+ * PLiX shared front-end: Mel-spectrogram computation (browser-native).
  *
  * Both PLiX runtimes share the same acoustic front-end (the PLiX paper
- * §2.2.2): 16 kHz audio -> 64-bin log-Mel spectrogram over a 1 s clip
+ * §2.2.2): 16 kHz audio -> 64-bin mel spectrogram over a 1 s clip
  * (window 400 / hop 160, 60-7800 Hz). The ONNX graph consumes this
- * image directly as its input; @xenova/transformers' `feature-extraction`
- * pipeline computes an equivalent front-end internally, so for that runtime we
+ * image directly as its input; @huggingface/transformers' `AutoModel`
+ * computes an equivalent front-end internally, so for that runtime we
  * pass raw 16 kHz audio instead.
  *
  * Parameters are taken verbatim from `plixkws/backbone.py::Backbone`
@@ -18,7 +18,7 @@
  * environment, including an AudioWorklet.
  */
 
-// --- Log-Mel front-end parameters (PLiX paper §2.2.2 / backbone.py) ---
+// --- Mel front-end parameters (PLiX paper §2.2.2 / backbone.py) ---
 export const PLIX_SAMPLE_RATE = 16000
 export const PLIX_WINDOW_LENGTH = 400 // STFT window (25 ms)
 export const PLIX_HOP_LENGTH = 160 // STFT hop (10 ms)
@@ -82,11 +82,17 @@ export function hannWindow(len: number): Float32Array {
 }
 
 /**
- * Compute a 1 x 64 x T log-Mel spectrogram from 16 kHz mono audio.
- * Returns a Float32Array of length 64*T laid out as [melBin, frame], matching
- * the ONNX encoder's expected input image.
+ * Compute a 1 x 64 x T raw Mel-spectrogram (magnitude, NOT logged) from 16 kHz
+ * mono audio. Returns a Float32Array of length 64*T laid out as [melBin,
+ * frame], matching the ONNX / Transformers encoder's expected input image.
+ *
+ * IMPORTANT: the exported PLiX graph applies the log itself
+ * (`EncoderTrunk.forward` does `x = log(mel + 1e-6)` before the CNN), so this
+ * function returns the RAW mel magnitude. Feeding an already-logged spectrogram
+ * would double-log (log of negative values -> NaN) and produce degenerate,
+ * constant embeddings (the flat score-curve symptom). Keep this raw.
  */
-export function logMelSpectrogram(audio: Float32Array): Float32Array {
+export function melSpectrogram(audio: Float32Array): Float32Array {
   const numFft = PLIX_N_FFT / 2 + 1
   const window = hannWindow(PLIX_WINDOW_LENGTH)
   const fb = buildMelFilterbank()
@@ -110,11 +116,18 @@ export function logMelSpectrogram(audio: Float32Array): Float32Array {
       for (let k = 0; k < numFft; k++) {
         sum += fb[m * numFft + k] * spectrum[k]
       }
-      mel[m * numFrames + f] = Math.log(Math.max(sum, PLIX_LOG_OFFSET))
+      mel[m * numFrames + f] = sum
     }
   }
   return mel
 }
+
+/**
+ * @deprecated Use {@link melSpectrogram} (raw mel magnitude). The exported
+ * PLiX graph applies the log internally, so a pre-logged spectrogram is wrong
+ * (double-log -> NaN). Retained only as a thin alias.
+ */
+export const logMelSpectrogram = melSpectrogram
 
 /** Pad / trim a spectrogram's frame axis to exactly PLIX_TARGET_FRAMES. */
 export function fitFrames(mel: Float32Array, numFrames: number): Float32Array {

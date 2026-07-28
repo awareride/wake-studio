@@ -17,9 +17,11 @@
  * deployment), and via ExecuTorch WASM (the native/on-device slot; currently
  * deferred - see plix-executorch.ts). The choice depends on the deployment
  * (ADR-002):
- *   - 'onnx'        : needs `prebuilts/plixkws/plixkws-*.onnx`
- *                      (see scripts/export-plixkws-onnx.py). Default.
- *   - 'transformers' : no ONNX file; loads safetensors/bin directly.
+ *   - 'onnx'        : needs `prebuilts/plixkws/plixkws-<variant>.onnx`
+ *                      (see scripts/export-plixkws-onnx.py). Default. The
+ *                      `small` export uses external data
+ *                      (plixkws-small.onnx.data), served co-located.
+ *   - 'transformers' : no ONNX file; loads weights via @huggingface/transformers.
  *   - 'executorch'   : ExecuTorch WASM (.pte); deferred - see plix-executorch.ts.
  *
  * @see docs/modules/kws.md §4 (EmbedProvider), §5 (Few-Shot scaffold)

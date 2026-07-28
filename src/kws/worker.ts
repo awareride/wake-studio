@@ -99,15 +99,15 @@ async function handleLoad(
 
   try {
     // PLiX encoder is required for the plixkws backend AND for the embed()
-    // scaffold. Load it first.
+    // scaffold. Load it first. A load failure here is a hard error - we do NOT
+    // swallow it (silencing it would only surface later as the cryptic
+    // "PLiX encoder not loaded; embed() unavailable" from handleEmbed). If the
+    // requested PLiX URL/runtime cannot load, fail loudly so the UI can show
+    // the real reason (e.g. a missing ONNX graph or external-data file).
     if (urls.plixkws) {
-      try {
-        const runtime = globalRuntime
-        embedProvider = new PlixKwsEmbedProvider(urls.plixkws, runtime)
-        await embedProvider.load(urls.plixkws, actualExecutionProvider)
-      } catch {
-        embedProvider = null
-      }
+      const runtime = globalRuntime
+      embedProvider = new PlixKwsEmbedProvider(urls.plixkws, runtime)
+      await embedProvider.load(urls.plixkws, actualExecutionProvider)
     }
 
     // Tracks whether a GPU-capable detection backend was actually loaded. The
