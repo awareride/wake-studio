@@ -37,9 +37,9 @@ on:
         default: 'en'
         type: string
       opset:
-        description: 'ONNX opset version'
+        description: 'ONNX opset version (must be >= 18 for the modern exporter)'
         required: false
-        default: '17'
+        default: '18'
         type: string
       upload_release:
         description: 'Also attach artifacts to a GitHub Release (plixkws-models)'
@@ -117,7 +117,8 @@ jobs:
         if: ${{ github.event.inputs.upload_release == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag: plixkws-models
+          tag_name: plixkws-models
+          name: PLiX ONNX models
           files: |
             prebuilts/plixkws/plixkws-${{ github.event.inputs.encoder }}.onnx
             prebuilts/plixkws/hf/plixkws/config.json

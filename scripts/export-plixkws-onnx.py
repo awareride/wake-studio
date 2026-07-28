@@ -174,14 +174,20 @@ def main() -> None:
     # Use the modern torch.export-based ONNX exporter (torch >= 2.9 default).
     # It requires the `onnx` and `onnxscript` packages, which the CI workflow
     # installs. The dummy input is a concrete 1x1x64x100 tensor, so the export
-    # is exact. (The legacy TorchScript exporter is deprecated.)
+    # is exact.
+    #
+    # Opset must be >= 18: the modern exporter only has implementations for
+    # opset 18+, and exporting at 17 then down-converting fails on some ops
+    # (e.g. Pad). The browser onnxruntime-web supports opset 18.
+    # `dynamic_axes` is intentionally omitted: with dynamo=True it is not
+    # recommended and can raise; the browser always runs a single clip
+    # (batch=1), so a fixed batch is fine.
     torch.onnx.export(
         trunk,
         dummy,
         args.out,
         input_names=["input"],
         output_names=["embeddings"],
-        dynamic_axes={"input": {0: "batch"}},
         opset_version=args.opset,
     )
     print(f"Exported {args.encoder}/{language} encoder -> {args.out}")
