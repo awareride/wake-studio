@@ -70,17 +70,18 @@ const base = process.env.VITE_BASE_PATH ?? '/'
 
 export default defineConfig({
   base,
-  // Optional, dynamically-imported dependencies are kept external so the
-  // default ONNX path does not require them to be installed/bundled. Each is
-  // only fetched at runtime when its runtime is selected (see ModelRuntime in
-  // src/runtime.ts and the per-runtime encoder backends).
-  //   - @xenova/transformers : PLiX 'transformers' runtime (no ONNX file)
-  //   - @huggingface/transformers : PLiX 'transformers' runtime (v4 browser build)
-  //   - executorch           : PLiX 'executorch' runtime (WASM, deferred impl)
-  // In a deployed build these routes need the dep available at runtime.
+  // Optional, dynamically-imported dependencies. The 'transformers' runtime
+  // loads @huggingface/transformers from the jsDelivr CDN at runtime (full URL
+  // import in plix-transformers.ts), so it is NOT bundled and does not need to
+  // be installed. 'executorch' is a deferred runtime. These are listed as
+  // external so any stray static reference is left as a bare specifier rather
+  // than failing the build (see ModelRuntime in src/runtime.ts and the
+  // per-runtime encoder backends).
+  //   - @huggingface/transformers : PLiX 'transformers' runtime (v4 browser build, CDN)
+  //   - executorch               : PLiX 'executorch' runtime (WASM, deferred impl)
   build: {
     rollupOptions: {
-      external: ['@xenova/transformers', '@huggingface/transformers', 'executorch'],
+      external: ['@huggingface/transformers', 'executorch'],
     },
   },
   plugins: [

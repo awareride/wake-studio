@@ -48,6 +48,18 @@ import {
   melSpectrogram,
   fitFrames,
 } from './plix-frontend'
+
+// `@huggingface/transformers` is an OPTIONAL dependency (not installed by
+// default). The 'transformers' runtime loads it from the jsDelivr CDN at
+// runtime - no npm install required. We import the package's browser ESM
+// build by full URL (not the bare specifier) because a bare specifier cannot
+// be resolved in the browser and would throw
+// "Failed to resolve module specifier '@huggingface/transformers'". The
+// version is pinned to match package.json's optionalDependencies range.
+const HF_TRANSFORMERS_CDN =
+  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0'
+
+// Type-only imports (erased at build time; do not affect runtime resolution).
 import type {
   AutoModelStatic,
   TransformersEnv,
@@ -71,14 +83,12 @@ export class PlixTransformersEncoder implements PlixEncoder {
 
   async load(_locator: string): Promise<void> {
     // Dynamic import: @huggingface/transformers is only fetched when this
-    // runtime is actually selected (keeps the default ONNX path light). The
-    // specifier is held in a variable so the bundler does NOT statically
-    // resolve it (it is an optional dep declared external in vite.config.ts).
-    const spec = '@huggingface/transformers'
-    // @vite-ignore: this specifier is an OPTIONAL dependency declared external
-    // in vite.config.ts - it is fetched at runtime (CDN) only when this runtime
-    // is selected, so Vite must not try to statically analyze/bundle it.
-    const mod = (await import(/* @vite-ignore */ spec)) as unknown as {
+    // runtime is actually selected (keeps the default ONNX path light). We
+    // import the full CDN ESM URL (HF_TRANSFORMERS_CDN) rather than the bare
+    // package specifier, because a bare specifier cannot be resolved in the
+    // browser. The @vite-ignore tells Vite not to rewrite/analyze this remote
+    // URL at build time - it is fetched at runtime when this runtime is used.
+    const mod = (await import(/* @vite-ignore */ HF_TRANSFORMERS_CDN)) as unknown as {
       AutoModel: AutoModelStatic
       env: TransformersEnv
       Tensor: typeof import('@huggingface/transformers').Tensor
