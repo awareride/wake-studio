@@ -23,6 +23,13 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      // Allow intentionally-unused params prefixed with '_' (e.g. interface-
+      // mandated params that are deliberately ignored, like the WavLM
+      // embedder's 'provider' arg it pins to WASM).
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   },
   {
