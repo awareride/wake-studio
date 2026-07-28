@@ -105,7 +105,13 @@ export class PlixTransformersEncoder implements PlixEncoder {
       mod.env.allowRemoteModels = false
       mod.env.localModelPath = base
       this._TensorCtor = mod.Tensor
-      this._model = await mod.AutoModel.from_pretrained(id, { dtype: 'fp32' })
+      // The 'small' export stores its large weight tensor as ONNX external
+      // data (onnx/plixkws-small.onnx.data, co-located with onnx/model.onnx),
+      // so tell the wrapped onnxruntime-web to resolve the external sidecar.
+      this._model = await mod.AutoModel.from_pretrained(id, {
+        dtype: 'fp32',
+        use_external_data_format: true,
+      })
       return
     }
 
