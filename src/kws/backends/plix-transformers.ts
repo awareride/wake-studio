@@ -103,24 +103,30 @@ export class PlixTransformersEncoder implements PlixEncoder {
       const base = this._modelId.slice(0, idx) // e.g. /prebuilts/plixkws/hf
       const id = this._modelId.slice(idx + 1) // e.g. plixkws
       mod.env.allowRemoteModels = false
+      mod.env.allowLocalModels = true
       mod.env.localModelPath = base
       this._TensorCtor = mod.Tensor
       // The 'small' export stores its large weight tensor as ONNX external
-      // data (onnx/plixkws-small.onnx.data, co-located with onnx/model.onnx).
-      // The browser build of onnxruntime-web cannot read the filesystem, so
-      // the external weights must be passed explicitly (same mechanism as the
-      // ONNX runtime's `_externalDataOptions`). Transformers.js maps each
-      // externalData entry to ORT-web's `mountExternalData`, which is the only
-      // reliable way to resolve the sidecar in the browser. The protobuf
-      // `location` is `plixkws-small.onnx.data`, resolved relative to the
-      // graph, so the path here must match exactly.
-      const externalDataUrl = `${this._modelId}/onnx/plixkws-small.onnx.data`
+      // data. Transformers.js / onnxruntime-web resolves external data in the
+      // browser via a HARDCODED `_data` naming convention: it looks for
+      // `<graph-without-.onnx>_data` (i.e. `onnx/model.onnx_data`), IGNORING
+      // the protobuf `location` AND any `externalData` option we pass when
+      // external tensors are present. The generated HF-style graph
+      // (scripts/gen-plix-hf-dir.mjs) therefore rewrites the external
+      // `location` to `model.onnx_data` so it matches. We still pass
+      // `externalData` under that key (the graph's `onnx/model.onnx_data` file
+      // also exists on disk, so ORT-web can fetch it directly if preferred).
+      const onnxDir = `${this._modelId}/onnx`
+      const externalData = [
+        {
+          path: 'model.onnx_data',
+          data: `${onnxDir}/model.onnx_data`,
+        },
+      ]
       this._model = await mod.AutoModel.from_pretrained(id, {
         dtype: 'fp32',
         use_external_data_format: true,
-        externalData: [
-          { path: 'plixkws-small.onnx.data', data: externalDataUrl },
-        ],
+        externalData,
       })
       return
     }
@@ -150,16 +156,23 @@ export class PlixTransformersEncoder implements PlixEncoder {
     )
     mel = fitFrames(mel, numFrames)
 
-    // Stack into a single 1x1x64x100 image and run the model directly.
+    // Stack into a single 1x1x64x100 image and run the model. Transformers.js
+    // expects a NAMED inputs object (keyed by the model's input name), not a
+    // positional tensor - a positional tensor fails with "Missing the following
+    // inputs: <name>".
     const input = new this._TensorCtor(
       'float32',
       mel,
       [1, 1, PLIX_N_MELS, PLIX_TARGET_FRAMES],
     )
-    const out = await this._model(input)
+    const inputName = (this._model as { input_names?: string[] }).input_names?.[0] ?? 'input'
+    // AutoModel is typed for a positional Tensor call; the actual runtime
+    // (Transformers.js) requires a named inputs object, so cast here.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const out = await (this._model as any)({ [inputName]: input })
     const outTensor: OrtTensor | undefined =
       (out as { last_hidden_state?: OrtTensor }).last_hidden_state ??
-      Object.values(out)[0]
+      (Object.values(out)[0] as OrtTensor)
     if (!outTensor) {
       throw new Error('PLiX (transformers) encoder returned no tensor.')
     }

@@ -30,9 +30,14 @@
  */
 
 import { existsSync } from 'node:fs'
-import { copyFile, mkdir, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+
+const execFileAsync = promisify(execFile)
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dirname, '..')
@@ -99,12 +104,28 @@ async function main() {
 
   await mkdir(onnxDir, { recursive: true })
 
-  // Copy + rename the graph to the name Transformers.js expects.
+  // Write the graph under the name Transformers.js expects (`model.onnx`),
+  // with its external-data `location` rewritten to `model.onnx_data`.
+  // Transformers.js / onnxruntime-web resolves external data in the browser
+  // via a HARDCODED `_data` naming convention: it looks for `<graph>_data`
+  // (i.e. `model.onnx_data`), IGNORING the protobuf `location` and ALSO
+  // ignoring any `externalData` option we pass when external tensors are
+  // detected. So the graph's external `location` MUST be `model.onnx_data` to
+  // match. We use the `onnx` Python package for a correct, corruption-free
+  // protobuf rewrite (the source ONNX is never modified).
   const destOnnx = join(onnxDir, 'model.onnx')
-  await copyFile(srcOnnx, destOnnx)
-  console.log(`copied ${src.onnx} -> hf/plixkws/onnx/model.onnx`)
+  await rewriteExternalLocation(srcOnnx, destOnnx, 'plixkws-small.onnx.data', 'model.onnx_data')
+  console.log(`wrote hf/plixkws/onnx/model.onnx (external location -> model.onnx_data)`)
 
   // Copy external weights (small only) so they stay co-located.
+  //
+  // IMPORTANT: Transformers.js / onnxruntime-web resolves external data in the
+  // browser via a HARDCODED `_data` naming convention - it looks for
+  // `<graph-without-.onnx>_data` (i.e. `model.onnx_data`), NOT the protobuf
+  // `location` (`plixkws-small.onnx.data`). So the file MUST be named
+  // `model.onnx_data` for the transformers runtime to load it. We also keep a
+  // copy named `plixkws-small.onnx.data` (the protobuf location) as a
+  // fallback and so the same dir can serve ORT-web's alternate lookup.
   if (src.external) {
     const srcExternal = join(baseDir, src.external)
     if (!existsSync(srcExternal)) {
@@ -114,9 +135,12 @@ async function main() {
       )
       process.exit(1)
     }
-    const destExternal = join(onnxDir, src.external)
-    await copyFile(srcExternal, destExternal)
-    console.log(`copied ${src.external} -> hf/plixkws/onnx/${src.external}`)
+    const destExternalData = join(onnxDir, 'model.onnx_data')
+    await copyFile(srcExternal, destExternalData)
+    console.log(`copied ${src.external} -> hf/plixkws/onnx/model.onnx_data`)
+    const destFallback = join(onnxDir, src.external)
+    await copyFile(srcExternal, destFallback)
+    console.log(`copied ${src.external} -> hf/plixkws/onnx/${src.external} (fallback)`)
   }
 
   // Write a minimal config.json describing the backbone.
@@ -134,6 +158,49 @@ async function main() {
   console.log('wrote hf/plixkws/config.json')
 
   console.log(`\nDone. The 'transformers' runtime now loads from:\n  ${hfDir}`)
+}
+
+/**
+ * Rewrite the ONNX external-data `location` of every initializer from `from`
+ * to `to`, keeping the weights external (single sidecar file named `to`), and
+ * write the result to `destOnnx`. Uses the `onnx` Python package so the
+ * protobuf is re-serialized correctly (no fragile byte patching). The source
+ * ONNX is never modified. Required because onnxruntime-web (inside
+ * Transformers.js) only honours the `_data` convention (`<graph>_data`), not
+ * the protobuf `location`, when external tensors are present.
+ */
+async function rewriteExternalLocation(srcOnnx, destOnnx, from, to) {
+  const dir = await mkdtemp(join(tmpdir(), 'gen-plix-'))
+  const py = join(dir, 'rewrite.py')
+  await writeFile(
+    py,
+    `import sys\n` +
+      `import onnx\n` +
+      `src, dst, frm, to = sys.argv[1:5]\n` +
+      `m = onnx.load(src, load_external_data=False)\n` +
+      `n = 0\n` +
+      `for init in m.graph.initializer:\n` +
+      `    for ext in init.external_data:\n` +
+      `        if ext.key == "location" and ext.value == frm:\n` +
+      `            ext.value = to\n` +
+      `            n += 1\n` +
+      `onnx.save(m, dst, save_as_external_data=True, all_tensors_to_one_file=True, location=to)\n` +
+      `print(f"rewrote {n} external-data locations -> {to}")\n`,
+  )
+  try {
+    const { stdout } = await execFileAsync('python3', [py, srcOnnx, destOnnx, from, to], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    process.stdout.write(stdout)
+  } catch (err) {
+    const msg = err.stderr ? err.stderr.toString() : err.message
+    throw new Error(
+      `Failed to rewrite ONNX external location via python 'onnx' (is it installed? ` +
+        `pip install onnx). ${msg}`,
+    )
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
 }
 
 main().catch((err) => {
