@@ -283,11 +283,13 @@ describe('PLIX_ENCODER_VARIANTS', () => {
     expect(PLIX_ENCODER_VARIANTS.map((v) => v.id)).toEqual(['base', 'small'])
   })
 
-  it('every variant has a label, onnx URL, and transformers model', () => {
+  it('every variant has a label, onnx URL, and transformers local dir', () => {
     for (const v of PLIX_ENCODER_VARIANTS) {
       expect(v.label.length).toBeGreaterThan(0)
       expect(v.onnxUrl.startsWith('/prebuilts/plixkws/')).toBe(true)
-      expect(v.transformersModel.length).toBeGreaterThan(0)
+      expect(v.transformersLocalDir.startsWith('/prebuilts/plixkws/')).toBe(
+        true,
+      )
       expect(v.note.length).toBeGreaterThan(0)
     }
   })

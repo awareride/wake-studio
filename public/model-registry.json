@@ -81,7 +81,7 @@
       "class": "redistributable",
       "sha256": "TODO-phase3",
       "sizeBytes": null,
-      "notes": "PLiX 'small' encoder variant (TinyNet-E) - lighter than 'base', for low-RAM / end-side devices. Still outputs a 1280-dim embedding from the same 1x64x100 log-Mel front-end, so prototype-distance scoring is identical to 'base'. Exported with external data: plixkws-small.onnx references plixkws-small.onnx.data (co-located, served from /prebuilts/plixkws/). Select this variant via the encoder selector in the Few-Shot panel (ADR-002). Same two runtimes as 'base' (onnx / transformers)."
+      "notes": "PLiX 'small' encoder variant (TinyNet-E) - lighter than 'base', for low-RAM / end-side devices. Still outputs a 1280-dim embedding from the same 1x64x100 log-Mel front-end, so prototype-distance scoring is identical to 'base'. Exported with external data: plixkws-small.onnx references plixkws-small.onnx.data (co-located, served from /prebuilts/plixkws/). Select this variant via the encoder selector in the Few-Shot panel (ADR-002). Same two runtimes as 'base' (onnx / transformers). The 'transformers' runtime loads from a LOCALLY-EXPORTED HF-style dir (prebuilts/plixkws/hf/plixkws); the Hugging Face repo only ships .pt weights, not ONNX."
     },
     {
       "id": "silero-vad",

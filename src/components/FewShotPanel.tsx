@@ -74,7 +74,7 @@ export const FewShotPanel = memo(function FewShotPanel({
     const rt = runtime
     const url =
       rt === 'transformers'
-        ? variant.transformersModel
+        ? variant.transformersLocalDir
         : variant.onnxUrl
     return { url, runtime: rt }
   }, [encoderVariant, runtime])
@@ -116,7 +116,20 @@ export const FewShotPanel = memo(function FewShotPanel({
       // load. Surface that clearly instead of a raw fetch/404 error.
       const variant = getPlixEncoderVariant(encoderVariant)
       const expected = variant?.onnxUrl ?? '/prebuilts/plixkws/plixkws-base.onnx'
-      if (/fetch|404|load failed|not loaded/i.test(msg)) {
+      if (runtime === 'transformers') {
+        // The transformers runtime loads the ONNX graph from a locally-exported
+        // HF-style dir (config.json + onnx/model.onnx). The Hugging Face repo
+        // only ships .pt weights, so it cannot be fetched from the Hub.
+        setError(
+          `PLiX (${encoderVariant}) 'transformers' runtime needs a locally-exported ` +
+            `HF-style dir at ${variant?.transformersLocalDir ?? '/prebuilts/plixkws/hf/plixkws'} ` +
+            `(config.json + onnx/model.onnx). Export it with: ` +
+            'python scripts/export-plixkws-onnx.py --encoder ' +
+            encoderVariant +
+            ' --hf-dir prebuilts/plixkws/hf/plixkws. ' +
+            'Alternatively, use the default ONNX runtime.',
+        )
+      } else if (/fetch|404|load failed|not loaded/i.test(msg)) {
         setError(
           `PLiX (${encoderVariant}) encoder model not found. Export the PLiX ` +
             `ONNX (see prebuilts/plixkws/README.md) and place it at ` +
@@ -130,7 +143,7 @@ export const FewShotPanel = memo(function FewShotPanel({
       }
       setStatus('error')
     }
-  }, [ensureEngines, resolvePlixLocator, encoderVariant])
+  }, [ensureEngines, resolvePlixLocator, encoderVariant, runtime])
 
   /** Record a 1.5 s sample from the mic at 16 kHz. */
   const handleRecord = useCallback(async () => {
