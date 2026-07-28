@@ -14,7 +14,15 @@
  * Input normalization: the Wav2Vec2FeatureExtractor normalizes per-utterance
  * (zero-mean, unit-variance). We apply the same so embeddings match training.
  *
+ * Execution provider: WavLM is **always run on WASM (CPU)**, not WebGPU. Its
+ * ONNX graph contains ops (notably `Concat` with int64 shape tensors) that
+ * onnxruntime-web's WebGPU EP fails to compile, raising a cascade of
+ * "Invalid ComputePipeline \"Concat\"" validation errors at `run()` time.
+ * WASM executes the same graph correctly. The OpenWakeWord detection backends
+ * still use WebGPU where supported; only the WavLM embedder is pinned to WASM.
+ *
  * @see docs/modules/kws.md §4 (EmbedProvider), §5 (Few-Shot scaffold)
+ * @see docs/modules/kws.md §7 (error model / WebGPU fallback)
  */
 
 import * as ort from 'onnxruntime-web'
@@ -48,7 +56,7 @@ export class WavLMEmbedProvider implements EmbedProvider {
     return this._session !== null
   }
 
-  async load(url: string, provider: 'webgpu' | 'wasm'): Promise<void> {
+  async load(url: string, _provider: 'webgpu' | 'wasm'): Promise<void> {
     const response = await fetch(url)
     if (!response.ok) {
       throw new Error(
@@ -56,8 +64,12 @@ export class WavLMEmbedProvider implements EmbedProvider {
       )
     }
     const buffer = await response.arrayBuffer()
+    // Force WASM only. The `provider` arg is intentionally ignored (see the
+    // class docstring): this model's graph is incompatible with ORT-Web's
+    // WebGPU EP and would otherwise fail with "Invalid ComputePipeline
+    // 'Concat'" validation errors during run().
     this._session = await ort.InferenceSession.create(buffer, {
-      executionProviders: provider === 'webgpu' ? ['webgpu', 'wasm'] : ['wasm'],
+      executionProviders: ['wasm'],
     })
   }
 

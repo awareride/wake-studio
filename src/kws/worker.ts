@@ -104,6 +104,13 @@ async function handleLoad(
       }
     }
 
+    // Tracks whether a GPU-capable detection backend was actually loaded. The
+    // WavLM embedder is always pinned to WASM (its ONNX graph is incompatible
+    // with ORT-Web's WebGPU EP - see WavLMEmbedProvider). So the EP reported
+    // to the UI is only 'webgpu' when a WebGPU-feasible detection backend is
+    // loaded; otherwise it is 'wasm' even if WebGPU is available.
+    let gpuBackendLoaded = false
+
     if (backendId === 'wavlm-few-shot') {
       // Few-Shot backend: reuse the shared WavLM embedProvider + the prototype.
       if (!embedProvider || !embedProvider.ready) {
@@ -138,10 +145,16 @@ async function handleLoad(
       if (hasDetectionUrls) {
         backend = createBackend(backendId)
         await backend.load(urls, actualExecutionProvider)
+        // OpenWakeWord (and similar) actually exercise the WebGPU EP.
+        gpuBackendLoaded = true
       }
     }
 
-    post({ type: 'loaded', executionProvider: actualExecutionProvider })
+    const reportedEp: 'webgpu' | 'wasm' =
+      actualExecutionProvider === 'webgpu' && gpuBackendLoaded
+        ? 'webgpu'
+        : 'wasm'
+    post({ type: 'loaded', executionProvider: reportedEp })
   } catch (err) {
     postError(
       `Model load failed: ${err instanceof Error ? err.message : String(err)}`,

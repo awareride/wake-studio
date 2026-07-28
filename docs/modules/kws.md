@@ -277,6 +277,15 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
   rejects; UI shows "KWS inference unavailable in this browser."
 - **WebGPU unavailable:** automatic fallback to WASM execution provider; UI shows
   a "performance" indicator (WASM is slower).
+- **WavLM embedder (Few-Shot / Phase 3):** the WavLM ONNX graph contains ops
+  (notably `Concat` with int64 shape tensors) that onnxruntime-web's WebGPU EP
+  fails to compile, raising a cascade of `Invalid ComputePipeline "Concat"`
+  WebGPU validation errors at `run()` time. The `WavLMEmbedProvider` is
+  therefore pinned to the **WASM** execution provider regardless of the
+  configured `executionProvider`. The reported EP is `wasm` whenever only the
+  WavLM embedder is loaded; OpenWakeWord detection backends still use WebGPU
+  where available. (Fix: force WASM for the embedder, report `wasm` as the
+  effective EP in the few-shot-only case.)
 - **Inference slower than realtime** (frame underrun): drop the oldest frames,
   log a warning, surface via the score-curve (gaps); never block the audio thread.
 - **WavLM too large for browser memory** (Phase 3 concern): `embed()` rejects with
