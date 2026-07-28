@@ -6,6 +6,11 @@ import {
 } from '../backend'
 import { OpenWakeWordBackend } from '../backends/openwakeword'
 import type { KWSBackendId } from '../types'
+import {
+  PLIX_ENCODER_VARIANTS,
+  getPlixEncoderVariant,
+  plixVariantOnnxUrl,
+} from '../backends/plix-encoder'
 
 // ---------------------------------------------------------------------------
 // BACKEND_REGISTRY
@@ -266,5 +271,40 @@ describe('PlixKwsEmbedProvider runtime selection', () => {
     await expect(
       provider.embed(new Float32Array(16000), 16000),
     ).rejects.toThrow(/deferred/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PLIX_ENCODER_VARIANTS (ADR-002) - selectable base / small variants
+// ---------------------------------------------------------------------------
+
+describe('PLIX_ENCODER_VARIANTS', () => {
+  it('exposes exactly the base and small variants', () => {
+    expect(PLIX_ENCODER_VARIANTS.map((v) => v.id)).toEqual(['base', 'small'])
+  })
+
+  it('every variant has a label, onnx URL, and transformers model', () => {
+    for (const v of PLIX_ENCODER_VARIANTS) {
+      expect(v.label.length).toBeGreaterThan(0)
+      expect(v.onnxUrl.startsWith('/prebuilts/plixkws/')).toBe(true)
+      expect(v.transformersModel.length).toBeGreaterThan(0)
+      expect(v.note.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('base maps to plixkws-base.onnx and small to plixkws-small.onnx', () => {
+    expect(plixVariantOnnxUrl('base')).toBe(
+      '/prebuilts/plixkws/plixkws-base.onnx',
+    )
+    expect(plixVariantOnnxUrl('small')).toBe(
+      '/prebuilts/plixkws/plixkws-small.onnx',
+    )
+  })
+
+  it('getPlixEncoderVariant returns the descriptor and undefined for unknown', () => {
+    expect(getPlixEncoderVariant('small')?.id).toBe('small')
+    expect(getPlixEncoderVariant('base')?.id).toBe('base')
+    // @ts-expect-error intentionally invalid id
+    expect(getPlixEncoderVariant('tiny')).toBeUndefined()
   })
 })

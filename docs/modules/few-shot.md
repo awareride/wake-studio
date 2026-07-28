@@ -220,13 +220,19 @@ unchanged.
   internally (no per-utterance normalization) and prefers the `embeddings`
   output. Replaces WavLM-base-plus (too heavy for end-side devices).
   **Runtime is pluggable:** the encoder can run via ONNX (onnxruntime-web,
-  default, needs `plixkws-base.onnx`) OR browser-native via `@xenova/transformers`
-  (no `.onnx` file; zero-Python deployment). Both paths share the same
-  front-end / embedding, so prototype-distance scoring is identical. The
-  runtime selector is the GLOBAL `ModelRuntime` type (see `src/runtime.ts`),
-  extensible to other backends (e.g. `executorch`). See `docs/Technical Reference_
-  Resource Requirements and Zero-Python Deployment Strategies for WavLM-base-plus
-  and plixkws.md` §3.
+  default, needs `plixkws-<variant>.onnx`) OR browser-native via
+  `@huggingface/transformers` v4 (no `.onnx` file; zero-Python deployment). Both
+  paths share the same front-end / embedding, so prototype-distance scoring is
+  identical. The runtime selector is the GLOBAL `ModelRuntime` type (see
+  `src/runtime.ts`), extensible to other backends (e.g. `executorch`). See
+  `docs/Technical Reference_ Resource Requirements and Zero-Python Deployment
+  Strategies for WavLM-base-plus and plixkws.md` §3.
+  **Encoder variant is selectable:** the `base` (EfficientNet-v2-M) and
+  `small` (TinyNet-E) PLiX variants are first-class and chosen in the Few-Shot
+  panel (ADR-002). Both emit a 1280-dim embedding, so scoring is identical;
+  only compute/params differ. The `small` export uses external data
+  (`plixkws-small.onnx` + `plixkws-small.onnx.data`), served co-located from
+  `/prebuilts/plixkws/`.
 - `[Q-FS-2]` Whether to offer the smaller "small" PLiX encoder (TinyNet-E) for
   low-RAM devices (ADR-002 mitigation). Now first-class: select the encoder
   variant at load time.

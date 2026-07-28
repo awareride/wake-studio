@@ -40,7 +40,7 @@ import {
   PLIX_TARGET_FRAMES,
   PLIX_WINDOW_LENGTH,
   PLIX_HOP_LENGTH,
-  logMelSpectrogram,
+  melSpectrogram,
   fitFrames,
 } from './plix-frontend'
 export class PlixExecuTorchEncoder implements PlixEncoder {
@@ -64,7 +64,10 @@ export class PlixExecuTorchEncoder implements PlixEncoder {
     // Once wired, this resolves to e.g. `executorch` (npm) or the official
     // `extension/wasm` build.
     const spec = 'executorch' // TODO(real impl): pin the chosen ExecuTorch WASM build
-    await import(spec) // retained so the optional dep is dynamically referenced
+    // @vite-ignore: 'executorch' is an OPTIONAL dependency declared external in
+    // vite.config.ts. It is only resolved at runtime when this (deferred)
+    // runtime is selected, so Vite must not statically analyze the import.
+    await import(/* @vite-ignore */ spec) // retained so the optional dep is dynamically referenced
 
     // Fetch the `.pte` program bytes (located by the model id) to validate the
     // locator now. The real runtime loads them into an ExecuTorch `Module`.
@@ -84,10 +87,10 @@ export class PlixExecuTorchEncoder implements PlixEncoder {
         `PLiX encoder expects ${PLIX_SAMPLE_RATE} Hz audio; got ${sampleRate} Hz.`,
       )
     }
-    // Build the shared 1x64x100 log-Mel front-end (same as the ONNX runtime) so
-    // that, once wired, ExecuTorch consumes an identical input image. We keep
-    // the computation as a faithful stand-in and assert the expected shape.
-    const mel = logMelSpectrogram(audio)
+    // Build the shared 1x64x100 raw-mel front-end (same as the ONNX runtime) so
+    // that, once wired, ExecuTorch consumes an identical input image. The graph
+    // applies the log itself, so this is raw mel magnitude.
+    const mel = melSpectrogram(audio)
     const numFrames = Math.floor(
       (audio.length - PLIX_WINDOW_LENGTH) / PLIX_HOP_LENGTH + 1,
     )

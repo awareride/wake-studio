@@ -18,6 +18,10 @@ const prebuiltsRoot = resolve(projectRoot, 'prebuilts')
 function servePrebuilts() {
   const contentTypes: Record<string, string> = {
     '.onnx': 'application/octet-stream',
+    // ONNX external-data weights (e.g. plixkws-small.onnx.data). onnxruntime-web
+    // fetches these co-located files by name; a stable binary content-type is
+    // required so the streaming fetch resolves the tensor weights.
+    '.data': 'application/octet-stream',
     '.tflite': 'application/octet-stream',
     '.wasm': 'application/wasm',
     '.json': 'application/json',

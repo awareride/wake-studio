@@ -19,6 +19,14 @@ export interface RegistryModel {
   class: ModelClass
   sha256: string | null
   sizeBytes: number | null
+  /** PLiX encoder variant ('base' | 'small') when format === 'onnx'. */
+  encoderVariant?: 'base' | 'small'
+  /** Hugging Face repo id for the transformers runtime. */
+  transformersModel?: string
+  /** Embedding dimensionality (PLiX = 1280 for all variants). */
+  embeddingDim?: number
+  /** For ONNX external-data exports: the co-located .data file name. */
+  externalData?: string
   notes?: string
 }
 
