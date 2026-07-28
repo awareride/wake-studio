@@ -68,12 +68,13 @@ jobs:
           python-version: '3.11'
 
       - name: Install conversion toolchain
-        # `plixkws` pulls torch, torchaudio, timm. `wget` is used by the script
-        # to fetch config.json + the Dropbox .pt weights. CPU torch is enough
-        # for tracing the export graph.
+        # `plixkws` pulls torch, torchaudio, timm. `wget` fetches the Dropbox
+        # .pt weights. `onnx` + `onnxscript` are required by torch's modern
+        # (torch.export-based) ONNX exporter used by the export script.
+        # CPU torch is enough for tracing the export graph.
         run: |
           python -m pip install --no-cache-dir --upgrade pip
-          python -m pip install --no-cache-dir plixkws wget
+          python -m pip install --no-cache-dir plixkws wget onnx onnxscript
 
       - name: Download PLiX config manifest
         # Fetch the published PLiX config.json (Dropbox) into

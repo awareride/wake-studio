@@ -112,11 +112,13 @@ class EncoderTrunk(torch.nn.Module):
 
     def forward(self, mel: torch.Tensor) -> torch.Tensor:
         # mirroring Backbone.forward after the melspectrogram step:
-        #   x = log(mel + 1e-6); x = encoder(x); x = mean(2,3); squeeze
+        #   x = log(mel + 1e-6); x = encoder(x); x = mean(2,3)
+        # After mean(dim=(2,3)) the tensor is already [B, 1280] (2-D), so no
+        # squeeze is needed (a squeeze(-1) on a size-1280 dim is a no-op and
+        # triggers an exporter warning).
         x = torch.log(mel + 1e-6)
         x = self.backbone.encoder(x)
         x = x.mean(dim=(2, 3))
-        x = x.squeeze(-1)
         return x
 
 
@@ -169,10 +171,10 @@ def main() -> None:
     dummy = torch.randn(1, 1, 64, 100, device=device)
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    # Use the TorchScript (legacy) ONNX exporter: it does not require the
-    # `onnxscript` package that the newer dynamo exporter needs, and it handles
-    # a traced CNN trunk like PLiX cleanly. The dummy input is a concrete
-    # 1x1x64x100 tensor, so tracing is exact.
+    # Use the modern torch.export-based ONNX exporter (torch >= 2.9 default).
+    # It requires the `onnx` and `onnxscript` packages, which the CI workflow
+    # installs. The dummy input is a concrete 1x1x64x100 tensor, so the export
+    # is exact. (The legacy TorchScript exporter is deprecated.)
     torch.onnx.export(
         trunk,
         dummy,
@@ -181,7 +183,6 @@ def main() -> None:
         output_names=["embeddings"],
         dynamic_axes={"input": {0: "batch"}},
         opset_version=args.opset,
-        dynamo=False,
     )
     print(f"Exported {args.encoder}/{language} encoder -> {args.out}")
 
