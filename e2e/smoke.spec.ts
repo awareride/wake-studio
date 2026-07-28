@@ -62,3 +62,18 @@ test('ASR-Decoding KWS panel renders (Phase 2-ext, ADR-024)', async ({ page }) =
     page.getByRole('button', { name: /\+ Add/i }),
   ).toBeHidden()
 })
+
+test('Traditional KWS Training panel renders (§4.2)', async ({ page }) => {
+  await page.goto('/')
+
+  await expect(
+    page.getByRole('heading', { name: /Traditional KWS — Training/i }),
+  ).toBeVisible()
+  // Primary params visible.
+  await expect(page.getByText(/Network architecture/i)).toBeVisible()
+  await expect(page.getByText(/Target keyword list/i)).toBeVisible()
+  // Advanced is collapsible.
+  await expect(page.getByText(/Audio augmentation/i)).toBeHidden()
+  await page.getByRole('button', { name: /Advanced/i }).first().click()
+  await expect(page.getByText(/Audio augmentation/i)).toBeVisible()
+})

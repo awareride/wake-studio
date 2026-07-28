@@ -62,6 +62,7 @@ export const FewShotPanel = memo(function FewShotPanel({
   const [encoderVariant, setEncoderVariant] =
     useState<PlixEncoderVariant['id']>(DEFAULT_VARIANT)
   const [runtime, setRuntime] = useState<ModelRuntime>('onnx')
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const historyRef = useRef<KWSScoreSample[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -421,8 +422,9 @@ export const FewShotPanel = memo(function FewShotPanel({
         </div>
       )}
 
-      {/* Score curve */}
+      {/* Score curve + Advanced (inside the detecting block) */}
       {detecting && (
+        <>
         <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] p-5">
           <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
             <span>Few-Shot score curve (prototype-distance similarity)</span>
@@ -439,6 +441,47 @@ export const FewShotPanel = memo(function FewShotPanel({
             className="h-[160px] w-full rounded bg-slate-950/60"
           />
         </div>
+
+        {/* Advanced (collapsible) — §4.1 Few-Shot advanced params */}
+        <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] p-5">
+          <button
+            onClick={() => setAdvancedOpen((v) => !v)}
+            className="text-xs font-medium text-slate-400 hover:text-slate-200"
+          >
+            {advancedOpen ? '▾' : '▸'} Advanced
+          </button>
+          {advancedOpen && (
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <label className="flex items-center gap-3 text-sm">
+                <span className="w-36 shrink-0 text-slate-400">Mel preprocessing</span>
+                <input type="checkbox" defaultChecked className="accent-brand-400" />
+                <span className="text-xs text-slate-500">64x100 log-Mel</span>
+              </label>
+              <label className="flex items-center gap-3 text-sm">
+                <span className="w-36 shrink-0 text-slate-400">Frame cache</span>
+                <input
+                  type="number"
+                  defaultValue={1500}
+                  min={500}
+                  max={3000}
+                  step={100}
+                  className="flex-1 rounded bg-slate-800/80 px-2 py-1 text-slate-200"
+                />
+                <span className="text-xs text-slate-500">ms</span>
+              </label>
+              <label className="flex items-center gap-3 text-sm">
+                <span className="w-36 shrink-0 text-slate-400">Feature smoothing</span>
+                <input type="checkbox" defaultChecked className="accent-brand-400" />
+              </label>
+              <label className="flex items-center gap-3 text-sm">
+                <span className="w-36 shrink-0 text-slate-400">Embedding viz</span>
+                <input type="checkbox" className="accent-brand-400" />
+                <span className="text-xs text-slate-500">show 1280-d vector</span>
+              </label>
+            </div>
+          )}
+        </div>
+        </>
       )}
     </section>
   )

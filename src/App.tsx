@@ -4,6 +4,7 @@ import { Header } from './components/Header'
 import { PipelineView } from './components/PipelineView'
 import { AFEPanel } from './components/AFEPanel'
 import { KWSPanel } from './components/KWSPanel'
+import { TrainingPanel } from './components/TrainingPanel'
 import { FewShotPanel } from './components/FewShotPanel'
 import { AsrDecodePanel } from './components/AsrDecodePanel'
 import { Domains } from './components/Domains'
@@ -41,6 +42,7 @@ export default function App() {
 
         <AFEPanel afeRef={afeRef} onRunningChange={setAfeRunning} />
         <KWSPanel afePipeline={afeRef.current} afeRunning={afeRunning} />
+        <TrainingPanel />
         <FewShotPanel afePipeline={afeRef.current} afeRunning={afeRunning} />
         <AsrDecodePanel afePipeline={afeRef.current} afeRunning={afeRunning} />
         <PipelineView />
