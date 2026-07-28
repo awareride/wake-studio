@@ -46,7 +46,9 @@ backend). See `.agents/plan/goal.plan` for the full phased roadmap and
 > Chrome/Safari/Firefox/Edge; Linux/macOS/Windows desktop; ESP32-S3 deferred). KWS
 > is a pluggable `KWSBackend` interface (openWakeWord, micro-wake-word, PLiX
 > Few-Shot, PocketSphinx); all exports build on a layered device-side SDK. See
-> `docs/architecture.md` §4–§6.
+> `docs/architecture.md` §4–§6. KWS is also organized into three functional
+> categories (Traditional / ASR-Decoding / Few-Shot) with a decoupling rule and a
+> unified panel spec — see `docs/kws-categories.md` (ADR-024).
 
 ## Quick start
 

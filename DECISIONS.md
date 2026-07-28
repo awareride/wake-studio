@@ -498,6 +498,35 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 
 ---
 
+## ADR-024 — KWS is organized into three categories with a decoupling rule and a unified panel spec
+
+- **Status:** Accepted
+- **Origin:** Human product spec (KWS categories & unified control panel)
+- **Decision:** WakeStudio's KWS support is organized into exactly three categories —
+  **Traditional Fixed-Class KWS** (train + inference), **ASR Decoding KWS**
+  (inference only, editable text wake-word list), and **Few-Shot Meta-Learning KWS**
+  (multi-weight inference only). Each category has an explicit functional scope
+  (§2 of `docs/kws-categories.md`) and a future extensibility reserve for later
+  fine-tuning/training. A hard **decoupling rule** holds: adding a new KWS type or
+  model project requires only an independent driver module + a matching config
+  panel, with **no modification to shared underlying modules**. All panels follow
+  a **dual-layer** layout (Primary + collapsible Advanced), and the frontend
+  consumes a single standardized inference-event shape regardless of KWS type.
+- **Rationale:** Keeps the platform extensible as new open-source KWS projects are
+  integrated (P0: `ARM-software/ML-KWS-for-MCU`, `swagshaw/TorchKWS`,
+  `k2-fsa/sherpa-onnx`, `plixkws`) without destabilizing shipped categories. The
+  three categories map cleanly onto the existing `KWSBackend` seam (ADR-020), the
+  shared AFE preprocessing (ADR-018), the lazy model manager (ADR-011), and the
+  `describeParameters()` panel renderer (ADR-017).
+- **Consequences:** The existing code already satisfies two of three categories
+  (Traditional via OpenWakeWord; Few-Shot via PLiX). **ASR Decoding is not yet
+  implemented** and is the next driver-module + panel addition under this rule.
+  Training/fine-tuning for ASR-Decoding and Few-Shot are explicitly reserved for
+  later iterations as new driver modules + panels; they do not alter the shared
+  contracts. The canonical spec lives in `docs/kws-categories.md`.
+
+---
+
 _Open questions still pending human input: Q10 (self-hosted training engine) is
 open for Phase 5. Q9 (training backends) is ADR-013 (amended: in-browser training
 removed, Cloud Providers unified, Colab added as ADR-023); targets are ADR-019

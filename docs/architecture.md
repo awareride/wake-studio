@@ -297,12 +297,16 @@ package and offers to train a clean replacement instead.
   post-MVP), ADR-016 (AFE Phase 1 design), ADR-017 (per-component config panel),
   ADR-018 (KWS Phase 2 design), ADR-019 (target matrix, supersedes ADR-006),
   ADR-020 (pluggable KWS backends), ADR-021 (device-side SDK), ADR-022 (data-source
-  layer), ADR-023 (Colab backend); ADR-013 amended (in-browser training removed,
+  layer), ADR-023 (Colab backend), ADR-024 (3-category KWS taxonomy + decoupling
+  rule + unified panel spec); ADR-013 amended (in-browser training removed,
   Cloud Providers unified, Colab added) and ADR-011 amended (asset pre-fetch).
 - **License matrix:** `LICENSES.md`.
 - **Living plan & phased roadmap:** `.agents/plan/goal.plan` (gitignored; the source
   of truth for phase status and open questions).
 - **Per-module specs:** `docs/modules/*.md`, each written just-in-time at its
   phase's start using `docs/module-template.md` (see plan §11).
+- **KWS categories spec:** `docs/kws-categories.md` — the 3-category taxonomy
+  (Traditional / ASR-Decoding / Few-Shot), the decoupling rule, the dual-layer
+  unified panel spec, and the P0 integration TODO (ADR-024).
 - **Pre-research:** `docs/Technical Pre-Research & Feasibility Study_ On-Device
   Wake Word Detection Systems.md`.
