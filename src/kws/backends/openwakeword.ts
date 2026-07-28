@@ -95,6 +95,11 @@ export class OpenWakeWordBackend implements KWSBackend {
   private _embeddingIndex = 0
   private _embeddingFilled = false
 
+  // Serialization guard (ONNX sessions are not re-entrant). When in flight,
+  // processFrame drops the incoming frame - the mel window tolerates a few
+  // dropped 10 ms frames (87.5% overlap).
+  private _inferring = false
+
   get ready(): boolean {
     return (
       this._melSession !== null &&
@@ -116,21 +121,28 @@ export class OpenWakeWordBackend implements KWSBackend {
 
   async processFrame(samples: Float32Array): Promise<number | null> {
     if (!this.ready) return null
+    // Serialization: drop frames while inference is in flight. The mel window
+    // has 87.5% overlap so a few dropped frames don't break detection.
+    if (this._inferring) return null
+    this._inferring = true
+    try {
+      // Append incoming samples to the rolling audio buffer.
+      this._pushAudio(samples)
+      this._newSamples += samples.length
 
-    // Append incoming samples to the rolling audio buffer.
-    this._pushAudio(samples)
-    this._newSamples += samples.length
+      let score: number | null = null
 
-    let score: number | null = null
+      // Process one 1280-sample chunk at a time (multiple if a large frame arrives).
+      while (this._newSamples >= MEL_WINDOW_SIZE) {
+        this._newSamples -= MEL_WINDOW_SIZE
+        const s = await this._processChunk()
+        if (s !== null) score = s
+      }
 
-    // Process one 1280-sample chunk at a time (multiple if a large frame arrives).
-    while (this._newSamples >= MEL_WINDOW_SIZE) {
-      this._newSamples -= MEL_WINDOW_SIZE
-      const s = await this._processChunk()
-      if (s !== null) score = s
+      return score
+    } finally {
+      this._inferring = false
     }
-
-    return score
   }
 
   reset(): void {

@@ -228,3 +228,4 @@ unchanged.
 |---|---|---|
 | 2026-07-27 | Initial draft (docs-first, pending human review). | agent |
 | 2026-07-28 | Q-FS-1 resolved: WavLM-base-plus-sv (512-dim, int8 ONNX); defaults tuned (min-duration 300, smoothing 5). | agent |
+| 2026-07-28 | Fix Build-prototype feedback (prototype is state, not a ref) + WavLM detection smoothness (continuous ring buffer, 80 ms hop, zero-order-hold caching; serialization guard moved into each backend). | agent |

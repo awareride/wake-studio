@@ -31,6 +31,8 @@ export const FewShotPanel = memo(function FewShotPanel({
   const [recording, setRecording] = useState(false)
   const [detecting, setDetecting] = useState(false)
   const [triggerFlash, setTriggerFlash] = useState(false)
+  const [prototype, setPrototype] = useState<WakeWordPrototype | null>(null)
+  const [building, setBuilding] = useState(false)
   const [config] = useState<FewShotConfig>({ ...FS_DEFAULTS })
   const historyRef = useRef<KWSScoreSample[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -119,19 +121,23 @@ export const FewShotPanel = memo(function FewShotPanel({
 
   const handleBuildPrototype = useCallback(async () => {
     setError(null)
-    const fs = fsEngineRef.current!
-    const proto = fs.buildPrototype('custom-word', samples)
-    await fs.savePrototype(proto, samples)
-    // Store for detection.
-    protoRef.current = proto
+    setBuilding(true)
+    try {
+      const fs = fsEngineRef.current!
+      const proto = fs.buildPrototype('custom-word', samples)
+      await fs.savePrototype(proto, samples)
+      setPrototype(proto)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBuilding(false)
+    }
   }, [samples])
-
-  const protoRef = useRef<WakeWordPrototype | null>(null)
 
   const handleStartDetection = useCallback(async () => {
     setError(null)
     const engine = engineRef.current!
-    const proto = protoRef.current
+    const proto = prototype
     if (!proto) {
       setError('Build a prototype first.')
       return
@@ -163,7 +169,7 @@ export const FewShotPanel = memo(function FewShotPanel({
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
     }
-  }, [afePipeline, afeRunning])
+  }, [afePipeline, afeRunning, prototype])
 
   const handleStopDetection = useCallback(() => {
     engineRef.current?.stop()
@@ -227,12 +233,13 @@ export const FewShotPanel = memo(function FewShotPanel({
         {encoderReady && !detecting && samples.length >= MIN_SAMPLES && (
           <button
             onClick={handleBuildPrototype}
-            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-400"
+            disabled={building}
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-400 disabled:opacity-50"
           >
-            Build prototype ({samples.length} samples)
+            {building ? 'Building…' : `Build prototype (${samples.length} samples)`}
           </button>
         )}
-        {encoderReady && protoRef.current && !detecting && afeRunning && (
+        {encoderReady && prototype && !detecting && afeRunning && (
           <button
             onClick={handleStartDetection}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
@@ -284,9 +291,9 @@ export const FewShotPanel = memo(function FewShotPanel({
               </div>
             ))}
           </div>
-          {protoRef.current && (
+          {prototype && (
             <p className="mt-3 text-xs text-emerald-400">
-              Prototype built: {protoRef.current.word} ({protoRef.current.vector.length}-dim vector). Ready for detection.
+              Prototype built: {prototype.word} ({prototype.vector.length}-dim vector). Ready for detection.
             </p>
           )}
         </div>

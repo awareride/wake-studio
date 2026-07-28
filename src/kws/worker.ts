@@ -45,11 +45,9 @@ const trigger = new TriggerDetector(
 
 // Serialization guards: ONNX InferenceSessions are not re-entrant. The AFE
 // delivers a frame every ~10 ms, but inference (mel -> embedding -> classifier)
-// can take longer. Without these guards, a second processFrame()/embed() call
-// would hit session.run() while the first is still in flight, producing
-// "Session already started". When a guard is set, the incoming frame/request
-// is dropped (documented behavior, kws.md §7: "drop the oldest frames").
-let inferring = false
+// can take longer. Each KWSBackend owns its own guard now (moved from the worker
+// so backends can buffer every frame); this `embedding` flag guards the
+// `handleEmbed` enrollment path (WavLM) which is separate from detection.
 let embedding = false
 
 // ---------------------------------------------------------------------------
@@ -186,12 +184,11 @@ async function handleAudio(
 
   // Backend inference (ADR-020). Returns null during warmup.
   //
-  // Serialization: if the previous frame's inference is still in flight, drop
-  // this frame. ONNX sessions are not re-entrant ("Session already started").
-  // The backend's sliding mel window retains enough context that dropping a
-  // few 10 ms frames does not break detection (kws.md §7).
-  if (inferring) return
-  inferring = true
+  // Concurrency: each backend owns its own serialization guard (ONNX sessions
+  // are not re-entrant). The worker always calls processFrame so the backend
+  // can buffer every frame (the WavLM Few-Shot backend needs a continuous
+  // window; the OpenWakeWord backend tolerates dropped frames). The backend
+  // returns null or a cached score when its inference is in flight.
   let score: number | null
   try {
     score = await backend.processFrame(samples)
@@ -200,8 +197,6 @@ async function handleAudio(
       `Inference failed: ${err instanceof Error ? err.message : String(err)}`,
     )
     return
-  } finally {
-    inferring = false
   }
 
   if (score === null) {
