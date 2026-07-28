@@ -169,6 +169,10 @@ def main() -> None:
     dummy = torch.randn(1, 1, 64, 100, device=device)
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
+    # Use the TorchScript (legacy) ONNX exporter: it does not require the
+    # `onnxscript` package that the newer dynamo exporter needs, and it handles
+    # a traced CNN trunk like PLiX cleanly. The dummy input is a concrete
+    # 1x1x64x100 tensor, so tracing is exact.
     torch.onnx.export(
         trunk,
         dummy,
@@ -177,6 +181,7 @@ def main() -> None:
         output_names=["embeddings"],
         dynamic_axes={"input": {0: "batch"}},
         opset_version=args.opset,
+        dynamo=False,
     )
     print(f"Exported {args.encoder}/{language} encoder -> {args.out}")
 
