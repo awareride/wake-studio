@@ -72,9 +72,9 @@ ESP-SR, Infineon audio-front-end, and XMOS voice-interface docs):
 │         v                                 v                       │
 │  ┌──────────────┐               ┌─────────────────────────┐     │
 │  │  IndexedDB   │               │  Training backend (1/3) │     │
-│  │ (prototypes, │               │  In-Browser / Self-host │     │
-│  │  recordings) │               │  / Cloud provider - see │     │
-│  └──────────────┘               │  §5.1 (AWS/GCP/HF/...)  │     │
+│  │ (prototypes, │               │  Self-host / Cloud /    │     │
+│  │  recordings) │               │  Colab (ADR-023) - see  │     │
+│  └──────────────┘               │  §5 (ADR-013/023)       │     │
 │                                  └─────────────────────────┘     │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -84,12 +84,12 @@ ESP-SR, Infineon audio-front-end, and XMOS voice-interface docs):
 - The PWA does **all** of the live experience and Few-Shot enrollment **100%
   client-side**. No server. This satisfies the "works out-of-the-box" requirement
   for the primary user journey.
-- **Model training offers three execution backends** (see §5), chosen by the user:
-  **In-Browser (WASM)** keeps light training fully client-side; the **Self-hosted
-  Service** and **Cloud Training Providers** cover heavy Traditional/MCU training
-  (synthetic-data generation + PyTorch classifier training) without shipping Python
-  into the browser. "Zero setup" holds for the In-Browser path and the primary
-  live/enrollment/export journey; the other two backends are *optional*.
+- **Model training runs outside the browser** (ADR-013 amendment): training never
+  runs in WASM - it runs on the **Self-hosted Service**, a **Cloud Provider**, or
+  **Google Colab** (ADR-023). The browser is retained only for the live experience,
+  Few-Shot enrollment (prototype mean-pool + cosine scoring), and inference.
+  "Zero setup" holds for the in-browser live/enrollment/export journey; the three
+  training backends are *optional* and chosen only when training is needed.
 
 ---
 
@@ -121,6 +121,14 @@ affect commercial productization; the authoritative matrix lives in `LICENSES.md
 | Few-Shot encoder (ADR-002) | **WavLM** (`microsoft/wavlm-base-plus`) | MIT | Frozen universal speech encoder -> embedding; cosine-similarity prototype matching. ~95M params; int8 ~95 MB. |
 | Traditional KWS (Linux, optional) | **openWakeWord** (`dscripka/openWakeWord`) | Apache-2.0 (code) | ONNX/TFLite KWS for Linux; also the training pipeline that yields Domain-A-compatible models. ⚠️ Its *pre-trained models* are CC BY-NC-SA (non-commercial). |
 | Speaker-verifier (optional false-alarm filter) | openWakeWord `train_custom_verifier` (scikit-learn) | Apache-2.0 | Second-stage filter to cut false alarms for a known user. |
+| **PocketSphinx** (lightweight alternative) | `cmusphinx/pocketsphinx` | BSD-style (CMU); bundles WebRTC VAD (BSD-3) | Classic HMM/GMM KWS; viable on MCU-class and above. The lightweight alternative to openWakeWord (ADR-020). |
+
+> **Pluggable KWS backends (ADR-020):** KWS is a `KWSBackend` interface with
+> pluggable adapters - openWakeWord (app-class; relatively large), micro-wake-word
+> (MCU), WavLM Few-Shot (app-class, enrollment-based), and PocketSphinx
+> (lightweight, BSD). The "two domains" above map to backend selection per target,
+> not a fixed engine. openWakeWord's pre-trained models remain CC BY-NC-SA
+> (demo-only); the export license gate (Phase 4) still blocks them commercially.
 
 ### 4.2 AFE components (AEC -> BSS -> NS)
 
@@ -150,20 +158,33 @@ reference C/C++ pipelines for target chips.
 | Visualization | Canvas 2D / WebGL (custom, or `regl`-based) | MIT |
 | UI (ADR-004) | React 18 + Vite 5 + TypeScript 5 + Tailwind 3 | MIT |
 
+> **Training-data sources (ADR-022):** audio generation and datasets are a
+> pluggable, in-app-configurable data-source layer (local services / project APIs /
+> public TTS endpoints); generation **never runs in WASM** - it runs in the selected
+> training backend or is fetched from configured endpoints. See
+> `docs/modules/data-sources.md`.
+
 ---
 
 ## 5. Model training execution backends (ADR-013)
 
 Model training in WakeStudio is **backend-agnostic**: the PWA presents the same
-"train a custom word" flow regardless of where the compute runs. The user picks one
-of three execution backends; the choice trades off zero-setup convenience against
-training capacity and cost.
+"train a custom word" flow regardless of where the compute runs. Per the ADR-013
+amendment, **training never runs in the browser** - any step that learns weights or
+trains a classifier runs on one of three training backends (the browser is retained
+only for inference and Few-Shot enrollment). The user picks one; the choice trades
+off zero-setup convenience against training capacity and cost.
 
 | # | Backend | Where it runs | Best for | Notes |
 |---|---|---|---|---|
-| 1 | **In-Browser (WASM)** | 100% client-side, same PWA | Light jobs: Few-Shot prototype computation and any future browser-feasible training | Truest to "zero setup". Limited by browser memory/CPU; **not** suitable for synthetic-data generation + full PyTorch classifier training. |
-| 2 | **Self-hosted Service** | A service the user runs themselves: locally on `localhost` **or deployed on Google Cloud** | Heavy Traditional/MCU training (Piper TTS synthetic data + openWakeWord/microWakeWord training) | Evolution of the "Studio Engine" (ADR-005). PyInstaller binary (default) + Docker image. When on Google Cloud, the PWA connects to the user's own hosted endpoint. |
-| 3 | **Cloud Training Provider** | Managed ML platform of the selected provider | Users who want turnkey managed training without running any service | Providers: **AWS, Google Cloud, Hugging Face, Alibaba Cloud, Tencent Cloud, Volcengine**. User selects a provider and enters its credentials; WakeStudio **automatically executes training, monitors training status, and exports training artifacts** within that service. |
+| 1 | **Self-hosted Service** | A service the user runs themselves: locally on `localhost` **or deployed on Google Cloud** | Heavy Traditional/MCU training (synthetic data via the data-source layer ADR-022 + openWakeWord/micro-wake-word training) | Evolution of the "Studio Engine" (ADR-005). PyInstaller binary (default) + Docker image. When on Google Cloud, the PWA connects to the user's own endpoint. |
+| 2 | **Cloud Providers** (capability-labeled: train-capable vs inference-only) | Managed ML platform of the selected provider | Users who want turnkey managed training without running any service | Providers: **AWS, Google Cloud, Hugging Face, Alibaba Cloud, Tencent Cloud, Volcengine**. User selects a provider and enters its credentials; WakeStudio **automatically executes training, monitors training status, and exports training artifacts** within that service. |
+| 3 | **Google Colab** (ADR-023) | The user's own Colab session (their Google account / Drive) | Users who want GPU compute + notebooks with no local install and no provider credentials | WakeStudio provides IPython notebooks; the user runs them in Colab and **exports results** (`.onnx`/`.tflite` + metadata, generated audio) back to the PWA. No WakeStudio server. |
+
+> **In-Browser (WASM)** is **not** a training backend (ADR-013 amendment). It
+> remains the execution surface for client-side **inference and Few-Shot
+> enrollment** (prototype mean-pooling + cosine scoring) - enrollment/inference,
+> not training.
 
 > **Self-hosted engine candidate (Q10, open):** [`TigreGotico/wakeforge`](https://github.com/TigreGotico/wakeforge)
 > (Python package `ww_trainer`, Apache-2.0, NLnet/NGI0-funded) is a research-grade,
@@ -190,29 +211,38 @@ training capacity and cost.
 
 > **Security note:** Cloud-provider credentials are secrets. They must never be
 > logged, persisted to a remote service, or bundled into exported artifacts. The
-> Cloud backend is an *optional* capability; the In-Browser and Self-hosted backends
-> require no third-party credentials at all. See plan §5.1 and §9 (risks).
+> Cloud backend is an *optional* capability; the In-Browser (inference/enrollment),
+> Self-hosted, and Colab backends require no third-party credentials at all. See
+> plan §5.1 and §9 (risks).
 
 ---
 
 ## 6. Target platforms & export matrix
 
 Export is a client-side operation: the PWA generates a downloadable `.zip`
-(JSZip) per target - no server needed. Each bundle contains the model, AFE config,
-`README.md`, a `demo/` app, a `LICENSES.md` for the bundle, and a `test/` FAR/FRR
-script. A **license gate** refuses to export a non-commercial-licensed model into a
-"commercial" package and offers to train a clean replacement instead.
+(JSZip) per target - no server needed. Per ADR-021, **every export is built on the
+device-side SDK**: each bundle is an SDK-based project (model + AFE config + SDK
+adapter + `demo/` + `README.md` + `LICENSES.md` + `test/` FAR/FRR). A **license
+gate** refuses to export a non-commercial-licensed model into a "commercial"
+package and offers to train a clean replacement instead.
 
-| Target | Domain | KWS runtime | AFE runtime | Model format | Integration ref |
+| Target | Tier | KWS backend(s) (ADR-020) | AFE | Model format | SDK binding (ADR-021) |
 |---|---|---|---|---|---|
-| **ESP32-S3** | Low-power | TFLite-Micro (microWakeWord) | ESP-SR (AEC/NS/BSS) | `.tflite` + C array | ESP-IDF example app |
-| **STM32 (H7)** | Low-power | TFLite-Micro / X-CUBE-AI | Portable RNNoise + WebRTC AEC | `.tflite` / C | STM32CubeIDE example |
-| **TI (C2000/AM62x)** | Low-power / App | TFLite-Micro / ONNX RT | TI TIDL / vendor AFE | `.tflite` / ONNX | TI example |
-| **Linux (Pi/RK3568)** | High-perf | openWakeWord (ONNX RT) / Few-Shot WavLM | RNNoise + WebRTC | `.onnx` | Python + C++ demo |
-| **Android** | High-perf | ONNX Runtime Android / Few-Shot | RNNoise + WebRTC | `.onnx` | Kotlin demo app |
+| **Arm Cortex-M** (STM32, Arduino) | MCU (primary) | micro-wake-word (TFLite-Micro); PocketSphinx (alt) | Portable RNNoise + WebRTC | `.tflite` / C | C / TFLite-Micro |
+| **Raspberry Pi** (Zero, 3, 4, 5) | App-class edge | openWakeWord / WavLM Few-Shot / PocketSphinx | RNNoise + WebRTC | `.onnx` | Python |
+| **Android** | Mobile | openWakeWord / WavLM Few-Shot (ONNX RT Android) | RNNoise + WebRTC | `.onnx` | Kotlin |
+| **iOS** | Mobile | openWakeWord / WavLM Few-Shot (ONNX RT / Core ML) | RNNoise + WebRTC | `.onnx` / Core ML | Swift |
+| **Browsers** (Chrome, Safari, Firefox, Edge) | Browser | openWakeWord / WavLM Few-Shot (onnxruntime-web) | RNNoise (WASM) | `.onnx` | JS / WASM |
+| **Linux** (x86_64) | Desktop | openWakeWord / WavLM Few-Shot / PocketSphinx | RNNoise + WebRTC | `.onnx` | Python |
+| **macOS** (x86_64, arm64) | Desktop | openWakeWord / WavLM Few-Shot (ONNX RT / Core ML on arm64) | RNNoise + WebRTC | `.onnx` / Core ML | Python / Swift |
+| **Windows** (x86_64, arm64) | Desktop | openWakeWord / WavLM Few-Shot (ONNX RT) | RNNoise + WebRTC | `.onnx` | Python |
+| **ESP32-S3** (deferred) | MCU (extended) | micro-wake-word (TFLite-Micro) | ESP-SR (AEC/NS/BSS) | `.tflite` + C array | C / TFLite-Micro |
 
-> **First-target priority (ADR-006):** ESP32-S3 (Domain A) and Linux/Raspberry Pi
-> (Domain B) are the "golden path" - the first two targets validated on hardware.
+> **Target matrix (ADR-019, supersedes ADR-006):** the full cross-device set is
+> validated, with **Arm Cortex-M (STM32, Arduino)** as the primary MCU tier.
+> **ESP32-S3** is a deferred extended target (Xtensa, not Cortex-M). Each target is
+> an **SDK adapter** (ADR-021), not a one-off codepath. The in-browser PWA demo
+> uses the same `KWSBackend` interface (ADR-020) via the JS/WASM binding.
 
 ---
 
@@ -225,7 +255,10 @@ script. A **license gate** refuses to export a non-commercial-licensed model int
   `LICENSES.md` for the authoritative matrix.
 - **Offline / PWA.** `vite-plugin-pwa` provides an installable, offline-capable
   shell. After first load, runtime assets (models, WASM) are cached via the service
-  worker so the app is fully usable with no network.
+  worker so the app is fully usable with no network. **Pre-fetch (ADR-011
+  amendment):** assets (WASM, ONNX, …) can be bulk-downloaded ahead of time and
+  integrity-checked against the registry; if a download fails, the agent asks the
+  human rather than retrying blindly.
 - **Security.** Mic permissions, CSP, the localhost self-hosted-service protocol,
   and cloud-provider credential handling are reviewed before release. Credentials
   are client-side only and never logged or exported.
@@ -236,6 +269,13 @@ script. A **license gate** refuses to export a non-commercial-licensed model int
   module exposes its tunables via a shared `describeParameters()` descriptor; the
   UI renders controls generically and persists user values. Built incrementally -
   the AFE panel lands in Phase 1, each later phase adds its component's panel.
+- **Device-side SDK (ADR-021).** A layered portable SDK (C core + target adapters
+  + language bindings) underpins every export (Phase 4); the in-browser demo
+  consumes the same `KWSBackend` interface (ADR-020). See `docs/modules/sdk.md`.
+- **Training-data sources (ADR-022).** Audio generation and datasets are a
+  pluggable, in-app-configurable data-source layer (local services / project APIs /
+  public TTS endpoints); generation never runs in WASM. See
+  `docs/modules/data-sources.md`.
 - **Deploy (ADR-012).** `VITE_BASE_PATH` configures the base path - `/` for
   Cloudflare Pages, `/<repo-name>/` for GitHub Pages project sites.
 - **CI/CD (ADR-015).** Workflow files (`ci.yml`, `deploy.yml`) are scaffolded but
@@ -255,7 +295,10 @@ script. A **license gate** refuses to export a non-commercial-licensed model int
   ADR-011 (lazy model registry), ADR-012 (deploy base path), ADR-013 (training
   backends), ADR-014 (project name "WakeStudio"), ADR-015 (CI/CD deferred to
   post-MVP), ADR-016 (AFE Phase 1 design), ADR-017 (per-component config panel),
-  ADR-018 (KWS Phase 2 design).
+  ADR-018 (KWS Phase 2 design), ADR-019 (target matrix, supersedes ADR-006),
+  ADR-020 (pluggable KWS backends), ADR-021 (device-side SDK), ADR-022 (data-source
+  layer), ADR-023 (Colab backend); ADR-013 amended (in-browser training removed,
+  Cloud Providers unified, Colab added) and ADR-011 amended (asset pre-fetch).
 - **License matrix:** `LICENSES.md`.
 - **Living plan & phased roadmap:** `.agents/plan/goal.plan` (gitignored; the source
   of truth for phase status and open questions).

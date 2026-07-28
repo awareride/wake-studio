@@ -4,6 +4,7 @@ import { Header } from './components/Header'
 import { PipelineView } from './components/PipelineView'
 import { AFEPanel } from './components/AFEPanel'
 import { KWSPanel } from './components/KWSPanel'
+import { FewShotPanel } from './components/FewShotPanel'
 import { Domains } from './components/Domains'
 import { Footer } from './components/Footer'
 
@@ -33,12 +34,13 @@ export default function App() {
             ready-to-build package for your target chip.
           </p>
           <p className="mt-4 text-xs uppercase tracking-widest text-amber-300/80">
-            Phase 1 · in-browser AFE + pipeline visualization · in progress
+            Phase 1-3 · AFE + KWS + Few-Shot enrollment · in progress
           </p>
         </section>
 
         <AFEPanel afeRef={afeRef} onRunningChange={setAfeRunning} />
         <KWSPanel afePipeline={afeRef.current} afeRunning={afeRunning} />
+        <FewShotPanel afePipeline={afeRef.current} afeRunning={afeRunning} />
         <PipelineView />
         <Domains />
       </main>

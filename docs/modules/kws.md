@@ -1,9 +1,9 @@
 # KWS (Keyword Spotting) - Module Specification
 
-- **Status:** Accepted (human review complete; open questions resolved - ADR-018)
+- **Status:** Accepted (human review complete; ADR-018 + ADR-020)
 - **Owner:** WakeStudio team
 - **Plan phase:** Phase 2
-- **Related ADRs:** ADR-001 (pipeline stages), ADR-002 (WavLM encoder), ADR-011 (lazy model registry), ADR-017 (per-component config panel), ADR-018 (KWS Phase 2 design decisions)
+- **Related ADRs:** ADR-001 (pipeline stages), ADR-002 (WavLM encoder), ADR-011 (lazy model registry), ADR-017 (per-component config panel), ADR-018 (KWS Phase 2 design decisions), ADR-020 (pluggable KWS backends)
 - **Depends on (modules):** AFE (consumes the 16 kHz output stream)
 - **Last updated:** 2026-07-27
 
@@ -18,12 +18,15 @@ experience (requirement R5).
 
 ## 2. Scope & boundaries
 
-- **In scope:** onnxruntime-web integration (WebGPU + WASM fallback); Traditional
-  KWS inference (openWakeWord-style: melspectrogram -> embedding -> classifier);
-  score smoothing (sliding window); threshold + min-duration trigger logic; Silero
-  VAD gating; live score-curve visualization; the Few-Shot `embed(audio)` scaffold
-  (load WavLM, extract embeddings - matching is Phase 3); KWS config panel
-  (ADR-017).
+- **In scope:** a pluggable `KWSBackend` interface (ADR-020) with adapters;
+  onnxruntime-web integration (WebGPU + WASM fallback); the OpenWakeWord backend
+  (melspectrogram -> embedding -> classifier) as the v1 browser demo backend;
+  score smoothing (sliding window); threshold + min-duration trigger logic; VAD
+  gating via the AFE's RNNoise VAD; live score-curve visualization; the Few-Shot
+  `embed(audio)` scaffold (load WavLM, extract embeddings - matching is Phase 3);
+  KWS config panel (ADR-017). Backend selection is exposed in the panel
+  (openWakeWord available in v1; micro-wake-word / WavLM Few-Shot / PocketSphinx
+  are registered but not browser-feasible until later phases).
 - **Out of scope:** Few-Shot enrollment + prototype matching (Phase 3); model
   export (Phase 4); model training (Phase 5); the AFE pipeline itself (Phase 1 -
   KWS consumes its output).
@@ -43,14 +46,24 @@ experience (requirement R5).
     log-Mel front-end. Commercially clean.
   - **Google speech_embedding** (`embedding_model.onnx`, Apache-2.0) - frozen
     feature backbone (~1.4M params). Commercially clean.
-  - **Demo classifier model** - the openWakeWord `alexa.onnx` (CC BY-NC-SA,
-    demo-only) for the Phase 2 demo (ADR-018). Not exported commercially (the
-    Phase 4 license gate blocks it); Phase 5 trains a clean replacement.
-  - **WavLM-base-plus** (`wavlm-base-plus-int8`, MIT) - frozen Few-Shot encoder
-    (~95M params, int8 ~95 MB). Scaffolded for Phase 3.
+  - **Demo classifier model** - the **hey-buddy** model
+    (`benjamin-paine/hey-buddy`, CC-BY-4.0, commercially clean) for the Phase 2
+    in-browser demo. Replaces the originally-planned openWakeWord `alexa.onnx`
+    (CC BY-NC-SA, demo-only); see ADR-018 Q-KWS-1 amendment. The same pipeline
+    (mel -> speech-embedding -> classifier) is used; only the classifier weights
+    differ.
+  - **WavLM-base-plus-sv** (`wavlm-base-plus-int8`, MIT) - speaker-verification
+    fine-tune (int8 ONNX ~97 MB, 512-dim embedding). Loaded via the KWS module's
+    `WavLMEmbedProvider`. See `LICENSES.md`.
   - **VAD**: the AFE's RNNoise VAD score (already in `AFEOutputFrame.vadActive`)
     is used for KWS gating for v1 (ADR-018). Silero VAD (ONNX, MIT) is deferred to
     v1.x when more accurate gating is needed.
+
+  The other registered backends (ADR-020) - **micro-wake-word** (Apache-2.0,
+  MCU/TFLite-Micro), **WavLM Few-Shot** (MIT, Phase 3), and **PocketSphinx**
+  (BSD, lightweight HMM/GMM) - are not browser-feasible in v1 and have no
+  browser adapter yet; they are part of the interface so the SDK (ADR-021) and
+  later phases can implement them.
 
 ## 4. Public API & types
 
@@ -60,8 +73,15 @@ internals are implementation details below this surface (sketched in §5).
 ```ts
 import type { AFEOutputFrame } from '../afe'
 
-/** KWS detection mode. */
-export type KWSMode = 'traditional' | 'few-shot-scaffold'
+/**
+ * Pluggable KWS backend identifiers (ADR-020). The engine delegates inference
+ * to a `KWSBackend` adapter; selection is per-target / per-word.
+ */
+export type KWSBackendId =
+  | 'openwakeword'   // mel -> speech_embedding -> classifier (app-class)
+  | 'microwakeword'  // TFLite-Micro streaming CNN (MCU; not browser-feasible v1)
+  | 'wavlm-few-shot' // WavLM embedding + cosine prototype (app-class; Phase 3)
+  | 'pocketsphinx'   // lightweight HMM/GMM (MCU+; WASM port pending)
 
 /** One score sample emitted per inference frame (~every 10 ms). */
 export interface KWSScoreSample {
@@ -89,7 +109,7 @@ export interface KWSTriggerEvent {
 
 /** Full KWS configuration; every field has a default (ADR-017 config panel). */
 export interface KWSConfig {
-  mode: KWSMode                  // default 'traditional'
+  backend: KWSBackendId          // default 'openwakeword' (ADR-020)
   threshold: number              // default 0.5 (0-1)
   minDurationMs: number          // default 500 (score must exceed threshold for this long)
   smoothingWindowFrames: number  // default 10 (~1 s at 10 ms/frame; sliding-window max)
@@ -111,6 +131,41 @@ export interface ParameterDescriptor {
   options?: ReadonlyArray<{ value: string; label: string }>
   unit?: string
   description: string
+}
+
+/**
+ * A pluggable KWS inference backend (ADR-020). The engine owns the generic
+ * loop (VAD gate, smoothing, trigger, threading); the backend owns the
+ * model-specific inference and its own audio windowing/buffering.
+ */
+export interface KWSBackend {
+  readonly id: KWSBackendId
+  readonly label: string
+  /** Load the backend's models. Resolves when ready to process frames. */
+  load(urls: BackendModelUrls, provider: 'webgpu' | 'wasm'): Promise<void>
+  readonly ready: boolean
+  /**
+   * Process one AFE frame (160 samples / 10 ms @ 16 kHz). Returns a raw
+   * posterior [0,1], or null during warmup (not enough audio accumulated).
+   */
+  processFrame(samples: Float32Array): Promise<number | null>
+  /** Reset internal state (e.g. on stop). */
+  reset(): void
+  /** Release model resources. */
+  dispose(): Promise<void>
+}
+
+/** Optional capability: extract a speaker embedding for Few-Shot (Phase 3). */
+export interface EmbedProvider {
+  embed(audio: Float32Array, sampleRate: number): Promise<Float32Array>
+}
+
+/** Model URLs a backend needs (from the registry, ADR-011). Subset by backend. */
+export interface BackendModelUrls {
+  melspectrogram?: string
+  embedding?: string
+  classifier?: string
+  wavlm?: string
 }
 
 /** Top-level controller the UI drives. */
@@ -152,12 +207,10 @@ off-main-thread; KWS follows the same principle.
 AFE (AudioWorklet)                KWS Worker                  Main thread (UI)
       │                               │                            │
       │ -- AFEOutputFrame (16kHz) --> │                            │
-      │                               │ -- accumulate mel window   │
-      │                               │ -- melspectrogram.onnx     │
-      │                               │ -- embedding_model.onnx    │
-      │                               │ -- classifier.onnx         │
-      │                               │ -- smooth + threshold      │
       │                               │ -- VAD gate                │
+      │                               │ -- backend.processFrame    │
+      │                               │   (mel->embed->classifier) │
+      │                               │ -- smooth + threshold      │
       │                               │                            │
       │                               │ -- KWSScoreSample -------> │ (score curve)
       │                               │ -- KWSTriggerEvent ------> │ (trigger flash)
@@ -165,22 +218,25 @@ AFE (AudioWorklet)                KWS Worker                  Main thread (UI)
       │                       <-- config (threshold, etc.) ------- │
 ```
 
-**Traditional KWS inference loop (per AFE output frame, ~10 ms):**
+**KWS inference loop (per AFE output frame, ~10 ms):**
 
-1. **Accumulate:** buffer incoming 16 kHz frames until a melspectrogram window is
-   full (openWakeWord uses 1280 samples = 80 ms per mel frame, with 10 ms hops).
-2. **VAD gate:** if `vadGateEnabled` and VAD probability < `vadThreshold`, skip
+1. **VAD gate:** if `vadGateEnabled` and VAD probability < `vadThreshold`, skip
    inference for this frame (saves compute, suppresses false alarms in silence).
    VAD source: the AFE's RNNoise VAD (`AFEOutputFrame.vadActive`, ADR-018).
-3. **Melspectrogram:** run `melspectrogram.onnx` on the audio window -> mel
-   features.
-4. **Embedding:** run `embedding_model.onnx` on the mel features -> embedding
-   vector.
-5. **Classifier:** run the word model (e.g. `alexa.onnx`) on the embedding ->
-   raw posterior [0,1].
-6. **Smooth:** push the raw score into a sliding window of
+2. **VAD gate:** if `vadGateEnabled` and VAD probability < `vadThreshold`, the
+   frame's *trigger is suppressed* (not the inference). Inference always runs so
+   the backend's sliding audio window stays current - RNNoise's VAD is
+   conservative at utterance onset, and skipping inference would drop the first
+   phonemes of the wake word. VAD source: the AFE's RNNoise VAD
+   (`AFEOutputFrame.vadActive`, ADR-018).
+3. **Backend inference:** call `KWSBackend.processFrame(samples)`. The backend
+   owns its own audio windowing/buffering and model pipeline; for the OpenWakeWord
+   backend that is accumulate -> `melspectrogram.onnx` -> `embedding_model.onnx`
+   -> classifier -> raw posterior [0,1]. Returns `null` during warmup (not enough
+   audio yet); the engine treats null as "no score this frame."
+3. **Smooth:** push the raw score into a sliding window of
    `smoothingWindowFrames` frames; `smoothedScore` = max of the window.
-7. **Trigger logic:** if `smoothedScore >= threshold` for >= `minDurationMs`
+4. **Trigger logic:** if `smoothedScore >= threshold` for >= `minDurationMs`
    consecutive frames, and the cooldown period has elapsed since the last trigger,
    fire a `KWSTriggerEvent`.
 
@@ -196,11 +252,11 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
 
 | Parameter | Default | Range | Notes |
 |---|---|---|---|
-| `mode` | `traditional` | `traditional` \| `few-shot-scaffold` | Traditional = openWakeWord-style; few-shot-scaffold = WavLM embed only (Phase 3 prep). |
+| `backend` | `openwakeword` | `openwakeword` \| `microwakeword` \| `wavlm-few-shot` \| `pocketsphinx` | Pluggable KWS backend (ADR-020). Only `openwakeword` is browser-feasible in v1; the others are registered for later phases. |
 | `threshold` | 0.5 | 0-1 | Smoothed score must exceed this to trigger. |
 | `minDurationMs` | 500 | 100-3000 | Score must exceed threshold for this long to trigger. |
 | `smoothingWindowFrames` | 10 | 1-30 | Sliding-window size for max-pooling (~10 ms/frame). |
-| `vadGateEnabled` | true | - | Skip inference when VAD < threshold (saves compute). |
+| `vadGateEnabled` | true | - | Suppress triggers (not inference) when VAD < threshold; keeps the audio window current. |
 | `vadThreshold` | 0.3 | 0-1 | VAD probability below which KWS is gated. |
 | `cooldownMs` | 2000 | 500-10000 | Minimum time between triggers. |
 | `executionProvider` | `webgpu` | `webgpu` \| `wasm` | WebGPU first; WASM fallback if unsupported. |
@@ -266,9 +322,12 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
 
 All Phase 2 open questions are resolved (ADR-018); the contract is locked.
 
-- **[Q-KWS-1] Demo model -> `alexa.onnx`** (CC BY-NC-SA, demo-only) (ADR-018).
-  Used for the Phase 2 in-browser demo only; never exported commercially (the
-  Phase 4 license gate blocks it); Phase 5 trains a clean replacement.
+- **[Q-KWS-1] Demo model -> `hey-buddy`** (`benjamin-paine/hey-buddy`, CC-BY-4.0,
+  commercially clean) (ADR-018, amended). Originally planned as openWakeWord
+  `alexa.onnx` (CC BY-NC-SA, demo-only); switched to hey-buddy because it is
+  commercially clean and browser-first, so the demo model can also serve as a
+  redistributable export baseline (no license-gate friction). The Phase 4 license
+  gate still applies to any CC-BY-NC-SA model that might be added later.
 - **[Q-KWS-2] Inference thread -> Web Worker** (ADR-018). Off-main-thread to
   avoid blocking the UI; the main thread owns the controller + visualization.
 - **[Q-KWS-3] Execution provider -> WebGPU-first with WASM fallback** (ADR-018).
@@ -278,12 +337,18 @@ All Phase 2 open questions are resolved (ADR-018); the contract is locked.
   provides `vadActive` in `AFEOutputFrame` (free, no extra model). Silero VAD is
   deferred to v1.x. The plan's "Silero VAD integration" task is superseded by
   "VAD gating via AFE's RNNoise VAD."
+- **[ADR-020] Pluggable KWS backends.** KWS is a `KWSBackend` interface with
+  adapters (openWakeWord, micro-wake-word, WavLM Few-Shot, PocketSphinx). The
+  engine delegates inference to the selected backend; only `openwakeword` has a
+  browser adapter in v1. This makes the in-browser demo and the device-side SDK
+  (ADR-021) share one interface.
 
 ## 12. References
 
 - Plan: §4.1 Domain B (KWS models), §4.3 (inference stack), Phase 2 tasks/validation.
 - ADR-001 (pipeline stages), ADR-002 (WavLM encoder), ADR-011 (lazy model registry),
-  ADR-017 (per-component config panel), ADR-018 (KWS Phase 2 design decisions).
+  ADR-017 (per-component config panel), ADR-018 (KWS Phase 2 design decisions),
+  ADR-020 (pluggable KWS backends).
 - Upstream: onnxruntime-web; openWakeWord (`dscripka/openWakeWord`); WavLM
   (`microsoft/wavlm-base-plus`); Silero VAD (`snakers4/silero-vad`).
 - Model registry: `public/model-registry.json` (melspectrogram, speech_embedding,
@@ -298,3 +363,7 @@ All Phase 2 open questions are resolved (ADR-018); the contract is locked.
 |---|---|---|
 | 2026-07-27 | Initial draft (docs-first, pending human review). | agent |
 | 2026-07-27 | Human review: resolved Q-KWS-1..4 (ADR-018). Status -> Accepted. | agent |
+| 2026-07-27 | ADR-020: add `KWSBackend` pluggable-interface contract (§4/§5/§6/§11); docs-sync demo model to hey-buddy (CC-BY-4.0, matches shipped code + registry). | agent |
+| 2026-07-27 | Implement the §7 serialization guard: drop frames during in-flight inference (ONNX sessions are not re-entrant; "Session already started"). | agent |
+| 2026-07-27 | Fix the OpenWakeWord pipeline: correct mel output shape `[1,1,time,32]` (was misread as `[time,1,76,32]`), add the required `x/10+2` melspectrogram transform, window 76 mel FRAMES (not per-timestep) for the embedding model, use 480-sample streaming overlap. Post 0-scores during ~2 s warmup so the curve renders. | agent |
+| 2026-07-28 | VAD gate now suppresses triggers, not inference. The old gate dropped audio frames during VAD-off, losing wake-word onset (RNNoise VAD is conservative) and making triggering difficult. Inference always runs so the audio window stays current. | agent |

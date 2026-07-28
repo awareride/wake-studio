@@ -1,0 +1,160 @@
+/**
+ * WavLM Few-Shot KWS backend (ADR-020).
+ *
+ * A `KWSBackend` adapter for live Few-Shot detection: accumulates AFE frames
+ * into a `windowMs` sliding buffer, embeds the buffer via the shared
+ * `EmbedProvider` (WavLM), computes cosine similarity to the enrolled
+ * prototype, and returns the score [0,1].
+ *
+ * Unlike `OpenWakeWordBackend`, this backend does NOT load its own models - it
+ * reuses the WavLM encoder already loaded by the worker's `embedProvider`
+ * (avoiding a second ~97 MB session). The worker constructs it with the shared
+ * provider + the enrolled prototype.
+ *
+ * Concurrency & smoothness (WavLM is a ~95M-param model; each embed() takes
+ * ~100-300 ms in WASM, far longer than the 10 ms frame cadence):
+ * - A continuous ring buffer always receives every frame (no gaps during
+ *   inference - gaps would make the sliding window discontinuous and break
+ *   detection).
+ * - Inference runs only every `hopMs` (default 80 ms = 8 frames), not every
+ *   frame. Between runs, the last score is returned (zero-order hold) so the
+ *   score curve stays smooth and the trigger's min-duration logic sees a
+ *   sustained value.
+ * - A serialization guard prevents re-entrant session.run() calls.
+ *
+ * @see docs/modules/few-shot.md §4-§5
+ */
+
+import type { EmbedProvider, KWSBackend } from '../types'
+import type { WakeWordPrototype } from '../../few-shot/types'
+import { cosineSimilarity } from '../../few-shot/dsp'
+
+/** Detection hop in frames (80 ms / 10 ms = 8 frames at the AFE cadence). */
+const HOP_FRAMES = 8
+
+export class WavLMFewShotBackend implements KWSBackend {
+  readonly id = 'wavlm-few-shot' as const
+  readonly label = 'WavLM Few-Shot (cosine prototype)'
+
+  private _embedProvider: EmbedProvider
+  private _prototype: WakeWordPrototype
+  private _windowSamples: number
+  private _useNegative: boolean
+
+  // Continuous ring buffer (always appended to, even during inference).
+  private _ring: Float32Array
+  private _writeIdx = 0
+  private _len = 0
+
+  // Concurrency + caching.
+  private _inferring = false
+  private _lastScore = 0
+  private _hasScore = false
+  private _hopCounter = 0
+
+  constructor(
+    embedProvider: EmbedProvider,
+    prototype: WakeWordPrototype,
+    windowMs = 1500,
+    useNegative = false,
+  ) {
+    this._embedProvider = embedProvider
+    this._prototype = prototype
+    this._windowSamples = Math.round(16000 * (windowMs / 1000))
+    this._useNegative = useNegative
+    // Capacity = 2x window so audio arriving during inference is never lost.
+    this._ring = new Float32Array(this._windowSamples * 2)
+  }
+
+  get ready(): boolean {
+    return this._embedProvider.ready
+  }
+
+  /** No-op: the WavLM encoder is loaded by the shared embedProvider. */
+  async load(): Promise<void> {
+    // Nothing to load - the encoder is shared.
+  }
+
+  async processFrame(samples: Float32Array): Promise<number | null> {
+    if (!this.ready) return null
+
+    // 1. Always append to the ring buffer (no gaps, even during inference).
+    this._pushRing(samples)
+
+    // 2. If inference is in flight, return the last score (zero-order hold).
+    if (this._inferring) return this._hasScore ? this._lastScore : null
+
+    // 3. Hop check: only run WavLM every HOP_FRAMES (80 ms), not every 10 ms.
+    this._hopCounter++
+    if (this._hopCounter < HOP_FRAMES) {
+      return this._hasScore ? this._lastScore : null
+    }
+    this._hopCounter = 0
+
+    // 4. Need a full window before scoring (warmup).
+    if (this._len < this._windowSamples) return null
+
+    // 5. Run WavLM on the latest window and score it.
+    this._inferring = true
+    try {
+      const window = this._latestWindow()
+      const embedding = await this._embedProvider.embed(window, 16000)
+      this._lastScore = this._score(embedding)
+      this._hasScore = true
+      return this._lastScore
+    } finally {
+      this._inferring = false
+    }
+  }
+
+  reset(): void {
+    this._writeIdx = 0
+    this._len = 0
+    this._inferring = false
+    this._hasScore = false
+    this._lastScore = 0
+    this._hopCounter = 0
+    this._ring.fill(0)
+  }
+
+  async dispose(): Promise<void> {
+    this.reset()
+    // Do not dispose the embedProvider - it is shared with the worker.
+  }
+
+  // ---- internals ----
+
+  /** Append samples to the ring buffer, evicting oldest data when full. */
+  private _pushRing(samples: Float32Array): void {
+    const cap = this._ring.length
+    for (let i = 0; i < samples.length; i++) {
+      this._ring[this._writeIdx] = samples[i]
+      this._writeIdx = (this._writeIdx + 1) % cap
+    }
+    this._len = Math.min(this._len + samples.length, cap)
+  }
+
+  /** Extract the latest `windowSamples` from the ring (oldest -> newest). */
+  private _latestWindow(): Float32Array {
+    const w = this._windowSamples
+    const cap = this._ring.length
+    const out = new Float32Array(w)
+    // The write index points just past the newest sample; go back `w` samples.
+    let read = (this._writeIdx - w + cap) % cap
+    for (let i = 0; i < w; i++) {
+      out[i] = this._ring[read]
+      read = (read + 1) % cap
+    }
+    return out
+  }
+
+  /** Cosine similarity to the prototype (rescaled [0,1]). */
+  private _score(embedding: Float32Array): number {
+    let score = cosineSimilarity(embedding, this._prototype.vector)
+    if (this._useNegative && this._prototype.negativeVector) {
+      const negScore = cosineSimilarity(embedding, this._prototype.negativeVector)
+      score = Math.max(0, score - negScore)
+    }
+    return score
+  }
+}

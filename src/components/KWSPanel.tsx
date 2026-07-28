@@ -4,8 +4,10 @@ import {
   KWSEngine,
   DEFAULT_CONFIG,
   describeParameters,
+  BACKEND_REGISTRY,
 } from '../kws'
 import type {
+  BackendModelUrls,
   KWSConfig,
   KWSScoreSample,
   KWSTriggerEvent,
@@ -13,14 +15,13 @@ import type {
 } from '../kws'
 import { MEL_WINDOW_SIZE } from '../kws'
 
-// Model URLs from benjamin-paine/hey-buddy (CC-BY-4.0, commercially clean).
-// Replaces the openWakeWord models (CC BY-NC-SA) per the human's finding.
-// The hey-buddy pipeline: audio -> mel-spectrogram -> speech-embedding -> classifier.
-const MODEL_URLS = {
-  melspectrogram:
-    'https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/pretrained/mel-spectrogram.onnx',
-  embedding:
-    'https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/pretrained/speech-embedding.onnx',
+// Model URLs (ADR-011). The feature models (melspectrogram, speech-embedding)
+// are served from local prebuilts (ADR-011 amendment) - byte-identical to the
+// hey-buddy re-hosts and Apache-2.0. The classifier stays on the remote
+// hey-buddy model (CC-BY-4.0, commercially clean) - see ADR-018 Q-KWS-1.
+const MODEL_URLS: BackendModelUrls = {
+  melspectrogram: '/prebuilts/openWakeWord/melspectrogram.onnx',
+  embedding: '/prebuilts/openWakeWord/embedding_model.onnx',
   classifier:
     'https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/models/hey-buddy.onnx',
 }
@@ -41,6 +42,7 @@ export const KWSPanel = memo(function KWSPanel({
   const [error, setError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
   const [triggerFlash, setTriggerFlash] = useState(false)
+  const [warmup, setWarmup] = useState(false)
   const [config, setConfig] = useState<KWSConfig>({ ...DEFAULT_CONFIG })
   const [executionProvider, setExecutionProvider] = useState<'webgpu' | 'wasm'>(
     'wasm',
@@ -85,6 +87,10 @@ export const KWSPanel = memo(function KWSPanel({
       onOutput: (cb) => afePipeline.onOutput(cb),
     })
     setRunning(true)
+    setWarmup(true)
+    // Warmup: the backend needs ~76 mel frames + 16 embeddings (~2 s) before
+    // producing real scores. Clear the badge after 3 s.
+    setTimeout(() => setWarmup(false), 3000)
   }, [afePipeline, afeRunning])
 
   const handleStop = useCallback(() => {
@@ -131,8 +137,10 @@ export const KWSPanel = memo(function KWSPanel({
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-white">KWS detection</h2>
         <p className="text-sm text-slate-400">
-          Phase 2 · hey-buddy pipeline (mel-spectrogram -&gt; speech-embedding -&gt;
-          classifier) in a Web Worker (ADR-018). Demo model:{' '}
+          Phase 2 · pluggable KWS backend (ADR-020) running in a Web Worker
+          (ADR-018). Active backend:{' '}
+          <span className="text-emerald-300/80">OpenWakeWord</span> (hey-buddy,
+          mel-spectrogram -&gt; speech-embedding -&gt; classifier). Demo model:{' '}
           <span className="text-emerald-300/80">hey-buddy</span> (CC-BY-4.0,
           commercially clean). VAD gating via AFE RNNoise VAD.
         </p>
@@ -180,6 +188,12 @@ export const KWSPanel = memo(function KWSPanel({
           </span>
         )}
 
+        {running && warmup && (
+          <span className="text-xs text-amber-300/80">
+            Warming up… (collecting ~2 s of audio context)
+          </span>
+        )}
+
         {/* Trigger flash */}
         <div
           className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
@@ -223,6 +237,23 @@ export const KWSPanel = memo(function KWSPanel({
               (ADR-017)
             </span>
           </h3>
+          <div className="mb-4">
+            <label className="flex items-center gap-3 text-sm">
+              <span className="w-32 shrink-0 text-slate-400">KWS backend</span>
+              <select
+                value={config.backend}
+                disabled
+                className="flex-1 truncate rounded bg-slate-800/80 px-2 py-1 text-slate-300"
+                title="Only OpenWakeWord is browser-feasible in v1 (ADR-020). Other backends arrive in later phases."
+              >
+                {BACKEND_REGISTRY.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.id} — {r.availabilityNote}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
               <span className="w-32 shrink-0 text-slate-400">Threshold</span>
@@ -305,7 +336,7 @@ export const KWSPanel = memo(function KWSPanel({
                 className="accent-brand-400"
               />
               <span className="text-xs text-slate-500">
-                Skip inference in silence
+                Suppress triggers in silence
               </span>
             </label>
           </div>

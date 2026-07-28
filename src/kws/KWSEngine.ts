@@ -10,13 +10,13 @@ import type {
   AFEOutputFrame,
 } from '../afe'
 import type {
+  BackendModelUrls,
   KWSConfig,
   KWSScoreSample,
   KWSTriggerEvent,
   KWSStatus,
   KWSMainMessage,
   KWSWorkerMessage,
-  ModelUrls,
   ParameterDescriptor,
 } from './types'
 import { DEFAULT_CONFIG } from './defaults'
@@ -67,8 +67,13 @@ export class KWSEngine {
 
   // ---- lifecycle ----
 
-  /** Load models from the registry (ADR-011). Resolves when ready to detect. */
-  async load(models: ModelUrls): Promise<void> {
+  /**
+   * Load models from the registry (ADR-011) into the selected backend
+   * (ADR-020). The backend id comes from `config.backend`. For the
+   * `wavlm-few-shot` backend, pass the enrolled prototype vector. Resolves
+   * when ready to detect.
+   */
+  async load(models: BackendModelUrls, prototype?: Float32Array): Promise<void> {
     if (this._status === 'loading' || this._status === 'ready') return
 
     this._status = 'loading'
@@ -91,7 +96,12 @@ export class KWSEngine {
         }
       }
       this._worker!.addEventListener('message', onMessage)
-      this._send({ type: 'load', models })
+      this._send({
+        type: 'load',
+        backend: this._config.backend,
+        models,
+        prototype: prototype ? Array.from(prototype) : undefined,
+      })
     })
   }
 

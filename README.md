@@ -17,18 +17,20 @@ models.**
 
 ## Status
 
-Phase 0 (foundation, decisions, scaffold) is in progress. See
-`.agents/plan/goal.plan` for the full phased roadmap and
+Phases 0–1 are complete. Phase 2 (KWS) is **paused** while a product-direction
+update is folded into the architecture (ADR-019..023: expanded target matrix,
+pluggable KWS backends, a device-side SDK, a data-source layer, and a Colab
+backend). See `.agents/plan/goal.plan` for the full phased roadmap and
 [`DECISIONS.md`](./DECISIONS.md) for recorded decisions.
 
 | Phase | Goal | Status |
 |---|---|---|
-| 0 | Foundation, decisions & scaffold | 🚧 In progress |
-| 1 | In-browser AFE + pipeline visualization | ⏳ Pending |
-| 2 | KWS inference in the browser | ⏳ Pending |
-| 3 | Few-Shot custom wake-word enrollment | ⏳ Pending |
-| 4 | Model export & integration kits | ⏳ Pending |
-| 5 | Traditional / MCU custom-model training | ⏳ Pending |
+| 0 | Foundation, decisions & scaffold | ✅ Complete |
+| 1 | In-browser AFE + pipeline visualization | ✅ Complete |
+| 2 | KWS inference in the browser | ✅ Complete (pluggable KWSBackend, ADR-020; OpenWakeWord pipeline fixed) |
+| 3 | Few-Shot custom wake-word enrollment | ✅ Complete (WavLM embed + cosine prototype, client-side) |
+| 4 | Model export & integration kits (device SDK) | ⏳ Pending |
+| 5 | Custom-model training (multi-backend) | ⏳ Pending |
 | 6 | Polish, PWA, packaging, docs | ⏳ Pending |
 
 ## Two domains
@@ -38,6 +40,13 @@ Phase 0 (foundation, decisions, scaffold) is in progress. See
 - **High-performance** (Linux / Raspberry Pi, Android): Few-Shot metric-learning
   KWS via a frozen WavLM-base-plus encoder + cosine-similarity prototypes, with
   RNNoise + WebRTC AFE.
+
+> **Updated scope (ADR-019..023):** the validated target matrix is now the full
+> cross-device set (Arm Cortex-M primary MCU tier; Raspberry Pi; Android & iOS;
+> Chrome/Safari/Firefox/Edge; Linux/macOS/Windows desktop; ESP32-S3 deferred). KWS
+> is a pluggable `KWSBackend` interface (openWakeWord, micro-wake-word, WavLM
+> Few-Shot, PocketSphinx); all exports build on a layered device-side SDK. See
+> `docs/architecture.md` §4–§6.
 
 ## Quick start
 

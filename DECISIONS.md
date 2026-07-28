@@ -69,9 +69,9 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 - **Rationale:** Broadest "just double-click" reach; the core user journey (live
   AFE, Few-Shot enrollment, export) never needs it.
 
-## ADR-006 — First validated targets are ESP32-S3 and Linux/Raspberry Pi
+## ADR-006 - First validated targets are ESP32-S3 and Linux/Raspberry Pi
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-019
 - **Origin:** Plan Q6 (resolved by human)
 - **Decision:** The "golden path" export targets are ESP32-S3 (Domain A,
   microWakeWord + ESP-SR) and Linux/Raspberry Pi (Domain B, openWakeWord / WavLM
@@ -135,6 +135,17 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 - **Consequences:** The app needs network on first model use; Phase 6 caches
   fetched assets via the service worker for offline use.
 
+**Amendment (2026-07-27) - offline pre-fetch of assets:**
+6. **Assets (WASM, ONNX, and other runtime artifacts) are pre-fetchable locally.**
+   In addition to lazy on-demand fetch, the PWA offers a **pre-fetch / bulk-download**
+   path so a user can pull all (or a selected subset of) registry assets ahead of
+   time and run fully offline thereafter. The model-registry catalog (URL, checksum,
+   license, tier, commercial-use flag) is the single source of truth for both lazy
+   fetch and pre-fetch; pre-fetched assets are integrity-checked against the same
+   checksums. No weights are committed to the repo. *Operational rule:* if a
+   registry/asset download fails, the agent stops and asks the human rather than
+   retrying blindly or guessing a mirror.
+
 ## ADR-012 — Deploy base path is configurable via `VITE_BASE_PATH`
 
 - **Status:** Accepted
@@ -173,6 +184,26 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   sent to a WakeStudio server, never logged or embedded in exported artifacts
   (enforced by the Phase 5/6 security review). See `docs/architecture.md` §5 and
   plan §5.1 for the full credential/monitor/export flow.
+
+**Amendment (2026-07-27) - in-browser training removed; Cloud Providers unified; Colab added:**
+1. **In-Browser (WASM) is no longer a *training* backend.** Any step that learns
+   weights or trains a classifier runs only on the Self-hosted Service, a Cloud
+   Provider, or Colab. The browser path is retained **only for inference and
+   Few-Shot enrollment** (prototype mean-pooling + cosine scoring), which is
+   enrollment/inference, not training (Q2 boundary, confirmed by human). This
+   supersedes original backend #1 from the *training* set.
+2. **"Cloud Training Provider" is unified as "Cloud Providers" with capability
+   labels** (train-capable vs inference-only); the provider list (AWS, Google
+   Cloud, Hugging Face, Alibaba Cloud, Tencent Cloud, Volcengine) is unchanged.
+3. **Google Colab is added as an independent fourth backend** (ADR-023): notebook
+   execution under the user's own Google account, with results exported back to
+   the PWA.
+4. Training-data sourcing (including audio generation) is handled by the pluggable
+   data-source layer (ADR-022), **not** in-browser WASM.
+
+  The amended training-backend set is therefore: (1) Self-hosted Service,
+  (2) Cloud Providers (capability-labeled), (3) Colab. In-Browser (WASM) remains
+  an execution surface for client-side inference + Few-Shot enrollment only.
 
 ## ADR-014 - Project name is WakeStudio
 
@@ -288,10 +319,12 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 - **Status:** Accepted
 - **Origin:** Phase 2 `docs/modules/kws.md` open questions Q-KWS-1..4 (resolved by human)
 - **Decision:** Four KWS implementation choices are locked:
-  1. **Demo model (Q-KWS-1): `alexa.onnx`** (openWakeWord, CC BY-NC-SA, demo-only).
-     Used for the Phase 2 in-browser demo only - never exported commercially (the
-     Phase 4 license gate blocks it); Phase 5 trains a clean, commercially-ownable
-     replacement. Already in `model-registry.json` as `class: demo-only`.
+  1. **Demo model (Q-KWS-1): `hey-buddy`** (`benjamin-paine/hey-buddy`, CC-BY-4.0,
+     commercially clean). **Amended** - originally planned as openWakeWord
+     `alexa.onnx` (CC BY-NC-SA, demo-only); switched to hey-buddy (commercially
+     clean, browser-first) so the demo model can also serve as a redistributable
+     export baseline. Used for the Phase 2 in-browser demo; the Phase 4 license
+     gate still applies to any CC-BY-NC-SA model added later.
   2. **Inference thread (Q-KWS-2): Web Worker.** KWS inference runs off-main-thread
      to avoid blocking the UI (ONNX inference at 10 ms/frame can take 2-10 ms). The
      main thread owns the `KWSEngine` controller + visualization; the worker owns
@@ -315,10 +348,147 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   must never enter a commercial export (enforced by the Phase 4 gate). Silero VAD
   remains in the model registry but is not loaded in v1.
 
+## ADR-019 - Export target matrix is the full cross-device set; Cortex-M is the primary MCU tier
+
+- **Status:** Accepted
+- **Origin:** Human product-direction update (supersedes ADR-006)
+- **Decision:** WakeStudio's validated export targets are the full cross-device
+  set, all built on the device-side SDK (ADR-021):
+  - **Arm Cortex-M** (STM32, Arduino) - primary MCU tier.
+  - **Raspberry Pi** (Zero, 3, 4, 5) - app-class edge.
+  - **Android** and **iOS** - mobile.
+  - **Browsers**: Chrome, Safari, Firefox, Edge - via the SDK's JS/WASM binding.
+  - **Linux** (x86_64), **macOS** (x86_64, arm64), **Windows** (x86_64, arm64) -
+    desktop.
+  - **ESP32-S3** is retained as a **deferred extended target** (Xtensa, not
+    Cortex-M); micro-wake-word + TFLite-Micro still run on it, but it is not on
+    the golden path.
+- **Rationale:** The product's core capability is to export application templates
+  for *all* mainstream targets from MCU to desktop/browser/mobile. Cortex-M
+  (STM32, Arduino) is the primary MCU tier because micro-wake-word + TFLite-Micro
+  have first-class Cortex-M support; ESP32 is retained but deferred to avoid
+  splitting early validation across architectures.
+- **Consequences:** Supersedes ADR-006's "ESP32-S3 + Linux/Pi golden path." The
+  per-target export matrix in `docs/architecture.md` §6 and the device SDK
+  (ADR-021) are the mechanisms that make the broad matrix tractable - each target
+  is an SDK adapter, not a one-off codepath. ESP-SR (ESP32) stays in `LICENSES.md`
+  for the deferred target; the original STM32/TI rows are superseded by the
+  Cortex-M tier (TI drops off the v1 list).
+
+## ADR-020 - KWS is a pluggable-backend interface; openWakeWord, micro-wake-word, WavLM Few-Shot, and PocketSphinx are adapters
+
+- **Status:** Accepted
+- **Origin:** Human product-direction update
+- **Decision:** WakeStudio's KWS layer is a `KWSBackend` interface with pluggable
+  adapters, not a single hardcoded engine:
+  - **openWakeWord** (Apache-2.0 code; CC BY-NC-SA pre-trained models, demo-only) -
+    app-class targets (Pi, desktop, mobile, browser). **Relatively large:** its
+    feature stack (melspectrogram ~1.1 MB + Google `speech_embedding` ~1.3 MB +
+    classifier + onnxruntime) is, per upstream, "likely still too large for
+    micro-controllers."
+  - **micro-wake-word** (Apache-2.0) - MCU tier (Cortex-M: STM32, Arduino; also
+    ESP32). TFLite-Micro streaming int8 models, tens of KB. Synthetic-data
+    training, like openWakeWord.
+  - **WavLM Few-Shot** (MIT) - app-class; enrollment-based, cosine-similarity
+    prototypes (ADR-002). Prototype computation + inference stay client-side
+    (ADR-013 amendment).
+  - **PocketSphinx** (CMU Sphinx, BSD-style; bundles WebRTC VAD under BSD-3) -
+    lightweight classic HMM/GMM; viable on MCU-class and above as a lightweight /
+    alternative backend.
+- **Rationale:** openWakeWord is too large for the MCU tier and for some
+  constrained targets; a single engine cannot span Cortex-M to desktop/browser.
+  A pluggable interface lets WakeStudio select the right backend per target and
+  per wake word, and makes future backends straightforward to add. PocketSphinx is
+  evaluated as the lightweight alternative to openWakeWord.
+- **Consequences:** Phase 2 implementation resumes against this `KWSBackend`
+  interface; `docs/modules/kws.md` will be updated to define the interface at that
+  point (Phase 2 was paused per Q5). A size/latency/accuracy evaluation of
+  openWakeWord vs micro-wake-word vs PocketSphinx is recorded per target in the
+  KWS module doc. The browser demo may use any backend; the Phase 4 license gate
+  still blocks CC-BY-NC-SA pre-trained models from commercial exports.
+  PocketSphinx is added to `LICENSES.md` (Redistributable).
+
+## ADR-021 - A layered portable device-side SDK underpins every export workflow
+
+- **Status:** Accepted
+- **Origin:** Human product-direction update
+- **Decision:** WakeStudio develops a **layered portable device-side SDK**, and
+  **all export workflows are built upon it** (superseding the per-target one-off
+  adapter approach in the original Phase 4 plan). Layers:
+  1. **Core (C/C++):** the `KWSBackend` interface (ADR-020), a portable AFE
+     (RNNoise/WebRTC, ADR-003/016), audio-I/O + threading + clock abstractions,
+     and VAD. Target-agnostic.
+  2. **Target adapters:** per-platform implementations of the abstractions (audio
+     capture, model runtime, threading) for each target in ADR-019.
+  3. **Language bindings:** JS/WASM (browsers), Kotlin (Android), Swift (iOS),
+     Python (Linux/macOS/Windows), C/TFLite-Micro (Cortex-M, ESP32).
+  4. **Bundle generation (Phase 4):** each export is an SDK-based project (model +
+     AFE config + SDK adapter + `demo/` + `README.md` + `LICENSES.md` + `test/`),
+     zipped client-side.
+- **Rationale:** Spanning Cortex-M, Raspberry Pi, mobile (Android/iOS), desktop
+  (Linux/macOS/Windows), and browsers from one product requires a shared SDK; the
+  in-browser PWA also uses the same `KWSBackend` interface (via the JS/WASM
+  binding) so the demo and exports are consistent. A shared core prevents N
+  divergent codepaths and keeps the license/quality story uniform.
+- **Consequences:** Phase 4 is reshaped from "five one-off export kits" to "SDK
+  adapters + bundle generation." `docs/modules/sdk.md` is the new module doc for
+  the SDK contract (stub now; filled at Phase 4 start per the docs-first rule).
+  The SDK is MIT (WakeStudio source); per-target `LICENSES.md` still applies
+  because vendor/model licenses differ.
+
+## ADR-022 - Audio generation / training data is a pluggable data-source layer, not in-browser WASM
+
+- **Status:** Accepted
+- **Origin:** Human product-direction update
+- **Decision:** Training-data sourcing - including auto-generated spoken audio
+  samples and platform pre-built resources (public datasets, project-organized
+  datasets) - is a **pluggable data-source layer** with in-app endpoint
+  configuration. Sources are: (a) **local services**, (b) **project server
+  APIs**, and (c) **general public TTS online endpoints**. Audio generation
+  **does not run inside WASM**; it runs in the selected training backend
+  (Self-hosted Service, Cloud Provider, or Colab - ADR-013 amendment) or is
+  fetched from the configured endpoints.
+- **Rationale:** Synthetic-data generation (Piper-class TTS + augmentation) and
+  dataset management are too heavy and too license-sensitive to run in the
+  browser. A pluggable, configurable layer lets users point WakeStudio at their
+  own data/TTS endpoints and mix platform-provided datasets with generated audio,
+  while keeping generation out of the WASM bundle.
+- **Consequences:** `docs/modules/data-sources.md` is the new module doc for the
+  data-source contract (stub now; filled at Phase 5 start). The Phase 5 training
+  flow consumes this layer. Piper's GPL-3.0 / archived-MIT status (see
+  `LICENSES.md`) is handled at the backend, not in the browser; generated audio
+  owned by the user feeds commercially-ownable models.
+
+## ADR-023 - Google Colab is an independent training / audio-generation backend
+
+- **Status:** Accepted
+- **Origin:** Human product-direction update (adds a fourth backend to ADR-013)
+- **Decision:** **Google Colab** is an independent training and audio-generation
+  execution backend. WakeStudio provides IPython notebooks that the user runs in
+  their own Colab session (under their own Google account / Drive): the notebook
+  performs training and/or audio sample generation, and **results are exportable
+  afterward** (model artifacts `.onnx`/`.tflite` + metadata, generated audio) back
+  into the PWA for in-browser testing and export.
+- **Rationale:** Colab gives users GPU compute and a familiar notebook environment
+  with no local install and no WakeStudio-hosted server - a strong fit for users
+  who want managed compute without provider credentials. It is distinct from the
+  Cloud Providers (managed training APIs) and the Self-hosted Service (the user's
+  own endpoint).
+- **Consequences:** Colab is the fourth execution backend in ADR-013 (amended).
+  The common training-job interface (ADR-013) gains a Colab adapter whose
+  "submit" is "open notebook + run" and whose "retrieve" is "download artifacts
+  from Drive / notebook output." No WakeStudio server is involved; the user's
+  Google account is the only credential. Notebooks are version-controlled in the
+  repo (e.g. under `colab/`).
+
 ---
 
 _Open questions still pending human input: Q10 (self-hosted training engine) is
-open for Phase 5. Q9 (training backends) is ADR-013; project name is ADR-014; CI/CD
+open for Phase 5. Q9 (training backends) is ADR-013 (amended: in-browser training
+removed, Cloud Providers unified, Colab added as ADR-023); targets are ADR-019
+(supersedes ADR-006); pluggable KWS backends are ADR-020; the device-side SDK is
+ADR-021; the data-source layer is ADR-022. Project name is ADR-014; CI/CD
 deferral is ADR-015; AFE Phase 1 design is ADR-016; the config panel is ADR-017;
-KWS Phase 2 design is ADR-018. Defaults from Q2/Q3/Q4/Q7 are applied per this log
-and may be overridden._
+KWS Phase 2 design is ADR-018 (Phase 2 paused per Q5, resumes against the
+`KWSBackend` interface). Defaults from Q2/Q3/Q4/Q7 are applied per this log and
+may be overridden._
