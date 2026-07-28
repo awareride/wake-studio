@@ -223,7 +223,13 @@ AFE (AudioWorklet)                KWS Worker                  Main thread (UI)
 1. **VAD gate:** if `vadGateEnabled` and VAD probability < `vadThreshold`, skip
    inference for this frame (saves compute, suppresses false alarms in silence).
    VAD source: the AFE's RNNoise VAD (`AFEOutputFrame.vadActive`, ADR-018).
-2. **Backend inference:** call `KWSBackend.processFrame(samples)`. The backend
+2. **VAD gate:** if `vadGateEnabled` and VAD probability < `vadThreshold`, the
+   frame's *trigger is suppressed* (not the inference). Inference always runs so
+   the backend's sliding audio window stays current - RNNoise's VAD is
+   conservative at utterance onset, and skipping inference would drop the first
+   phonemes of the wake word. VAD source: the AFE's RNNoise VAD
+   (`AFEOutputFrame.vadActive`, ADR-018).
+3. **Backend inference:** call `KWSBackend.processFrame(samples)`. The backend
    owns its own audio windowing/buffering and model pipeline; for the OpenWakeWord
    backend that is accumulate -> `melspectrogram.onnx` -> `embedding_model.onnx`
    -> classifier -> raw posterior [0,1]. Returns `null` during warmup (not enough
@@ -250,7 +256,7 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
 | `threshold` | 0.5 | 0-1 | Smoothed score must exceed this to trigger. |
 | `minDurationMs` | 500 | 100-3000 | Score must exceed threshold for this long to trigger. |
 | `smoothingWindowFrames` | 10 | 1-30 | Sliding-window size for max-pooling (~10 ms/frame). |
-| `vadGateEnabled` | true | - | Skip inference when VAD < threshold (saves compute). |
+| `vadGateEnabled` | true | - | Suppress triggers (not inference) when VAD < threshold; keeps the audio window current. |
 | `vadThreshold` | 0.3 | 0-1 | VAD probability below which KWS is gated. |
 | `cooldownMs` | 2000 | 500-10000 | Minimum time between triggers. |
 | `executionProvider` | `webgpu` | `webgpu` \| `wasm` | WebGPU first; WASM fallback if unsupported. |
@@ -360,3 +366,4 @@ All Phase 2 open questions are resolved (ADR-018); the contract is locked.
 | 2026-07-27 | ADR-020: add `KWSBackend` pluggable-interface contract (§4/§5/§6/§11); docs-sync demo model to hey-buddy (CC-BY-4.0, matches shipped code + registry). | agent |
 | 2026-07-27 | Implement the §7 serialization guard: drop frames during in-flight inference (ONNX sessions are not re-entrant; "Session already started"). | agent |
 | 2026-07-27 | Fix the OpenWakeWord pipeline: correct mel output shape `[1,1,time,32]` (was misread as `[time,1,76,32]`), add the required `x/10+2` melspectrogram transform, window 76 mel FRAMES (not per-timestep) for the embedding model, use 480-sample streaming overlap. Post 0-scores during ~2 s warmup so the curve renders. | agent |
+| 2026-07-28 | VAD gate now suppresses triggers, not inference. The old gate dropped audio frames during VAD-off, losing wake-word onset (RNNoise VAD is conservative) and making triggering difficult. Inference always runs so the audio window stays current. | agent |

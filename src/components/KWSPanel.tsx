@@ -336,7 +336,7 @@ export const KWSPanel = memo(function KWSPanel({
                 className="accent-brand-400"
               />
               <span className="text-xs text-slate-500">
-                Skip inference in silence
+                Suppress triggers in silence
               </span>
             </label>
           </div>

@@ -172,24 +172,17 @@ async function handleAudio(
 ): Promise<void> {
   if (!backend || !backend.ready) return
 
-  // VAD gate: skip inference if VAD is below threshold (ADR-018).
-  if (
-    shouldGateByVad(vadProbability, config.vadThreshold, config.vadGateEnabled)
-  ) {
-    // Still post a low-score sample so the curve doesn't gap.
-    const smoothed = smoother.push(0)
-    post({
-      type: 'score',
-      sample: {
-        capturedAtMs,
-        rawScore: 0,
-        smoothedScore: smoothed,
-        triggered: false,
-        vadProbability,
-      },
-    })
-    return
-  }
+  // VAD state for this frame. The gate now SUPPRESSES TRIGGERS during silence,
+  // it does NOT skip inference. Skipping inference would drop wake-word audio
+  // from the backend's sliding mel window (RNNoise's VAD is conservative at
+  // utterance onset, so the first phonemes would be lost and triggering would
+  // become difficult). Always feeding audio keeps the window current; the gate
+  // only prevents a trigger from firing during silence (false-alarm suppression).
+  const vadSuppressed = shouldGateByVad(
+    vadProbability,
+    config.vadThreshold,
+    config.vadGateEnabled,
+  )
 
   // Backend inference (ADR-020). Returns null during warmup.
   //
@@ -229,7 +222,11 @@ async function handleAudio(
   }
 
   const smoothed = smoother.push(score)
-  const triggerEvent = trigger.process(smoothed, capturedAtMs)
+  // Always run the trigger detector so its min-duration state stays consistent
+  // (it naturally resets when the score drops below threshold). Suppress only
+  // the trigger *event* during VAD-off silence (false-alarm suppression).
+  const rawTrigger = trigger.process(smoothed, capturedAtMs)
+  const triggerEvent = vadSuppressed ? null : rawTrigger
 
   post({
     type: 'score',

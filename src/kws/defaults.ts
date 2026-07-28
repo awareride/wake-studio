@@ -85,7 +85,8 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
       label: 'VAD gate',
       type: 'boolean',
       default: true,
-      description: 'Skip inference when VAD < threshold (saves compute).',
+      description:
+        'Suppress triggers (not inference) when VAD < threshold. Keeps the audio window current so wake-word onset is not lost.',
     },
     {
       id: 'vadThreshold',
