@@ -55,8 +55,16 @@ export interface PlixEncoderVariant {
   label: string
   /** Local ONNX URL served from /prebuilts/plixkws/ (onnx runtime). */
   onnxUrl: string
-  /** Hugging Face repo id for the transformers runtime (zero-Python). */
-  transformersModel: string
+  /**
+   * Local HF-style directory URL for the transformers runtime. The PLiX ONNX
+   * graph is NOT hosted on the Hub (the `aaqibsaeed/plixkws` repo only ships
+   * `.pt` weights + config.json), so the transformers runtime must load the
+   * graph from a locally-exported HF-style dir produced by
+   * `scripts/export-plixkws-onnx.py --hf-dir prebuilts/plixkws/hf/plixkws`
+   * (config.json + onnx/model.onnx). This path starts with '/' so the
+   * encoder serves it from the dev server (no remote fetch).
+   */
+  transformersLocalDir: string
   /** One-line note shown in the encoder selector. */
   note: string
 }
@@ -71,14 +79,14 @@ export const PLIX_ENCODER_VARIANTS: ReadonlyArray<PlixEncoderVariant> = [
     id: 'base',
     label: 'PLiX base (EfficientNet-v2-M, 1280-d)',
     onnxUrl: '/prebuilts/plixkws/plixkws-base.onnx',
-    transformersModel: 'aaqibsaeed/plixkws',
+    transformersLocalDir: '/prebuilts/plixkws/hf/plixkws',
     note: 'Heavier CNN; default. Needs plixkws-base.onnx (exported ONNX).',
   },
   {
     id: 'small',
     label: 'PLiX small (TinyNet-E, 1280-d)',
     onnxUrl: '/prebuilts/plixkws/plixkws-small.onnx',
-    transformersModel: 'aaqibsaeed/plixkws',
+    transformersLocalDir: '/prebuilts/plixkws/hf/plixkws',
     note: 'Lighter / low-RAM. Needs plixkws-small.onnx + plixkws-small.onnx.data (external weights).',
   },
 ]
