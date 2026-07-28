@@ -118,7 +118,7 @@ affect commercial productization; the authoritative matrix lives in `LICENSES.md
 
 | Component | Source project | License | Role |
 |---|---|---|---|
-| Few-Shot encoder (ADR-002) | **PLiX** (`aaqibsaeed/plixkws`, Apache-2.0) | Apache-2.0 | Compact CNN (EfficientNet-v2 "base" / TinyNet-E "small") trained as a Prototypical Network -> 1280-dim embedding; prototype-distance matching. Replaces WavLM-base-plus (too heavy for end-side devices). |
+| Few-Shot encoder (ADR-002) | **PLiX** (`aaqibsaeed/plixkws`, Apache-2.0) | Apache-2.0 | Compact CNN (EfficientNet-v2 "base" / TinyNet-E "small") trained as a Prototypical Network -> 1280-dim embedding; prototype-distance matching. Replaces WavLM-base-plus (too heavy for end-side devices). **Runtime-pluggable:** served via ONNX (onnxruntime-web, default) OR browser-native via `@xenova/transformers` (no ONNX file; zero-Python deployment). See `docs/Technical Reference_ Resource Requirements and Zero-Python Deployment Strategies for WavLM-base-plus and plixkws.md`. |
 | Traditional KWS (Linux, optional) | **openWakeWord** (`dscripka/openWakeWord`) | Apache-2.0 (code) | ONNX/TFLite KWS for Linux; also the training pipeline that yields Domain-A-compatible models. ⚠️ Its *pre-trained models* are CC BY-NC-SA (non-commercial). |
 | Speaker-verifier (optional false-alarm filter) | openWakeWord `train_custom_verifier` (scikit-learn) | Apache-2.0 | Second-stage filter to cut false alarms for a known user. |
 | **PocketSphinx** (lightweight alternative) | `cmusphinx/pocketsphinx` | BSD-style (CMU); bundles WebRTC VAD (BSD-3) | Classic HMM/GMM KWS; viable on MCU-class and above. The lightweight alternative to openWakeWord (ADR-020). |

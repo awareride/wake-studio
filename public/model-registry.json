@@ -53,12 +53,14 @@
       "source": "aaqibsaeed/plixkws (ONNX export of FewshotML/plix)",
       "url": "/prebuilts/plixkws/plixkws-base.onnx",
       "format": "onnx",
+      "runtime": "onnx",
+      "transformersModel": "aaqibsaeed/plixkws",
       "license": "Apache-2.0",
       "commercial": true,
       "class": "redistributable",
       "sha256": "TODO-phase3",
       "sizeBytes": null,
-      "notes": "Compact CNN (EfficientNet-v2 'base' / TinyNet-E 'small') trained as a Prototypical Network; outputs a 1280-dim embedding for prototype-distance matching. Replaces WavLM-base-plus as the Few-Shot encoder (WavLM was too heavy for end-side devices). Apache-2.0 (FewshotML/plix). The published weights are PyTorch .pt (Dropbox); export to ONNX via torch.onnx and drop into prebuilts/plixkws/. Local prebuilt."
+      "notes": "Compact CNN (EfficientNet-v2 'base' / TinyNet-E 'small') trained as a Prototypical Network; outputs a 1280-dim embedding for prototype-distance matching. Replaces WavLM-base-plus as the Few-Shot encoder (WavLM was too heavy for end-side devices). Apache-2.0 (FewshotML/plix). Two runtimes: 'onnx' (default) loads the exported plixkws-base.onnx via onnxruntime-web; 'transformers' loads the encoder browser-native via @huggingface/transformers v4 (CDN, no .pt / no npm install) and fetches the ONNX weights itself from the Hugging Face 'transformersModel' id (or a locally-served HF-style dir). ONNX stays the default; switch runtime to 'transformers' for a zero-Python deployment. The .pt weights are on Dropbox; export to ONNX via scripts/export-plixkws-onnx.py."
     },
     {
       "id": "silero-vad",

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   BACKEND_REGISTRY,
   createBackend,
@@ -117,7 +117,8 @@ describe('OpenWakeWordBackend', () => {
 // ---------------------------------------------------------------------------
 
 import { PlixKwsBackend } from '../backends/plixkws'
-import type { EmbedProvider, WakeWordPrototype } from '../../few-shot/types'
+import type { EmbedProvider } from '../types'
+import type { WakeWordPrototype } from '../../few-shot/types'
 
 // A minimal fake embedder that returns a fixed 1280-dim vector, so we can test
 // the backend's buffering / scoring without loading an ONNX model.
@@ -167,5 +168,103 @@ describe('PlixKwsBackend', () => {
     const backend = new PlixKwsBackend(new FakeEmbedder(), FAKE_PROTOTYPE)
     expect(() => backend.reset()).not.toThrow()
     await expect(backend.dispose()).resolves.toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PlixKwsEmbedProvider - runtime selection (ADR-002 global ModelRuntime)
+// ---------------------------------------------------------------------------
+//
+// Stub the two concrete runtimes so we can assert the factory wires the right
+// one per `runtime` hint without pulling in onnxruntime-web / transformers.
+
+class StubOnnxEncoder {
+  runtime = 'onnx' as const
+  ready = false
+  async load() {
+    this.ready = true
+  }
+  async embed() {
+    return new Float32Array(1280).fill(0.1)
+  }
+  async dispose() {
+    this.ready = false
+  }
+}
+
+class StubTransformersEncoder {
+  runtime = 'transformers' as const
+  ready = false
+  async load() {
+    this.ready = true
+  }
+  async embed() {
+    return new Float32Array(1280).fill(0.2)
+  }
+  async dispose() {
+    this.ready = false
+  }
+}
+
+// Mirrors the deferred real impl: load() succeeds (locator fetched), but embed()
+// is not wired yet and throws a clear "deferred" error.
+class StubExecuTorchEncoder {
+  runtime = 'executorch' as const
+  ready = false
+  async load() {
+    this.ready = true
+  }
+  async embed() {
+    throw new Error('PLiX (executorch) runtime is deferred')
+  }
+  async dispose() {
+    this.ready = false
+  }
+}
+
+vi.mock('../backends/plix-onnx', () => ({
+  PlixOnnxEncoder: StubOnnxEncoder,
+}))
+vi.mock('../backends/plix-transformers', () => ({
+  PlixTransformersEncoder: StubTransformersEncoder,
+}))
+vi.mock('../backends/plix-executorch', () => ({
+  PlixExecuTorchEncoder: StubExecuTorchEncoder,
+}))
+
+const { PlixKwsEmbedProvider } = await import('../backends/plixkws-embed')
+
+describe('PlixKwsEmbedProvider runtime selection', () => {
+  it('defaults to the onnx runtime when no hint is given', async () => {
+    const provider = new PlixKwsEmbedProvider('/x.onnx')
+    expect(provider.ready).toBe(false)
+    await provider.load('/x.onnx', 'wasm')
+    expect(provider.ready).toBe(true)
+    const out = await provider.embed(new Float32Array(16000), 16000)
+    expect(out[0]).toBeCloseTo(0.1, 5) // stub onnx returns 0.1
+  })
+
+  it('selects the transformers runtime when hinted', async () => {
+    const provider = new PlixKwsEmbedProvider('aaqibsaeed/plixkws', 'transformers')
+    await provider.load('aaqibsaeed/plixkws', 'wasm')
+    expect(provider.ready).toBe(true)
+    const out = await provider.embed(new Float32Array(16000), 16000)
+    expect(out[0]).toBeCloseTo(0.2, 5) // stub transformers returns 0.2
+  })
+
+  it('throws if embed() is called before load() (original unavailable path)', async () => {
+    const provider = new PlixKwsEmbedProvider('/x.onnx')
+    await expect(provider.embed(new Float32Array(16000), 16000)).rejects.toThrow(
+      /not loaded/,
+    )
+  })
+
+  it('selects the executorch runtime when hinted (deferred impl throws)', async () => {
+    const provider = new PlixKwsEmbedProvider('/x.pte', 'executorch')
+    await provider.load('/x.pte', 'wasm')
+    expect(provider.ready).toBe(true)
+    await expect(
+      provider.embed(new Float32Array(16000), 16000),
+    ).rejects.toThrow(/deferred/)
   })
 })

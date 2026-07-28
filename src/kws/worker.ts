@@ -18,6 +18,7 @@ import type {
   KWSMainMessage,
   KWSWorkerMessage,
 } from './types'
+import { DEFAULT_MODEL_RUNTIME } from '../runtime'
 import { createBackend } from './backend'
 import { PlixKwsEmbedProvider } from './backends/plixkws-embed'
 import { PlixKwsBackend } from './backends/plixkws'
@@ -92,12 +93,17 @@ async function handleLoad(
       ? await detectExecutionProvider()
       : 'wasm'
 
+  // Global model-runtime hint (ADR-002 amendment). Per-URL `runtime` overrides
+  // it; otherwise fall back to the config-level hint, then the default.
+  const globalRuntime = urls.runtime ?? config.runtime ?? DEFAULT_MODEL_RUNTIME
+
   try {
     // PLiX encoder is required for the plixkws backend AND for the embed()
     // scaffold. Load it first.
     if (urls.plixkws) {
       try {
-        embedProvider = new PlixKwsEmbedProvider()
+        const runtime = globalRuntime
+        embedProvider = new PlixKwsEmbedProvider(urls.plixkws, runtime)
         await embedProvider.load(urls.plixkws, actualExecutionProvider)
       } catch {
         embedProvider = null

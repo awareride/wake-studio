@@ -41,7 +41,8 @@ experience (requirement R5).
 - **Downstream (provides to):** UI (score curve + trigger events); Phase 3
   Few-Shot enrollment (consumes `embed(audio)`).
 - **External libraries / models** (see `LICENSES.md`, `model-registry.json`):
-  - **onnxruntime-web** (Apache-2.0) - the ONNX inference runtime (WebGPU + WASM).
+  - **onnxruntime-web** (Apache-2.0) - the ONNX inference runtime (WebGPU + WASM). Used by OpenWakeWord and by the PLiX **ONNX** runtime.
+  - **@xenova/transformers** (Apache-2.0) - optional runtime for the PLiX **transformers** path (browser-native `feature-extraction`, no `.onnx` file). Dynamically imported only when `plixkwsRuntime: "transformers"` is selected; declared as an `optionalDependency` (see `pckage.json`).
   - **openWakeWord melspectrogram** (`melspectrogram.onnx`, Apache-2.0) - 16 kHz
     log-Mel front-end. Commercially clean.
   - **Google speech_embedding** (`embedding_model.onnx`, Apache-2.0) - frozen
@@ -57,6 +58,13 @@ experience (requirement R5).
     Network; outputs a 1280-dim embedding for prototype-distance matching.
     Loaded via the KWS module's `PlixKwsEmbedProvider`. Replaces WavLM-base-plus
     (too heavy for end-side devices). See `LICENSES.md`.
+    **Runtime-pluggable:** served via ONNX (onnxruntime-web, default) or
+    browser-native via `@xenova/transformers` (no `.onnx` file; zero-Python
+    deployment). The runtime is the GLOBAL `ModelRuntime` type (see `src/runtime.ts`),
+    so it can be set per model and extended to other backends (e.g. `executorch`)
+    without touching each module. See `docs/Technical Reference_ Resource
+    Requirements and Zero-Python Deployment Strategies for WavLM-base-plus and
+    plixkws.md` §3.
   - **VAD**: the AFE's RNNoise VAD score (already in `AFEOutputFrame.vadActive`)
     is used for KWS gating for v1 (ADR-018). Silero VAD (ONNX, MIT) is deferred to
     v1.x when more accurate gating is needed.

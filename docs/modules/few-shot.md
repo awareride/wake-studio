@@ -219,6 +219,14 @@ unchanged.
   penultimate feature). The `PlixKwsEmbedProvider` builds that log-Mel front-end
   internally (no per-utterance normalization) and prefers the `embeddings`
   output. Replaces WavLM-base-plus (too heavy for end-side devices).
+  **Runtime is pluggable:** the encoder can run via ONNX (onnxruntime-web,
+  default, needs `plixkws-base.onnx`) OR browser-native via `@xenova/transformers`
+  (no `.onnx` file; zero-Python deployment). Both paths share the same
+  front-end / embedding, so prototype-distance scoring is identical. The
+  runtime selector is the GLOBAL `ModelRuntime` type (see `src/runtime.ts`),
+  extensible to other backends (e.g. `executorch`). See `docs/Technical Reference_
+  Resource Requirements and Zero-Python Deployment Strategies for WavLM-base-plus
+  and plixkws.md` §3.
 - `[Q-FS-2]` Whether to offer the smaller "small" PLiX encoder (TinyNet-E) for
   low-RAM devices (ADR-002 mitigation). Now first-class: select the encoder
   variant at load time.
@@ -239,3 +247,4 @@ unchanged.
 | 2026-07-28 | Q-FS-1 resolved: WavLM-base-plus-sv (512-dim, int8 ONNX); defaults tuned (min-duration 300, smoothing 5). | agent |
 | 2026-07-28 | Fix Build-prototype feedback (prototype is state, not a ref) + WavLM detection smoothness (continuous ring buffer, 80 ms hop, zero-order-hold caching; serialization guard moved into each backend). | agent |
 | 2026-07-28 | Migrate Few-Shot encoder from WavLM-base-plus to **PLiX** (`aaqibsaeed/plixkws`, Apache-2.0). PLiX is a compact CNN (EfficientNet-v2 "base" / TinyNet-E "small") trained as a Prototypical Network - far lighter and end-side-friendly vs WavLM-base-plus. Scoring is now squared-Euclidean distance to the mean prototype, rescaled to [0,1] via `1/(1+d^2)` (replaces cosine similarity). New `plixkws` backend id, `PlixKwsEmbedProvider` (log-Mel front-end), and `squaredEuclidean`/`plixScore` DSP helpers; `WavLMEmbedProvider`/`WavLMFewShotBackend` removed. | agent |
+| 2026-07-28 | Make the PLiX encoder runtime **pluggable** (ADR-002 amenment): `PlixKwsEmbedProvider` is now a factory over a `PlixEncoder` interface with ONNX (default) and `@xenova/transformers` (no ONNX file; zero-Python) implementations, plus a deferred ExecuTorch WASM (`executorch`) slot. Introduce GLOBAL `ModelRuntime` type (`src/runtime.ts` = `onnx` | `transformers` | `executorch`) so the runtime hint is shared across AFE/KWS/encoder models and extensible to ExecuTorch; wire it via `BackendModelUrls.runtime` + `KWSConfig.runtime` with `DEFAULT_MODEL_RUNTIME='onnx'`. Add `@xenova/transformers` as an `optionalDependency`. See the Technical Reference doc §3.1. | agent |
