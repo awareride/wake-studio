@@ -1,0 +1,154 @@
+name: Build sherpa-onnx KWS WASM
+
+# Manually triggered build of the sherpa-onnx **KWS (keyword spotting) WebAssembly**
+# runtime from source.
+#
+# Why a workflow (per AGENTS.md):
+#   - emsdk / emscripten + a full CMake build chain must not be installed on the
+#     developer machine.
+#   - `main` is protected (no auto-push). This workflow only builds in CI and
+#     publishes the result as a **downloadable artifact** - it never commits or
+#     pushes to the repo.
+#
+# What it does (mirrors k2-fsa/sherpa-onnx `build-wasm-simd-kws.sh` +
+# `.github/workflows/wasm-simd-hf-space-*.yaml`):
+#   1. Install emsdk (pinned to the version the build script expects).
+#   2. Checkout sherpa-onnx at SHERPA_VERSION (default v1.13.4, matching the
+#      `sherpa-onnx` npm dependency in package.json).
+#   3. Download the default KWS model into `wasm/kws/assets` (the CMakeLists.txt
+#      FATAL_ERRORs if those files are missing).
+#   4. Run `./build-wasm-simd-kws.sh` -> emscripten/cmake build.
+#   5. Upload `install/bin/wasm` (the .js/.wasm/.data + demo html) as an artifact.
+#
+# The built artifacts are intentionally NOT committed (ADR-011 - dev-only /
+# model artifacts are never bundled). The browser app serves them from a local
+# path or falls back to a CDN in deployed builds.
+#
+# Trigger: Actions -> Build sherpa-onnx KWS WASM -> Run workflow.
+#
+# Outputs (artifact `sherpa-onnx-kws-wasm`):
+#   install/bin/wasm/
+#     sherpa-onnx-wasm-kws-main.js
+#     sherpa-onnx-wasm-kws-main.wasm
+#     sherpa-onnx-wasm-kws-main.data   (the preloaded KWS model, ~13 MB)
+#     sherpa-onnx-kws.js
+#     app.js
+#     index.html
+
+on:
+  workflow_dispatch:
+    inputs:
+      sherpa_version:
+        description: 'sherpa-onnx release tag to build from'
+        required: false
+        default: 'v1.13.4'
+        type: string
+      emsdk_version:
+        description: 'emsdk (Emscripten) version'
+        required: false
+        default: '3.1.53'
+        type: string
+      kws_model:
+        description: 'KWS model release archive (from sherpa-onnx kws-models)'
+        required: false
+        default: 'sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01.tar.bz2'
+        type: string
+
+concurrency:
+  group: build-sherpa-onnx-kws-wasm-${{ github.actor }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read # artifacts only; no push (per AGENTS.md)
+
+jobs:
+  build-kws-wasm:
+    name: Build sherpa-onnx KWS WASM (${{ github.event.inputs.sherpa_version }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (this repo, shallow)
+        uses: actions/checkout@v4
+
+      # ----------------------------------------------------------------------
+      # 1. Emscripten toolchain
+      #    mymindstorm/setup-emsdk caches the install in actions-cache-folder
+      #    so rebuilds are fast. The version is pinned because the sherpa-onnx
+      #    build script expects a specific emsdk; 3.1.53 is what v1.13.4 ships
+      #    with and is known-good for the KWS wasm build.
+      # ----------------------------------------------------------------------
+      - name: Install emsdk
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ github.event.inputs.emsdk_version }}
+          actions-cache-folder: 'emsdk-cache'
+
+      - name: Verify emsdk
+        shell: bash
+        run: |
+          emcc -v
+          echo "--------------------"
+          emcc --check
+
+      # ----------------------------------------------------------------------
+      # 2. Checkout sherpa-onnx source at the pinned tag
+      # ----------------------------------------------------------------------
+      - name: Checkout sherpa-onnx source
+        uses: actions/checkout@v4
+        with:
+          repository: k2-fsa/sherpa-onnx
+          ref: ${{ github.event.inputs.sherpa_version }}
+          path: sherpa-onnx-src
+          fetch-depth: 1
+
+      # ----------------------------------------------------------------------
+      # 3. Download the default KWS model into wasm/kws/assets
+      #    The CMakeLists.txt in wasm/kws FATAL_ERRORs unless the four model
+      #    files exist, so fetch + flatten before building.
+      # ----------------------------------------------------------------------
+      - name: Download KWS model assets
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd sherpa-onnx-src/wasm/kws/assets
+          wget -q "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/${{ github.event.inputs.kws_model }}"
+          tar xvf "${{ github.event.inputs.kws_model }}"
+          rm -f "${{ github.event.inputs.kws_model }}"
+          # Flatten the extracted subdir into assets/ (matches upstream README).
+          sub=$(find . -maxdepth 1 -type d ! -name '.' | head -n1)
+          if [ -n "$sub" ]; then
+            mv -v "$sub"/* ./
+            rmdir "$sub"
+          fi
+          ls -lh
+
+      # ----------------------------------------------------------------------
+      # 4. Build the KWS wasm via the upstream build script
+      # ----------------------------------------------------------------------
+      - name: Build sherpa-onnx KWS WASM
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd sherpa-onnx-src
+          # build-wasm-simd-kws.sh honors $EMSCRIPTEN (already on PATH via setup-emsdk).
+          ./build-wasm-simd-kws.sh
+          echo "----- build output -----"
+          ls -lh build-wasm-simd-kws/install/bin/wasm
+
+      # ----------------------------------------------------------------------
+      # 5. Summarize + upload artifacts
+      # ----------------------------------------------------------------------
+      - name: Summarize outputs
+        shell: bash
+        run: |
+          echo "### sherpa-onnx KWS WASM build (${{ github.event.inputs.sherpa_version }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ls -lh sherpa-onnx-src/build-wasm-simd-kws/install/bin/wasm >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sherpa-onnx-kws-wasm
+          path: sherpa-onnx-src/build-wasm-simd-kws/install/bin/wasm/**
+          retention-days: 30
