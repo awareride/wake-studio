@@ -46,7 +46,12 @@ on:
       emsdk_version:
         description: 'emsdk (Emscripten) version'
         required: false
-        default: '3.1.53'
+        # NOTE: emsdk 3.1.x produces an undefined `std::filesystem` symbol error
+        # at link time (wasm-ld: undefined symbol std::__2::filesystem::... in
+        # libonnxruntime.a) for the v1.13.4 wasm onnxruntime. The fix pairs
+        # sherpa-onnx >= v1.13.4 WASM with emsdk 4.0.x (see k2-fsa/sherpa-onnx
+        # PR #3582 / issue #3592). Bump this if you change sherpa_version.
+        default: '4.0.23'
         type: string
       kws_model:
         description: 'KWS model release archive (from sherpa-onnx kws-models)'
@@ -72,9 +77,8 @@ jobs:
       # ----------------------------------------------------------------------
       # 1. Emscripten toolchain
       #    mymindstorm/setup-emsdk caches the install in actions-cache-folder
-      #    so rebuilds are fast. The version is pinned because the sherpa-onnx
-      #    build script expects a specific emsdk; 3.1.53 is what v1.13.4 ships
-      #    with and is known-good for the KWS wasm build.
+      #    so rebuilds are fast. The version is pinned: sherpa-onnx >= v1.13.4
+      #    WASM requires emsdk 4.0.x (3.1.x fails to link `std::filesystem`).
       # ----------------------------------------------------------------------
       - name: Install emsdk
         uses: mymindstorm/setup-emsdk@v14
