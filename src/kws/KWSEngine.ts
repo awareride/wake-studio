@@ -20,6 +20,7 @@ import type {
   ParameterDescriptor,
 } from './types'
 import type { AsrDecodeConfig } from '../asr/types'
+import type { SherpaOnnxKwsConfig } from './types'
 import { DEFAULT_CONFIG } from './defaults'
 import { describeParameters } from './defaults'
 import { KWSLoadError } from './types'
@@ -76,7 +77,7 @@ export class KWSEngine {
    * `plixkws` backend, pass the enrolled prototype vector. Resolves
    * when ready to detect.
    */
-  async load(models: BackendModelUrls, prototype?: Float32Array, asrConfig?: AsrDecodeConfig): Promise<void> {
+  async load(models: BackendModelUrls, prototype?: Float32Array, asrConfig?: AsrDecodeConfig, sherpaKwsConfig?: Partial<SherpaOnnxKwsConfig>): Promise<void> {
     if (this._status === 'loading' || this._status === 'ready') return
 
     this._status = 'loading'
@@ -105,6 +106,7 @@ export class KWSEngine {
         models,
         prototype: prototype ? Array.from(prototype) : undefined,
         asrConfig,
+        sherpaKwsConfig,
       })
     })
   }

@@ -17,13 +17,14 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('BACKEND_REGISTRY', () => {
-  it('lists all five ADR-020/ADR-024 backends', () => {
+  it('lists all six ADR-020/ADR-024 backends', () => {
     const ids = BACKEND_REGISTRY.map((r) => r.id)
     expect(ids).toEqual([
       'openwakeword',
       'microwakeword',
       'plixkws',
       'asr-decode',
+      'sherpa-onnx-kws',
       'pocketsphinx',
     ])
   })
@@ -34,6 +35,7 @@ describe('BACKEND_REGISTRY', () => {
       'openwakeword',
       'plixkws',
       'asr-decode',
+      'sherpa-onnx-kws',
     ])
   })
 

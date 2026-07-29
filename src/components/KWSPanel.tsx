@@ -14,6 +14,12 @@ import type {
   KWSStatus,
 } from '../kws'
 import { MEL_WINDOW_SIZE } from '../kws'
+import type { SherpaOnnxKwsConfig } from '../kws'
+
+// Default keyword list for the sherpa-onnx KWS backend (matches the model
+// prebuilt into the wasm .data bundle). Format: spaced tokens @display name.
+const KWS_KEYWORDS =
+  'x iǎo ài t óng x ué @小爱同学\n' + 'j ūn g ē n iú b ī @军哥牛逼'
 
 // Model URLs (ADR-011). The feature models (melspectrogram, speech-embedding)
 // are served from local prebuilts (ADR-011 amendment) - byte-identical to the
@@ -50,6 +56,8 @@ export const KWSPanel = memo(function KWSPanel({
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [logExport, setLogExport] = useState(false)
 
+  const [lastKeyword, setLastKeyword] = useState('')
+
   const historyRef = useRef<KWSScoreSample[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -72,16 +80,23 @@ export const KWSPanel = memo(function KWSPanel({
       setTimeout(() => setTriggerFlash(false), 500)
       console.log('[KWS] Trigger:', e.word, e.peakScore.toFixed(3))
     })
+    engine.onPartial((text: string) => {
+      if (text) setLastKeyword(text)
+    })
     try {
       setStatus('loading')
-      await engine.load(MODEL_URLS)
+      const sherpaKwsConfig: Partial<SherpaOnnxKwsConfig> =
+        config.backend === 'sherpa-onnx-kws'
+          ? { wasmBaseUrl: '/sherpa-onnx-kws/', keywords: KWS_KEYWORDS }
+          : {}
+      await engine.load(MODEL_URLS, undefined, undefined, sherpaKwsConfig)
       setStatus(engine.status)
       setExecutionProvider(engine.executionProvider)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
     }
-  }, [])
+  }, [config.backend])
 
   const handleStart = useCallback(() => {
     if (!engineRef.current || !afePipeline || !afeRunning) return
@@ -150,6 +165,23 @@ export const KWSPanel = memo(function KWSPanel({
 
       {/* Controls */}
       <div className="mb-6 flex flex-wrap items-center gap-4 whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.03] p-5">
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-slate-400">Backend</span>
+          <select
+            value={config.backend}
+            disabled={status === 'loading' || running}
+            onChange={(e) =>
+              updateConfig({ backend: e.target.value as KWSConfig['backend'] })
+            }
+            className="truncate rounded bg-slate-800/80 px-2 py-1 text-slate-300"
+          >
+            {BACKEND_REGISTRY.map((r) => (
+              <option key={r.id} value={r.id} disabled={!r.browserFeasible}>
+                {r.id}
+              </option>
+            ))}
+          </select>
+        </label>
         {status === 'idle' && (
           <button
             onClick={handleLoad}
@@ -240,24 +272,7 @@ export const KWSPanel = memo(function KWSPanel({
             </span>
           </h3>
 
-          {/* Primary: model selector, inference mode, threshold, output mode */}
-          <div className="mb-4">
-            <label className="flex items-center gap-3 text-sm">
-              <span className="w-32 shrink-0 text-slate-400">Model selector</span>
-              <select
-                value={config.backend}
-                disabled
-                className="flex-1 truncate rounded bg-slate-800/80 px-2 py-1 text-slate-300"
-                title="Only OpenWakeWord is browser-feasible in v1 (ADR-020). Other backends arrive in later phases."
-              >
-                {BACKEND_REGISTRY.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.id} — {r.availabilityNote}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          {/* Primary: inference mode, threshold, output mode */}
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
               <span className="w-32 shrink-0 text-slate-400">Inference mode</span>
@@ -422,6 +437,12 @@ export const KWSPanel = memo(function KWSPanel({
             {params.length} parameters exposed via{' '}
             <code className="text-slate-400">describeParameters()</code>. Mel
             window: {MEL_WINDOW_SIZE} samples (80 ms @ 16 kHz).
+            {lastKeyword && (
+              <>
+                {' '}Last keyword:{' '}
+                <span className="text-emerald-300/80">{lastKeyword}</span>
+              </>
+            )}
           </p>
         </div>
       )}
