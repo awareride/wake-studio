@@ -47,6 +47,8 @@ export const KWSPanel = memo(function KWSPanel({
   const [executionProvider, setExecutionProvider] = useState<'webgpu' | 'wasm'>(
     'wasm',
   )
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [logExport, setLogExport] = useState(false)
 
   const historyRef = useRef<KWSScoreSample[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -228,18 +230,20 @@ export const KWSPanel = memo(function KWSPanel({
         </div>
       )}
 
-      {/* Config panel (ADR-017) */}
+      {/* Config panel (ADR-017) - dual-layer: Primary + Advanced (kws-categories §4.1) */}
       {status === 'ready' && (
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
           <h3 className="mb-4 text-sm font-semibold text-white">
             Configuration{' '}
             <span className="text-xs font-normal text-slate-500">
-              (ADR-017)
+              (Traditional KWS · Primary)
             </span>
           </h3>
+
+          {/* Primary: model selector, inference mode, threshold, output mode */}
           <div className="mb-4">
             <label className="flex items-center gap-3 text-sm">
-              <span className="w-32 shrink-0 text-slate-400">KWS backend</span>
+              <span className="w-32 shrink-0 text-slate-400">Model selector</span>
               <select
                 value={config.backend}
                 disabled
@@ -256,7 +260,19 @@ export const KWSPanel = memo(function KWSPanel({
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-slate-400">Threshold</span>
+              <span className="w-32 shrink-0 text-slate-400">Inference mode</span>
+              <select
+                value={config.executionProvider === 'webgpu' ? 'realtime' : 'realtime'}
+                disabled
+                className="flex-1 rounded bg-slate-800/80 px-2 py-1 text-slate-300"
+                title="Real-time mic detection (offline-file import is reserved)."
+              >
+                <option value="realtime">Real-time mic</option>
+                <option value="offline">Offline file</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
+              <span className="w-32 shrink-0 text-slate-400">Confidence</span>
               <input
                 type="range"
                 min={0}
@@ -273,57 +289,17 @@ export const KWSPanel = memo(function KWSPanel({
               </span>
             </label>
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-slate-400">Min. duration</span>
-              <input
-                type="range"
-                min={100}
-                max={3000}
-                step={100}
-                value={config.minDurationMs}
-                onChange={(e) =>
-                  updateConfig({ minDurationMs: Number(e.target.value) })
-                }
-                className="flex-1 accent-brand-400"
-              />
-              <span className="w-14 shrink-0 text-right font-mono text-slate-300">
-                {config.minDurationMs} ms
-              </span>
-            </label>
-            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-slate-400">Smoothing</span>
-              <input
-                type="range"
-                min={1}
-                max={30}
-                step={1}
-                value={config.smoothingWindowFrames}
-                onChange={(e) =>
-                  updateConfig({
-                    smoothingWindowFrames: Number(e.target.value),
-                  })
-                }
-                className="flex-1 accent-brand-400"
-              />
-              <span className="w-10 shrink-0 text-right font-mono text-slate-300">
-                {config.smoothingWindowFrames}
-              </span>
-            </label>
-            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-slate-400">Cooldown</span>
-              <input
-                type="range"
-                min={500}
-                max={10000}
-                step={500}
-                value={config.cooldownMs}
-                onChange={(e) =>
-                  updateConfig({ cooldownMs: Number(e.target.value) })
-                }
-                className="flex-1 accent-brand-400"
-              />
-              <span className="w-14 shrink-0 text-right font-mono text-slate-300">
-                {config.cooldownMs} ms
-              </span>
+              <span className="w-32 shrink-0 text-slate-400">Output mode</span>
+              <select
+                value="trigger"
+                disabled
+                className="flex-1 rounded bg-slate-800/80 px-2 py-1 text-slate-300"
+                title="Emit a trigger event + score (reserved: score-only / CSV)."
+              >
+                <option value="trigger">Trigger + score</option>
+                <option value="score">Score only</option>
+                <option value="csv">CSV log</option>
+              </select>
             </label>
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
               <span className="w-32 shrink-0 text-slate-400">VAD gate</span>
@@ -339,6 +315,108 @@ export const KWSPanel = memo(function KWSPanel({
                 Suppress triggers in silence
               </span>
             </label>
+          </div>
+
+          {/* Advanced (collapsible) */}
+          <div className="mt-4 border-t border-white/10 pt-3">
+            <button
+              onClick={() => setAdvancedOpen((v) => !v)}
+              className="text-xs font-medium text-slate-400 hover:text-slate-200"
+            >
+              {advancedOpen ? '▾' : '▸'} Advanced
+            </button>
+            {advancedOpen && (
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <label className="flex items-center gap-3 whitespace-nowrap text-sm">
+                  <span className="w-32 shrink-0 text-slate-400">Min. duration</span>
+                  <input
+                    type="range"
+                    min={100}
+                    max={3000}
+                    step={100}
+                    value={config.minDurationMs}
+                    onChange={(e) =>
+                      updateConfig({ minDurationMs: Number(e.target.value) })
+                    }
+                    className="flex-1 accent-brand-400"
+                  />
+                  <span className="w-14 shrink-0 text-right font-mono text-slate-300">
+                    {config.minDurationMs} ms
+                  </span>
+                </label>
+                <label className="flex items-center gap-3 whitespace-nowrap text-sm">
+                  <span className="w-32 shrink-0 text-slate-400">Smoothing</span>
+                  <input
+                    type="range"
+                    min={1}
+                    max={30}
+                    step={1}
+                    value={config.smoothingWindowFrames}
+                    onChange={(e) =>
+                      updateConfig({
+                        smoothingWindowFrames: Number(e.target.value),
+                      })
+                    }
+                    className="flex-1 accent-brand-400"
+                  />
+                  <span className="w-10 shrink-0 text-right font-mono text-slate-300">
+                    {config.smoothingWindowFrames}
+                  </span>
+                </label>
+                <label className="flex items-center gap-3 whitespace-nowrap text-sm">
+                  <span className="w-32 shrink-0 text-slate-400">Cooldown</span>
+                  <input
+                    type="range"
+                    min={500}
+                    max={10000}
+                    step={500}
+                    value={config.cooldownMs}
+                    onChange={(e) =>
+                      updateConfig({ cooldownMs: Number(e.target.value) })
+                    }
+                    className="flex-1 accent-brand-400"
+                  />
+                  <span className="w-14 shrink-0 text-right font-mono text-slate-300">
+                    {config.cooldownMs} ms
+                  </span>
+                </label>
+                <label className="flex items-center gap-3 whitespace-nowrap text-sm">
+                  <span className="w-32 shrink-0 text-slate-400">Mel window</span>
+                  <input
+                    type="number"
+                    value={MEL_WINDOW_SIZE}
+                    disabled
+                    className="flex-1 rounded bg-slate-800/80 px-2 py-1 text-slate-300"
+                  />
+                </label>
+                <label className="flex items-center gap-3 whitespace-nowrap text-sm">
+                  <span className="w-32 shrink-0 text-slate-400">
+                    Acceleration
+                  </span>
+                  <select
+                    value={config.executionProvider}
+                    disabled
+                    className="flex-1 rounded bg-slate-800/80 px-2 py-1 text-slate-300"
+                    title="WebGPU when available, else WASM (ADR-018)."
+                  >
+                    <option value="webgpu">WebGPU</option>
+                    <option value="wasm">WASM</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-3 whitespace-nowrap text-sm">
+                  <span className="w-32 shrink-0 text-slate-400">Log export</span>
+                  <input
+                    type="checkbox"
+                    checked={logExport}
+                    onChange={(e) => setLogExport(e.target.checked)}
+                    className="accent-brand-400"
+                  />
+                  <span className="text-xs text-slate-500">
+                    Stream scores to console
+                  </span>
+                </label>
+              </div>
+            )}
           </div>
           <p className="mt-3 text-xs text-slate-500">
             {params.length} parameters exposed via{' '}

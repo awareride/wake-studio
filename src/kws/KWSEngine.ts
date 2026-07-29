@@ -19,6 +19,7 @@ import type {
   KWSWorkerMessage,
   ParameterDescriptor,
 } from './types'
+import type { AsrDecodeConfig } from '../asr/types'
 import { DEFAULT_CONFIG } from './defaults'
 import { describeParameters } from './defaults'
 import { KWSLoadError } from './types'
@@ -28,6 +29,7 @@ import KWSWorker from './worker?worker'
 
 type ScoreCallback = (sample: KWSScoreSample) => void
 type TriggerCallback = (event: KWSTriggerEvent) => void
+type PartialCallback = (text: string) => void
 
 export class KWSEngine {
   private _worker: Worker | null = null
@@ -37,6 +39,7 @@ export class KWSEngine {
 
   private _scoreCallbacks = new Set<ScoreCallback>()
   private _triggerCallbacks = new Set<TriggerCallback>()
+  private _partialCallbacks = new Set<PartialCallback>()
   private _afeUnsubscribe: (() => void) | null = null
 
   // embed() promise tracking.
@@ -73,7 +76,7 @@ export class KWSEngine {
    * `plixkws` backend, pass the enrolled prototype vector. Resolves
    * when ready to detect.
    */
-  async load(models: BackendModelUrls, prototype?: Float32Array): Promise<void> {
+  async load(models: BackendModelUrls, prototype?: Float32Array, asrConfig?: AsrDecodeConfig): Promise<void> {
     if (this._status === 'loading' || this._status === 'ready') return
 
     this._status = 'loading'
@@ -101,6 +104,7 @@ export class KWSEngine {
         backend: this._config.backend,
         models,
         prototype: prototype ? Array.from(prototype) : undefined,
+        asrConfig,
       })
     })
   }
@@ -128,6 +132,7 @@ export class KWSEngine {
     this.stop()
     this._scoreCallbacks.clear()
     this._triggerCallbacks.clear()
+    this._partialCallbacks.clear()
     if (this._worker) {
       this._worker.terminate()
       this._worker = null
@@ -145,6 +150,12 @@ export class KWSEngine {
   onTrigger(cb: TriggerCallback): () => void {
     this._triggerCallbacks.add(cb)
     return () => this._triggerCallbacks.delete(cb)
+  }
+
+  /** Subscribe to the streaming partial ASR transcript (asr-decode backend). */
+  onPartial(cb: PartialCallback): () => void {
+    this._partialCallbacks.add(cb)
+    return () => this._partialCallbacks.delete(cb)
   }
 
   // ---- config panel (ADR-017) ----
@@ -209,6 +220,9 @@ export class KWSEngine {
         break
       case 'trigger':
         this._triggerCallbacks.forEach((cb) => cb(msg.event))
+        break
+      case 'partial':
+        this._partialCallbacks.forEach((cb) => cb(msg.text))
         break
       case 'embed-result': {
         const resolver = this._embedResolvers.get(msg.requestId)
