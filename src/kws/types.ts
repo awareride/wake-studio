@@ -19,7 +19,6 @@ export type KWSBackendId =
   | 'openwakeword' // mel -> speech_embedding -> classifier (app-class)
   | 'microwakeword' // TFLite-Micro streaming CNN (MCU; not browser-feasible v1)
   | 'plixkws' // PLiX Few-Shot (compact CNN encoder + prototype distance; edge-friendly)
-  | 'asr-decode' // ASR-Decoding KWS: streaming ASR + editable token-list matching (sherpa-onnx)
   | 'sherpa-onnx-kws' // Direct keyword spotting via sherpa-onnx KWS wasm (transducer)
   | 'pocketsphinx' // lightweight HMM/GMM (MCU+; WASM port pending)
 
@@ -151,7 +150,7 @@ export type KWSStatus = 'idle' | 'loading' | 'ready' | 'running' | 'error'
 
 /** Messages sent from the main thread to the worker. */
 export type KWSWorkerMessage =
-  | { type: 'load'; backend: KWSBackendId; models: BackendModelUrls; prototype?: number[]; asrConfig?: import('../asr/types').AsrDecodeConfig; sherpaKwsConfig?: Partial<SherpaOnnxKwsConfig> }
+  | { type: 'load'; backend: KWSBackendId; models: BackendModelUrls; prototype?: number[]; sherpaKwsConfig?: Partial<SherpaOnnxKwsConfig> }
   | { type: 'config'; config: KWSConfig }
   | {
       type: 'audio'

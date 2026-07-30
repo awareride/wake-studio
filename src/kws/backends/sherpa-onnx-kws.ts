@@ -1,8 +1,7 @@
 /**
  * sherpa-onnx KWS WebAssembly backend (ADR-020 / docs/kws-categories.md §2.x).
  *
- * Unlike the ASR-Decoding backend (which decodes free-form speech and matches
- * tokens), this backend performs *direct* keyword spotting with sherpa-onnx's
+ * This backend performs *direct* keyword spotting with sherpa-onnx's
  * `KeywordSpotter` (a streaming transducer tuned for fixed wake words). The
  * model graph + tokens are prebuilt into the wasm `.data` bundle (see
  * `.github/workflows/build-sherpa-onnx-kws-wasm.yml`); we only point the loader
@@ -129,7 +128,9 @@ async function loadSherpaKws(
 }
 
 const DEFAULT_KEYWORDS =
-  'x iǎo ài t óng x ué @小爱同学\n' + 'j ūn g ē n iú b ī @军哥牛逼'
+  'n ǐ h ǎo j ūn g ē :1.5 #0.35 @你好军哥\n' +
+  'n ǐ h ǎo w èn w èn :1.5 #0.35 @你好问问\n' +
+  'x iǎo ài t óng x ué :1.5 #0.35 @小爱同学'
 
 export class SherpaOnnxKwsBackend implements KWSBackend {
   readonly id = 'sherpa-onnx-kws' as const

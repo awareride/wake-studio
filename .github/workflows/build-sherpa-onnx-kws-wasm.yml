@@ -126,6 +126,24 @@ jobs:
           ls -lh
 
       # ----------------------------------------------------------------------
+      # 3b. Build single-threaded (no pthreads) so the wasm does NOT require
+      #     SharedArrayBuffer / cross-origin isolation (COOP+COEP headers).
+      #     The upstream kws CMakeLists unconditionally appends `-pthread
+      #     -sPTHREAD_POOL_SIZE=4`; for an in-browser PWA we drop those flags so
+      #     the artifact boots under any static host (incl. GitHub/Cloudflare
+      #     Pages) without special response headers. sherpa-onnx KWS has no
+      #     std::thread usage, so a single-threaded build compiles and runs.
+      # ----------------------------------------------------------------------
+      - name: Disable pthreads in KWS wasm build
+        shell: bash
+        run: |
+          set -euxo pipefail
+          f=sherpa-onnx-src/wasm/kws/CMakeLists.txt
+          echo '--- before ---'; grep -n 'PTHREAD' "$f"
+          sed -i 's/ -pthread -sPTHREAD_POOL_SIZE=4//g' "$f"
+          echo '--- after ---'; grep -n 'PTHREAD' "$f" || echo '(pthread flags removed)'
+
+      # ----------------------------------------------------------------------
       # 4. Build the KWS wasm via the upstream build script
       # ----------------------------------------------------------------------
       - name: Build sherpa-onnx KWS WASM

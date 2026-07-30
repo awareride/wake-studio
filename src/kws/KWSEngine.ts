@@ -19,8 +19,7 @@ import type {
   KWSWorkerMessage,
   ParameterDescriptor,
 } from './types'
-import type { AsrDecodeConfig } from '../asr/types'
-import type { SherpaOnnxKwsConfig } from './types'
+import type { SherpaOnnxKwsConfig, KWSBackend } from './types'
 import { DEFAULT_CONFIG } from './defaults'
 import { describeParameters } from './defaults'
 import { KWSLoadError } from './types'
@@ -53,7 +52,7 @@ export class KWSEngine {
   // DOM (`document` + a global Module), so it cannot run inside the (DOM-less)
   // Web Worker. It is therefore loaded and driven on the MAIN THREAD; all other
   // backends run in the worker. When set, AFE frames are processed here.
-  private _mainThreadBackend: SherpaOnnxKwsBackend | null = null
+  private _mainThreadBackend: KWSBackend | null = null
   private _smoother: ScoreSmoother | null = null
   private _trigger: TriggerDetector | null = null
 
@@ -87,12 +86,16 @@ export class KWSEngine {
    * `plixkws` backend, pass the enrolled prototype vector. Resolves
    * when ready to detect.
    */
-  async load(models: BackendModelUrls, prototype?: Float32Array, asrConfig?: AsrDecodeConfig, sherpaKwsConfig?: Partial<SherpaOnnxKwsConfig>): Promise<void> {
+  async load(models: BackendModelUrls, prototype?: Float32Array, sherpaKwsConfig?: Partial<SherpaOnnxKwsConfig>): Promise<void> {
     if (this._status === 'loading' || this._status === 'ready') return
 
     this._status = 'loading'
 
-    // The sherpa-onnx-kws backend runs on the main thread (DOM required).
+    // The sherpa-onnx-kws backend uses a classic emscripten sherpa-onnx wasm
+    // build that requires a DOM (document + script injection), so it cannot boot
+    // inside the DOM-less Web Worker. It is therefore loaded and driven on the
+    // MAIN THREAD; all other backends run in the worker. When set, AFE frames
+    // are processed via _processMainThread.
     if (this._config.backend === 'sherpa-onnx-kws') {
       try {
         const backend = new SherpaOnnxKwsBackend()
@@ -141,7 +144,6 @@ export class KWSEngine {
         backend: this._config.backend,
         models,
         prototype: prototype ? Array.from(prototype) : undefined,
-        asrConfig,
         sherpaKwsConfig,
       })
     })
@@ -202,7 +204,7 @@ export class KWSEngine {
     return () => this._triggerCallbacks.delete(cb)
   }
 
-  /** Subscribe to the streaming partial ASR transcript (asr-decode backend). */
+  /** Subscribe to the streaming partial transcript (sherpa-onnx-kws backend). */
   onPartial(cb: PartialCallback): () => void {
     this._partialCallbacks.add(cb)
     return () => this._partialCallbacks.delete(cb)

@@ -39,7 +39,6 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
         { value: 'openwakeword', label: 'OpenWakeWord (available)' },
         { value: 'microwakeword', label: 'micro-wake-word (MCU / Phase 5)' },
         { value: 'plixkws', label: 'PLiX Few-Shot (Phase 3)' },
-        { value: 'asr-decode', label: 'ASR Decoding (available)' },
         { value: 'sherpa-onnx-kws', label: 'sherpa-onnx KWS (available)' },
         { value: 'pocketsphinx', label: 'PocketSphinx (pending)' },
       ],

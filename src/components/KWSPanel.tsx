@@ -65,31 +65,17 @@ export const KWSPanel = memo(function KWSPanel({
 
   const handleLoad = useCallback(async () => {
     setError(null)
-    if (!engineRef.current) {
-      engineRef.current = new KWSEngine()
-    }
     const engine = engineRef.current
-    engine.onScore((s) => {
-      historyRef.current.push(s)
-      if (historyRef.current.length > HISTORY_MAX) {
-        historyRef.current.shift()
-      }
-    })
-    engine.onTrigger((e: KWSTriggerEvent) => {
-      setTriggerFlash(true)
-      setTimeout(() => setTriggerFlash(false), 500)
-      console.log('[KWS] Trigger:', e.word, e.peakScore.toFixed(3))
-    })
-    engine.onPartial((text: string) => {
-      if (text) setLastKeyword(text)
-    })
+    if (!engine) return
     try {
       setStatus('loading')
+      // Ensure the engine has the latest backend selection before loading.
+      engine.setConfig({ backend: config.backend, threshold: config.threshold })
       const sherpaKwsConfig: Partial<SherpaOnnxKwsConfig> =
         config.backend === 'sherpa-onnx-kws'
           ? { wasmBaseUrl: '/sherpa-onnx-kws/', keywords: KWS_KEYWORDS }
           : {}
-      await engine.load(MODEL_URLS, undefined, undefined, sherpaKwsConfig)
+      await engine.load(MODEL_URLS, undefined, sherpaKwsConfig)
       setStatus(engine.status)
       setExecutionProvider(engine.executionProvider)
     } catch (err) {
@@ -142,9 +128,32 @@ export const KWSPanel = memo(function KWSPanel({
     return () => cancelAnimationFrame(rafId)
   }, [running, config.threshold])
 
-  // Cleanup on unmount.
+  // Create the engine on mount (so backend/config changes made via the panel
+  // before the first Load actually reach it), wire subscriptions, and push the
+  // current config in. Previously the engine was only instantiated inside
+  // handleLoad, which meant an early backend selection was silently ignored
+  // and the default (openwakeword) was loaded instead.
   useEffect(() => {
-    return () => engineRef.current?.dispose()
+    if (!engineRef.current) {
+      engineRef.current = new KWSEngine()
+    }
+    const engine = engineRef.current
+    engine.onScore((s) => {
+      historyRef.current.push(s)
+      if (historyRef.current.length > HISTORY_MAX) {
+        historyRef.current.shift()
+      }
+    })
+    engine.onTrigger((e: KWSTriggerEvent) => {
+      setTriggerFlash(true)
+      setTimeout(() => setTriggerFlash(false), 500)
+      console.log('[KWS] Trigger:', e.word, e.peakScore.toFixed(3))
+    })
+    engine.onPartial((text: string) => {
+      if (text) setLastKeyword(text)
+    })
+    engine.setConfig({ backend: config.backend, threshold: config.threshold })
+    return () => engine.dispose()
   }, [])
 
   const canStart = status === 'ready' && afeRunning && !running
