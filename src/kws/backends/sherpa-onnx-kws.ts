@@ -128,9 +128,16 @@ async function loadSherpaKws(
 }
 
 const DEFAULT_KEYWORDS =
-  'n ǐ h ǎo j ūn g ē :1.5 #0.35 @你好军哥\n' +
-  'n ǐ h ǎo w èn w èn :1.5 #0.35 @你好问问\n' +
-  'x iǎo ài t óng x ué :1.5 #0.35 @小爱同学'
+  'L AY1 T AH1 P @LIGHT_UP\n' +
+  'L AH1 V L IY0 CH AY1 L D @LOVELY_CHILD\n' +
+  'w én s ēn t è k ǎ s uǒ @文森特卡索\n' +
+  'zh ōu w àng j ūn @周望军\n' +
+  'zh ū l ì n án @朱丽楠\n' +
+  'j iǎng y ǒu b ó @蒋友伯\n' +
+  'n ǚ ér @女儿\n' +
+  'f ǎ g uó @法国\n' +
+  'j iàn m iàn h uì @见面会\n' +
+  'l uò sh í @落实'
 
 export class SherpaOnnxKwsBackend implements KWSBackend {
   readonly id = 'sherpa-onnx-kws' as const
@@ -166,9 +173,9 @@ export class SherpaOnnxKwsBackend implements KWSBackend {
       featConfig: { sampleRate: 16000, featureDim: 80 },
       modelConfig: {
         transducer: {
-          encoder: './encoder-epoch-12-avg-2-chunk-16-left-64.onnx',
-          decoder: './decoder-epoch-12-avg-2-chunk-16-left-64.onnx',
-          joiner: './joiner-epoch-12-avg-2-chunk-16-left-64.onnx',
+          encoder: './encoder-epoch-13-avg-2-chunk-16-left-64.onnx',
+          decoder: './decoder-epoch-13-avg-2-chunk-16-left-64.onnx',
+          joiner: './joiner-epoch-13-avg-2-chunk-16-left-64.onnx',
         },
         tokens: './tokens.txt',
         provider: 'cpu',

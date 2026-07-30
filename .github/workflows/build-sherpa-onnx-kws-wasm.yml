@@ -56,7 +56,7 @@ on:
       kws_model:
         description: 'KWS model release archive (from sherpa-onnx kws-models)'
         required: false
-        default: 'sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01.tar.bz2'
+        default: 'sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20.tar.bz2'
         type: string
 
 concurrency:
