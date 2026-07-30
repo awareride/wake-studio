@@ -17,19 +17,12 @@ import { MEL_WINDOW_SIZE } from '../kws'
 import type { SherpaOnnxKwsConfig } from '../kws'
 
 // Default keyword list for the sherpa-onnx KWS backend (matches the model
-// prebuilt into the wasm .data bundle). For the zh-en-3M model these are the
-// phone+ppinyin tokenized forms (English uses ARPABET, Chinese uses pinyin).
+// prebuilt into the wasm .data bundle). For the wenetspeech-3.3M-2024-01-01
+// model these use the ppinyin tokenization (per sherpa-onnx text2token).
 const KWS_KEYWORDS =
-  'L AY1 T AH1 P @LIGHT_UP\n' +
-  'L AH1 V L IY0 CH AY1 L D @LOVELY_CHILD\n' +
-  'w én s ēn t è k ǎ s uǒ @文森特卡索\n' +
-  'zh ōu w àng j ūn @周望军\n' +
-  'zh ū l ì n án @朱丽楠\n' +
-  'j iǎng y ǒu b ó @蒋友伯\n' +
-  'n ǚ ér @女儿\n' +
-  'f ǎ g uó @法国\n' +
-  'j iàn m iàn h uì @见面会\n' +
-  'l uò sh í @落实'
+  'n ǐ h ǎo j ūn g ē :1.5 #0.35 @你好军哥\n' +
+  'n ǐ h ǎo w èn w èn :1.5 #0.35 @你好问问\n' +
+  'x iǎo ài t óng x ué :1.5 #0.35 @小爱同学'
 
 // Model URLs (ADR-011). The feature models (melspectrogram, speech-embedding)
 // are served from local prebuilts (ADR-011 amendment) - byte-identical to the
