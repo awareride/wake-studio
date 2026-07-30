@@ -22,10 +22,8 @@ import { DEFAULT_MODEL_RUNTIME } from '../runtime'
 import { createBackend } from './backend'
 import { AsrDecodeBackend } from '../asr/AsrDecodeBackend'
 import type { AsrDecodeConfig } from '../asr/types'
-import type { SherpaOnnxKwsConfig } from './types'
 import { PlixKwsEmbedProvider } from './backends/plixkws-embed'
 import { PlixKwsBackend } from './backends/plixkws'
-import { SherpaOnnxKwsBackend } from './backends/sherpa-onnx-kws'
 import { DEFAULT_CONFIG } from './defaults'
 import { ScoreSmoother, TriggerDetector, shouldGateByVad } from './dsp'
 
@@ -92,7 +90,6 @@ async function handleLoad(
   urls: BackendModelUrls,
   prototypeVector?: number[],
   asrConfig?: Partial<AsrDecodeConfig>,
-  sherpaKwsConfig?: Partial<SherpaOnnxKwsConfig>,
 ): Promise<void> {
   actualExecutionProvider =
     config.executionProvider === 'webgpu'
@@ -131,19 +128,6 @@ async function handleLoad(
       await asr.load(undefined as never, actualExecutionProvider)
       backend = asr
       // ASR runs on sherpa-onnx's own wasm; report wasm to the UI.
-      post({ type: 'loaded', executionProvider: 'wasm' })
-      return
-    }
-
-    if (backendId === 'sherpa-onnx-kws') {
-      // Direct keyword spotting via sherpa-onnx KWS wasm (ADR-020). The model
-      // graph + tokens are prebuilt into the wasm .data bundle; we only need
-      // the wasm base URL + keyword list.
-      const kws = new SherpaOnnxKwsBackend()
-      kws.configure(sherpaKwsConfig ?? {})
-      await kws.load(undefined as never, actualExecutionProvider)
-      backend = kws
-      // sherpa-onnx KWS runs on its own single-threaded wasm; report wasm.
       post({ type: 'loaded', executionProvider: 'wasm' })
       return
     }
@@ -336,7 +320,7 @@ self.onmessage = async (e: MessageEvent<KWSWorkerMessage>) => {
   try {
     switch (msg.type) {
       case 'load':
-        await handleLoad(msg.backend, msg.models, msg.prototype, msg.asrConfig, msg.sherpaKwsConfig)
+        await handleLoad(msg.backend, msg.models, msg.prototype, msg.asrConfig)
         break
       case 'config':
         handleConfig(msg.config)

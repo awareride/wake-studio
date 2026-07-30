@@ -24,6 +24,8 @@ import type { SherpaOnnxKwsConfig } from './types'
 import { DEFAULT_CONFIG } from './defaults'
 import { describeParameters } from './defaults'
 import { KWSLoadError } from './types'
+import { ScoreSmoother, TriggerDetector, shouldGateByVad } from './dsp'
+import { SherpaOnnxKwsBackend } from './backends/sherpa-onnx-kws'
 
 // Vite bundles the worker into a separate file.
 import KWSWorker from './worker?worker'
@@ -46,6 +48,14 @@ export class KWSEngine {
   // embed() promise tracking.
   private _embedCounter = 0
   private _embedResolvers = new Map<number, (embedding: Float32Array) => void>()
+
+  // The sherpa-onnx-kws wasm is a *classic* emscripten module that requires a
+  // DOM (`document` + a global Module), so it cannot run inside the (DOM-less)
+  // Web Worker. It is therefore loaded and driven on the MAIN THREAD; all other
+  // backends run in the worker. When set, AFE frames are processed here.
+  private _mainThreadBackend: SherpaOnnxKwsBackend | null = null
+  private _smoother: ScoreSmoother | null = null
+  private _trigger: TriggerDetector | null = null
 
   // ---- public readonly state ----
 
@@ -81,6 +91,32 @@ export class KWSEngine {
     if (this._status === 'loading' || this._status === 'ready') return
 
     this._status = 'loading'
+
+    // The sherpa-onnx-kws backend runs on the main thread (DOM required).
+    if (this._config.backend === 'sherpa-onnx-kws') {
+      try {
+        const backend = new SherpaOnnxKwsBackend()
+        backend.configure(sherpaKwsConfig ?? {})
+        await backend.load(undefined as never, 'wasm')
+        this._mainThreadBackend = backend
+        this._smoother = new ScoreSmoother(this._config.smoothingWindowFrames)
+        this._trigger = new TriggerDetector(
+          this._config.threshold,
+          this._config.minDurationMs,
+          this._config.cooldownMs,
+          'sherpa-onnx-kws',
+        )
+        this._executionProvider = 'wasm'
+        this._status = 'ready'
+        return
+      } catch (err) {
+        this._status = 'error'
+        throw new KWSLoadError(
+          err instanceof Error ? err.message : String(err),
+        )
+      }
+    }
+
     this._ensureWorker()
 
     return new Promise<void>((resolve, reject) => {
@@ -125,7 +161,13 @@ export class KWSEngine {
       this._afeUnsubscribe()
       this._afeUnsubscribe = null
     }
-    this._send({ type: 'stop' })
+    if (this._mainThreadBackend) {
+      this._mainThreadBackend.reset()
+      this._smoother?.reset()
+      this._trigger?.reset()
+    } else {
+      this._send({ type: 'stop' })
+    }
     this._status = 'ready'
   }
 
@@ -135,6 +177,12 @@ export class KWSEngine {
     this._scoreCallbacks.clear()
     this._triggerCallbacks.clear()
     this._partialCallbacks.clear()
+    if (this._mainThreadBackend) {
+      void this._mainThreadBackend.dispose()
+      this._mainThreadBackend = null
+      this._smoother = null
+      this._trigger = null
+    }
     if (this._worker) {
       this._worker.terminate()
       this._worker = null
@@ -164,6 +212,16 @@ export class KWSEngine {
 
   setConfig(patch: Partial<KWSConfig>): void {
     this._config = { ...this._config, ...patch }
+    if (this._smoother && patch.smoothingWindowFrames !== undefined) {
+      this._smoother = new ScoreSmoother(patch.smoothingWindowFrames)
+    }
+    if (this._trigger) {
+      this._trigger.configure(
+        this._config.threshold,
+        this._config.minDurationMs,
+        this._config.cooldownMs,
+      )
+    }
     this._sendConfig()
   }
 
@@ -207,12 +265,66 @@ export class KWSEngine {
     // The AFE provides vadActive (boolean from RNNoise VAD > 0.5); for the gate
     // we need a probability. Use 1.0 if active, 0.0 if not (ADR-018).
     const vadProbability = frame.vadActive ? 1.0 : 0.0
+
+    // Main-thread backend (sherpa-onnx-kws): run inference + smoothing here.
+    if (this._mainThreadBackend && this._smoother && this._trigger) {
+      this._processMainThread(frame.samples, frame.capturedAtMs, vadProbability)
+      return
+    }
+
     this._send({
       type: 'audio',
       samples: frame.samples,
       capturedAtMs: frame.capturedAtMs,
       vadProbability,
     })
+  }
+
+  /** Drive the main-thread sherpa-onnx-kws backend + smoothing/trigger. */
+  private async _processMainThread(
+    samples: Float32Array,
+    capturedAtMs: number,
+    vadProbability: number,
+  ): Promise<void> {
+    const backend = this._mainThreadBackend!
+    const smoother = this._smoother!
+    const trigger = this._trigger!
+
+    let score: number | null
+    try {
+      score = await backend.processFrame(samples)
+    } catch (err) {
+      console.error('[KWS sherpa-onnx-kws]', err)
+      return
+    }
+    if (score === null) score = 0
+
+    const smoothed = smoother.push(score)
+    const vadSuppressed = shouldGateByVad(
+      vadProbability,
+      this._config.vadThreshold,
+      this._config.vadGateEnabled,
+    )
+    const rawTrigger = trigger.process(smoothed, capturedAtMs)
+    const triggerEvent = vadSuppressed ? null : rawTrigger
+
+    this._scoreCallbacks.forEach((cb) =>
+      cb({
+        capturedAtMs,
+        rawScore: score,
+        smoothedScore: smoothed,
+        triggered: triggerEvent !== null,
+        vadProbability,
+      }),
+    )
+    if (triggerEvent) {
+      this._triggerCallbacks.forEach((cb) => cb(triggerEvent))
+    }
+    const lastKeyword = (backend as unknown as { lastPartialText?: string })
+      .lastPartialText
+    if (lastKeyword) {
+      this._partialCallbacks.forEach((cb) => cb(lastKeyword))
+    }
   }
 
   private _handleMessage(msg: KWSMainMessage): void {
