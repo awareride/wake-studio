@@ -93,7 +93,13 @@ async function loadSherpaKws(
     throw new Error('sherpa-onnx-kws glue (createKws) not found.')
   }
 
-  // 2. Provide a global Module whose init callback builds the spotter.
+  // 2. Boot the wasm. The classic emscripten glue does `var Module = Module || {}`
+  //    at eval time, which REASSIGNS globalThis.Module to a fresh object - so we
+  //    must NOT pre-attach onRuntimeInitialized (it would be discarded). Instead
+  //    we inject the glue (which creates globalThis.Module), then attach the
+  //    init callback to that Module. emscripten reads onRuntimeInitialized from
+  //    globalThis.Module at call time, so this ordering is what upstream
+  //    app.js relies on.
   const ready = new Promise<SherpaKws>((resolve, reject) => {
     const start = Date.now()
     const timer = setInterval(() => {
@@ -102,25 +108,35 @@ async function loadSherpaKws(
         reject(new Error('sherpa-onnx KWS module init timed out.'))
       }
     }, 1000)
-    ;(globalThis as Record<string, unknown>).Module = {
-      onRuntimeInitialized(): void {
-        clearInterval(timer)
-        try {
-          const spotter = (
-            createKws as unknown as (
-              m: unknown,
-              c: Record<string, unknown>,
-            ) => SherpaKws
-          )((globalThis as Record<string, unknown>).Module, config)
-          resolve(spotter)
-        } catch (err) {
-          reject(err instanceof Error ? err : new Error(String(err)))
+
+    // Attach the init callback to the Module the glue created (poll briefly in
+    // case the glue hasn't finished evaluating yet).
+    const attach = (): void => {
+      const module = (globalThis as Record<string, unknown>).Module as
+        | (Record<string, unknown> & { onRuntimeInitialized?: () => void })
+        | undefined
+      if (module && typeof module.onRuntimeInitialized !== 'function') {
+        module.onRuntimeInitialized = () => {
+          clearInterval(timer)
+          try {
+            const spotter = (
+              createKws as unknown as (
+                m: unknown,
+                c: Record<string, unknown>,
+              ) => SherpaKws
+            )(module, config)
+            resolve(spotter)
+          } catch (err) {
+            reject(err instanceof Error ? err : new Error(String(err)))
+          }
         }
-      },
+      }
     }
+    attach()
+    const iv = setInterval(attach, 5)
+    setTimeout(() => clearInterval(iv), 120000)
   })
 
-  // 3. Boot the wasm into the global Module we just defined.
   await injectScript(`${base}sherpa-onnx-wasm-kws-main.js`)
 
   const spotter = await ready

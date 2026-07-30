@@ -123,5 +123,20 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
+    // Enable cross-origin isolation so the (multithreaded) sherpa-onnx KWS wasm
+    // can use SharedArrayBuffer / pthreads. COEP `credentialless` allows
+    // no-cors cross-origin subresources (jsdelivr, huggingface) without them
+    // needing Cross-Origin-Resource-Policy headers.
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+    },
+  },
+  preview: {
+    port: 4173,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+    },
   },
 })

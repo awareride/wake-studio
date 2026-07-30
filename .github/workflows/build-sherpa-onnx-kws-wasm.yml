@@ -134,18 +134,12 @@ jobs:
       #     Pages) without special response headers. sherpa-onnx KWS has no
       #     std::thread usage, so a single-threaded build compiles and runs.
       # ----------------------------------------------------------------------
-      - name: Disable pthreads in KWS wasm build
+      - name: Verify KWS model assets present (for CMake FATAL check)
         shell: bash
         run: |
           set -euxo pipefail
-          f=sherpa-onnx-src/wasm/kws/CMakeLists.txt
-          echo '--- PTHREAD before ---'; grep -n 'PTHREAD' "$f"
-          sed -i 's/ -pthread -sPTHREAD_POOL_SIZE=4//g' "$f"
-          echo '--- PTHREAD after ---'; grep -n 'PTHREAD' "$f" || echo '(pthread flags removed)'
-          # NOTE: the kws-model tarball's onnx files are named
-          # epoch-12-avg-2-chunk-16-left-64.onnx (verified from the built .data),
-          # which matches the hardcoded required-asset name in this CMakeLists,
-          # so no epoch rename is needed.
+          ls -lh sherpa-onnx-src/wasm/kws/assets
+          grep -n 'decoder-epoch-12-avg-2-chunk-16-left-64.onnx' sherpa-onnx-src/wasm/kws/CMakeLists.txt || true
 
       # ----------------------------------------------------------------------
       # 4. Build the KWS wasm via the upstream build script
