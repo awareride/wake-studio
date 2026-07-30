@@ -141,6 +141,19 @@ jobs:
           ls -lh sherpa-onnx-src/wasm/kws/assets
           grep -n 'decoder-epoch-12-avg-2-chunk-16-left-64.onnx' sherpa-onnx-src/wasm/kws/CMakeLists.txt || true
 
+      # Single-threaded: the kws glue has no std::thread usage (verified in
+      # keyword-spotter.cc), so dropping -pthread yields a non-SAB build that
+      # boots under any static host with no COOP/COEP headers. This avoids the
+      # crossOriginIsolated requirement entirely (pthreads need SharedArrayBuffer).
+      - name: Disable pthreads in KWS wasm build
+        shell: bash
+        run: |
+          set -euxo pipefail
+          f=sherpa-onnx-src/wasm/kws/CMakeLists.txt
+          echo '--- PTHREAD before ---'; grep -n 'PTHREAD' "$f"
+          sed -i 's/ -pthread -sPTHREAD_POOL_SIZE=4//g' "$f"
+          echo '--- PTHREAD after ---'; grep -n 'PTHREAD' "$f" || echo '(pthread flags removed)'
+
       # ----------------------------------------------------------------------
       # 4. Build the KWS wasm via the upstream build script
       # ----------------------------------------------------------------------

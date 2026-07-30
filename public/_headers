@@ -1,8 +1,0 @@
-# Enable cross-origin isolation for the (multithreaded) sherpa-onnx KWS wasm,
-# which requires SharedArrayBuffer (pthreads). COEP `credentialless` permits
-# no-cors cross-origin subresources (jsdelivr, huggingface) without them
-# needing Cross-Origin-Resource-Policy headers. Cloudflare Pages and GitHub
-# Pages both honor this file.
-/*
-  Cross-Origin-Opener-Policy: same-origin
-  Cross-Origin-Embedder-Policy: credentialless
