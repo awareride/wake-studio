@@ -134,14 +134,21 @@ jobs:
       #     Pages) without special response headers. sherpa-onnx KWS has no
       #     std::thread usage, so a single-threaded build compiles and runs.
       # ----------------------------------------------------------------------
-      - name: Disable pthreads in KWS wasm build
+      - name: Disable pthreads + fix model filename in KWS wasm build
         shell: bash
         run: |
           set -euxo pipefail
           f=sherpa-onnx-src/wasm/kws/CMakeLists.txt
-          echo '--- before ---'; grep -n 'PTHREAD' "$f"
+          echo '--- PTHREAD before ---'; grep -n 'PTHREAD' "$f"
           sed -i 's/ -pthread -sPTHREAD_POOL_SIZE=4//g' "$f"
-          echo '--- after ---'; grep -n 'PTHREAD' "$f" || echo '(pthread flags removed)'
+          echo '--- PTHREAD after ---'; grep -n 'PTHREAD' "$f" || echo '(pthread flags removed)'
+          # The wasm/kws/CMakeLists hardcodes the required decoder filename as
+          # epoch-12-avg-2-chunk-16-left-64.onnx, but newer KWS models (e.g.
+          # sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20) ship epoch-13 files.
+          # Patch the required-asset name so the build does not FATAL_ERROR.
+          echo '--- MODEL before ---'; grep -n 'epoch-1[23]-avg-2-chunk-16-left-64' "$f"
+          sed -i 's/epoch-12-avg-2-chunk-16-left-64\.onnx/epoch-13-avg-2-chunk-16-left-64.onnx/g' "$f"
+          echo '--- MODEL after ---'; grep -n 'epoch-1[23]-avg-2-chunk-16-left-64' "$f" || echo '(no epoch-XX match)'
 
       # ----------------------------------------------------------------------
       # 4. Build the KWS wasm via the upstream build script
