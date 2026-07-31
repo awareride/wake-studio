@@ -20,8 +20,6 @@ import type {
 } from './types'
 import { DEFAULT_MODEL_RUNTIME } from '../runtime'
 import { createBackend } from './backend'
-import { AsrDecodeBackend } from '../asr/AsrDecodeBackend'
-import type { AsrDecodeConfig } from '../asr/types'
 import { PlixKwsEmbedProvider } from './backends/plixkws-embed'
 import { PlixKwsBackend } from './backends/plixkws'
 import { DEFAULT_CONFIG } from './defaults'
@@ -89,7 +87,6 @@ async function handleLoad(
   backendId: KWSBackendId,
   urls: BackendModelUrls,
   prototypeVector?: number[],
-  asrConfig?: Partial<AsrDecodeConfig>,
 ): Promise<void> {
   actualExecutionProvider =
     config.executionProvider === 'webgpu'
@@ -119,18 +116,6 @@ async function handleLoad(
     // to the UI is only 'webgpu' when a WebGPU-feasible detection backend is
     // loaded; otherwise it is 'wasm' even if WebGPU is available.
     let gpuBackendLoaded = false
-
-    if (backendId === 'asr-decode') {
-      // ASR-Decoding KWS (ADR-024): no ONNX models; the "model" is a streaming
-      // ASR engine + an editable wake-word list. Configure and load it.
-      const asr = new AsrDecodeBackend()
-      asr.configure(asrConfig ?? {})
-      await asr.load(undefined as never, actualExecutionProvider)
-      backend = asr
-      // ASR runs on sherpa-onnx's own wasm; report wasm to the UI.
-      post({ type: 'loaded', executionProvider: 'wasm' })
-      return
-    }
 
     if (backendId === 'plixkws') {
       // Few-Shot backend: reuse the shared PLiX embedProvider + the prototype.
@@ -320,7 +305,7 @@ self.onmessage = async (e: MessageEvent<KWSWorkerMessage>) => {
   try {
     switch (msg.type) {
       case 'load':
-        await handleLoad(msg.backend, msg.models, msg.prototype, msg.asrConfig)
+        await handleLoad(msg.backend, msg.models, msg.prototype)
         break
       case 'config':
         handleConfig(msg.config)

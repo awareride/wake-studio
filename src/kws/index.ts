@@ -21,5 +21,6 @@ export type {
   KWSTriggerEvent,
   KWSStatus,
   ParameterDescriptor,
+  SherpaOnnxKwsConfig,
 } from './types'
 export { KWSLoadError, KWSUnsupportedError } from './types'

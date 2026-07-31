@@ -19,7 +19,8 @@
     "test:unit": "vitest run",
     "test": "vitest run && pnpm test:e2e",
     "gen-icons": "node scripts/gen-icons.mjs",
-    "gen-plix-hf-dir": "node scripts/gen-plix-hf-dir.mjs"
+    "gen-plix-hf-dir": "node scripts/gen-plix-hf-dir.mjs",
+    "fetch-sherpa-kws-assets": "node scripts/fetch-sherpa-kws-assets.mjs"
   },
   "dependencies": {
     "onnxruntime-web": "^1.27.0",

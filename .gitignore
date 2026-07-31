@@ -50,3 +50,7 @@ test-results/
 
 # Pre-fetched local assets (ADR-011 amendment; dev-only, not committed)
 prebuilts/
+
+# sherpa-onnx KWS WebAssembly runtime (built by .github/workflows/build-sherpa-onnx-kws-wasm.yml).
+# Dev-only / not committed; fetch with `node scripts/fetch-sherpa-kws-assets.mjs`.
+public/sherpa-onnx-kws/

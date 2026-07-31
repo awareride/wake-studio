@@ -114,16 +114,71 @@ jobs:
         run: |
           set -euxo pipefail
           cd sherpa-onnx-src/wasm/kws/assets
-          wget -q "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/${{ github.event.inputs.kws_model }}"
-          tar xvf "${{ github.event.inputs.kws_model }}"
-          rm -f "${{ github.event.inputs.kws_model }}"
-          # Flatten the extracted subdir into assets/ (matches upstream README).
-          sub=$(find . -maxdepth 1 -type d ! -name '.' | head -n1)
-          if [ -n "$sub" ]; then
-            mv -v "$sub"/* ./
-            rmdir "$sub"
-          fi
+          URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/${{ github.event.inputs.kws_model }}"
+          EXPECT_SUB='${{ github.event.inputs.kws_model }}'
+          EXPECT_SUB="${EXPECT_SUB%.tar.bz2}"
+          # GitHub's CDN occasionally serves a stale/aliased tarball (e.g. the
+          # wenetspeech archive for a zh-en request). Verify the extracted dir
+          # matches the requested model and retry (with cache-bust) if not.
+          for attempt in 1 2 3 4 5; do
+            rm -rf ./*
+            curl -fsSL "$URL" -o model.tar.bz2 || curl -fsSL "$URL?cb=$attempt" -o model.tar.bz2
+            tar xf model.tar.bz2
+            rm -f model.tar.bz2
+            sub=$(find . -maxdepth 1 -type d ! -name '.' | head -n1)
+            echo "attempt $attempt extracted subdir: '$sub' (expect: '$EXPECT_SUB')"
+            if [ "${sub##*/}" = "$EXPECT_SUB" ]; then
+              mv -v "$sub"/* ./ && rmdir "$sub"
+              echo "OK: correct model downloaded"
+              break
+            fi
+            echo "WARN: got wrong model archive, retrying..."
+            sleep 10
+          done
           ls -lh
+
+      # ----------------------------------------------------------------------
+      # 3b. Align the CMakeLists required-asset epoch with the model we actually
+      #     downloaded. The CMakeLists hardcodes `decoder-epoch-12-...`; if the
+      #     downloaded model is a different epoch (e.g. zh-en-3M-2025-12-20 ships
+      #     epoch-13), its FATAL_ERROR asset check fails. Detect the epoch that
+      #     is present in assets/ and patch the CMakeLists to match. This works
+      #     for any model without relying on the input name.
+      # ----------------------------------------------------------------------
+      - name: Align CMakeLists asset epoch with downloaded model
+        shell: bash
+        run: |
+          set -euxo pipefail
+          f=sherpa-onnx-src/wasm/kws/CMakeLists.txt
+          cd sherpa-onnx-src/wasm/kws/assets
+          present=$(ls decoder-epoch-*-avg-2-chunk-16-left-64.onnx 2>/dev/null | head -n1 || true)
+          echo "present decoder: '$present'"
+          if [ -z "$present" ]; then
+            echo 'No decoder-epoch-*-avg-2-chunk-16-left-64.onnx found; leaving CMakeLists as-is.'
+            exit 0
+          fi
+          epoch=$(echo "$present" | sed -E 's/decoder-epoch-([0-9]+)-.*/\1/')
+          echo "detected epoch: $epoch"
+          cd "$GITHUB_WORKSPACE"
+          sed -i "s/decoder-epoch-12-avg-2-chunk-16-left-64.onnx/decoder-epoch-${epoch}-avg-2-chunk-16-left-64.onnx/g" "$f"
+          echo '--- patched CMakeLists decoder ref ---'; grep -n "decoder-epoch-${epoch}" "$f"
+
+      # Build SINGLE-THREADED (no pthreads) so the wasm needs no
+      # SharedArrayBuffer / cross-origin isolation (COOP+COEP). The upstream kws
+      # CMakeLists unconditionally appends `-pthread -sPTHREAD_POOL_SIZE=4`;
+      # dropping it yields a single-threaded wasm that boots under any static
+      # host with no special response headers. The sherpa-onnx KWS glue has no
+      # std::thread usage, so a single-threaded build compiles and runs. This
+      # avoids the pthread/COEP SAB deadlock that the multithreaded build hits
+      # in some browser environments.
+      - name: Disable pthreads in KWS wasm build (single-threaded)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          f=sherpa-onnx-src/wasm/kws/CMakeLists.txt
+          echo '--- PTHREAD before ---'; grep -n 'PTHREAD' "$f"
+          sed -i 's/ -pthread -sPTHREAD_POOL_SIZE=4//g' "$f"
+          echo '--- PTHREAD after ---'; grep -n 'PTHREAD' "$f" || echo '(pthread flags removed)'
 
       # ----------------------------------------------------------------------
       # 4. Build the KWS wasm via the upstream build script

@@ -111,11 +111,15 @@ export default defineConfig({
         // The onnxruntime-web WASM files are large (13-27 MB); we load them from
         // a CDN at runtime (ADR-018), so exclude them from the precache.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        globIgnores: ['**/ort-wasm-*'],
+        globIgnores: ['**/ort-wasm-*', '**/sherpa-onnx-kws/**'],
         // Keep the service worker out of the precache so a broken network on
         // first load doesn't deadlock updates.
         navigateFallback: 'index.html',
       },
+      // COEP requires that the SW script and everything it fetches are
+      // CORP-compliant. We serve the SW same-origin (exempt) and exclude the
+      // large cross-origin wasm from precache, so isolation is preserved.
+      injectRegister: 'auto',
       devOptions: {
         enabled: false,
       },
@@ -123,5 +127,8 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
+  },
+  preview: {
+    port: 4173,
   },
 })

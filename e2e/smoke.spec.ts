@@ -41,28 +41,6 @@ test('Few-Shot enrollment panel renders (Phase 3)', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Load PLiX encoder/i })).toBeVisible()
 })
 
-test('ASR-Decoding KWS panel renders (Phase 2-ext, ADR-024)', async ({ page }) => {
-  await page.goto('/')
-
-  // The ASR-Decoding section heading + description are visible.
-  await expect(
-    page.getByRole('heading', { name: /ASR-Decoding KWS/i }),
-  ).toBeVisible()
-  await expect(page.getByText(/Inference only \(P0, ADR-024\)/i)).toBeVisible()
-
-  // The editable wake-word list + "Load ASR engine" button are visible.
-  await expect(page.getByText(/Wake-word list/i)).toBeVisible()
-  await expect(
-    page.getByRole('button', { name: 'Load ASR engine' }),
-  ).toBeVisible()
-
-  // The wake-word list becomes editable after the engine loads (asset-
-  // dependent); at idle the Load button + list heading are the stable UI.
-  await expect(
-    page.getByRole('button', { name: /\+ Add/i }),
-  ).toBeHidden()
-})
-
 test('Traditional KWS Training panel renders (§4.2)', async ({ page }) => {
   await page.goto('/')
 
