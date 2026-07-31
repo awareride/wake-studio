@@ -10,7 +10,7 @@
 
 import type { KWSBackend, KWSBackendId } from './types'
 import { OpenWakeWordBackend } from './backends/openwakeword'
-import { AsrDecodeBackend } from '../asr/AsrDecodeBackend'
+import { SherpaOnnxKwsBackend } from './backends/sherpa-onnx-kws'
 
 /** A registry entry for a KWS backend. */
 export interface KWSBackendRegistration {
@@ -62,11 +62,11 @@ export const BACKEND_REGISTRY: ReadonlyArray<KWSBackendRegistration> = [
     availabilityNote: 'Phase 3 (enrollment required)',
   },
   {
-    id: 'asr-decode',
-    label: 'ASR Decoding (sherpa-onnx token matching)',
-    create: () => new AsrDecodeBackend(),
+    id: 'sherpa-onnx-kws',
+    label: 'sherpa-onnx KWS (direct keyword spotting)',
+    create: () => new SherpaOnnxKwsBackend(),
     browserFeasible: true,
-    availabilityNote: 'Inference only (P0) - editable wake-word list, no training',
+    availabilityNote: 'Inference only - prebuilt transducer model (ADR-020)',
   },
   {
     id: 'pocketsphinx',

@@ -17,23 +17,23 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('BACKEND_REGISTRY', () => {
-  it('lists all five ADR-020/ADR-024 backends', () => {
+  it('lists the ADR-020 backends', () => {
     const ids = BACKEND_REGISTRY.map((r) => r.id)
     expect(ids).toEqual([
       'openwakeword',
       'microwakeword',
       'plixkws',
-      'asr-decode',
+      'sherpa-onnx-kws',
       'pocketsphinx',
     ])
   })
 
-  it('openwakeword, plixkws, and asr-decode are browser-feasible', () => {
+  it('openwakeword, plixkws, and sherpa-onnx-kws are browser-feasible', () => {
     const feasible = BACKEND_REGISTRY.filter((r) => r.browserFeasible)
     expect(feasible.map((r) => r.id)).toEqual([
       'openwakeword',
       'plixkws',
-      'asr-decode',
+      'sherpa-onnx-kws',
     ])
   })
 
@@ -84,12 +84,6 @@ describe('createBackend', () => {
 
   it('throws for pocketsphinx (pending WASM port)', () => {
     expect(() => createBackend('pocketsphinx')).toThrow(/not yet implemented/)
-  })
-
-  it('creates an AsrDecodeBackend for asr-decode', () => {
-    const backend = createBackend('asr-decode')
-    expect(backend.id).toBe('asr-decode')
-    expect(backend.label.length).toBeGreaterThan(0)
   })
 
   it('throws for an unknown id', () => {

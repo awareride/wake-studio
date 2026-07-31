@@ -9,6 +9,8 @@
 // Public API types (docs/modules/kws.md §4)
 // ---------------------------------------------------------------------------
 
+import type { ModelRuntime } from '../runtime'
+import { DEFAULT_MODEL_RUNTIME } from '../runtime'
 /**
  * Pluggable KWS backend identifiers (ADR-020). The engine delegates inference
  * to a `KWSBackend` adapter; selection is per-target / per-word.
@@ -17,7 +19,7 @@ export type KWSBackendId =
   | 'openwakeword' // mel -> speech_embedding -> classifier (app-class)
   | 'microwakeword' // TFLite-Micro streaming CNN (MCU; not browser-feasible v1)
   | 'plixkws' // PLiX Few-Shot (compact CNN encoder + prototype distance; edge-friendly)
-  | 'asr-decode' // ASR-Decoding KWS: streaming ASR + editable token-list matching (sherpa-onnx)
+  | 'sherpa-onnx-kws' // Direct keyword spotting via sherpa-onnx KWS wasm (transducer)
   | 'pocketsphinx' // lightweight HMM/GMM (MCU+; WASM port pending)
 
 /** One score sample emitted per inference frame (~every 10 ms). */
@@ -105,18 +107,6 @@ export interface EmbedProvider {
   embed(audio: Float32Array, sampleRate: number): Promise<Float32Array>
 }
 
-import type { ModelRuntime } from '../runtime'
-import { DEFAULT_MODEL_RUNTIME } from '../runtime'
-
-/**
- * Model URLs a backend needs (from the registry, ADR-011). All optional - each
- * backend validates the subset it requires.
- *
- * `runtime` is the GLOBAL model-runtime hint (ADR-002 amendment): it selects
- * how the model is executed (onnx / transformers / executorch) and applies to
- * whichever model the URL points at. It can be overridden globally via
- * {@link KWSConfig.runtime} and falls back to {@link DEFAULT_MODEL_RUNTIME}.
- */
 export interface BackendModelUrls {
   melspectrogram?: string
   embedding?: string
@@ -124,6 +114,27 @@ export interface BackendModelUrls {
   plixkws?: string
   /** Model-runtime hint for the model(s) addressed by these URLs. @see ModelRuntime */
   runtime?: ModelRuntime
+}
+
+/**
+ * Configuration for the sherpa-onnx KWS wasm backend (backend id
+ * `'sherpa-onnx-kws'`). The model files (encoder/decoder/joiner/tokens) are
+ * prebuilt into the wasm `.data` bundle (see build-sherpa-onnx-kws-wasm.yml),
+ * so only the wasm base URL and the keyword list are configurable.
+ */
+export interface SherpaOnnxKwsConfig {
+  /** Base URL where sherpa-onnx-kws.{js,wasm,data} are served. */
+  wasmBaseUrl: string
+  /**
+   * sherpa-onnx keyword list. Each line is `spaced tokens @display name`,
+   * e.g. `x iǎo ài t óng x ué @小爱同学`. Defaults to the bundled model's
+   * keywords when omitted.
+   */
+  keywords?: string
+  /** Number of decode threads (wasm is single-threaded; keep at 1). */
+  numThreads?: number
+  /** Per-keyword score threshold (0..1) passed to sherpa-onnx. */
+  keywordsThreshold?: number
 }
 
 /** Re-export so call sites can stay within the kws module if they prefer. */
@@ -139,7 +150,7 @@ export type KWSStatus = 'idle' | 'loading' | 'ready' | 'running' | 'error'
 
 /** Messages sent from the main thread to the worker. */
 export type KWSWorkerMessage =
-  | { type: 'load'; backend: KWSBackendId; models: BackendModelUrls; prototype?: number[]; asrConfig?: import('../asr/types').AsrDecodeConfig }
+  | { type: 'load'; backend: KWSBackendId; models: BackendModelUrls; prototype?: number[]; sherpaKwsConfig?: Partial<SherpaOnnxKwsConfig> }
   | { type: 'config'; config: KWSConfig }
   | {
       type: 'audio'
