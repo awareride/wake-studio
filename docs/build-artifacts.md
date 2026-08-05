@@ -64,9 +64,15 @@ node scripts/fetch-<artifact>.mjs [--force] [--version <v>]
 
 | Artifact | Workflow | Fetch script | Dest | Registry key |
 |---|---|---|---|---|
-| sherpa-onnx-kws wasm | `build-sherpa-onnx-kws-wasm.yml` | `fetch-sherpa-kws-assets.mjs` | `public/sherpa-onnx-kws/` | `sherpa-kws` |
-| PLiX ONNX encoder | `export-plixkws.yml` | (pending standardized script) | `prebuilts/plixkws/` | `plixkws` |
-| RNNoise wasm (pilot) | `build-rnnoise-wasm.yml` (planned) | `fetch-rnnoise-assets.mjs` (planned) | `public/afe/rnnoise/` | `rnnoise` |
+| sherpa-onnx-kws wasm | `build-sherpa-onnx-kws-wasm.yml` | `fetch-sherpa-kws-assets.mjs` | `apps/web/public/sherpa-onnx-kws/` (legacy; moves to `packages/modules/kws/.../assets/` when the KWS module lands) | `sherpa-kws` |
+| PLiX ONNX encoder | `export-plixkws.yml` | (pending standardized script) | `apps/web/prebuilts/plixkws/` (legacy; moves with the Few-Shot module) | `plixkws` |
+| RNNoise wasm (pilot) | embedded base64 in `web/vendor/`; standalone CI build planned | (not needed while embedded) | `packages/modules/afe/rnnoise/assets/` | `rnnoise` |
+
+> **Asset placement rule (ADR-025):** new artifacts go into the owning module's
+> `assets/` dir (served at `/modules/<category>/<module>/assets/...`). The
+> `apps/web/prebuilts/` and `apps/web/public/sherpa-onnx-kws/` entries above are
+> legacy locations for assets whose owning module hasn't been extracted yet;
+> they migrate into module `assets/` as the KWS / Few-Shot modules land.
 
 > Inventory entries are filled as the SOP lands; the RNNoise row is the ADR-025
 > pilot and will prove the SOP end-to-end.
