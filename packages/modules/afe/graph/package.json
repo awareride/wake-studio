@@ -1,0 +1,34 @@
+{
+  "name": "@wake-studio/module-afe-graph",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AFE graph module (ADR-001/016): AEC -> BSS -> NS orchestration + AudioWorklet pipeline. Depends on the rnnoise module for the NS stage (ADR-025).",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./core/index.ts",
+    "./core": "./core/index.ts",
+    "./web": "./web/index.ts",
+    "./spec": "./spec/module.spec.json"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "fetch:all": "echo 'no external artifacts (rnnoise wasm is vendored in the rnnoise module)'"
+  },
+  "dependencies": {
+    "@wake-studio/contracts": "workspace:*",
+    "@wake-studio/module-rnnoise": "workspace:^",
+    "@wake-studio/platform": "workspace:^"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "globals": "^15.13.0",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "^8.16.0",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.9"
+  }
+}

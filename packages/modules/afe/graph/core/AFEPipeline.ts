@@ -19,7 +19,9 @@ import type { MainMessage, WorkletMessage } from './types'
 import { MicPermissionError, UnsupportedBrowserError } from './types'
 
 // Vite bundles the worklet + its vendored RNNoise imports into a single file.
-import workletUrl from './pipeline-processor.worklet.ts?worker&url'
+// The worklet lives in this module's web/ target; the `?worker&url` suffix is
+// a Vite-specific import that resolves the worklet file as a URL string.
+import workletUrl from '../web/pipeline-processor.worklet.ts?worker&url'
 
 type FrameCallback = (data: StageFrameData) => void
 type OutputCallback = (frame: AFEOutputFrame) => void

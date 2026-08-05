@@ -26,6 +26,7 @@
     "@radix-ui/react-toast": "^1.2.23",
     "@radix-ui/react-tooltip": "^1.2.16",
     "@wake-studio/contracts": "workspace:*",
+    "@wake-studio/module-afe-graph": "workspace:^",
     "@wake-studio/module-kit": "workspace:^",
     "@wake-studio/module-rnnoise": "workspace:^",
     "@wake-studio/platform": "workspace:^",

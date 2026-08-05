@@ -2,15 +2,22 @@
  * AFE module - public exports.
  *
  * @see docs/modules/afe.md for the full contract (ADR-016/017).
+ *
+ * The implementation moved to @wake-studio/module-afe-graph (module-migration
+ * §6.2); apps/web re-exports for compatibility during the migration. New
+ * imports should come from the module package directly.
  */
 
-export { AFEPipeline } from './AFEPipeline'
-export { DEFAULT_CONFIG, describeParameters } from './defaults'
 export {
+  AFEPipeline,
+  DEFAULT_CONFIG,
+  describeParameters,
   INTERNAL_SAMPLE_RATE,
   OUTPUT_SAMPLE_RATE,
   RNNOISE_FRAME_SIZE,
-} from './defaults'
+  MicPermissionError,
+  UnsupportedBrowserError,
+} from '@wake-studio/module-afe-graph'
 
 export type {
   AFEConfig,
@@ -23,5 +30,4 @@ export type {
   StageFrameData,
   StageState,
   StageStatus,
-} from './types'
-export { MicPermissionError, UnsupportedBrowserError } from './types'
+} from '@wake-studio/module-afe-graph'

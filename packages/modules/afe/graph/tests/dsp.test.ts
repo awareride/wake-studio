@@ -11,7 +11,7 @@ import {
   FFT_SIZE,
   SPECTRUM_BINS,
   HANN_WINDOW,
-} from '../dsp'
+} from '../core/dsp'
 
 // ---------------------------------------------------------------------------
 // fft()

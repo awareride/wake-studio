@@ -14,18 +14,26 @@ workflows are `workflow_dispatch` and never push.
 
 ## 2. The five steps for every artifact
 
-1. **Workflow** — `.github/workflows/<artifact>.yml`, `workflow_dispatch`,
-   uploads the artifact (name + version pinned in the workflow). Existing:
-   `build-sherpa-onnx-kws-wasm.yml`, `export-plixkws.yml`.
-2. **Fetch script** — `scripts/fetch-<artifact>.mjs` (shared pattern; see §3)
-   downloads the artifact into `prebuilts/` or `public/<module>/`, verifies the
-   expected files + hash, and fails loudly on mismatch.
+1. **Workflow** — the **generic build skeleton** `.github/workflows/build.yaml`
+   (ADR-027 §6.7) builds any module's artifact: it reads the module's
+   `spec/module.spec.json` `build` block (script, toolchains, inputs,
+   artifactName), installs the declared toolchains, runs
+   `node scripts/build-module.mjs <module-id>`, and uploads the artifact.
+   Module-owned build logic lives in `scripts/build-<id>.mjs` under the module
+   (e.g. `packages/modules/kws/sherpa/scripts/build-sherpa-kws.mjs`). The
+   bespoke `build-sherpa-onnx-kws-wasm.yml` / `export-plixkws.yml` were folded
+   into this skeleton (2026-08-05).
+2. **Fetch script** — `scripts/fetch-artifact.mjs <module-id>` (shared, generic;
+   reads the module spec's `build.artifactName`) downloads the artifact into
+   the owning module's `assets/`, or copies from a local dir
+   (`--from <dir>`). It fails loudly on mismatch.
 3. **Registry entry** — `apps/web/public/model-registry.json` records per
    artifact: version, source workflow, artifact name, sha256, fetch command,
    updated date. This is the **single shared fact source** for the web app and
    the local service (ADR-027).
-4. **Package script** — `pnpm fetch:<artifact>`; a top-level `pnpm fetch:all`
-   runs every fetch script.
+4. **Package script** — each module's `fetch:all` runs
+   `node ../../../../scripts/fetch-artifact.mjs <module-id>`; a top-level
+   `pnpm fetch:all` runs every module's fetch.
 5. **Missing-asset UX** — if the artifact is absent at runtime, the module
    surfaces "run `pnpm fetch:<artifact>`" instead of failing silently.
 
@@ -62,10 +70,10 @@ node scripts/fetch-<artifact>.mjs [--force] [--version <v>]
 
 ## 5. Current inventory
 
-| Artifact | Workflow | Fetch script | Dest | Registry key |
+| Artifact | Build (module build block) | Fetch | Dest | Registry key |
 |---|---|---|---|---|
-| sherpa-onnx-kws wasm | `build-sherpa-onnx-kws-wasm.yml` | `fetch-sherpa-kws-assets.mjs` | `apps/web/public/sherpa-onnx-kws/` (legacy; moves to `packages/modules/kws/.../assets/` when the KWS module lands) | `sherpa-kws` |
-| PLiX ONNX encoder | `export-plixkws.yml` | (pending standardized script) | `apps/web/prebuilts/plixkws/` (legacy; moves with the Few-Shot module) | `plixkws` |
+| sherpa-onnx-kws wasm | `kws-sherpa` (`.github/workflows/build.yaml` + `scripts/build-sherpa-kws.mjs`) | `scripts/fetch-artifact.mjs kws-sherpa` | `packages/modules/kws/sherpa/assets/` | `kws-sherpa` |
+| PLiX ONNX encoder | `kws-plix` (`.github/workflows/build.yaml` + `scripts/build-plix.mjs`) | `scripts/fetch-artifact.mjs kws-plix` | `packages/modules/kws/plix/assets/` | `kws-plix` |
 | RNNoise wasm (pilot) | embedded base64 in `web/vendor/`; standalone CI build planned | (not needed while embedded) | `packages/modules/afe/rnnoise/assets/` | `rnnoise` |
 
 > **Asset placement rule (ADR-025):** new artifacts go into the owning module's

@@ -17,12 +17,14 @@
  */
 
 // Vendored prebuilt RNNoise (WASM embedded in rnnoise-sync.js as base64).
-import './vendor/rnnoise/polyfills'
-import RnnoiseProcessor from './vendor/rnnoise/RnnoiseProcessor'
-import createRNNWasmModuleSync from './vendor/rnnoise/generated/rnnoise-sync'
-import type { MainMessage, StageFrameData, WorkletMessage } from './types'
-import { CIRCULAR_BUFFER_SIZE, RNNOISE_FRAME_SIZE } from './defaults'
-import { computeSpectrum, downsample48to16, downsampleForViz, levelDb } from './dsp'
+// The RNNoise wasm itself lives in the rnnoise module (ADR-025); this module
+// vendors the pipeline processor's copy to keep the worklet self-contained.
+import '../../vendor/rnnoise/polyfills'
+import RnnoiseProcessor from '../../vendor/rnnoise/RnnoiseProcessor'
+import createRNNWasmModuleSync from '../../vendor/rnnoise/generated/rnnoise-sync'
+import type { MainMessage, StageFrameData, WorkletMessage } from '../core/types'
+import { CIRCULAR_BUFFER_SIZE, RNNOISE_FRAME_SIZE } from '../core/defaults'
+import { computeSpectrum, downsample48to16, downsampleForViz, levelDb } from '../core/dsp'
 
 const PROCESSOR_NAME = 'pipeline-processor'
 
