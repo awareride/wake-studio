@@ -20,3 +20,4 @@ export {
   saveProject,
 } from './store'
 export { ProjectProvider, useProjects, defaultConfigSnapshot } from './context'
+export { useProjectStageConfig, type ProjectStage } from './useProjectStageConfig'

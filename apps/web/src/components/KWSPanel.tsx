@@ -16,6 +16,7 @@ import type {
 import { MEL_WINDOW_SIZE } from '../kws'
 import type { SherpaOnnxKwsConfig } from '../kws'
 import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
+import { useProjectStageConfig } from '../projects'
 
 // Default keyword list for the sherpa-onnx KWS backend (matches the model
 // prebuilt into the wasm .data bundle). For the wenetspeech-3.3M-2024-01-01
@@ -54,7 +55,12 @@ export const KWSPanel = memo(function KWSPanel({
   const [running, setRunning] = useState(false)
   const [triggerFlash, setTriggerFlash] = useState(false)
   const [warmup, setWarmup] = useState(false)
-  const [config, setConfig] = useState<KWSConfig>({ ...DEFAULT_CONFIG })
+  // Seed config from the active project's KWS snapshot (falls back to defaults).
+  const { projectConfig: projCfg, persist } = useProjectStageConfig('kws')
+  const [config, setConfig] = useState<KWSConfig>({
+    ...DEFAULT_CONFIG,
+    ...(projCfg as Partial<KWSConfig> | undefined),
+  })
   const [executionProvider, setExecutionProvider] = useState<'webgpu' | 'wasm'>(
     'wasm',
   )
@@ -112,7 +118,9 @@ export const KWSPanel = memo(function KWSPanel({
       engineRef.current?.setConfig(patch)
       return next
     })
-  }, [])
+    // Persist to the active project's KWS snapshot.
+    persist(patch)
+  }, [persist])
 
   // Render the score curve via requestAnimationFrame.
   useEffect(() => {

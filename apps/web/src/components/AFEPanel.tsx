@@ -5,6 +5,7 @@ import { AFEPipeline as AFEPipelineClass } from '../afe'
 import type { StageFrameData } from '../afe'
 import { describeParameters } from '../afe'
 import { UnifiedConfigPanel } from './UnifiedConfigPanel'
+import { useProjectStageConfig } from '../projects'
 import { PipelineOverview } from './PipelineOverview'
 import { RecordReplay } from './RecordReplay'
 
@@ -16,11 +17,13 @@ interface AFEPanelProps {
 }
 
 export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps) {
+  const { projectConfig: projCfg, persist } = useProjectStageConfig('afe')
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [latencyMs, setLatencyMs] = useState(0)
   const [frameData, setFrameData] = useState<Record<string, StageFrameData>>({})
-  const [vizFps, setVizFps] = useState(30)
+  // Seed vizFps from the active project's AFE snapshot (falls back to 30).
+  const [vizFps, setVizFps] = useState(projCfg?.vizFps ?? 30)
   const [bypass, setBypass] = useState({ aec: true, bss: true, ns: false })
 
   // Keep a ref to bypass so toggleBypass has a stable identity (for memo).
@@ -194,6 +197,7 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
               const n = Number(v)
               setVizFps(n)
               afeRef.current?.setConfig({ vizFps: n })
+              persist({ vizFps: n })
             } else if (id.startsWith('bypass.')) {
               const stageId = id.slice('bypass.'.length) as 'aec' | 'bss' | 'ns'
               toggleBypass(stageId)

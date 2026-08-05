@@ -81,13 +81,24 @@ export function WorkspaceView() {
         </TabsList>
         <TabsContent value="live" className="mt-4">
           <div className="space-y-8">
+            {/* key={current?.id} remounts the panels when the project changes
+                so their config re-seeds from the new project's snapshot. */}
             <AFEPanel
+              key={`afe-${current?.id ?? 'none'}`}
               afeRef={afeRef}
               onRunningChange={setAfeRunning}
               commandRef={afeCommandRef}
             />
-            <KWSPanel afePipeline={afeRef.current} afeRunning={afeRunning} />
-            <FewShotPanel afePipeline={afeRef.current} afeRunning={afeRunning} />
+            <KWSPanel
+              key={`kws-${current?.id ?? 'none'}`}
+              afePipeline={afeRef.current}
+              afeRunning={afeRunning}
+            />
+            <FewShotPanel
+              key={`fs-${current?.id ?? 'none'}`}
+              afePipeline={afeRef.current}
+              afeRunning={afeRunning}
+            />
           </div>
         </TabsContent>
         <TabsContent value="modules" className="mt-4">

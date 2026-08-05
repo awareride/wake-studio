@@ -5,6 +5,7 @@ import type { KWSScoreSample, KWSStatus } from '../kws'
 import { FewShotEngine, DEFAULT_CONFIG as FS_DEFAULTS, describeParameters } from '../few-shot'
 import type { EnrolledSample, FewShotConfig, WakeWordPrototype } from '../few-shot'
 import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
+import { useProjectStageConfig } from '../projects'
 import recorderUrl from '../few-shot/recorder.worklet.ts?worker&url'
 import type { ModelRuntime } from '../runtime'
 import {
@@ -59,14 +60,20 @@ export const FewShotPanel = memo(function FewShotPanel({
   const [triggerFlash, setTriggerFlash] = useState(false)
   const [prototype, setPrototype] = useState<WakeWordPrototype | null>(null)
   const [building, setBuilding] = useState(false)
-  const [config, setConfigState] = useState<FewShotConfig>({ ...FS_DEFAULTS })
+  const { projectConfig: projCfg, persist } = useProjectStageConfig('fewShot')
+  const [config, setConfigState] = useState<FewShotConfig>({
+    ...FS_DEFAULTS,
+    ...(projCfg as Partial<FewShotConfig> | undefined),
+  })
   const updateConfig = useCallback((patch: Partial<FewShotConfig>) => {
     setConfigState((prev) => {
       const next = { ...prev, ...patch }
       fsEngineRef.current?.setConfig(patch)
       return next
     })
-  }, [])
+    // Persist to the active project's Few-Shot snapshot.
+    persist(patch)
+  }, [persist])
   const [encoderVariant, setEncoderVariant] =
     useState<PlixEncoderVariant['id']>(DEFAULT_VARIANT)
   const [runtime, setRuntime] = useState<ModelRuntime>('onnx')
