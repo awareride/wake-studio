@@ -2,8 +2,9 @@ import { memo, useCallback, useRef, useState, useEffect } from 'react'
 import type { AFEPipeline } from '../afe'
 import { KWSEngine, DEFAULT_CONFIG as KWS_DEFAULTS } from '../kws'
 import type { KWSScoreSample, KWSStatus } from '../kws'
-import { FewShotEngine, DEFAULT_CONFIG as FS_DEFAULTS } from '../few-shot'
+import { FewShotEngine, DEFAULT_CONFIG as FS_DEFAULTS, describeParameters } from '../few-shot'
 import type { EnrolledSample, FewShotConfig, WakeWordPrototype } from '../few-shot'
+import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
 import recorderUrl from '../few-shot/recorder.worklet.ts?worker&url'
 import type { ModelRuntime } from '../runtime'
 import {
@@ -58,11 +59,17 @@ export const FewShotPanel = memo(function FewShotPanel({
   const [triggerFlash, setTriggerFlash] = useState(false)
   const [prototype, setPrototype] = useState<WakeWordPrototype | null>(null)
   const [building, setBuilding] = useState(false)
-  const [config] = useState<FewShotConfig>({ ...FS_DEFAULTS })
+  const [config, setConfigState] = useState<FewShotConfig>({ ...FS_DEFAULTS })
+  const updateConfig = useCallback((patch: Partial<FewShotConfig>) => {
+    setConfigState((prev) => {
+      const next = { ...prev, ...patch }
+      fsEngineRef.current?.setConfig(patch)
+      return next
+    })
+  }, [])
   const [encoderVariant, setEncoderVariant] =
     useState<PlixEncoderVariant['id']>(DEFAULT_VARIANT)
   const [runtime, setRuntime] = useState<ModelRuntime>('onnx')
-  const [advancedOpen, setAdvancedOpen] = useState(false)
   const historyRef = useRef<KWSScoreSample[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -442,44 +449,23 @@ export const FewShotPanel = memo(function FewShotPanel({
           />
         </div>
 
-        {/* Advanced (collapsible) — §4.1 Few-Shot advanced params */}
+        {/* Config (unified, spec-driven) — §4.1 Few-Shot params. */}
         <div className="mb-6 rounded-xl border border-line bg-surface-2 p-5">
-          <button
-            onClick={() => setAdvancedOpen((v) => !v)}
-            className="text-xs font-medium text-ink-2 hover:text-ink-1"
-          >
-            {advancedOpen ? '▾' : '▸'} Advanced
-          </button>
-          {advancedOpen && (
-            <div className="mt-3 grid gap-4 sm:grid-cols-2">
-              <label className="flex items-center gap-3 text-sm">
-                <span className="w-36 shrink-0 text-ink-2">Mel preprocessing</span>
-                <input type="checkbox" defaultChecked className="accent-brand-400" />
-                <span className="text-xs text-ink-3">64x100 log-Mel</span>
-              </label>
-              <label className="flex items-center gap-3 text-sm">
-                <span className="w-36 shrink-0 text-ink-2">Frame cache</span>
-                <input
-                  type="number"
-                  defaultValue={1500}
-                  min={500}
-                  max={3000}
-                  step={100}
-                  className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-1"
-                />
-                <span className="text-xs text-ink-3">ms</span>
-              </label>
-              <label className="flex items-center gap-3 text-sm">
-                <span className="w-36 shrink-0 text-ink-2">Feature smoothing</span>
-                <input type="checkbox" defaultChecked className="accent-brand-400" />
-              </label>
-              <label className="flex items-center gap-3 text-sm">
-                <span className="w-36 shrink-0 text-ink-2">Embedding viz</span>
-                <input type="checkbox" className="accent-brand-400" />
-                <span className="text-xs text-ink-3">show 1280-d vector</span>
-              </label>
-            </div>
-          )}
+          <UnifiedConfigPanel
+            title="Detection parameters"
+            subtitle="Rendered from describeParameters() via module-kit controls."
+            params={describeParameters()}
+            values={config as unknown as Record<string, ParamValue>}
+            onParamChange={(id, v) => updateConfig({ [id]: v })}
+            advancedIds={[
+              'smoothingWindowFrames',
+              'windowMs',
+              'vadGateEnabled',
+              'vadThreshold',
+              'useNegativePrototype',
+            ]}
+            disabled={detecting}
+          />
         </div>
         </>
       )}

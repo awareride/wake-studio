@@ -12,7 +12,7 @@
  */
 
 import type { ModuleParam } from '@wake-studio/contracts'
-import { renderParamRow } from '@wake-studio/module-kit'
+import { renderParamRow, UiCollapsible } from '@wake-studio/module-kit'
 import type { ParameterDescriptor } from '../afe'
 import { cn } from '../components/cn'
 
@@ -41,9 +41,44 @@ interface UnifiedConfigPanelProps {
   params: ReadonlyArray<ParameterDescriptor>
   values: Record<string, ParamValue>
   onParamChange: (id: string, value: ParamValue) => void
-  /** Placeholder for primary/advanced grouping (used by the panels). */
-  group?: 'primary' | 'advanced'
+  /** Param ids rendered under an "Advanced" collapsible (panel UI decision). */
+  advancedIds?: string[]
+  /** Disabled controls (e.g. while running). */
+  disabled?: boolean
   className?: string
+}
+
+function ParamRows({
+  ids,
+  params,
+  values,
+  onParamChange,
+  disabled,
+}: {
+  ids: string[]
+  params: ReadonlyArray<ParameterDescriptor>
+  values: Record<string, ParamValue>
+  onParamChange: (id: string, value: ParamValue) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="divide-y divide-line">
+      {ids.map((id) => {
+        const desc = params.find((p) => p.id === id)
+        if (!desc) return null
+        return (
+          <div key={desc.id}>
+            {renderParamRow(
+              toModuleParam(desc),
+              values[desc.id] ?? desc.default,
+              (v: unknown) => onParamChange(desc.id, v as ParamValue),
+              disabled,
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 export function UnifiedConfigPanel({
@@ -52,21 +87,39 @@ export function UnifiedConfigPanel({
   params,
   values,
   onParamChange,
+  advancedIds = [],
+  disabled,
   className,
 }: UnifiedConfigPanelProps) {
+  const primaryIds = params.map((p) => p.id).filter((id) => !advancedIds.includes(id))
+  const advanced = params.filter((p) => advancedIds.includes(p.id))
+
   return (
     <div className={cn('rounded-xl border border-line bg-surface-2 p-5', className)}>
       {title && <h3 className="mb-1 text-sm font-semibold text-ink-1">{title}</h3>}
       {subtitle && <p className="mb-3 text-xs text-ink-3">{subtitle}</p>}
-      <div className="divide-y divide-line">
-        {params.map((desc) => (
-          <div key={desc.id}>
-            {renderParamRow(toModuleParam(desc), values[desc.id] ?? desc.default, (v: unknown) =>
-              onParamChange(desc.id, v as ParamValue),
-            )}
-          </div>
-        ))}
-      </div>
+      <ParamRows
+        ids={primaryIds}
+        params={params}
+        values={values}
+        onParamChange={onParamChange}
+        disabled={disabled}
+      />
+      {advanced.length > 0 && (
+        <div className="mt-3 border-t border-line pt-2">
+          <UiCollapsible label="Advanced">
+            <div className="pt-2">
+              <ParamRows
+                ids={advanced.map((p) => p.id)}
+                params={params}
+                values={values}
+                onParamChange={onParamChange}
+                disabled={disabled}
+              />
+            </div>
+          </UiCollapsible>
+        </div>
+      )}
     </div>
   )
 }
