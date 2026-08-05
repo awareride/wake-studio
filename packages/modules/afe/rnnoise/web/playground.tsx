@@ -8,10 +8,15 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { UiSlider, UiToggle, UiButton, UiWaveform, UiCurve, UiBar, UiCollapsible } from '@wake-studio/module-kit'
+import { UiSlider, UiToggle, UiButton, UiWaveform, UiCurve, UiBar, UiCollapsible, renderPanel, type ModulePanelController } from '@wake-studio/module-kit'
 import { loadRnnoise, type RnnoiseModule } from './index'
 import { RNNOISE_FRAME_SIZE } from '../core'
 import { frameRms } from '../core/dsp'
+import { RNNOISE_SPEC } from '../spec'
+
+// Generated panel from the real module spec (ADR-025 §3). The engine state is
+// wired to it via a controller, proving the spec -> panel -> engine loop.
+const RnnoiseGeneratedPanel = renderPanel(RNNOISE_SPEC)
 
 const SAMPLE_RATE = 48000
 
@@ -77,6 +82,29 @@ export default function RnnoisePlayground() {
     setOutRms(0)
     setInput([])
     setOutput([])
+  }
+
+  // Controller for the generated panel: spec params <-> engine config, live
+  // status fed from the last processed frame.
+  const generatedController: ModulePanelController = {
+    values: {
+      strength,
+      denoiseEnabled,
+    },
+    setValue: (id, value) => {
+      if (id === 'strength') setStrength(value as number)
+      if (id === 'denoiseEnabled') setDenoiseEnabled(Boolean(value))
+    },
+    runAction: (actionId) => {
+      if (actionId === 'load') {
+        // Engine is eagerly created on mount; re-run a frame as a "load" demo.
+        handleStep()
+      }
+      if (actionId === 'reset') handleReset()
+    },
+    status: {
+      vadProbability: vad,
+    },
   }
 
   return (
@@ -193,6 +221,15 @@ export default function RnnoisePlayground() {
             <UiBar value={vad} threshold={0.5} height={6} className="mt-2" />
           </div>
         </div>
+      </div>
+
+      {/* Generated panel from the real spec (ADR-025 §3). The controller wires
+          spec params to the engine; proving spec -> panel -> engine end-to-end. */}
+      <div className="mt-8 border-t border-white/10 pt-6">
+        <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+          Spec-driven generated panel
+        </div>
+        <RnnoiseGeneratedPanel controller={generatedController} />
       </div>
     </section>
   )
