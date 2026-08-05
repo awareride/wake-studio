@@ -81,12 +81,42 @@ export interface ModuleRuntime {
 
 /** Train-script declaration (ADR-028: run via `uv run`). */
 export interface ModuleTrain {
-  entry: string
+  /** Local uv script (ADR-028), e.g. "train/train.py". */
+  entry?: string
   python?: string
-  deps: string
+  deps?: string
   /** Who may invoke: "subprocess" (local service), "ci", "colab". */
   invocation: Array<'subprocess' | 'ci' | 'colab'>
   outputs: Record<string, string>
+  /**
+   * Upstream-script adapter (human decision 2026-08-05): invoke a pinned
+   * upstream repo script we do NOT own, without rewriting it. Either `script`
+   * or `notebook` (not both with `entry`).
+   */
+  script?: {
+    repo: string
+    path: string
+    ref: string
+    language: 'python' | 'node' | 'shell'
+    entrypoint?: string
+    args?: string[]
+    env?: Record<string, string>
+  }
+  /** Upstream Colab notebook adapter (ADR-023). */
+  notebook?: {
+    repo: string
+    path: string
+    ref: string
+    paramsCell?: number
+    outputsCell?: string
+  }
+  /** Output-normalization adapter id (e.g. "standardize-results"). */
+  adapter?: string
+  adapterOptions?: {
+    modelRegex?: string
+    metricsParser?: string
+    [key: string]: unknown
+  }
 }
 
 /** A build input for the generic build workflow (workflow_dispatch input). */

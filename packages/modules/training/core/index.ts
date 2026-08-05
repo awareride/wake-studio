@@ -11,5 +11,6 @@ export {
   type ArtifactBundle,
   type ArtifactBundleMetadata,
   type ArtifactProvenance,
+  type ResultsAdapter,
   validateBundle,
 } from './manifest'

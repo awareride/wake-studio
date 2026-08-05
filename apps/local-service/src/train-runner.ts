@@ -48,7 +48,15 @@ export async function runTrain(
 
   // train.entry is relative to the MODULE root (e.g. "train/train.py", per
   // spec.train.entry); resolve it against the train dir for uv.
-  const entryRel = train.entry.replace(/^train\//, '')
+  const entryRel = train.entry?.replace(/^train\//, '')
+  if (!entryRel) {
+    // Upstream-script adapter path (docs/modules/training.md §4): the script
+    // is fetched/run by the adapter, not a local uv entry. The local-service
+    // invocation for this shape is handled by the adapter in Phase 5.
+    throw new Error(
+      `module ${module.id} declares no local train entry (adapter-based train lands in Phase 5)`,
+    )
+  }
 
   const args = [
     'run',

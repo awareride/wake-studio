@@ -19,6 +19,16 @@ retrieved. This contract is locked **before** the training module's spec +
 panel are built (§6.5 Step B). Backend implementations land in goal.plan
 Phase 5.
 
+> **Design principle (human, 2026-08-05): preserve upstream train scripts /
+> notebooks as-is; adapt THEM to WakeStudio's API, not the other way round.**
+> Upstream training artifacts (a project's `train.py`, a Colab `.ipynb`) are
+> third-party works we select, integrate, and package - we do not rewrite or
+> fork them (matches the project's "select, integrate, harden, and package"
+> principle). WakeStudio adapts to whatever a script/notebook already is: a
+> thin **adapter layer** declares how to invoke it and how to normalize its
+> outputs into the standard bundle, without imposing a required script/notebook
+> shape.
+
 ## 2. The common training-job interface (ADR-013)
 
 All three backends share one shape, so the PWA flow is identical regardless of
@@ -91,7 +101,64 @@ own endpoint - auth is a per-deployment concern (Phase 5).
 **Status** is currently synchronous (the skeleton blocks on `runTrain`); Phase 5
 adds job queueing + streaming progress so the PWA shows live status.
 
-## 4. Artifact bundle manifest (single retrieval contract)
+## 4. Upstream-script adapters - we adapt to the script, not vice versa (human decision)
+
+**We never rewrite an upstream `train.py` / `.ipynb`.** Instead, every module's
+`spec/train` block gains an **adapter contract** that declares HOW to invoke
+the upstream artifact and HOW to normalize its output. The upstream script
+stays byte-identical; WakeStudio wraps it.
+
+### 4.1 `spec/train` adapter fields (extended ModuleTrain)
+
+```jsonc
+// spec/module.spec.json
+"train": {
+  // HOW to invoke the upstream artifact (exactly one of the following):
+  "entry": "train/train.py",            // (existing) local uv script (ADR-028)
+  "script": {                            // NEW: an upstream repo script we do NOT own
+    "repo": "https://github.com/dscripka/openWakeWord.git",  // pinned ref
+    "path": "train.py",                  // relative path in that repo
+    "ref": "<commit|tag>",
+    "language": "python",                // python | node | shell
+    "entrypoint": "main",                // function/CLI to call
+    "args": ["--epochs", "{{params.epochs}}"],  // template: {{params.*}}
+    "env": { "DATA_DIR": "{{env.dataDir}}" }
+  },
+  "notebook": {                          // NEW: an upstream Colab notebook
+    "repo": "...", "path": "train.ipynb", "ref": "...",
+    "paramsCell": 3,                     // cell index whose code maps to job params
+    "outputsCell": "last"                // where the notebook writes results
+  },
+  // HOW to normalize the output into the standard bundle (single importer):
+  "outputs": {                           // (existing) declared outputs
+    "checkpoint": "out/model.onnx",
+    "metrics": "out/metrics.json"
+  },
+  "adapter": "standardize-results",      // NEW: a normalization adapter id
+  "adapterOptions": {                     // NEW: per-adapter config
+    "modelRegex": "model\\.(onnx|tflite)$",  // find the model in the run dir
+    "metricsParser": "openwakeword-json"       // how to parse metrics.json
+  }
+}
+```
+
+### 4.2 The adapter runs in three places (one code path)
+
+| Where | What invokes the adapter | Notes |
+|---|---|---|
+| local-service | `train-runner.ts` (uv, ADR-028) | clones the pinned upstream ref into a cache, runs the upstream script, then normalizes outputs |
+| CI `train-<module>.yml` | same `train-runner` path | one code path, two callers (ADR-028) |
+| Colab | the notebook itself (a WakeStudio-provided cell) | see §5 |
+
+### 4.3 Standardize-results adapter (the normalization contract)
+
+`standardize-results` is the **single importer**: given a run's output dir (any
+shape), it finds the model + metrics + provenance and produces the standard
+bundle (§6). Adapters are per-upstream-project (openWakeWord, micro-wake-word,
+wakeforge/ww_trainer, ...), each a small parser - the upstream artifact is
+never changed. This is exactly the "we package, we do not invent" stance.
+
+## 6. Artifact bundle manifest (single retrieval contract)
 
 One manifest serves ALL backends - local-service, cloud, and Colab - so the PWA
 has **one importer** that validates + imports any trained model:
@@ -123,14 +190,17 @@ wake-studio-results/<job-id>/
 the model commercially clean (trained = user-owned) or carries the third-party
 license if the training wrapped a restricted model.
 
-## 5. Google Colab (ADR-023) - output-retrieval convention
+## 7. Google Colab (ADR-023) - output-retrieval convention
 
 Colab is the fourth backend: the PWA opens a notebook, the user runs it in
-their own Colab session, and **imports the results back**. Convention:
+their own Colab session, and **imports the results back**. Per §4, we **do not
+rewrite** an upstream notebook - we adapt to it:
 
-1. Notebooks live versioned in the repo under `colab/<module>.ipynb`.
-2. A notebook writes its results to the **standard bundle layout** (§4) into
-   a `wake-studio-results/` folder (in the Colab runtime / Drive).
+1. Upstream notebooks stay byte-identical; the module's `spec/train.notebook`
+   declares which cell maps job params and which cell writes results.
+2. A **WakeStudio-provided adapter cell** (prepended by the local-service / CI
+   path, or the user pastes it into Colab) normalizes the notebook's output
+   dir into the standard bundle (§6) via `standardize-results`.
 3. The user downloads the bundle (zip from Drive / notebook file download).
 4. The PWA's "Import Colab results" flow: pick a zip / Drive folder -> the
    importer validates against the manifest (`metadata.json` + `provenance.json`)
@@ -139,7 +209,7 @@ their own Colab session, and **imports the results back**. Convention:
 No WakeStudio server is involved; the user's Google account is the only
 credential (ADR-023).
 
-## 6. Cloud Providers (ADR-013)
+## 8. Cloud Providers (ADR-013)
 
 Per-provider adapters (AWS / GCP / HF / Alibaba / Tencent / Volcengine) behind
 the common interface: submit job, poll status, download artifacts. Credentials
@@ -147,7 +217,7 @@ are **client-side only**, never sent to a WakeStudio server, never logged or
 bundled into artifacts. The shared bundle manifest (§4) is the retrieval shape
 for every provider. Capability labels: train-capable vs inference-only.
 
-## 7. Provenance & licensing
+## 9. Provenance & licensing
 
 - A trained model's `provenance.json` declares it user-owned / commercially
   clean - so the Phase 4 license gate treats it as exportable (unlike
@@ -155,7 +225,7 @@ for every provider. Capability labels: train-capable vs inference-only.
 - Generated audio (data-source layer, ADR-022) ownership is recorded per
   source.
 
-## 8. Open questions [Q] - for human review
+## 10. Open questions [Q] - for human review
 
 | ID | Question | Recommended default |
 |---|---|---|
@@ -164,13 +234,15 @@ for every provider. Capability labels: train-capable vs inference-only.
 | T-3 | **Artifact serving auth on a deployed self-hosted service** | Deferred to Phase 5 (per-deployment concern); localhost has no auth. |
 | T-4 | **Where the bundle manifest lives in the PWA** | `packages/modules/training/core/manifest.ts` - the single importer used by all backends. |
 | T-5 | **Which modules have a `train/` target in v1** | kws drivers (sherpa: transduce model frozen, so NO train - it's inference-only per ADR-024 ASR-Decoding; openwakeword: traditional train in Phase 5; plix: encoder is frozen). Training targets land with goal.plan Phase 5 backends. |
+| T-6 | **Upstream-script adapters (§4): preserve scripts/notebooks as-is vs rewrite** | ✅ **RESOLVED (human, 2026-08-05): preserve.** WakeStudio adapts to the upstream artifact (declare invocation + normalize outputs), never rewrites it. Spec `train` gains `script`/`notebook` + `adapter`/`adapterOptions` fields. |
 
 > T-5 note: per ADR-024, ASR-Decoding (sherpa) is **inference-only** - it has no
 > train target. The training module's first real `train/` targets are the
 > Traditional/MCU path (openWakeWord-style training, goal.plan Phase 5).
 
-## 9. Change log
+## 11. Change log
 
 | Date | Change | Author |
 |---|---|---|
 | 2026-08-05 | Initial draft (docs-first, §6.5 Step A). | agent |
+| 2026-08-05 | **§4 upstream-script adapters** (human decision: preserve upstream train.py/ipynb; adapt to them). Spec `train` gains `script`/`notebook`/`adapter` fields; `standardize-results` is the single importer. Sections renumbered. | agent |

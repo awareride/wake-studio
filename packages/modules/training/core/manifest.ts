@@ -41,6 +41,26 @@ export interface ArtifactBundle {
   }
 }
 
+/**
+ * Output-normalization adapter (docs/modules/training.md §4.3).
+ *
+ * `standardize-results` is the single importer: given an upstream run's
+ * output dir (ANY shape - openWakeWord, micro-wake-word, wakeforge/ww_trainer,
+ * ...), it finds the model + metrics + provenance and produces the standard
+ * bundle. The upstream artifact is never changed (human decision 2026-08-05:
+ * we adapt to the script, not vice versa).
+ */
+export interface ResultsAdapter {
+  /** Adapter id (e.g. "standardize-results"). */
+  readonly id: string
+  /**
+   * Normalize an upstream run's output dir into the standard bundle.
+   * @param runDir   the upstream script's output directory (any shape)
+   * @param options  adapterOptions from spec/train (modelRegex, metricsParser, ...)
+   */
+  standardize(runDir: string, options?: Record<string, unknown>): Promise<ArtifactBundle>
+}
+
 /** Validate an imported bundle against the manifest shape. */
 export function validateBundle(bundle: Partial<ArtifactBundle>): bundle is ArtifactBundle {
   return (
