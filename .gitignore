@@ -59,3 +59,8 @@ apps/web/public/sherpa-onnx-kws/
 # never committed (ADR-011).
 packages/modules/*/*/assets/*
 !packages/modules/*/*/assets/README.md
+
+# uv train environments + runtime outputs (ADR-028)
+packages/modules/*/*/train/.venv/
+packages/modules/*/*/train/out/
+packages/modules/*/*/train/*.egg-info/

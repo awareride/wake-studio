@@ -8,7 +8,8 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./validator": "./src/validator.ts"
   },
   "scripts": {
     "lint": "eslint .",
@@ -17,9 +18,17 @@
     "fetch:all": "echo 'no artifacts'"
   },
   "dependencies": {
-    "@wake-studio/contracts": "workspace:*"
+    "@radix-ui/react-collapsible": "^1.1.20",
+    "@radix-ui/react-progress": "^1.1.16",
+    "@radix-ui/react-select": "^2.3.7",
+    "@radix-ui/react-slider": "^1.4.7",
+    "@radix-ui/react-switch": "^1.3.7",
+    "@wake-studio/contracts": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/react": "^18.3.12",
     "typescript": "~5.6.3",
     "vitest": "^2.1.9"
   }

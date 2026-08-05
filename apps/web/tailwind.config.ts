@@ -1,7 +1,17 @@
 import type { Config } from 'tailwindcss'
 
 export default {
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  content: [
+    './index.html',
+    './src/**/*.{ts,tsx}',
+    // Monorepo: scan module-kit UI classes (ADR-025) so spec-driven controls
+    // and the panel generator get Tailwind utilities.
+    '../../packages/module-kit/src/**/*.{ts,tsx}',
+    // Module web targets (playgrounds etc). Scoped to avoid scanning
+    // node_modules / vendor glue.
+    '../../packages/modules/*/*/web/**/*.{ts,tsx}',
+    '../../packages/modules/*/*/core/**/*.{ts,tsx}',
+  ],
   theme: {
     extend: {
       colors: {
