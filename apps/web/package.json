@@ -34,6 +34,7 @@
     "@wake-studio/module-kws-sherpa": "workspace:^",
     "@wake-studio/module-few-shot": "workspace:^",
     "@wake-studio/module-rnnoise": "workspace:^",
+    "@wake-studio/module-training": "workspace:^",
     "@wake-studio/platform": "workspace:^",
     "onnxruntime-web": "^1.27.0",
     "react": "^18.3.1",

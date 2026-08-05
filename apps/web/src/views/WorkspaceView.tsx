@@ -19,7 +19,7 @@ import * as React from 'react'
 import { AFEPanel } from '../components/AFEPanel'
 import { KWSPanel } from '../components/KWSPanel'
 import { FewShotPanel } from '../components/FewShotPanel'
-import { TrainingPanel } from '../components/TrainingPanel'
+import { TrainingModulePanel } from '@wake-studio/module-training/web'
 import { PipelineView } from '../components/PipelineView'
 import { Domains } from '../components/Domains'
 import { ProjectBar } from '../components/ProjectBar'
@@ -104,7 +104,7 @@ export function WorkspaceView() {
           </TabsContent>
           <TabsContent value="modules" className="p-5">
             <div className="space-y-8">
-              <TrainingPanel />
+              <TrainingModulePanel />
               <PipelineView />
               <Domains />
             </div>

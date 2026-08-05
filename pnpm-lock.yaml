@@ -81,6 +81,9 @@ importers:
       '@wake-studio/module-rnnoise':
         specifier: workspace:^
         version: link:../../packages/modules/afe/rnnoise
+      '@wake-studio/module-training':
+        specifier: workspace:^
+        version: link:../../packages/modules/training
       '@wake-studio/platform':
         specifier: workspace:^
         version: link:../../packages/platform
@@ -505,6 +508,43 @@ importers:
       vite:
         specifier: ^5.4.11
         version: 5.4.21(@types/node@20.19.43)(terser@5.49.0)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
+
+  packages/modules/training:
+    dependencies:
+      '@wake-studio/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@wake-studio/module-kit':
+        specifier: workspace:^
+        version: link:../../module-kit
+      '@wake-studio/platform':
+        specifier: workspace:^
+        version: link:../../platform
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
+      '@types/react':
+        specifier: ^18.3.12
+        version: 18.3.31
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      typescript:
+        specifier: ~5.6.3
+        version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
       vitest:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
