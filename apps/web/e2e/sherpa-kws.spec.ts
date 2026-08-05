@@ -1,4 +1,27 @@
 import { test, expect } from '@playwright/test'
+import { existsSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// The ~53 MB wasm is gitignored (ADR-011) and fetched in CI; skip the spec
+// when it is absent (e.g. a fetch failure) rather than fail the suite.
+const here = dirname(fileURLToPath(import.meta.url))
+const sherpaWasm = resolve(
+  here,
+  '..',
+  '..',
+  '..',
+  'packages',
+  'modules',
+  'kws',
+  'sherpa',
+  'assets',
+  'sherpa-onnx-kws',
+  'sherpa-onnx-wasm-kws-main.wasm',
+)
+const SKIP_REASON = existsSync(sherpaWasm)
+  ? null
+  : 'sherpa-onnx KWS wasm not present; run `pnpm --filter @wake-studio/web fetch-sherpa-kws-assets`'
 
 /**
  * Verifies the sherpa-onnx KWS WebAssembly backend actually boots in the
@@ -14,6 +37,10 @@ import { test, expect } from '@playwright/test'
 test('sherpa-onnx-kws backend loads (wasm boots + spotter created)', async ({
   page,
 }) => {
+  test.skip(Boolean(SKIP_REASON), SKIP_REASON ?? '')
+  // The ~53 MB wasm boot can take > 30 s; the default test timeout (30 s)
+  // would fire before the 'ready' assertion. Extend per-test.
+  test.setTimeout(240_000)
   await page.goto('/')
 
   // Pick the sherpa-onnx-kws backend before loading (now in the top controls).

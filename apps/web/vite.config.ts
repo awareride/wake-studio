@@ -1,10 +1,11 @@
 import { defineConfig, type ViteDevServer, type PreviewServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import { createReadStream, statSync } from 'node:fs'
-import { resolve, dirname, extname } from 'node:path'
+import { createReadStream, statSync, cpSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
+import { resolve, dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { Plugin } from 'vite'
 
 const projectRoot = dirname(fileURLToPath(import.meta.url))
 const prebuiltsRoot = resolve(projectRoot, 'prebuilts')
@@ -12,6 +13,90 @@ const prebuiltsRoot = resolve(projectRoot, 'prebuilts')
 // Served at /modules/<category>/<module>/assets/... (ADR-025 - a module's
 // binary artifacts live with the module, not in a central prebuilts/ pool).
 const modulesRoot = resolve(projectRoot, '../../packages/modules')
+
+/**
+ * Copy each module's assets/ dir into the build output at
+ * dist/modules/<category>/<module>/assets/... (Q-K2 / ADR-025), and copy the
+ * onnxruntime-web WASM runtime from node_modules into dist/ort/ (P0-4; the
+ * wasm is a pinned npm artifact, gitignored, not committed).
+ */
+function copyModuleAssets(): Plugin {
+  return {
+    name: 'wake-studio:copy-module-assets',
+    apply: 'build',
+    closeBundle() {
+      const distModules = resolve(projectRoot, 'dist', 'modules')
+      if (existsSync(modulesRoot)) {
+        const copyTree = (src: string, dest: string) => {
+          if (!existsSync(src)) return
+          mkdirSync(dest, { recursive: true })
+          for (const entry of readdirSafe(src)) {
+            const s = join(src, entry)
+            const d = join(dest, entry)
+            if (isDir(s)) copyTree(s, d)
+            else cpSync(s, d)
+          }
+        }
+        // Copy <category>/<module>/assets -> dist/modules/<category>/<module>/assets
+        for (const category of readdirSafe(modulesRoot)) {
+          const catPath = join(modulesRoot, category)
+          if (!isDir(catPath)) continue
+          for (const mod of readdirSafe(catPath)) {
+            const assetsDir = join(catPath, mod, 'assets')
+            if (isDir(assetsDir)) {
+              copyTree(assetsDir, join(distModules, category, mod, 'assets'))
+            }
+          }
+        }
+      }
+      // Copy onnxruntime-web wasm runtime (P0-4 offline): node_modules -> dist/ort/
+      const ortDist = join(
+        projectRoot,
+        '..',
+        '..',
+        'node_modules',
+        '.pnpm',
+      )
+      const ortWasmDir = findOrtDist(ortDist)
+      if (ortWasmDir) {
+        const dest = resolve(projectRoot, 'dist', 'ort')
+        mkdirSync(dest, { recursive: true })
+        for (const f of readdirSafe(ortWasmDir)) {
+          if (f.endsWith('.wasm') && f.startsWith('ort-wasm-simd-threaded')) {
+            cpSync(join(ortWasmDir, f), join(dest, f))
+          }
+        }
+      }
+    },
+  }
+}
+
+/** Locate the onnxruntime-web dist dir in the pnpm store (first match). */
+function findOrtDist(pnpmRoot: string): string | null {
+  const versions = readdirSafe(pnpmRoot).filter((v) =>
+    v.startsWith('onnxruntime-web@'),
+  )
+  for (const v of versions) {
+    const cand = join(pnpmRoot, v, 'node_modules', 'onnxruntime-web', 'dist')
+    if (isDir(cand)) return cand
+  }
+  return null
+}
+
+function readdirSafe(p: string): string[] {
+  try {
+    return readdirSync(p) as string[]
+  } catch {
+    return []
+  }
+}
+function isDir(p: string): boolean {
+  try {
+    return statSync(p).isDirectory()
+  } catch {
+    return false
+  }
+}
 
 /**
  * Dev/preview plugin: serve the local `prebuilts/` directory at `/prebuilts/`
@@ -82,9 +167,16 @@ function servePrebuilts() {
   // -> packages/modules/<category>/<module>/assets/<rel>. A module declares its
   // artifact URLs in spec/module.spec.json runtime.web.wasm.url.
   const modulesHandler = makeHandler('/modules/', modulesRoot, '/modules/')
+  // onnxruntime-web wasm runtime (P0-4): /ort/<rel> -> node_modules dist.
+  const ortDist = findOrtDist(resolve(projectRoot, '..', '..', 'node_modules', '.pnpm'))
+  const ortHandler = ortDist
+    ? makeHandler('/ort/', ortDist)
+    : (_req: IncomingMessage, _res: ServerResponse, next: () => void) => next()
 
   const handler = (req: IncomingMessage, res: ServerResponse, next: () => void) => {
-    prebuiltsHandler(req, res, () => modulesHandler(req, res, next))
+    prebuiltsHandler(req, res, () =>
+      modulesHandler(req, res, () => ortHandler(req, res, next)),
+    )
   }
   return {
     name: 'wake-studio:serve-prebuilts',
@@ -120,6 +212,7 @@ export default defineConfig({
   plugins: [
     react(),
     servePrebuilts(),
+    copyModuleAssets(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'model-registry.json'],

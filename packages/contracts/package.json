@@ -17,6 +17,10 @@
     "fetch:all": "echo 'no artifacts'"
   },
   "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "globals": "^15.13.0",
+    "typescript-eslint": "^8.16.0",
     "typescript": "~5.6.3",
     "vitest": "^2.1.9"
   }

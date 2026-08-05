@@ -72,10 +72,10 @@ test('live workspace panels still render (AFE/KWS/Few-Shot/Training)', async ({ 
   // Few-Shot enrollment (h2 in the panel).
   await expect(page.getByRole('main').getByRole('heading', { name: 'Few-Shot enrollment' })).toBeVisible()
 
-  // Training is under the "Modules" tab.
+  // Training is under the "Modules" tab (spec-driven panel, ADR-025).
   await page.getByRole('tab', { name: 'Modules' }).click()
   await expect(
-    page.getByRole('heading', { name: /Traditional KWS — Training/i }),
+    page.getByRole('heading', { name: 'Training (custom wake-word)' }),
   ).toBeVisible()
 })
 
@@ -100,16 +100,17 @@ test('Few-Shot enrollment panel renders (Phase 3)', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Load PLiX encoder/i })).toBeVisible()
 })
 
-test('Traditional KWS Training panel renders (§4.2)', async ({ page }) => {
+test('Traditional KWS Training panel renders (§4.2, spec-driven)', async ({ page }) => {
   await page.goto('/#/workspace')
 
   await page.getByRole('tab', { name: 'Modules' }).click()
   await expect(
-    page.getByRole('heading', { name: /Traditional KWS — Training/i }),
+    page.getByRole('heading', { name: 'Training (custom wake-word)' }),
   ).toBeVisible()
-  await expect(page.getByText(/Network architecture/i)).toBeVisible()
-  await expect(page.getByText(/Target keyword list/i)).toBeVisible()
+  await expect(page.getByText(/Wake phrase/i)).toBeVisible()
+  await expect(page.getByText(/Target tier/i)).toBeVisible()
 
+  // Advanced params collapse under the dual-layer "Advanced" section (ADR-024).
   await expect(page.getByText(/Audio augmentation/i)).toBeHidden()
   await page.getByRole('button', { name: /Advanced/i }).first().click()
   await expect(page.getByText(/Audio augmentation/i)).toBeVisible()

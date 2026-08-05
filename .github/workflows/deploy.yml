@@ -8,7 +8,7 @@ name: Deploy
 #   - Settings -> Pages -> Source = "GitHub Actions"
 #   - Settings -> Environments -> create "github-pages"
 #   - Secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
-#   - A Cloudflare Pages project named "wave-studio"
+#   - A Cloudflare Pages project named "wake-studio" (ADR-014)
 on:
   workflow_dispatch:
 
@@ -39,6 +39,13 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Fetch the sherpa KWS wasm + plixkws onnx into the module assets dirs
+      # (gitignored, ADR-011). The build copies them into dist/ (P0-3).
+      - name: Fetch runtime assets
+        run: |
+          pnpm --filter @wake-studio/web fetch-sherpa-kws-assets || echo "sherpa wasm fetch failed (non-fatal for deploy; backend will 404 until built)"
+          node scripts/fetch-artifact.mjs kws-plix || echo "plixkws fetch failed (non-fatal)"
 
       # Project-page sites need a sub-path (ADR-012).
       - name: Build PWA (GitHub Pages base)
@@ -80,6 +87,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Fetch runtime assets into module assets dirs before build (P0-3).
+      - name: Fetch runtime assets
+        run: |
+          pnpm --filter @wake-studio/web fetch-sherpa-kws-assets || echo "sherpa wasm fetch failed (non-fatal for deploy; backend will 404 until built)"
+          node scripts/fetch-artifact.mjs kws-plix || echo "plixkws fetch failed (non-fatal)"
+
       # Cloudflare Pages serves at root (ADR-012).
       - name: Build PWA (Cloudflare base)
         env:
@@ -91,4 +104,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=wave-studio
+          # ADR-014: the project name is wake-studio (was wave-studio).
+          command: pages deploy dist --project-name=wake-studio

@@ -20,6 +20,7 @@
  */
 
 import * as ort from 'onnxruntime-web'
+import { resolveAsset } from '@wake-studio/platform'
 import type { PlixEncoder } from './plix-encoder'
 import {
   PLIX_SAMPLE_RATE,
@@ -31,13 +32,9 @@ import {
   fitFrames,
 } from './plix-frontend'
 
-// Serve the onnxruntime-web WASM runtime from the jsDelivr CDN (consistent with
-// the OpenWakeWord backend, which does the same). Without this, the WASM files
-// are fetched from a path relative to the worker/module URL and the session
-// build fails (the failure is otherwise swallowed by the caller). Set once at
-// module load; shared with any other backend in this worker.
-ort.env.wasm.wasmPaths =
-  'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/'
+// onnxruntime-web WASM runtime served locally from /ort/ (public dir, copied
+// into dist/ by vite - P0-4 offline support). base-aware (ADR-012).
+ort.env.wasm.wasmPaths = resolveAsset('/ort/')
 
 export class PlixOnnxEncoder implements PlixEncoder {
   readonly runtime = 'onnx' as const

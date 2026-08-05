@@ -64,3 +64,6 @@ packages/modules/*/*/assets/*
 packages/modules/*/*/train/.venv/
 packages/modules/*/*/train/out/
 packages/modules/*/*/train/*.egg-info/
+
+# onnxruntime-web wasm runtime (copied from node_modules at build, P0-4)
+apps/web/public/ort/
