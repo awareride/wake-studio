@@ -1,0 +1,83 @@
+name: Build module artifact (generic)
+
+# Generic module build skeleton (ADR-027 §6.7). One workflow builds any
+# module's external artifact (wasm/onnx/models) - it never pre-knows the
+# parameters. Each module declares in its spec/module.spec.json `build` block:
+#   - script:       module-owned build logic (scripts/build-<id>.mjs)
+#   - toolchains:   emsdk / python / uv versions to install
+#   - inputs:       the workflow_dispatch inputs (dynamic UI)
+# and this workflow does only:
+#   checkout -> install toolchains -> run node scripts/build-module.mjs <id>
+#   -> upload the artifact dir.
+#
+# The dynamic input UI is provided by the composite action in
+# .github/actions/module-build-inputs (it reads the target module's spec).
+# Dispatch a build via: Actions -> "Build module artifact (generic)".
+#
+# Inputs mirror a module's build.inputs at dispatch time; the "module" input
+# selects which module (and thus which spec + script) to build.
+
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: 'Module id to build (from spec meta.id, e.g. kws-sherpa)'
+        required: true
+        type: string
+      # Dynamic per-module inputs are appended by the composite action at
+      # dispatch time; the skeleton itself only declares the module selector.
+      # (GitHub Actions has no dynamic workflow_dispatch inputs - the module
+      # build inputs are passed via repository_dispatch payload or by the
+      # generated dispatch. See the action README.)
+
+permissions:
+  contents: read # artifacts only; no push
+
+jobs:
+  build:
+    name: Build ${{ github.event.inputs.module }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve module spec (read build.toolchains)
+        id: spec
+        uses: ./.github/actions/module-spec
+        with:
+          module: ${{ github.event.inputs.module }}
+
+      - name: Install emsdk
+        if: ${{ steps.spec.outputs.emsdk != '' }}
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ steps.spec.outputs.emsdk }}
+          actions-cache-folder: 'emsdk-cache'
+
+      - name: Setup Python
+        if: ${{ steps.spec.outputs.python != '' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ steps.spec.outputs.python }}
+
+      - name: Setup uv
+        if: ${{ steps.spec.outputs.uv == 'true' }}
+        uses: astral-sh/setup-uv@v4
+
+      - name: Run module build script
+        env:
+          # Forward the dispatch inputs to the driver (INPUT_<ID>).
+          MODULE_ID: ${{ github.event.inputs.module }}
+          ARTIFACT_DIR: ${{ runner.temp }}/artifact
+          # github.event.inputs is available to env? no - pass via a step
+          # that maps it. The driver reads INPUT_* env vars; the module
+          # build script also accepts --input-<id> flags (primary interface).
+        run: |
+          node scripts/build-module.mjs "$MODULE_ID"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.spec.outputs.artifact_name }}
+          path: ${{ runner.temp }}/artifact/**
+          retention-days: 30

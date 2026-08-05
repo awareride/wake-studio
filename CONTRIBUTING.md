@@ -140,12 +140,16 @@ WakeStudio follows a **documentation-first** workflow (see plan §11):
 
 ## How to add things later (forward references)
 
-- **A new AFE stage** (Phase 1): add a typed module under `src/afe/` implementing
-  the pluggable `AudioWorkletNode` + WASM core interface; register it in the
-  pipeline graph; add a visualization. Keep stages bypassable.
-- **A new export target** (Phase 4): add an adapter under `src/export/<target>/`
-  that emits model + AFE config + `demo/` + `README.md` + `LICENSES.md`, and a
-  `test/` FAR/FRR script. Respect the license gate.
+- **A new AFE stage implementation** (ADR-029): add a module under
+  `packages/modules/afe/<stage>/` implementing the `AFEStage` interface
+  (contracts); register it in the AFE graph's orchestration; add a playground.
+  The graph is not edited when adding a stage implementation (decoupling rule).
+- **A new KWS backend** (ADR-030): add a driver module under
+  `packages/modules/kws/<backend>/` that registers itself via
+  `registerKwsBackend` (or `mainThreadFactory`); the engine is not edited.
+- **A new export target** (Phase 4): add an SDK adapter under `device/` (or the
+  target's export module) that emits model + AFE config + `demo/` + `README.md`
+  + `LICENSES.md`, and a `test/` FAR/FRR script. Respect the license gate.
 - **A new decision**: append an ADR to `DECISIONS.md`; never delete old ones.
 
 ## License policy reminder

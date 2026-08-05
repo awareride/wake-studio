@@ -1,0 +1,98 @@
+{
+  "$schema": "../../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "kws-plix",
+    "name": "PLiX Few-Shot encoder (driver)",
+    "category": "kws",
+    "version": "0.1.0",
+    "maturity": "draft",
+    "owner": "WakeStudio team",
+    "license": "Apache-2.0 (plixkws) + MIT (integration)",
+    "status": "proposed"
+  },
+  "params": [
+    {
+      "id": "encoder",
+      "label": "PLiX encoder variant",
+      "group": "primary",
+      "type": "select",
+      "default": "base",
+      "options": ["base", "small"],
+      "description": "base = EfficientNet-v2-M (1280-d); small = TinyNet-E."
+    }
+  ],
+  "actions": [
+    {
+      "id": "load",
+      "label": "Load PLiX encoder",
+      "kind": "load",
+      "progress": "determinate",
+      "requires": []
+    }
+  ],
+  "status": [
+    {
+      "id": "embedDim",
+      "label": "Embedding dim",
+      "renderer": "badge",
+      "source": "spec:const",
+      "refreshMs": 1000
+    }
+  ],
+  "runtime": {
+    "web": {
+      "engine": "PlixKwsEmbedProvider",
+      "worker": true
+    },
+    "cloud": {
+      "workflowRef": ".github/workflows/build.yaml",
+      "artifact": "plixkws-onnx"
+    }
+  },
+  "build": {
+    "recipe": "workflow",
+    "workflowRef": ".github/workflows/build.yaml",
+    "script": "scripts/build-plix.mjs",
+    "artifactName": "plixkws-onnx",
+    "registryEntry": "public/model-registry.json#kws-plix",
+    "toolchains": {
+      "python": "3.11"
+    },
+    "inputs": [
+      {
+        "id": "encoder",
+        "label": "PLiX encoder variant",
+        "type": "choice",
+        "default": "base",
+        "required": true,
+        "options": ["base", "small"]
+      },
+      {
+        "id": "language",
+        "label": "Language tag for the .pt weights",
+        "type": "string",
+        "default": "en",
+        "required": false
+      },
+      {
+        "id": "opset",
+        "label": "ONNX opset version (>= 18)",
+        "type": "string",
+        "default": "18",
+        "required": false
+      }
+    ]
+  },
+  "tests": {
+    "l1": "packages/modules/kws/plix/tests/params.test.ts",
+    "required": ["l1"]
+  },
+  "playground": {
+    "route": "/playground/kws/plix",
+    "entry": "packages/modules/kws/plix/web/playground.tsx"
+  },
+  "interfaces": {
+    "provides": ["EmbedProvider"],
+    "consumes": ["AFEOutputFrame"]
+  }
+}

@@ -1,11 +1,27 @@
 # KWS (Keyword Spotting) - Module Specification
 
-- **Status:** Accepted (human review complete; ADR-018 + ADR-020)
+- **Status:** Accepted (human review complete; ADR-018 + ADR-020 + ADR-030)
 - **Owner:** WakeStudio team
-- **Plan phase:** Phase 2
-- **Related ADRs:** ADR-001 (pipeline stages), ADR-002 (PLiX Few-Shot encoder), ADR-011 (lazy model registry), ADR-017 (per-component config panel), ADR-018 (KWS Phase 2 design decisions), ADR-020 (pluggable KWS backends)
+- **Plan phase:** Phase 2; module-migration §6.3 (engine + driver modules)
+- **Related ADRs:** ADR-001 (pipeline stages), ADR-002 (PLiX Few-Shot encoder), ADR-011 (lazy model registry), ADR-017 (per-component config panel), ADR-018 (KWS Phase 2 design decisions), ADR-020 (pluggable KWS backends), ADR-024 (KWS categories), ADR-030 (engine + per-backend drivers)
 - **Depends on (modules):** AFE (consumes the 16 kHz output stream)
-- **Last updated:** 2026-07-31
+- **Last updated:** 2026-08-05
+
+## 0. Module layout (ADR-030)
+
+The KWS layer is an **engine module + per-backend driver modules** (NOT one
+module):
+
+| Module | What it is | Location |
+|---|---|---|
+| `kws-engine` | KWSEngine, worker loop, `KWSBackend` interface, registry seam | `packages/modules/kws/engine/` |
+| `kws-openwakeword` | mel→embedding→classifier driver | `packages/modules/kws/openwakeword/` |
+| `kws-sherpa` | main-thread transducer driver (wasm in module assets) | `packages/modules/kws/sherpa/` |
+| `kws-plix` | EmbedProvider + prototype-distance + encoder variants | `packages/modules/kws/plix/` |
+
+Drivers self-register via `registerKwsBackend` (sherpa via `mainThreadFactory`,
+plix via the embed-provider factory) - adding a backend never edits the engine
+(ADR-024).
 
 ## 1. Purpose
 
@@ -137,7 +153,7 @@ export interface KWSConfig {
   runtime?: ModelRuntime         // global model-runtime hint (ADR-002 amendment)
 }
 
-/** sherpa-onnx KWS backend configuration (see src/kws/types.ts). */
+/** sherpa-onnx KWS backend configuration (see packages/modules/kws/engine/core/types.ts). */
 export interface SherpaOnnxKwsConfig {
   /** Base URL where sherpa-onnx-kws.{js,wasm,data} are served. */
   wasmBaseUrl: string
@@ -248,7 +264,7 @@ owns the ONNX sessions + inference loop, and they communicate via `postMessage`.
 The **sherpa-onnx KWS backend deviates**: its classic emscripten glue requires
 `document` (it drives `Module.onRuntimeInitialized` and expects DOM shims), so
 it runs on the **main thread** and drives its own smoothing/trigger loop there
-(see `src/kws/backends/sherpa-onnx-kws.ts` + `KWSEngine`). Both paths expose the
+(see `packages/modules/kws/sherpa/core/backend.ts` + the engine's `KWSEngine`). Both paths expose the
 same `onScore`/`onTrigger` events to the UI.
 
 ```
@@ -332,7 +348,8 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
 - **Model fetch failure** (network/CORS): `load()` rejects with a descriptive
   error; UI shows "failed to load KWS models - check connection." Models are
   fetched lazily from the registry (ADR-011).
-- **sherpa-onnx KWS assets missing** (the ~55 MB `public/sherpa-onnx-kws/*`
+- **sherpa-onnx KWS assets missing** (the ~55 MB
+  `packages/modules/kws/sherpa/assets/sherpa-onnx-kws/*`
   bundle is gitignored, ADR-011): `load()` rejects with a message pointing at
   `pnpm fetch-sherpa-kws-assets` (see `docs/build-artifacts.md`).
 - **ONNX session creation failure** (unsupported op, WASM unavailable): `load()`

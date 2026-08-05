@@ -1,0 +1,103 @@
+/**
+ * KWS backend registry (ADR-020) - engine module.
+ *
+ * Maps a {@link KWSBackendId} to a factory. The engine module does NOT hard-code
+ * driver implementations: each driver module (openwakeword / sherpa / plix)
+ * registers itself via the `registerKwsBackend` seam (ADR-024 decoupling rule).
+ *
+ * @see docs/modules/kws.md §4 (KWSBackend), §6 (backend config)
+ */
+
+import type { KWSBackend, KWSBackendId } from './types'
+
+/** A registry entry for a KWS backend. */
+export interface KWSBackendRegistration {
+  id: KWSBackendId
+  label: string
+  /**
+   * Factory: create a backend instance. Throws if the backend has no
+   * browser-feasible adapter yet.
+   */
+  create: () => KWSBackend
+  /** Whether this backend is browser-feasible (selectable in the PWA demo). */
+  browserFeasible: boolean
+  /** One-line note shown in the config panel for non-feasible backends. */
+  availabilityNote: string
+  /**
+   * Optional: a main-thread-only backend factory (e.g. sherpa-onnx-kws runs
+   * on the main thread - its classic emscripten wasm needs DOM, ADR-018).
+   * When set, the engine drives this backend on the main thread instead of
+   * the worker. The returned backend must expose a `configure(config)`.
+   */
+  mainThreadFactory?: () => KWSBackend
+}
+
+/** The backend registry. Drivers register into this array. */
+const REGISTRY: KWSBackendRegistration[] = []
+
+/** Register a backend (called by driver modules at import time). */
+export function registerKwsBackend(registration: KWSBackendRegistration): void {
+  if (REGISTRY.some((r) => r.id === registration.id)) return
+  REGISTRY.push(registration)
+}
+
+/** Read-only view of all registrations. */
+export function getBackendRegistry(): ReadonlyArray<KWSBackendRegistration> {
+  return REGISTRY
+}
+
+/** Look up a registration by id. */
+export function getBackendRegistration(
+  id: KWSBackendId,
+): KWSBackendRegistration | undefined {
+  return REGISTRY.find((r) => r.id === id)
+}
+
+/** Create a backend instance for the given id. Throws if infeasible. */
+export function createBackend(id: KWSBackendId): KWSBackend {
+  const reg = getBackendRegistration(id)
+  if (!reg) {
+    throw new Error(`Unknown KWS backend: ${id}`)
+  }
+  return reg.create()
+}
+
+/**
+ * Create a main-thread-only backend (e.g. sherpa-onnx-kws). Returns null when
+ * the backend has no mainThreadFactory (it runs in the worker instead).
+ */
+export function createMainThreadBackend(
+  id: KWSBackendId,
+): KWSBackend | null {
+  const reg = getBackendRegistration(id)
+  if (!reg?.mainThreadFactory) return null
+  return reg.mainThreadFactory()
+}
+
+// ---------------------------------------------------------------------------
+// Embed-provider seam (Few-Shot, Phase 3).
+// The plix driver registers an EmbedProvider factory so the worker can host
+// the embed() scaffold without importing the plix module directly (ADR-024).
+// ---------------------------------------------------------------------------
+
+export interface EmbedProviderFactory {
+  (url: string, runtime: string): Promise<unknown>
+}
+
+let embedProviderFactory: EmbedProviderFactory | null = null
+
+/** Register the embed-provider factory (called by the plix driver). */
+export function registerEmbedProviderFactory(
+  factory: EmbedProviderFactory,
+): void {
+  embedProviderFactory = factory
+}
+
+/** Create an embed provider (or null if no driver registered one). */
+export async function createEmbedProvider(
+  url: string,
+  runtime: string,
+): Promise<unknown> {
+  if (!embedProviderFactory) return null
+  return embedProviderFactory(url, runtime)
+}

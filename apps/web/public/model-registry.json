@@ -7,7 +7,10 @@
     {
       "id": "melspectrogram",
       "name": "openWakeWord melspectrogram (16 kHz log-Mel front-end)",
-      "tier": ["low-power", "high-performance"],
+      "tier": [
+        "low-power",
+        "high-performance"
+      ],
       "source": "dscripka/openWakeWord",
       "url": "/prebuilts/openWakeWord/melspectrogram.onnx",
       "format": "onnx",
@@ -21,7 +24,10 @@
     {
       "id": "speech_embedding",
       "name": "Google speech_embedding backbone (re-implemented in openWakeWord)",
-      "tier": ["low-power", "high-performance"],
+      "tier": [
+        "low-power",
+        "high-performance"
+      ],
       "source": "dscripka/openWakeWord (re-impl of google/speech_embedding)",
       "url": "/prebuilts/openWakeWord/embedding_model.onnx",
       "format": "onnx",
@@ -35,7 +41,9 @@
     {
       "id": "hey-buddy",
       "name": "Hey Buddy wake-word model (hey buddy)",
-      "tier": ["high-performance"],
+      "tier": [
+        "high-performance"
+      ],
       "source": "benjamin-paine/hey-buddy",
       "url": "https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/models/hey-buddy.onnx",
       "format": "onnx",
@@ -49,9 +57,11 @@
     {
       "id": "plixkws",
       "name": "PLiX Few-Shot encoder (base)",
-      "tier": ["high-performance"],
+      "tier": [
+        "high-performance"
+      ],
       "source": "aaqibsaeed/plixkws (ONNX export of FewshotML/plix)",
-      "url": "/prebuilts/plixkws/plixkws-base.onnx",
+      "url": "/modules/kws/plix/assets/plixkws-base.onnx",
       "format": "onnx",
       "runtime": "onnx",
       "encoderVariant": "base",
@@ -67,9 +77,12 @@
     {
       "id": "plixkws-small",
       "name": "PLiX Few-Shot encoder (small / TinyNet-E)",
-      "tier": ["low-power", "high-performance"],
+      "tier": [
+        "low-power",
+        "high-performance"
+      ],
       "source": "aaqibsaeed/plixkws (ONNX export of FewshotML/plix)",
-      "url": "/prebuilts/plixkws/plixkws-small.onnx",
+      "url": "/modules/kws/plix/assets/plixkws-small.onnx",
       "format": "onnx",
       "runtime": "onnx",
       "encoderVariant": "small",
@@ -81,12 +94,15 @@
       "class": "redistributable",
       "sha256": "TODO-phase3",
       "sizeBytes": null,
-      "notes": "PLiX 'small' encoder variant (TinyNet-E) - lighter than 'base', for low-RAM / end-side devices. Still outputs a 1280-dim embedding from the same 1x64x100 log-Mel front-end, so prototype-distance scoring is identical to 'base'. Exported with external data: plixkws-small.onnx references plixkws-small.onnx.data (co-located, served from /prebuilts/plixkws/). Select this variant via the encoder selector in the Few-Shot panel (ADR-002). Same two runtimes as 'base' (onnx / transformers). The 'transformers' runtime loads from a LOCALLY-EXPORTED HF-style dir (prebuilts/plixkws/hf/plixkws); the Hugging Face repo only ships .pt weights, not ONNX."
+      "notes": "PLiX 'small' encoder variant (TinyNet-E) - lighter than 'base', for low-RAM / end-side devices. Still outputs a 1280-dim embedding from the same 1x64x100 log-Mel front-end, so prototype-distance scoring is identical to 'base'. Exported with external data: plixkws-small.onnx references plixkws-small.onnx.data (co-located, served from /modules/kws/plix/assets/). Select this variant via the encoder selector in the Few-Shot panel (ADR-002). Same two runtimes as 'base' (onnx / transformers). The 'transformers' runtime loads from a LOCALLY-EXPORTED HF-style dir (prebuilts/plixkws/hf/plixkws); the Hugging Face repo only ships .pt weights, not ONNX."
     },
     {
       "id": "silero-vad",
       "name": "Silero VAD (voice activity detection)",
-      "tier": ["low-power", "high-performance"],
+      "tier": [
+        "low-power",
+        "high-performance"
+      ],
       "source": "snakers4/silero-vad",
       "url": "/prebuilts/openWakeWord/silero_vad.onnx",
       "format": "onnx",
@@ -100,7 +116,9 @@
     {
       "id": "microwakeword-demo",
       "name": "microWakeWord demo model (e.g. 'okay_nabu')",
-      "tier": ["low-power"],
+      "tier": [
+        "low-power"
+      ],
       "source": "esphome/micro-wake-word-models",
       "url": "TODO-phase2",
       "format": "tflite",

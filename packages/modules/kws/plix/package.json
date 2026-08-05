@@ -1,0 +1,39 @@
+{
+  "name": "@wake-studio/module-kws-plix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PLiX Few-Shot encoder driver module (ADR-002/020/024): EmbedProvider + prototype-distance detection + build pipeline.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./core/index.ts",
+    "./core": "./core/index.ts",
+    "./spec": "./spec/module.spec.json",
+    "./web": "./web/index.ts",
+    "./encoders/plix-encoder": "./encoders/plix-encoder.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "fetch:all": "node ../../../../scripts/fetch-artifact.mjs kws-plix"
+  },
+  "dependencies": {
+    "@wake-studio/contracts": "workspace:*",
+    "@wake-studio/module-kws-engine": "workspace:^",
+    "@wake-studio/platform": "workspace:^",
+    "onnxruntime-web": "^1.27.0"
+  },
+  "optionalDependencies": {
+    "@huggingface/transformers": "^4.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "globals": "^15.13.0",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "^8.16.0",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.9"
+  }
+}

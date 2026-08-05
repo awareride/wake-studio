@@ -57,12 +57,36 @@ importers:
       '@wake-studio/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@wake-studio/module-afe-graph':
+        specifier: workspace:^
+        version: link:../../packages/modules/afe/graph
+      '@wake-studio/module-few-shot':
+        specifier: workspace:^
+        version: link:../../packages/modules/few-shot
       '@wake-studio/module-kit':
         specifier: workspace:^
         version: link:../../packages/module-kit
+      '@wake-studio/module-kws-engine':
+        specifier: workspace:^
+        version: link:../../packages/modules/kws/engine
+      '@wake-studio/module-kws-openwakeword':
+        specifier: workspace:^
+        version: link:../../packages/modules/kws/openwakeword
+      '@wake-studio/module-kws-plix':
+        specifier: workspace:^
+        version: link:../../packages/modules/kws/plix
+      '@wake-studio/module-kws-sherpa':
+        specifier: workspace:^
+        version: link:../../packages/modules/kws/sherpa
       '@wake-studio/module-rnnoise':
         specifier: workspace:^
         version: link:../../packages/modules/afe/rnnoise
+      '@wake-studio/module-training':
+        specifier: workspace:^
+        version: link:../../packages/modules/training
+      '@wake-studio/platform':
+        specifier: workspace:^
+        version: link:../../packages/platform
       onnxruntime-web:
         specifier: ^1.27.0
         version: 1.27.0
@@ -181,6 +205,96 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
 
+  packages/modules/afe/aec:
+    dependencies:
+      '@wake-studio/contracts':
+        specifier: workspace:*
+        version: link:../../../contracts
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
+      typescript:
+        specifier: ~5.6.3
+        version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
+
+  packages/modules/afe/bss:
+    dependencies:
+      '@wake-studio/contracts':
+        specifier: workspace:*
+        version: link:../../../contracts
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
+      typescript:
+        specifier: ~5.6.3
+        version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
+
+  packages/modules/afe/graph:
+    dependencies:
+      '@wake-studio/contracts':
+        specifier: workspace:*
+        version: link:../../../contracts
+      '@wake-studio/module-afe-aec':
+        specifier: workspace:^
+        version: link:../aec
+      '@wake-studio/module-afe-bss':
+        specifier: workspace:^
+        version: link:../bss
+      '@wake-studio/module-rnnoise':
+        specifier: workspace:^
+        version: link:../rnnoise
+      '@wake-studio/platform':
+        specifier: workspace:^
+        version: link:../../../platform
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
+      typescript:
+        specifier: ~5.6.3
+        version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
+      vite:
+        specifier: ^5.4.11
+        version: 5.4.21(@types/node@20.19.43)(terser@5.49.0)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
+
   packages/modules/afe/rnnoise:
     dependencies:
       '@wake-studio/contracts':
@@ -190,15 +304,271 @@ importers:
         specifier: workspace:^
         version: link:../../../module-kit
     devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
       '@types/react':
         specifier: ^18.3.12
         version: 18.3.31
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
       react:
         specifier: ^18.3.1
         version: 18.3.1
       typescript:
         specifier: ~5.6.3
         version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
+
+  packages/modules/few-shot:
+    dependencies:
+      '@wake-studio/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@wake-studio/module-kws-engine':
+        specifier: workspace:^
+        version: link:../kws/engine
+      '@wake-studio/module-kws-plix':
+        specifier: workspace:^
+        version: link:../kws/plix
+      '@wake-studio/platform':
+        specifier: workspace:^
+        version: link:../../platform
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
+      typescript:
+        specifier: ~5.6.3
+        version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
+      vite:
+        specifier: ^5.4.11
+        version: 5.4.21(@types/node@20.19.43)(terser@5.49.0)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
+
+  packages/modules/kws/engine:
+    dependencies:
+      '@wake-studio/contracts':
+        specifier: workspace:*
+        version: link:../../../contracts
+      '@wake-studio/module-afe-graph':
+        specifier: workspace:^
+        version: link:../../afe/graph
+      '@wake-studio/platform':
+        specifier: workspace:^
+        version: link:../../../platform
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
+      typescript:
+        specifier: ~5.6.3
+        version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
+      vite:
+        specifier: ^5.4.11
+        version: 5.4.21(@types/node@20.19.43)(terser@5.49.0)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
+
+  packages/modules/kws/openwakeword:
+    dependencies:
+      '@wake-studio/contracts':
+        specifier: workspace:*
+        version: link:../../../contracts
+      '@wake-studio/module-kws-engine':
+        specifier: workspace:^
+        version: link:../engine
+      '@wake-studio/platform':
+        specifier: workspace:^
+        version: link:../../../platform
+      onnxruntime-web:
+        specifier: ^1.27.0
+        version: 1.27.0
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
+      typescript:
+        specifier: ~5.6.3
+        version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
+      vite:
+        specifier: ^5.4.11
+        version: 5.4.21(@types/node@20.19.43)(terser@5.49.0)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
+
+  packages/modules/kws/plix:
+    dependencies:
+      '@wake-studio/contracts':
+        specifier: workspace:*
+        version: link:../../../contracts
+      '@wake-studio/module-kws-engine':
+        specifier: workspace:^
+        version: link:../engine
+      '@wake-studio/platform':
+        specifier: workspace:^
+        version: link:../../../platform
+      onnxruntime-web:
+        specifier: ^1.27.0
+        version: 1.27.0
+    optionalDependencies:
+      '@huggingface/transformers':
+        specifier: ^4.2.0
+        version: 4.2.0
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
+      typescript:
+        specifier: ~5.6.3
+        version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
+      vite:
+        specifier: ^5.4.11
+        version: 5.4.21(@types/node@20.19.43)(terser@5.49.0)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
+
+  packages/modules/kws/sherpa:
+    dependencies:
+      '@wake-studio/contracts':
+        specifier: workspace:*
+        version: link:../../../contracts
+      '@wake-studio/module-kws-engine':
+        specifier: workspace:^
+        version: link:../engine
+      '@wake-studio/platform':
+        specifier: workspace:^
+        version: link:../../../platform
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
+      typescript:
+        specifier: ~5.6.3
+        version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
+      vite:
+        specifier: ^5.4.11
+        version: 5.4.21(@types/node@20.19.43)(terser@5.49.0)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
+
+  packages/modules/training:
+    dependencies:
+      '@wake-studio/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@wake-studio/module-kit':
+        specifier: workspace:^
+        version: link:../../module-kit
+      '@wake-studio/platform':
+        specifier: workspace:^
+        version: link:../../platform
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
+      '@types/react':
+        specifier: ^18.3.12
+        version: 18.3.31
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      typescript:
+        specifier: ~5.6.3
+        version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
+
+  packages/platform:
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
+      typescript:
+        specifier: ~5.6.3
+        version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.18.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
+      vite:
+        specifier: ^5.4.11
+        version: 5.4.21(@types/node@20.19.43)(terser@5.49.0)
       vitest:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)

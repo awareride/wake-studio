@@ -81,21 +81,79 @@ export interface ModuleRuntime {
 
 /** Train-script declaration (ADR-028: run via `uv run`). */
 export interface ModuleTrain {
-  entry: string
+  /** Local uv script (ADR-028), e.g. "train/train.py". */
+  entry?: string
   python?: string
-  deps: string
+  deps?: string
   /** Who may invoke: "subprocess" (local service), "ci", "colab". */
   invocation: Array<'subprocess' | 'ci' | 'colab'>
   outputs: Record<string, string>
+  /**
+   * Upstream-script adapter (human decision 2026-08-05): invoke a pinned
+   * upstream repo script we do NOT own, without rewriting it. Either `script`
+   * or `notebook` (not both with `entry`).
+   */
+  script?: {
+    repo: string
+    path: string
+    ref: string
+    language: 'python' | 'node' | 'shell'
+    entrypoint?: string
+    args?: string[]
+    env?: Record<string, string>
+  }
+  /** Upstream Colab notebook adapter (ADR-023). */
+  notebook?: {
+    repo: string
+    path: string
+    ref: string
+    paramsCell?: number
+    outputsCell?: string
+  }
+  /** Output-normalization adapter id (e.g. "standardize-results"). */
+  adapter?: string
+  adapterOptions?: {
+    modelRegex?: string
+    metricsParser?: string
+    [key: string]: unknown
+  }
+}
+
+/** A build input for the generic build workflow (workflow_dispatch input). */
+export interface ModuleBuildInput {
+  id: string
+  label: string
+  type: 'string' | 'boolean' | 'choice'
+  default?: string
+  required?: boolean
+  description?: string
+  /** For type === 'choice': the allowed options. */
+  options?: string[]
+}
+
+/** Toolchains the generic build workflow installs before running the script. */
+export interface ModuleBuildToolchains {
+  /** Emscripten/emsdk version, e.g. "4.0.23". */
+  emsdk?: string
+  /** Python version, e.g. "3.11". */
+  python?: string
+  /** Install `uv` (Astral) and run via it. */
+  uv?: boolean
 }
 
 export interface ModuleBuild {
   /** "workflow" | "script" | "none". */
   recipe: 'workflow' | 'script' | 'none'
   workflowRef?: string
+  /** Module-owned build logic; run by the generic workflow with inputs as env. */
+  script?: string
   fetchScript?: string
   artifactName?: string
   registryEntry?: string
+  /** Toolchains the generic workflow installs (keyed by tool). */
+  toolchains?: ModuleBuildToolchains
+  /** workflow_dispatch inputs declared by the module (dynamic UI). */
+  inputs?: ModuleBuildInput[]
 }
 
 export interface ModuleTests {
@@ -157,4 +215,28 @@ export interface ModuleScorecard {
     playground: boolean
     targets: boolean
   }
+}
+
+// ---------------------------------------------------------------------------
+// Cross-module stage interface (ADR-025; AFE stage modules)
+// ---------------------------------------------------------------------------
+
+/** A pluggable AFE stage (AEC / BSS / NS), per the per-stage module design. */
+export type AFEStageKind = 'aec' | 'bss' | 'ns'
+
+/** Result of one processed frame; stages denoise in place and report metrics. */
+export interface AFEStageResult {
+  /** VAD probability in [0,1] (NS stages; AEC/BSS may return 0). */
+  vadProbability: number
+  /** RMS level of the frame after processing, for visualization. */
+  levelDb: number
+}
+
+/** A single AFE stage module's headless engine (usable in any JS env). */
+export interface AFEStage {
+  readonly kind: AFEStageKind
+  /** Process one frame in place; returns stage metrics. */
+  process(frame: Float32Array): AFEStageResult
+  /** Reset internal state (e.g. on stop/record). */
+  reset(): void
 }

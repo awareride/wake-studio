@@ -13,7 +13,7 @@ import * as React from 'react'
 import type { ModelRegistry, RegistryModel, ModelTier } from '../data/registry'
 import { loadRegistry, isCommerciallyUsable } from '../data/registry'
 import { probeModelUrl, type ProbeResult } from '../data/probe'
-import { BACKEND_REGISTRY } from '../kws'
+import { getBackendRegistry } from '../kws'
 import { IconSpinner } from '../components/icons'
 import { useToast } from '../components/toast'
 import { cn } from '../components/cn'
@@ -45,8 +45,10 @@ function LicenseBadge({ model }: { model: RegistryModel }) {
 
 function ProbeButton({ model }: { model: RegistryModel }) {
   const { toast } = useToast()
-  const [probe, setProbe] = React.useState<ProbeResult>({ state: 'idle', sizeBytes: null })
-
+  const [probe, setProbe] = React.useState<ProbeResult>({
+    state: 'idle',
+    sizeBytes: null,
+  })
   const run = async () => {
     setProbe({ state: 'probing', sizeBytes: null })
     const result = await probeModelUrl(model.url)
@@ -193,7 +195,7 @@ export function ModelLibraryView() {
       <section>
         <h3 className="mb-2 text-sm font-semibold text-ink-1">KWS backends</h3>
         <div className="grid gap-2 sm:grid-cols-2">
-          {BACKEND_REGISTRY.map((b) => (
+          {getBackendRegistry().map((b) => (
             <div
               key={b.id}
               className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm"

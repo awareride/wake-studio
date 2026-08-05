@@ -1,0 +1,138 @@
+{
+  "$schema": "../../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "afe-graph",
+    "name": "AFE graph (AEC -> BSS -> NS)",
+    "category": "afe",
+    "version": "0.1.0",
+    "maturity": "pilot",
+    "owner": "WakeStudio team",
+    "license": "MIT (integration); RNNoise BSD-3 / Apache-2.0 port (vendored)",
+    "status": "accepted"
+  },
+  "params": [
+    {
+      "id": "topology",
+      "label": "Topology",
+      "group": "advanced",
+      "type": "select",
+      "default": "single-worklet",
+      "options": ["single-worklet", "node-per-stage"],
+      "description": "AFE DSP topology (ADR-016). Single-worklet implemented for v1."
+    },
+    {
+      "id": "vizFps",
+      "label": "Visualization FPS",
+      "group": "primary",
+      "type": "number",
+      "default": 30,
+      "min": 15,
+      "max": 60,
+      "step": 5,
+      "unit": "fps",
+      "description": "Throttle for visualization frame emission."
+    },
+    {
+      "id": "latencyBudgetMs",
+      "label": "Latency budget",
+      "group": "primary",
+      "type": "number",
+      "default": 150,
+      "min": 50,
+      "max": 500,
+      "step": 10,
+      "unit": "ms",
+      "description": "End-to-end capture -> display target (R5)."
+    },
+    {
+      "id": "bypass.aec",
+      "label": "Bypass AEC",
+      "group": "primary",
+      "type": "boolean",
+      "default": true,
+      "description": "Passthrough for v1 (WebRTC AEC3 deferred to v1.x, ADR-016)."
+    },
+    {
+      "id": "bypass.bss",
+      "label": "Bypass BSS",
+      "group": "primary",
+      "type": "boolean",
+      "default": true,
+      "description": "Single-mic passthrough for v1 (ADR-016)."
+    },
+    {
+      "id": "bypass.ns",
+      "label": "Bypass NS",
+      "group": "primary",
+      "type": "boolean",
+      "default": false,
+      "description": "Bypass RNNoise noise suppression (copy through unprocessed)."
+    }
+  ],
+  "actions": [
+    {
+      "id": "start",
+      "label": "Start pipeline",
+      "kind": "start",
+      "progress": "indeterminate",
+      "requires": ["platform.mic"]
+    },
+    {
+      "id": "stop",
+      "label": "Stop pipeline",
+      "kind": "stop"
+    },
+    {
+      "id": "record",
+      "label": "Record clip",
+      "kind": "record",
+      "requires": ["platform.mic"]
+    }
+  ],
+  "status": [
+    {
+      "id": "latency",
+      "label": "End-to-end latency",
+      "renderer": "text",
+      "source": "engine:latencyMs",
+      "refreshMs": 250
+    },
+    {
+      "id": "stageLevel",
+      "label": "Stage level",
+      "renderer": "bar",
+      "source": "event:stageFrame",
+      "refreshMs": 100
+    }
+  ],
+  "runtime": {
+    "web": {
+      "engine": "AFEPipeline",
+      "wasm": {
+        "url": "/modules/afe/rnnoise/rnnoise.wasm",
+        "loader": "emscripten"
+      },
+      "worker": false
+    },
+    "local": {
+      "command": "node packages/modules/afe/rnnoise/node/cli.mjs",
+      "protocol": "stdio"
+    }
+  },
+  "build": {
+    "recipe": "none",
+    "fetchScript": "echo 'rnnoise wasm is vendored (no fetch)'"
+  },
+  "tests": {
+    "l1": "packages/modules/afe/graph/tests/dsp.test.ts",
+    "required": ["l1"]
+  },
+  "playground": {
+    "route": "/playground/afe",
+    "entry": "packages/modules/afe/graph/web/playground.tsx"
+  },
+  "interfaces": {
+    "provides": ["AFEOutputFrame"],
+    "consumes": ["AFEOutputFrame"]
+  }
+}

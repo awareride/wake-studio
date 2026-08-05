@@ -93,7 +93,7 @@ ESP-SR, Infineon audio-front-end, and XMOS voice-interface docs):
 
 ### 3.1 Repository structure — pnpm monorepo (ADR-025)
 
-The repo is a **pnpm workspace monorepo** (方案 A, 2026-07-31). It hosts four
+The repo is a **pnpm workspace monorepo** (2026-07-31). It hosts four
 worlds in one tree, each with its own build toolchain, so a module can deliver
 web, local-service, device, and train artifacts side by side:
 
@@ -109,33 +109,34 @@ wake-studio/                          # pnpm workspace root
 │   │   └── e2e/                      # L3 browser tests (ADR-026)
 │   ├── local-service/                # Node API service (the Self-hosted backend, ADR-005)
 │   │   ├── src/
-│   │   │   ├── server.ts             # HTTP server (Hono/Fastify)
+│   │   │   ├── server.ts             # HTTP server (zero-dep Node http)
 │   │   │   ├── module-registry.ts    # reads module.spec.json -> mounts module /node routes
 │   │   │   ├── train-runner.ts       # spawns module train scripts via uv (ADR-028)
-│   │   │   └── artifact-sync.ts      # ADR-027 fetch/verify logic
+│   │   │   └── (artifact-sync lands with ADR-027 fetch SOP)
 │   │   └── tests/
-│   └── cli/                          # ops CLI (fetch, health, train trigger) - optional
 ├── packages/
+│   ├── platform/                     # @wake-studio/platform - shared capability layer (Q-P1)
+│   │   └── src/                      # base-path (ADR-012), model registry (ADR-011),
+│   │   │                            #   ModelRuntime, wasm/audio seams
 │   ├── contracts/                    # @wake-studio/contracts - pure types + JSON schemas
-│   │   └── src/                      # module-spec.ts / kws.ts / afe.ts / train.ts
+│   │   └── src/                      # module-spec.ts + module-spec.schema.json
 │   ├── module-kit/                   # @wake-studio/module-kit
-│   │   └── src/                      # panel-generator / playground-router / spec-validator / registry
+│   │   └── src/                      # panel-generator / spec-validator / ui controls
 │   ├── test-kit/                     # @wake-studio/test-kit
 │   │   └── src/wasm-runner.ts        # L2: load emscripten/onnx artifacts in Node (ADR-026)
 │   ├── modules/                      # functional modules (ADR-025) - see §3.2
-│   │   └── <category>/<module>/      # e.g. packages/modules/afe/rnnoise/
-│   └── sdk/                          # device-side SDK (C/C++, CMake) - ADR-021
-│       ├── sdk-base/                 # portable C core
-│       └── sdk-esp32/                # platform adapter example
-├── device/                           # device world root (C/C++, CMake build tree)
-│   ├── CMakeLists.txt
-│   ├── sdk-base/                     # portable core
-│   └── modules/                      # module device/ dirs, add_subdirectory'd in
+│   │   ├── afe/{aec,bss,graph,rnnoise}/
+│   │   ├── kws/{engine,openwakeword,sherpa,plix}/
+│   │   ├── few-shot/
+│   │   └── training/
+│   └── sdk/                          # device-side SDK (C/C++, CMake) - ADR-021 (stub; Phase 4)
+├── device/                           # device world root (C/C++, CMake build tree) - empty stub
+│   └── (Phase 4: CMakeLists + sdk-base + module device/ dirs)
 ├── scripts/                          # root-level ops scripts
+│   └── build-module.mjs, fetch-artifact.mjs, gen-module-status.mjs
 ├── .github/workflows/
-│   ├── ci.yml                        # L1+L2 per module + build apps
-│   ├── build-<artifact>.yml          # per-artifact builds (ADR-027)
-│   ├── train-<module>.yml            # training workflows (call module train scripts)
+│   ├── ci.yml                        # L1+L2 per module + build apps (lint gate pending P0)
+│   ├── build.yaml                    # generic artifact build skeleton (ADR-027 §6.7)
 │   └── deploy.yml
 └── docs/
 ```
@@ -217,7 +218,7 @@ reference C/C++ pipelines for target chips.
 |---|---|---|---|---|
 | **AEC** | WebRTC AEC3 (WASM) - **deferred to v1.x**; passthrough for v1 (ADR-016) | WebRTC `audio_processing` C++; or SpeexDSP AEC | BSD-3 / BSD | google/webrtc; xiph/speexdsp |
 | **BSS** | 2-mic beamforming *approximation* or passthrough | Vendor BSS (ESP-SR BSS) or portable ICA-based BSS | BSD-3 / varies | espressif/esp-sr; WebRTC beamforming fallback |
-| **NS** | **RNNoise** (WASM, AudioWorklet) - prebuilt vendored at `src/afe/vendor/rnnoise/` (ADR-016) | RNNoise (C, MCU-portable) or vendor Deep NS | BSD-3 / Apache-2.0 | xiph/rnnoise; port: `@timephy/rnnoise-wasm` (Apache-2.0) |
+| **NS** | **RNNoise** (WASM, AudioWorklet) - prebuilt vendored in the rnnoise module (`packages/modules/afe/rnnoise/web/vendor/`, ADR-016/025) | RNNoise (C, MCU-portable) or vendor Deep NS | BSD-3 / Apache-2.0 | xiph/rnnoise; port: `@timephy/rnnoise-wasm` (Apache-2.0) |
 | VAD (helper) | Silero VAD (ONNX, onnxruntime-web) | Silero VAD (ONNX/TFLite) | MIT | snakers4/silero-vad |
 
 > **AFE export decision (ADR-003):** vendor AFE for the reference demo (vendor-tuned),

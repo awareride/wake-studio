@@ -1,0 +1,124 @@
+{
+  "$schema": "../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "training",
+    "name": "Training (custom wake-word)",
+    "category": "training",
+    "version": "0.1.0",
+    "maturity": "draft",
+    "owner": "WakeStudio team",
+    "license": "MIT (integration)",
+    "status": "proposed"
+  },
+  "params": [
+    {
+      "id": "wakePhrase",
+      "label": "Wake phrase",
+      "group": "primary",
+      "type": "string",
+      "default": "hey studio",
+      "description": "The wake word to train (Traditional/MCU path, Phase 5 backend)."
+    },
+    {
+      "id": "target",
+      "label": "Target tier",
+      "group": "primary",
+      "type": "select",
+      "default": "mc",
+      "options": ["mc", "app-class"],
+      "description": "MCU (micro-wake-word / TFLite-Micro) or app-class (openWakeWord / ONNX)."
+    },
+    {
+      "id": "backend",
+      "label": "Training backend",
+      "group": "primary",
+      "type": "select",
+      "default": "self-hosted",
+      "options": ["self-hosted", "cloud", "colab"],
+      "description": "Execution backend (ADR-013): Self-hosted Service, Cloud Provider, or Colab."
+    },
+    {
+      "id": "epochs",
+      "label": "Epochs",
+      "group": "advanced",
+      "type": "number",
+      "default": 50,
+      "min": 1,
+      "max": 500,
+      "step": 1,
+      "description": "Training epochs (Traditional path)."
+    },
+    {
+      "id": "augment",
+      "label": "Audio augmentation",
+      "group": "advanced",
+      "type": "boolean",
+      "default": true,
+      "description": "Augment synthetic data (data-source layer, ADR-022)."
+    },
+    {
+      "id": "quantize",
+      "label": "Quantize export",
+      "group": "advanced",
+      "type": "boolean",
+      "default": true,
+      "description": "Emit int8 TFLite/ONNX for the target."
+    }
+  ],
+  "actions": [
+    {
+      "id": "train",
+      "label": "Start training",
+      "kind": "train",
+      "progress": "indeterminate",
+      "requires": []
+    },
+    {
+      "id": "export",
+      "label": "Export trained model",
+      "kind": "export",
+      "requires": []
+    }
+  ],
+  "status": [
+    {
+      "id": "jobStatus",
+      "label": "Training status",
+      "renderer": "badge",
+      "source": "event:jobStatus",
+      "refreshMs": 1000
+    },
+    {
+      "id": "progress",
+      "label": "Training progress",
+      "renderer": "bar",
+      "source": "event:progress",
+      "refreshMs": 250
+    }
+  ],
+  "runtime": {
+    "web": {
+      "engine": "TrainingJob"
+    },
+    "local": {
+      "command": "node apps/local-service/src/server.ts",
+      "protocol": "http"
+    },
+    "cloud": {
+      "workflowRef": ".github/workflows/train-<module>.yml",
+      "artifact": "trained-model"
+    }
+  },
+  "tests": {
+    "l1": "packages/modules/training/tests/manifest.test.ts",
+    "required": ["l1"]
+  },
+  "playground": {
+    "route": "/playground/training",
+    "entry": "packages/modules/training/web/playground.tsx"
+  },
+  "interfaces": {
+    "provides": ["TrainingJob"],
+    "consumes": ["KWSBackend", "DataSources"]
+  }
+}

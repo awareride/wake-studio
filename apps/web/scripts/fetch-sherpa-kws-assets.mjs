@@ -1,18 +1,21 @@
 #!/usr/bin/env node
 /**
- * Download the sherpa-onnx KWS WebAssembly runtime into `public/sherpa-onnx-kws/`
- * so WakeStudio can run direct keyword spotting in the browser (ADR-011).
+ * Download the sherpa-onnx KWS WebAssembly runtime into the sherpa driver
+ * module's assets dir (`packages/modules/kws/sherpa/assets/sherpa-onnx-kws/`)
+ * so WakeStudio can run direct keyword spotting in the browser (ADR-011, Q-K2).
  *
- * The build is produced by `.github/workflows/build-sherpa-onnx-kws-wasm.yml`
- * and published as the `sherpa-onnx-kws-wasm` artifact. This script fetches the
- * artifact from a GitHub Actions run (or a local path) and unpacks the wasm
- * glue + `.wasm` + `.data` into `public/sherpa-onnx-kws/`.
+ * The build is produced by the generic build workflow (.github/workflows/build.yaml
+ * + scripts/build-module.mjs kws-sherpa, ADR-027 §6.7) and published as the
+ * `sherpa-onnx-kws-wasm` artifact. This script fetches the artifact from a
+ * GitHub Actions run (or a local path) and unpacks the wasm glue + `.wasm` +
+ * `.data` into the module's assets.
  *
  * Per the repo's lazy-asset convention the ~53 MB bundle is NOT committed; it
  * is fetched on demand (dev / CI prebuild) and gitignored.
  *
  * Usage:
  *   node scripts/fetch-sherpa-kws-assets.mjs
+ *   (or `node scripts/fetch-artifact.mjs kws-sherpa` - the generic path)
  *
  * Env (optional):
  *   KWS_WASM_ARTIFACT_DIR  path to an already-downloaded artifact directory
@@ -28,7 +31,18 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const PUBLIC_DIR = resolve(__dirname, '..', 'public', 'sherpa-onnx-kws')
+const PUBLIC_DIR = resolve(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  'packages',
+  'modules',
+  'kws',
+  'sherpa',
+  'assets',
+  'sherpa-onnx-kws',
+)
 
 // Files the browser needs (the model graph + tokens are preloaded into .data).
 const WASM_FILES = [
@@ -83,7 +97,7 @@ async function main() {
   ])
 
   copyFrom(tmp)
-  console.log('Done. sherpa-onnx KWS wasm is in public/sherpa-onnx-kws/')
+  console.log('Done. sherpa-onnx KWS wasm is in packages/modules/kws/sherpa/assets/sherpa-onnx-kws/')
 }
 
 function copyFrom(srcDir) {
@@ -113,6 +127,6 @@ main().catch((err) => {
   console.error('\nManual steps: download the `sherpa-onnx-kws-wasm` artifact from')
   console.error('Actions -> Build sherpa-onnx KWS WASM, extract it, and copy')
   console.error('sherpa-onnx-wasm-kws-main.{js,wasm,data} + sherpa-onnx-kws.js')
-  console.error('into public/sherpa-onnx-kws/.')
+  console.error('into packages/modules/kws/sherpa/assets/sherpa-onnx-kws/.')
   process.exit(1)
 })

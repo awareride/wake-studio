@@ -1,0 +1,144 @@
+{
+  "$schema": "../../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "kws-engine",
+    "name": "KWS engine (pluggable detection loop)",
+    "category": "kws",
+    "version": "0.1.0",
+    "maturity": "pilot",
+    "owner": "WakeStudio team",
+    "license": "MIT (integration)",
+    "status": "accepted"
+  },
+  "params": [
+    {
+      "id": "threshold",
+      "label": "Trigger threshold",
+      "group": "primary",
+      "type": "slider",
+      "default": 0.5,
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "description": "Smoothed score must exceed this to trigger."
+    },
+    {
+      "id": "minDurationMs",
+      "label": "Min. duration",
+      "group": "primary",
+      "type": "slider",
+      "default": 300,
+      "min": 0,
+      "max": 2000,
+      "step": 50,
+      "unit": "ms",
+      "description": "Score must stay above threshold for this long."
+    },
+    {
+      "id": "smoothingWindowFrames",
+      "label": "Smoothing window",
+      "group": "primary",
+      "type": "slider",
+      "default": 5,
+      "min": 1,
+      "max": 20,
+      "step": 1,
+      "description": "Sliding-window size for score smoothing."
+    },
+    {
+      "id": "vadGateEnabled",
+      "label": "VAD gate",
+      "group": "advanced",
+      "type": "boolean",
+      "default": true,
+      "description": "Suppress triggers during VAD-off silence (ADR-018)."
+    },
+    {
+      "id": "vadThreshold",
+      "label": "VAD threshold",
+      "group": "advanced",
+      "type": "slider",
+      "default": 0.3,
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "description": "Below this VAD the gate suppresses triggers."
+    },
+    {
+      "id": "cooldownMs",
+      "label": "Cooldown",
+      "group": "advanced",
+      "type": "slider",
+      "default": 2000,
+      "min": 0,
+      "max": 10000,
+      "step": 100,
+      "unit": "ms",
+      "description": "Min. time between two triggers."
+    },
+    {
+      "id": "executionProvider",
+      "label": "Execution provider",
+      "group": "advanced",
+      "type": "select",
+      "default": "webgpu",
+      "options": ["webgpu", "wasm"],
+      "description": "onnxruntime-web EP (WebGPU-first with WASM fallback, ADR-018)."
+    }
+  ],
+  "actions": [
+    {
+      "id": "load",
+      "label": "Load KWS engine",
+      "kind": "load",
+      "progress": "determinate",
+      "requires": []
+    },
+    {
+      "id": "start",
+      "label": "Start detection",
+      "kind": "start",
+      "requires": ["platform.mic"]
+    },
+    {
+      "id": "stop",
+      "label": "Stop detection",
+      "kind": "stop"
+    }
+  ],
+  "status": [
+    {
+      "id": "score",
+      "label": "KWS score",
+      "renderer": "curve",
+      "source": "event:score",
+      "refreshMs": 100
+    },
+    {
+      "id": "trigger",
+      "label": "Trigger events",
+      "renderer": "badge",
+      "source": "event:trigger",
+      "refreshMs": 500
+    }
+  ],
+  "runtime": {
+    "web": {
+      "engine": "KWSEngine",
+      "worker": true
+    }
+  },
+  "tests": {
+    "l1": "packages/modules/kws/engine/tests/dsp.test.ts",
+    "l2": "packages/modules/kws/engine/tests/backend.test.ts",
+    "required": ["l1"]
+  },
+  "playground": {
+    "route": "/playground/kws",
+    "entry": "packages/modules/kws/engine/web/playground.tsx"
+  },
+  "interfaces": {
+    "provides": ["KWSBackend"],
+    "consumes": ["AFEOutputFrame"]
+  }
+}

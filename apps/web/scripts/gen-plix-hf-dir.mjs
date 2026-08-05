@@ -8,7 +8,7 @@
  * cannot fetch it from the Hub. Instead it loads the ONNX graph from a
  * locally-built HF-style dir:
  *
- *   prebuilts/plixkws/hf/plixkws/
+ *   packages/modules/kws/plix/assets/hf/plixkws/
  *   ├── config.json
  *   └── onnx/
  *       ├── model.onnx            (== plixkws-small.onnx, renamed)
@@ -42,7 +42,7 @@ const execFileAsync = promisify(execFile)
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dirname, '..')
 
-/** Variants and the source ONNX (relative to prebuilts/plixkws). */
+/** Variants and the source ONNX (relative to the plix module assets dir). */
 const VARIANTS = {
   base: { onnx: 'plixkws-base.onnx', external: null },
   small: { onnx: 'plixkws-small.onnx', external: 'plixkws-small.onnx.data' },
@@ -71,7 +71,7 @@ function usage() {
   return `usage: node scripts/gen-plix-hf-dir.mjs [--variant base|small]
 
 Generate a locally-served HF-style dir for the PLiX Few-Shot encoder so the
-'transers' runtime can load it offline (prebuilts/plixkws/hf/plixkws).
+'transers' runtime can load it offline (packages/modules/kws/plix/assets/hf/plixkws).
 Default variant: small.`
 }
 
@@ -89,7 +89,18 @@ async function main() {
     process.exit(2)
   }
 
-  const baseDir = join(repoRoot, 'prebuilts', 'plixkws')
+  // Q-K2: the plix module owns its assets (served at
+  // /modules/kws/plix/assets/...). The HF-style dir is generated there.
+  const baseDir = join(
+    repoRoot,
+    '..',
+    '..',
+    'packages',
+    'modules',
+    'kws',
+    'plix',
+    'assets',
+  )
   const srcOnnx = join(baseDir, src.onnx)
   const hfDir = join(baseDir, 'hf', 'plixkws')
   const onnxDir = join(hfDir, 'onnx')
@@ -97,7 +108,7 @@ async function main() {
   if (!existsSync(srcOnnx)) {
     console.error(
       `Missing source ONNX: ${srcOnnx}\n` +
-        `Export it first (see prebuilts/plixkws/README.md), then re-run this script.`,
+        `Export it first (see packages/modules/kws/plix/assets/README.md), then re-run this script.`,
     )
     process.exit(1)
   }

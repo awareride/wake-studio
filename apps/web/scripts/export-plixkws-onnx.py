@@ -29,7 +29,7 @@ Usage:
     pip install "plixkws"   # pulls torch, torchaudio, timm
     python scripts/export-plixkws-onnx.py \
         --encoder base --language en \
-        --out prebuilts/plixkws/plixkws-base.onnx
+        --out packages/modules/kws/plix/assets/plixkws-base.onnx
 
 Note: `prebuilts/` is gitignored (dev-only); the exported `.onnx` is never
 committed. The browser app loads it from `/prebuilts/plixkws/<name>.onnx`.
@@ -66,7 +66,7 @@ def build_encoder(
     config_path = os.path.join(models_dir, "config.json")
     if config_override:
         # Use a pre-downloaded config manifest (e.g. the one fetched by the
-        # CI workflow into prebuilts/plixkws/plixkws-config.json) instead of
+        # CI workflow into packages/modules/kws/plix/assets/plixkws-config.json) instead of
         # re-fetching from Dropbox.
         import shutil
 
@@ -138,7 +138,7 @@ def main() -> None:
              "plixkws.model.load downloads it from Dropbox.",
     )
     parser.add_argument(
-        "--out", default="prebuilts/plixkws/plixkws-base.onnx",
+        "--out", default="packages/modules/kws/plix/assets/plixkws-base.onnx",
         help="Output ONNX path.",
     )
     parser.add_argument(
@@ -151,7 +151,7 @@ def main() -> None:
         "--config", default=None,
         help="Path to a pre-downloaded PLiX config.json manifest (overrides "
              "the Dropbox fetch). Used by the CI workflow, which stages "
-             "prebuilts/plixkws/plixkws-config.json before export.",
+             "packages/modules/kws/plix/assets/plixkws-config.json before export.",
     )
     parser.add_argument("--opset", type=int, default=17)
     args = parser.parse_args()

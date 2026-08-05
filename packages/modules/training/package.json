@@ -1,0 +1,35 @@
+{
+  "name": "@wake-studio/module-training",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Training module (ADR-013/023/028): common training-job interface + artifact bundle manifest + spec-driven panel. Backends land in goal.plan Phase 5.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./core/index.ts",
+    "./core": "./core/index.ts",
+    "./web": "./web/index.ts",
+    "./spec": "./spec/module.spec.json"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "fetch:all": "echo 'no artifacts'"
+  },
+  "dependencies": {
+    "@wake-studio/contracts": "workspace:*",
+    "@wake-studio/module-kit": "workspace:^",
+    "@wake-studio/platform": "workspace:^"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "@types/react": "^18.3.12",
+    "eslint": "^9.16.0",
+    "globals": "^15.13.0",
+    "react": "^18.3.1",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "^8.16.0",
+    "vitest": "^2.1.9"
+  }
+}

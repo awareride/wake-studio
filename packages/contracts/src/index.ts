@@ -8,6 +8,8 @@ export type {
   ActionKind,
   ModuleAction,
   ModuleBuild,
+  ModuleBuildInput,
+  ModuleBuildToolchains,
   ModuleCategory,
   ModuleInterfaces,
   ModuleMeta,
@@ -24,4 +26,7 @@ export type {
   ParamType,
   ParamValidation,
   StatusRenderer,
+  AFEStage,
+  AFEStageResult,
+  AFEStageKind,
 } from './module-spec'

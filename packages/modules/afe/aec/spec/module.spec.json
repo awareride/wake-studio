@@ -1,0 +1,48 @@
+{
+  "$schema": "../../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "afe-aec",
+    "name": "AEC stage (Acoustic Echo Cancellation)",
+    "category": "afe",
+    "version": "0.1.0",
+    "maturity": "draft",
+    "owner": "WakeStudio team",
+    "license": "MIT (integration)",
+    "status": "proposed"
+  },
+  "params": [
+    {
+      "id": "bypass",
+      "label": "Bypass AEC",
+      "group": "primary",
+      "type": "boolean",
+      "default": true,
+      "description": "Passthrough for v1; WebRTC AEC3 deferred to v1.x (ADR-016)."
+    }
+  ],
+  "actions": [],
+  "status": [
+    {
+      "id": "level",
+      "label": "AEC level",
+      "renderer": "bar",
+      "source": "event:stageFrame",
+      "refreshMs": 100
+    }
+  ],
+  "runtime": {
+    "web": { "engine": "AecStage" }
+  },
+  "tests": {
+    "l1": "packages/modules/afe/aec/tests/stage.test.ts",
+    "required": ["l1"]
+  },
+  "playground": {
+    "route": "/playground/afe/aec",
+    "entry": "packages/modules/afe/aec/web/playground.tsx"
+  },
+  "interfaces": {
+    "provides": ["AFEStage"],
+    "consumes": []
+  }
+}

@@ -6,13 +6,13 @@ import { FewShotEngine, DEFAULT_CONFIG as FS_DEFAULTS, describeParameters } from
 import type { EnrolledSample, FewShotConfig, WakeWordPrototype } from '../few-shot'
 import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
 import { useProjectStageConfig } from '../projects'
-import recorderUrl from '../few-shot/recorder.worklet.ts?worker&url'
+import { recorderWorkletUrl as recorderUrl } from '@wake-studio/module-few-shot/web'
 import type { ModelRuntime } from '../runtime'
 import {
   PLIX_ENCODER_VARIANTS,
   getPlixEncoderVariant,
   type PlixEncoderVariant,
-} from '../kws/backends/plix-encoder'
+} from '@wake-studio/module-kws-plix/encoders/plix-encoder'
 import { RUNTIME_LABELS } from '../runtime'
 
 // PLiX Few-Shot encoder (aaqibsaeed/plixkws, Apache-2.0) - compact CNN
@@ -127,10 +127,10 @@ export const FewShotPanel = memo(function FewShotPanel({
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       // The PLiX weights ship as PyTorch .pt (Dropbox); they must be exported
-      // to ONNX and dropped into prebuilts/plixkws/ before the encoder can
-      // load. Surface that clearly instead of a raw fetch/404 error.
+      // to ONNX and dropped into the plix module's assets dir before the
+      // encoder can load. Surface that clearly instead of a raw fetch/404 error.
       const variant = getPlixEncoderVariant(encoderVariant)
-      const expected = variant?.onnxUrl ?? '/prebuilts/plixkws/plixkws-base.onnx'
+      const expected = variant?.onnxUrl ?? '/modules/kws/plix/assets/plixkws-base.onnx'
       if (
         runtime === 'transformers' &&
         /config\.json|model\.onnx|could not locate|404|not found/i.test(msg)
@@ -141,7 +141,7 @@ export const FewShotPanel = memo(function FewShotPanel({
         // show this hint when the failure is actually a missing dir/file.
         setError(
           `PLiX (${encoderVariant}) 'transformers' runtime needs a locally-exported ` +
-            `HF-style dir at ${variant?.transformersLocalDir ?? '/prebuilts/plixkws/hf/plixkws'} ` +
+            `HF-style dir at ${variant?.transformersLocalDir ?? '/modules/kws/plix/assets/hf/plixkws'} ` +
             `(config.json + onnx/model.onnx). Generate it with: ` +
             'npm run gen-plix-hf-dir -- --variant ' +
             encoderVariant +
@@ -150,7 +150,7 @@ export const FewShotPanel = memo(function FewShotPanel({
       } else if (/fetch|404|load failed|not loaded/i.test(msg)) {
         setError(
           `PLiX (${encoderVariant}) encoder model not found. Export the PLiX ` +
-            `ONNX (see prebuilts/plixkws/README.md) and place it at ` +
+            `ONNX (see packages/modules/kws/plix/assets/README.md) and place it at ` +
             expected +
             (encoderVariant === 'small'
               ? ' (plus the co-located plixkws-small.onnx.data external weights file).'

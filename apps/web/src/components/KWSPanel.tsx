@@ -4,7 +4,7 @@ import {
   KWSEngine,
   DEFAULT_CONFIG,
   describeParameters,
-  BACKEND_REGISTRY,
+  getBackendRegistry,
 } from '../kws'
 import type {
   BackendModelUrls,
@@ -84,7 +84,12 @@ export const KWSPanel = memo(function KWSPanel({
       engine.setConfig({ backend: config.backend, threshold: config.threshold })
       const sherpaKwsConfig: Partial<SherpaOnnxKwsConfig> =
         config.backend === 'sherpa-onnx-kws'
-          ? { wasmBaseUrl: '/sherpa-onnx-kws/', keywords: KWS_KEYWORDS }
+          ? {
+              // Q-K2: wasm lives in the sherpa driver module's assets dir
+              // (served at /modules/kws/sherpa/assets/... in dev).
+              wasmBaseUrl: '/modules/kws/sherpa/assets/sherpa-onnx-kws/',
+              keywords: KWS_KEYWORDS,
+            }
           : {}
       await engine.load(MODEL_URLS, undefined, sherpaKwsConfig)
       setStatus(engine.status)
@@ -206,7 +211,7 @@ export const KWSPanel = memo(function KWSPanel({
             }
             className="truncate rounded bg-surface-3 px-2 py-1 text-ink-2"
           >
-            {BACKEND_REGISTRY.map((r) => (
+            {getBackendRegistry().map((r) => (
               <option key={r.id} value={r.id} disabled={!r.browserFeasible}>
                 {r.id}
               </option>

@@ -1,0 +1,113 @@
+{
+  "$schema": "../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "few-shot",
+    "name": "Few-Shot custom wake-word enrollment",
+    "category": "few-shot",
+    "version": "0.1.0",
+    "maturity": "pilot",
+    "owner": "WakeStudio team",
+    "license": "MIT (integration); Apache-2.0 (plixkws encoder)",
+    "status": "accepted"
+  },
+  "params": [
+    {
+      "id": "threshold",
+      "label": "Distance threshold",
+      "group": "primary",
+      "type": "slider",
+      "default": 0.7,
+      "min": 0.5,
+      "max": 0.95,
+      "step": 0.01,
+      "description": "PLiX prototype-distance score must exceed this to trigger."
+    },
+    {
+      "id": "minDurationMs",
+      "label": "Min. duration",
+      "group": "primary",
+      "type": "slider",
+      "default": 500,
+      "min": 100,
+      "max": 3000,
+      "step": 100,
+      "unit": "ms",
+      "description": "Score must exceed threshold for this long to trigger."
+    },
+    {
+      "id": "windowMs",
+      "label": "Detection window",
+      "group": "primary",
+      "type": "slider",
+      "default": 1500,
+      "min": 500,
+      "max": 3000,
+      "step": 100,
+      "unit": "ms",
+      "description": "Audio window fed to the PLiX encoder for each embedding."
+    },
+    {
+      "id": "useNegativePrototype",
+      "label": "Negative prototype",
+      "group": "advanced",
+      "type": "boolean",
+      "default": false,
+      "description": "Subtract the negative prototype for a tighter decision boundary."
+    },
+    {
+      "id": "vadGateEnabled",
+      "label": "VAD gate",
+      "group": "advanced",
+      "type": "boolean",
+      "default": true,
+      "description": "Skip inference when VAD < threshold (reuses AFE RNNoise VAD)."
+    }
+  ],
+  "actions": [
+    {
+      "id": "record",
+      "label": "Record sample",
+      "kind": "record",
+      "requires": ["platform.mic"]
+    },
+    {
+      "id": "export",
+      "label": "Export prototype bundle",
+      "kind": "export"
+    }
+  ],
+  "status": [
+    {
+      "id": "enrollmentProgress",
+      "label": "Enrollment progress",
+      "renderer": "bar",
+      "source": "engine:enrollmentProgress",
+      "refreshMs": 250
+    },
+    {
+      "id": "similarity",
+      "label": "Live similarity",
+      "renderer": "curve",
+      "source": "event:score",
+      "refreshMs": 100
+    }
+  ],
+  "runtime": {
+    "web": {
+      "engine": "FewShotEngine",
+      "worker": true
+    }
+  },
+  "tests": {
+    "l1": "packages/modules/few-shot/tests/dsp.test.ts",
+    "required": ["l1"]
+  },
+  "playground": {
+    "route": "/playground/few-shot",
+    "entry": "packages/modules/few-shot/web/playground.tsx"
+  },
+  "interfaces": {
+    "provides": ["WakeWordPrototype"],
+    "consumes": ["EmbedProvider", "KWSBackend"]
+  }
+}
