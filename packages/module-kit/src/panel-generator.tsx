@@ -68,7 +68,7 @@ function renderStatus(
       return (
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-400" />
-          <span className="text-sm text-slate-300">{statusDef.label}</span>
+          <span className="text-sm text-ink-2">{statusDef.label}</span>
         </div>
       )
     case 'gauge':
@@ -77,8 +77,8 @@ function renderStatus(
     default:
       return (
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm text-slate-400">{statusDef.label}</span>
-          <span className="font-mono text-sm text-slate-200">{String(value ?? '—')}</span>
+          <span className="text-sm text-ink-2">{statusDef.label}</span>
+          <span className="font-mono text-sm text-ink-1">{String(value ?? '—')}</span>
         </div>
       )
   }
@@ -112,16 +112,16 @@ export function ModulePanel({ spec, controller, title }: GeneratedPanelProps) {
     <section className="mx-auto max-w-5xl px-6 py-12">
       {/* Panel header from spec.meta. */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-white">
+        <h2 className="text-lg font-semibold text-ink-1">
           {title ?? spec.meta.name}
         </h2>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-ink-2">
           {spec.meta.category} module · v{spec.meta.version} ·{' '}
-          <span className="text-slate-500">{spec.meta.license}</span>
+          <span className="text-ink-3">{spec.meta.license}</span>
         </p>
       </div>
 
-      <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="space-y-4 rounded-xl border border-line bg-surface-2 p-5">
         {/* Primary params. */}
         {primary.map((param) => (
           <UiParamRow
@@ -145,7 +145,7 @@ export function ModulePanel({ spec, controller, title }: GeneratedPanelProps) {
             open={advancedOpen}
             onOpenChange={setAdvancedOpen}
           >
-            <div className="space-y-3 rounded-lg border border-white/10 bg-slate-900/40 p-4">
+            <div className="space-y-3 rounded-lg border border-line bg-surface-3 p-4">
               {advanced.map((param) => (
                 <UiParamRow
                   key={param.id}
@@ -180,7 +180,7 @@ export function ModulePanel({ spec, controller, title }: GeneratedPanelProps) {
 
         {/* Status (live values from controller.status). */}
         {spec.status.length > 0 && (
-          <div className="grid gap-4 border-t border-white/5 pt-4 sm:grid-cols-2">
+          <div className="grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
             {spec.status.map((statusDef) => (
               <div key={statusDef.id}>
                 {renderStatus(statusDef, controller.status?.[statusDef.id])}

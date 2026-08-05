@@ -73,7 +73,7 @@ export function renderParamControl({ param, value, onChange, disabled }: ParamCo
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           placeholder="••••••••"
-          className="h-8 w-48 rounded-lg border border-white/10 bg-slate-800/60 px-2.5 text-sm text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-40"
+          className="h-8 w-48 rounded-lg border border-line bg-surface-3 px-2.5 text-sm text-ink-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-40"
         />
       )
     default:

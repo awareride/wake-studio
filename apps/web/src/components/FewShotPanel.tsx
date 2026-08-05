@@ -285,8 +285,8 @@ export const FewShotPanel = memo(function FewShotPanel({
   return (
     <section className="mx-auto max-w-5xl px-6 py-12">
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-white">Few-Shot enrollment</h2>
-        <p className="text-sm text-slate-400">
+        <h2 className="text-lg font-semibold text-ink-1">Few-Shot enrollment</h2>
+        <p className="text-sm text-ink-2">
           Phase 3 · enroll a custom wake word with {MIN_SAMPLES}+ samples (PLiX
           embedding + prototype-distance scoring, ADR-020). 100% client-side
           (enrollment/inference, not training - ADR-013).
@@ -294,17 +294,17 @@ export const FewShotPanel = memo(function FewShotPanel({
       </div>
 
       {/* Controls */}
-      <div className="mb-6 flex flex-wrap items-center gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="mb-6 flex flex-wrap items-center gap-4 rounded-xl border border-line bg-surface-2 p-5">
         {status === 'idle' && (
           <>
-            <label className="flex items-center gap-2 text-sm text-slate-400">
+            <label className="flex items-center gap-2 text-sm text-ink-2">
               <span className="shrink-0">Encoder</span>
               <select
                 value={encoderVariant}
                 onChange={(e) =>
                   setEncoderVariant(e.target.value as PlixEncoderVariant['id'])
                 }
-                className="rounded bg-slate-800/80 px-2 py-1 text-slate-200"
+                className="rounded bg-surface-3 px-2 py-1 text-ink-1"
                 title="Select the PLiX encoder variant (ADR-002). 'base' = EfficientNet-v2-M; 'small' = TinyNet-E (lighter). Both emit a 1280-dim embedding."
               >
                 {PLIX_VARIANTS.map((v) => (
@@ -314,12 +314,12 @@ export const FewShotPanel = memo(function FewShotPanel({
                 ))}
               </select>
             </label>
-            <label className="flex items-center gap-2 text-sm text-slate-400">
+            <label className="flex items-center gap-2 text-sm text-ink-2">
               <span className="shrink-0">Runtime</span>
               <select
                 value={runtime}
                 onChange={(e) => setRuntime(e.target.value as ModelRuntime)}
-                className="rounded bg-slate-800/80 px-2 py-1 text-slate-200"
+                className="rounded bg-surface-3 px-2 py-1 text-ink-1"
                 title="PLiX execution runtime (ADR-002). 'onnx' (default) loads the exported ONNX graph; 'transformers' runs browser-native via @huggingface/transformers (CDN, no ONNX file)."
               >
                 <option value="onnx">ONNX (onnxruntime-web)</option>
@@ -328,20 +328,20 @@ export const FewShotPanel = memo(function FewShotPanel({
             </label>
             <button
               onClick={handleLoadEncoder}
-              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-400"
+              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-400"
             >
               Load PLiX encoder
             </button>
           </>
         )}
         {status === 'loading' && (
-          <span className="text-sm text-slate-400">Loading PLiX…</span>
+          <span className="text-sm text-ink-2">Loading PLiX…</span>
         )}
         {encoderReady && !detecting && (
           <button
             onClick={handleRecord}
             disabled={recording}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-emerald-500 disabled:opacity-50"
           >
             {recording ? `Recording… (${RECORD_MS}ms)` : 'Record sample'}
           </button>
@@ -350,7 +350,7 @@ export const FewShotPanel = memo(function FewShotPanel({
           <button
             onClick={handleBuildPrototype}
             disabled={building}
-            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-400 disabled:opacity-50"
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
           >
             {building ? 'Building…' : `Build prototype (${samples.length} samples)`}
           </button>
@@ -359,12 +359,12 @@ export const FewShotPanel = memo(function FewShotPanel({
           <>
             <button
               onClick={handleStartDetection}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-emerald-500"
             >
               Start Few-Shot detection
             </button>
             {!afeRunning && (
-              <span className="text-sm text-amber-400">
+              <span className="text-sm text-warning">
                 Start the AFE microphone (top panel) first, then click above.
               </span>
             )}
@@ -373,32 +373,32 @@ export const FewShotPanel = memo(function FewShotPanel({
         {detecting && (
           <button
             onClick={handleStopDetection}
-            className="rounded-lg bg-red-500/80 px-4 py-2 text-sm font-medium text-white hover:bg-red-500"
+            className="rounded-lg bg-danger/90 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-red-500"
           >
             Stop detection
           </button>
         )}
         <div
           className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
-            triggerFlash ? 'scale-125 bg-amber-400 text-slate-900' : 'bg-slate-700 text-slate-500'
+            triggerFlash ? 'scale-125 bg-amber-400 text-ink-1' : 'bg-surface-4 text-ink-3'
           }`}
         >
           {triggerFlash ? '!' : '·'}
         </div>
-        {error && <span className="text-sm text-red-400">{error}</span>}
+        {error && <span className="text-sm text-danger">{error}</span>}
       </div>
 
       {/* Sample list */}
       {encoderReady && !detecting && samples.length > 0 && (
-        <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] p-5">
-          <h3 className="mb-3 text-sm font-semibold text-white">
+        <div className="mb-6 rounded-xl border border-line bg-surface-2 p-5">
+          <h3 className="mb-3 text-sm font-semibold text-ink-1">
             Enrolled samples
           </h3>
           <div className="space-y-2">
             {samples.map((s, i) => (
               <div
                 key={s.id}
-                className="flex items-center gap-4 text-xs text-slate-400"
+                className="flex items-center gap-4 text-xs text-ink-2"
               >
                 <span className="w-8 font-mono">#{i + 1}</span>
                 <span>{s.quality.durationMs.toFixed(0)} ms</span>
@@ -406,7 +406,7 @@ export const FewShotPanel = memo(function FewShotPanel({
                 <span>SNR {s.quality.snrDb.toFixed(1)} dB</span>
                 <span
                   className={
-                    s.quality.acceptable ? 'text-emerald-400' : 'text-amber-400'
+                    s.quality.acceptable ? 'text-success' : 'text-warning'
                   }
                 >
                   {s.quality.clipped ? 'clipped' : s.quality.acceptable ? 'OK' : 'low quality'}
@@ -415,7 +415,7 @@ export const FewShotPanel = memo(function FewShotPanel({
             ))}
           </div>
           {prototype && (
-            <p className="mt-3 text-xs text-emerald-400">
+            <p className="mt-3 text-xs text-success">
               Prototype built: {prototype.word} ({prototype.vector.length}-dim vector). Ready for detection.
             </p>
           )}
@@ -425,8 +425,8 @@ export const FewShotPanel = memo(function FewShotPanel({
       {/* Score curve + Advanced (inside the detecting block) */}
       {detecting && (
         <>
-        <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
+        <div className="mb-6 rounded-xl border border-line bg-surface-2 p-5">
+          <div className="mb-2 flex items-center justify-between text-xs text-ink-3">
             <span>Few-Shot score curve (prototype-distance similarity)</span>
             <span className="font-mono">
               {historyRef.current.length > 0
@@ -438,45 +438,45 @@ export const FewShotPanel = memo(function FewShotPanel({
             ref={canvasRef}
             width={800}
             height={160}
-            className="h-[160px] w-full rounded bg-slate-950/60"
+            className="h-[160px] w-full rounded bg-surface-3"
           />
         </div>
 
         {/* Advanced (collapsible) — §4.1 Few-Shot advanced params */}
-        <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="mb-6 rounded-xl border border-line bg-surface-2 p-5">
           <button
             onClick={() => setAdvancedOpen((v) => !v)}
-            className="text-xs font-medium text-slate-400 hover:text-slate-200"
+            className="text-xs font-medium text-ink-2 hover:text-ink-1"
           >
             {advancedOpen ? '▾' : '▸'} Advanced
           </button>
           {advancedOpen && (
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <label className="flex items-center gap-3 text-sm">
-                <span className="w-36 shrink-0 text-slate-400">Mel preprocessing</span>
+                <span className="w-36 shrink-0 text-ink-2">Mel preprocessing</span>
                 <input type="checkbox" defaultChecked className="accent-brand-400" />
-                <span className="text-xs text-slate-500">64x100 log-Mel</span>
+                <span className="text-xs text-ink-3">64x100 log-Mel</span>
               </label>
               <label className="flex items-center gap-3 text-sm">
-                <span className="w-36 shrink-0 text-slate-400">Frame cache</span>
+                <span className="w-36 shrink-0 text-ink-2">Frame cache</span>
                 <input
                   type="number"
                   defaultValue={1500}
                   min={500}
                   max={3000}
                   step={100}
-                  className="flex-1 rounded bg-slate-800/80 px-2 py-1 text-slate-200"
+                  className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-1"
                 />
-                <span className="text-xs text-slate-500">ms</span>
+                <span className="text-xs text-ink-3">ms</span>
               </label>
               <label className="flex items-center gap-3 text-sm">
-                <span className="w-36 shrink-0 text-slate-400">Feature smoothing</span>
+                <span className="w-36 shrink-0 text-ink-2">Feature smoothing</span>
                 <input type="checkbox" defaultChecked className="accent-brand-400" />
               </label>
               <label className="flex items-center gap-3 text-sm">
-                <span className="w-36 shrink-0 text-slate-400">Embedding viz</span>
+                <span className="w-36 shrink-0 text-ink-2">Embedding viz</span>
                 <input type="checkbox" className="accent-brand-400" />
-                <span className="text-xs text-slate-500">show 1280-d vector</span>
+                <span className="text-xs text-ink-3">show 1280-d vector</span>
               </label>
             </div>
           )}

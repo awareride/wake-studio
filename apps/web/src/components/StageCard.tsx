@@ -1,29 +1,29 @@
 import type { PipelineStage } from '../data/pipeline'
 
 const STATUS_STYLES: Record<PipelineStage['status'], string> = {
-  pending: 'bg-slate-700 text-slate-300',
-  'in-progress': 'bg-amber-500/20 text-amber-300',
-  done: 'bg-emerald-500/20 text-emerald-300',
+  pending: 'bg-surface-4 text-ink-3',
+  'in-progress': 'bg-amber-100 text-amber-700',
+  done: 'bg-emerald-100 text-emerald-700',
 }
 
 export function StageCard({ stage, index }: { stage: PipelineStage; index: number }) {
   return (
-    <article className="relative flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-5">
+    <article className="relative flex flex-col gap-3 rounded-xl border border-line bg-surface-2 p-5 shadow-sm">
       <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500/15 text-sm font-bold text-brand-300">
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-sm font-bold text-brand-700">
           {stage.abbr}
         </span>
-        <h3 className="text-sm font-semibold text-white">{stage.name}</h3>
+        <h3 className="text-sm font-semibold text-ink-1">{stage.name}</h3>
       </div>
-      <p className="text-sm text-slate-400">{stage.role}</p>
-      <dl className="mt-auto space-y-1 text-xs text-slate-500">
+      <p className="text-sm text-ink-2">{stage.role}</p>
+      <dl className="mt-auto space-y-1 text-xs text-ink-3">
         <div className="flex gap-2">
           <dt className="w-20 shrink-0">Browser</dt>
-          <dd className="text-slate-300">{stage.browserRuntime}</dd>
+          <dd className="text-ink-2">{stage.browserRuntime}</dd>
         </div>
         <div className="flex gap-2">
           <dt className="w-20 shrink-0">Export</dt>
-          <dd className="text-slate-300">{stage.exportRuntime}</dd>
+          <dd className="text-ink-2">{stage.exportRuntime}</dd>
         </div>
       </dl>
       <span
@@ -31,7 +31,7 @@ export function StageCard({ stage, index }: { stage: PipelineStage; index: numbe
       >
         {stage.status === 'in-progress' ? 'In progress' : stage.status}
       </span>
-      <span className="absolute -left-2 top-1/2 hidden -translate-y-1/2 text-lg text-white/20 md:block">
+      <span className="absolute -left-2 top-1/2 hidden -translate-y-1/2 text-lg text-ink-3/40 md:block">
         {index < 3 ? '→' : ''}
       </span>
     </article>

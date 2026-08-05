@@ -81,34 +81,34 @@ export function AFEPanel({ afeRef, onRunningChange }: AFEPanelProps) {
 
   const latencyColor =
     latencyMs > 150
-      ? 'text-red-400'
+      ? 'text-danger'
       : latencyMs > 100
-        ? 'text-amber-400'
-        : 'text-emerald-400'
+        ? 'text-warning'
+        : 'text-success'
 
   return (
     <section className="mx-auto max-w-5xl px-6 py-12">
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-white">Live AFE pipeline</h2>
-        <p className="text-sm text-slate-400">
+        <h2 className="text-lg font-semibold text-ink-1">Live AFE pipeline</h2>
+        <p className="text-sm text-ink-2">
           Phase 1 · AEC (passthrough) -&gt; BSS (passthrough) -&gt; NS (RNNoise
           WASM). AEC3 and BSS are deferred (ADR-016); VAD from RNNoise for v1.
         </p>
       </div>
 
       {/* Controls */}
-      <div className="mb-6 flex flex-nowrap items-center gap-4 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="mb-6 flex flex-nowrap items-center gap-4 overflow-x-auto rounded-xl border border-line bg-surface-2 p-5">
         {!running ? (
           <button
             onClick={handleStart}
-            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-400"
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 transition hover:bg-brand-400"
           >
             Start microphone
           </button>
         ) : (
           <button
             onClick={handleStop}
-            className="rounded-lg bg-red-500/80 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-500"
+            className="rounded-lg bg-danger/90 px-4 py-2 text-sm font-medium text-ink-1 transition hover:bg-red-500"
           >
             Stop
           </button>
@@ -116,16 +116,16 @@ export function AFEPanel({ afeRef, onRunningChange }: AFEPanelProps) {
 
         {running && (
           <div className="flex items-center gap-2 text-sm whitespace-nowrap">
-            <span className="text-slate-400">Latency:</span>
+            <span className="text-ink-2">Latency:</span>
             <span className={`inline-block w-14 text-right font-mono font-semibold ${latencyColor}`}>
               {latencyMs.toFixed(0)} ms
             </span>
-            <span className="text-slate-500">/ 150 ms budget</span>
+            <span className="text-ink-3">/ 150 ms budget</span>
           </div>
         )}
 
         {error && (
-          <span className="text-sm text-red-400">{error}</span>
+          <span className="text-sm text-danger">{error}</span>
         )}
       </div>
 
@@ -163,14 +163,14 @@ export function AFEPanel({ afeRef, onRunningChange }: AFEPanelProps) {
       )}
 
       {/* Config panel (ADR-017) */}
-      <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-5">
-        <h3 className="mb-4 text-sm font-semibold text-white">
+      <div className="mt-6 rounded-xl border border-line bg-surface-2 p-5">
+        <h3 className="mb-4 text-sm font-semibold text-ink-1">
           Configuration{' '}
-          <span className="text-xs font-normal text-slate-500">(ADR-017)</span>
+          <span className="text-xs font-normal text-ink-3">(ADR-017)</span>
         </h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="flex items-center gap-3 text-sm">
-            <span className="w-32 text-slate-400">Visualization FPS</span>
+            <span className="w-32 text-ink-2">Visualization FPS</span>
             <input
               type="range"
               min={15}
@@ -184,20 +184,20 @@ export function AFEPanel({ afeRef, onRunningChange }: AFEPanelProps) {
               }}
               className="flex-1 accent-brand-400"
             />
-            <span className="w-10 text-right font-mono text-slate-300">
+            <span className="w-10 text-right font-mono text-ink-2">
               {vizFps}
             </span>
           </label>
-          <div className="flex items-center gap-3 text-sm text-slate-500">
+          <div className="flex items-center gap-3 text-sm text-ink-3">
             <span className="w-32">Topology</span>
-            <span className="rounded bg-slate-700/50 px-2 py-1 text-xs text-slate-300">
+            <span className="rounded bg-surface-4 px-2 py-1 text-xs text-ink-2">
               single-worklet (v1)
             </span>
           </div>
         </div>
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-xs text-ink-3">
           {params.length} parameters exposed via{' '}
-          <code className="text-slate-400">describeParameters()</code> · config
+          <code className="text-ink-2">describeParameters()</code> · config
           panel is built incrementally per phase.
         </p>
       </div>
@@ -219,7 +219,7 @@ const StagePanel = memo(function StagePanel({
   onToggleBypass: (id: 'aec' | 'bss' | 'ns') => void
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+    <div className="rounded-xl border border-line bg-surface-2 p-5">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-semibold uppercase text-brand-300">
           {id}
@@ -228,7 +228,7 @@ const StagePanel = memo(function StagePanel({
           onClick={() => onToggleBypass(id)}
           className={`rounded px-2 py-0.5 text-[10px] font-medium uppercase ${
             isBypassed
-              ? 'bg-slate-700 text-slate-400'
+              ? 'bg-surface-4 text-ink-2'
               : 'bg-emerald-500/20 text-emerald-300'
           }`}
         >
@@ -243,11 +243,11 @@ const StagePanel = memo(function StagePanel({
 
       {/* Level - always rendered for stable card height */}
       <div className="flex items-center gap-2 text-xs whitespace-nowrap">
-        <span className="w-12 shrink-0 text-slate-500">Level</span>
+        <span className="w-12 shrink-0 text-ink-3">Level</span>
         <div className="flex-1">
           <LevelBar db={data?.levelDb ?? -60} />
         </div>
-        <span className="w-20 shrink-0 text-right font-mono text-slate-400">
+        <span className="w-20 shrink-0 text-right font-mono text-ink-2">
           {data?.levelDb != null ? `${data.levelDb.toFixed(1)} dB` : '-'}
         </span>
       </div>
@@ -255,9 +255,9 @@ const StagePanel = memo(function StagePanel({
       {/* VAD (NS only for v1) - always rendered for stable card height */}
       {id === 'ns' && (
         <div className="mt-2 flex items-center gap-2 text-xs whitespace-nowrap">
-          <span className="w-12 shrink-0 text-slate-500">VAD</span>
+          <span className="w-12 shrink-0 text-ink-3">VAD</span>
           <div className="flex-1">
-            <div className="h-2 overflow-hidden rounded-full bg-slate-700">
+            <div className="h-2 overflow-hidden rounded-full bg-surface-4">
               <div
                 className="h-full rounded-full bg-sky-400"
                 style={{
@@ -266,7 +266,7 @@ const StagePanel = memo(function StagePanel({
               />
             </div>
           </div>
-          <span className="w-20 shrink-0 text-right font-mono text-slate-400">
+          <span className="w-20 shrink-0 text-right font-mono text-ink-2">
             {data?.vadProbability != null
               ? `${(data.vadProbability * 100).toFixed(0)}%`
               : '-'}
@@ -277,7 +277,7 @@ const StagePanel = memo(function StagePanel({
       {/* Spectrum (NS only) - always rendered for stable card height */}
       {id === 'ns' && (
         <div className="mt-2">
-          <div className="mb-1 text-xs text-slate-500">Spectrum</div>
+          <div className="mb-1 text-xs text-ink-3">Spectrum</div>
           <SpectrogramCanvas data={data?.spectrum ?? new Float32Array(64)} />
         </div>
       )}
@@ -321,7 +321,7 @@ function WaveformCanvas({ data }: { data?: Float32Array }) {
       ref={canvasRef}
       width={256}
       height={64}
-      className="h-16 w-full rounded bg-slate-950/60"
+      className="h-16 w-full rounded bg-surface-3"
     />
   )
 }
@@ -330,9 +330,9 @@ function WaveformCanvas({ data }: { data?: Float32Array }) {
 function LevelBar({ db }: { db: number }) {
   const pct = Math.max(0, Math.min(100, ((db + 60) / 60) * 100))
   const color =
-    db > -6 ? 'bg-red-400' : db > -20 ? 'bg-amber-400' : 'bg-emerald-400'
+    db > -6 ? 'bg-red-400' : db > -20 ? 'bg-amber-400' : 'bg-success'
   return (
-    <div className="h-2 overflow-hidden rounded-full bg-slate-700">
+    <div className="h-2 overflow-hidden rounded-full bg-surface-4">
       <div
         className={`h-full rounded-full ${color}`}
         style={{ width: `${pct}%` }}
@@ -371,7 +371,7 @@ function SpectrogramCanvas({ data }: { data: Float32Array }) {
       ref={canvasRef}
       width={256}
       height={48}
-      className="h-12 w-full rounded bg-slate-950/60"
+      className="h-12 w-full rounded bg-surface-3"
     />
   )
 }

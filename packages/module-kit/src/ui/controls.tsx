@@ -54,7 +54,7 @@ export function UiSlider({ value, min, max, step = 1, onChange, disabled, ariaLa
       </SliderPrimitive.Root>
       <span
         id={id}
-        className="w-12 shrink-0 text-right font-mono text-xs text-slate-400 tabular-nums"
+        className="w-12 shrink-0 text-right font-mono text-xs text-ink-2 tabular-nums"
       >
         {formatNumber(value)}
       </span>
@@ -91,9 +91,9 @@ export function UiNumber({ value, min, max, step = 1, unit, onChange, disabled }
           if (Number.isFinite(n)) onChange(n)
         }}
         disabled={disabled}
-        className="h-8 w-24 rounded-lg border border-white/10 bg-slate-800/60 px-2.5 text-right font-mono text-sm text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-40"
+        className="h-8 w-24 rounded-lg border border-line bg-surface-3 px-2.5 text-right font-mono text-sm text-ink-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-40"
       />
-      {unit && <span className="text-xs text-slate-500">{unit}</span>}
+      {unit && <span className="text-xs text-ink-3">{unit}</span>}
     </div>
   )
 }
@@ -125,7 +125,7 @@ export function UiSelect({ value, options, onChange, disabled, placeholder = 'Se
     >
       <SelectPrimitive.Trigger className={cn(SELECT_CLS.trigger, disabled && 'opacity-40')}>
         <SelectPrimitive.Value placeholder={placeholder} />
-        <SelectPrimitive.Icon className="text-slate-500">
+        <SelectPrimitive.Icon className="text-ink-3">
           <ChevronDown className="h-3.5 w-3.5" />
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
@@ -214,7 +214,7 @@ export interface UiProgressProps {
 export function UiProgress({ value, indeterminate }: UiProgressProps) {
   return (
     <ProgressPrimitive.Root
-      className="relative h-1.5 w-full overflow-hidden rounded-full bg-slate-800"
+      className="relative h-1.5 w-full overflow-hidden rounded-full bg-surface-3"
       value={indeterminate ? undefined : value}
     >
       <ProgressPrimitive.Indicator
@@ -269,8 +269,8 @@ export function UiParamRow({ label, description, children }: UiParamRowProps) {
   return (
     <div className="flex items-center justify-between gap-4 py-2">
       <div className="min-w-0">
-        <div className="text-sm text-slate-300">{label}</div>
-        {description && <div className="mt-0.5 text-xs text-slate-500">{description}</div>}
+        <div className="text-sm text-ink-2">{label}</div>
+        {description && <div className="mt-0.5 text-xs text-ink-3">{description}</div>}
       </div>
       <div className="shrink-0">{children}</div>
     </div>

@@ -109,22 +109,22 @@ export default function RnnoisePlayground() {
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-12">
-      <h2 className="text-lg font-semibold text-white">
+      <h2 className="text-lg font-semibold text-ink-1">
         RNNoise module playground
       </h2>
-      <p className="mt-1 text-sm text-slate-400">
+      <p className="mt-1 text-sm text-ink-2">
         ADR-025 pilot · vendored emscripten wasm, runs fully in-browser. No
         AFE, no KWS — just this module. Controls are spec-driven (module-kit
         Ui* components).
       </p>
 
-      {!ready && <p className="mt-4 text-amber-300">Loading RNNoise WASM…</p>}
+      {!ready && <p className="mt-4 text-warning">Loading RNNoise WASM…</p>}
 
-      <div className="mt-6 space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="mt-6 space-y-4 rounded-xl border border-line bg-surface-2 p-5">
         {/* Primary params (spec-driven controls). */}
         <div className="space-y-4">
           <div className="flex items-center gap-4">
-            <span className="w-28 shrink-0 text-sm text-slate-300">Noise level</span>
+            <span className="w-28 shrink-0 text-sm text-ink-2">Noise level</span>
             <div className="flex-1">
               <UiSlider
                 value={noiseLevel}
@@ -137,7 +137,7 @@ export default function RnnoisePlayground() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <span className="w-28 shrink-0 text-sm text-slate-300">Strength</span>
+            <span className="w-28 shrink-0 text-sm text-ink-2">Strength</span>
             <div className="flex-1">
               <UiSlider
                 value={strength}
@@ -150,7 +150,7 @@ export default function RnnoisePlayground() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <span className="w-28 shrink-0 text-sm text-slate-300">Denoise</span>
+            <span className="w-28 shrink-0 text-sm text-ink-2">Denoise</span>
             <UiToggle
               checked={denoiseEnabled}
               onChange={setDenoiseEnabled}
@@ -165,7 +165,7 @@ export default function RnnoisePlayground() {
           open={advancedOpen}
           onOpenChange={setAdvancedOpen}
         >
-          <div className="rounded-lg border border-white/10 bg-slate-900/40 p-4 text-xs text-slate-400">
+          <div className="rounded-lg border border-line bg-surface-3 p-4 text-xs text-ink-2">
             <p>
               Sample rate {SAMPLE_RATE / 1000} kHz · frame size{' '}
               {RNNOISE_FRAME_SIZE} samples (10 ms) · RNNoise wasm embedded as
@@ -187,14 +187,14 @@ export default function RnnoisePlayground() {
 
         {/* Status: waveform + curve + VAD bar. */}
         <div className="grid gap-4 pt-2 sm:grid-cols-2">
-          <div className="rounded-lg bg-slate-800/60 p-3">
-            <div className="mb-1 text-xs uppercase tracking-wider text-slate-500">
+          <div className="rounded-lg bg-surface-3 p-3">
+            <div className="mb-1 text-xs uppercase tracking-wider text-ink-3">
               Waveform (input vs denoised)
             </div>
             <UiWaveform data={output} overlay={input} height={56} />
           </div>
-          <div className="rounded-lg bg-slate-800/60 p-3">
-            <div className="mb-1 text-xs uppercase tracking-wider text-slate-500">
+          <div className="rounded-lg bg-surface-3 p-3">
+            <div className="mb-1 text-xs uppercase tracking-wider text-ink-3">
               VAD history
             </div>
             <UiCurve data={curveData} threshold={0.5} height={56} />
@@ -202,20 +202,20 @@ export default function RnnoisePlayground() {
         </div>
 
         <div className="grid grid-cols-3 gap-4 pt-2 text-sm">
-          <div className="rounded-lg bg-slate-800/60 p-3">
-            <div className="text-xs uppercase tracking-wider text-slate-500">
+          <div className="rounded-lg bg-surface-3 p-3">
+            <div className="text-xs uppercase tracking-wider text-ink-3">
               Input RMS
             </div>
-            <div className="mt-1 text-lg text-slate-200">{inRms.toFixed(3)}</div>
+            <div className="mt-1 text-lg text-ink-1">{inRms.toFixed(3)}</div>
           </div>
-          <div className="rounded-lg bg-slate-800/60 p-3">
-            <div className="text-xs uppercase tracking-wider text-slate-500">
+          <div className="rounded-lg bg-surface-3 p-3">
+            <div className="text-xs uppercase tracking-wider text-ink-3">
               Output RMS
             </div>
-            <div className="mt-1 text-lg text-emerald-300">{outRms.toFixed(3)}</div>
+            <div className="mt-1 text-lg text-success">{outRms.toFixed(3)}</div>
           </div>
-          <div className="rounded-lg bg-slate-800/60 p-3">
-            <div className="text-xs uppercase tracking-wider text-slate-500">
+          <div className="rounded-lg bg-surface-3 p-3">
+            <div className="text-xs uppercase tracking-wider text-ink-3">
               VAD
             </div>
             <UiBar value={vad} threshold={0.5} height={6} className="mt-2" />
@@ -225,8 +225,8 @@ export default function RnnoisePlayground() {
 
       {/* Generated panel from the real spec (ADR-025 §3). The controller wires
           spec params to the engine; proving spec -> panel -> engine end-to-end. */}
-      <div className="mt-8 border-t border-white/10 pt-6">
-        <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+      <div className="mt-8 border-t border-line pt-6">
+        <div className="mb-2 text-xs uppercase tracking-wider text-ink-3">
           Spec-driven generated panel
         </div>
         <RnnoiseGeneratedPanel controller={generatedController} />

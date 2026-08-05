@@ -2,19 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    color-scheme: dark;
-  }
+/*
+ * WakeStudio semantic design tokens (light theme, v1).
+ *
+ * Components use semantic utilities (bg-surface, text-ink-2, border-line...)
+ * instead of raw slate-xxx/white classes, so a dark theme is a token swap, not
+ * a component sweep. Defined here as CSS variables + mapped in
+ * tailwind.config.ts.
+ *
+ * Palette rationale:
+ *   - ink-1  : primary text (near-black, high contrast)
+ *   - ink-2  : secondary text (60% ink)
+ *   - ink-3  : tertiary / captions (45% ink)
+ *   - surface: page background (very light cool gray)
+ *   - surface-2: card background (white)
+ *   - surface-3: inset / input background (slightly gray)
+ *   - line   : hairline borders
+ *   - line-2 : stronger borders (focus rings, active)
+ *   - brand  : the sky-blue accent (unchanged from dark theme)
+ */
 
-  /* Always show the scrollbar: prevents a feedback loop where content height
-     changes cause the scrollbar to appear/disappear, which changes the viewport
-     width, which re-wraps text, which changes content height (ADR: flicker fix). */
-  html {
-    overflow-y: scroll;
-  }
+/* CSS variables live OUTSIDE @layer so they always exist at :root (Tailwind
+   drops unlayered custom props inside @layer base in some purge paths).
+   Colors are rgb() TRIPLES so Tailwind's <alpha-value> can compose
+   opacity modifiers (e.g. bg-surface-2/90). */
+:root {
+  color-scheme: light;
 
-  body {
-    @apply bg-slate-950 text-slate-100 antialiased;
-  }
+  /* Surfaces. */
+  --ws-surface: 248 250 252;    /* slate-50  - page bg */
+  --ws-surface-2: 255 255 255;  /* white     - card bg */
+  --ws-surface-3: 241 245 249;  /* slate-100 - inset/input bg */
+  --ws-surface-4: 226 232 240;  /* slate-200 - hover/active bg */
+
+  /* Ink (text). */
+  --ws-ink-1: 15 23 42;         /* slate-900 - primary text */
+  --ws-ink-2: 71 85 105;        /* slate-600 - secondary text */
+  --ws-ink-3: 100 116 139;      /* slate-500 - tertiary/captions */
+
+  /* Lines. */
+  --ws-line: 226 232 240;       /* slate-200 - hairlines */
+  --ws-line-2: 203 213 225;     /* slate-300 - stronger borders */
+
+  /* Semantic (status). */
+  --ws-success: 5 150 105;      /* emerald-600 */
+  --ws-warning: 217 119 6;      /* amber-600 */
+  --ws-danger: 220 38 38;       /* red-600 */
+}
+
+/* Always show the scrollbar: prevents a feedback loop where content height
+   changes cause the scrollbar to appear/disappear, which changes the viewport
+   width, which re-wraps text, which changes content height (ADR: flicker fix). */
+html {
+  overflow-y: scroll;
+}
+
+body {
+  background-color: rgb(var(--ws-surface));
+  color: rgb(var(--ws-ink-1));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
