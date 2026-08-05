@@ -86,7 +86,7 @@ export const KWSPanel = memo(function KWSPanel({
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
     }
-  }, [config.backend])
+  }, [config.backend, config.threshold])
 
   const handleStart = useCallback(() => {
     if (!engineRef.current || !afePipeline || !afeRunning) return
@@ -157,8 +157,11 @@ export const KWSPanel = memo(function KWSPanel({
       if (text) setLastKeyword(text)
     })
     engine.setConfig({ backend: config.backend, threshold: config.threshold })
+    // The engine is created once; backend/threshold changes are pushed via
+    // updateConfig -> engine.setConfig, so only config.backend/threshold are
+    // re-applied here when the user changes them before loading.
     return () => engine.dispose()
-  }, [])
+  }, [config.backend, config.threshold])
 
   const canStart = status === 'ready' && afeRunning && !running
 

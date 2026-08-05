@@ -91,6 +91,84 @@ ESP-SR, Infineon audio-front-end, and XMOS voice-interface docs):
   "Zero setup" holds for the in-browser live/enrollment/export journey; the three
   training backends are *optional* and chosen only when training is needed.
 
+### 3.1 Repository structure — pnpm monorepo (ADR-025)
+
+The repo is a **pnpm workspace monorepo** (方案 A, 2026-07-31). It hosts four
+worlds in one tree, each with its own build toolchain, so a module can deliver
+web, local-service, device, and train artifacts side by side:
+
+```
+wake-studio/                          # pnpm workspace root
+├── pnpm-workspace.yaml               # workspace members: apps/*, packages/*
+├── package.json                      # orchestration scripts (dev/build/test/fetch:all/train)
+├── tsconfig.base.json
+├── apps/
+│   ├── web/                          # PWA (React + Vite) - the browser console
+│   │   ├── src/
+│   │   ├── public/                   # model-registry.json, icons (ADR-011 registry)
+│   │   └── e2e/                      # L3 browser tests (ADR-026)
+│   ├── local-service/                # Node API service (the Self-hosted backend, ADR-005)
+│   │   ├── src/
+│   │   │   ├── server.ts             # HTTP server (Hono/Fastify)
+│   │   │   ├── module-registry.ts    # reads module.spec.json -> mounts module /node routes
+│   │   │   ├── train-runner.ts       # spawns module train scripts via uv (ADR-028)
+│   │   │   └── artifact-sync.ts      # ADR-027 fetch/verify logic
+│   │   └── tests/
+│   └── cli/                          # ops CLI (fetch, health, train trigger) - optional
+├── packages/
+│   ├── contracts/                    # @wake-studio/contracts - pure types + JSON schemas
+│   │   └── src/                      # module-spec.ts / kws.ts / afe.ts / train.ts
+│   ├── module-kit/                   # @wake-studio/module-kit
+│   │   └── src/                      # panel-generator / playground-router / spec-validator / registry
+│   ├── test-kit/                     # @wake-studio/test-kit
+│   │   └── src/wasm-runner.ts        # L2: load emscripten/onnx artifacts in Node (ADR-026)
+│   ├── modules/                      # functional modules (ADR-025) - see §3.2
+│   │   └── <category>/<module>/      # e.g. packages/modules/afe/rnnoise/
+│   └── sdk/                          # device-side SDK (C/C++, CMake) - ADR-021
+│       ├── sdk-base/                 # portable C core
+│       └── sdk-esp32/                # platform adapter example
+├── device/                           # device world root (C/C++, CMake build tree)
+│   ├── CMakeLists.txt
+│   ├── sdk-base/                     # portable core
+│   └── modules/                      # module device/ dirs, add_subdirectory'd in
+├── scripts/                          # root-level ops scripts
+├── .github/workflows/
+│   ├── ci.yml                        # L1+L2 per module + build apps
+│   ├── build-<artifact>.yml          # per-artifact builds (ADR-027)
+│   ├── train-<module>.yml            # training workflows (call module train scripts)
+│   └── deploy.yml
+└── docs/
+```
+
+**Cross-world sharing rules (ADR-025):**
+
+- **Contracts live in `packages/contracts`** — web, local-service, and modules
+  import *the same type/schema package*; modules depend on contracts, never on
+  another module's internals.
+- **Per-target exports** — a module package exposes `@wake-studio/module-*/web`,
+  `/node`, `/spec`, `/train`, `/device` subpaths; each world imports only what it
+  needs (§3.2).
+- **module.spec.json is the single shared fact source** — the web panel generator,
+  the local-service route registry, and the CI build/train workflows all derive
+  from one spec per module.
+- **device/** is the C world root and stays separate from the JS world (its own
+  CMake build tree); module `device/` directories are pulled in via
+  `add_subdirectory`, not npm.
+
+### 3.2 Module layout (ADR-025)
+
+```
+packages/modules/<category>/<module>/     # e.g. packages/modules/afe/rnnoise/
+├── package.json          # name @wake-studio/module-rnnoise; exports ./web /node /spec /train /device
+├── spec/module.spec.json # the single fact source (docs/module-spec.md)
+├── core/                 # portable TS: types, DSP, engine facade (web + node share)
+├── web/                  # wasm loader + panel config + playground.tsx (browser)
+├── node/                 # native/subprocess impl for the local service
+├── train/                # train.py + pyproject.toml + requirements (uv, ADR-028)
+├── device/               # C/C++ + CMakeLists.txt (into device/ build tree)
+└── tests/                # L1 (vitest) / L2 (wasm in Node) / L3 (playwright)
+```
+
 ---
 
 ## 4. Model & component selection
@@ -298,8 +376,10 @@ package and offers to train a clean replacement instead.
   ADR-018 (KWS Phase 2 design), ADR-019 (target matrix, supersedes ADR-006),
   ADR-020 (pluggable KWS backends), ADR-021 (device-side SDK), ADR-022 (data-source
   layer), ADR-023 (Colab backend), ADR-024 (3-category KWS taxonomy + decoupling
-  rule + unified panel spec); ADR-013 amended (in-browser training removed,
-  Cloud Providers unified, Colab added) and ADR-011 amended (asset pre-fetch).
+  rule + unified panel spec), ADR-025 (module platform + monorepo), ADR-026
+  (testing layers), ADR-027 (build-artifact SOP), ADR-028 (uv for train scripts);
+  ADR-013 amended (in-browser training removed, Cloud Providers unified, Colab
+  added) and ADR-011 amended (asset pre-fetch).
 - **License matrix:** `LICENSES.md`.
 - **Living plan & phased roadmap:** `.agents/plan/goal.plan` (gitignored; the source
   of truth for phase status and open questions).

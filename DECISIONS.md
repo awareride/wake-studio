@@ -527,12 +527,198 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 
 ---
 
+## ADR-025 — WakeStudio is a platform of self-contained modules with a config-driven panel generator
+
+- **Status:** Accepted (2026-07-31: monorepo layout + device/ location decided;
+  panel generator + RNNoise pilot pending)
+- **Origin:** Human product/architecture direction (2026-07-31 discussion)
+- **Decision:** All functional areas (AFE components, KWS backends, Few-Shot,
+  Training, Data sources, Export) become **self-contained modules**. A module is
+  the unit of delivery, testing, and extension — it owns everything its function
+  needs, and the rest of the app interacts with it only through a declared
+  contract. The repo is a **pnpm workspace monorepo** hosting four worlds — web
+  (apps/web PWA), local service (apps/local-service Node API), device
+  (device/, C/C++ CMake build tree), and train scripts (per-module train/ dirs)
+  — see `docs/architecture.md` §3.1–§3.2.
+- **Module definition (a module is complete when ALL of these exist):**
+  1. **Core logic** (engine/backend), usable headlessly — no UI dependency.
+  2. **Config spec** — a declarative `ModuleSpec` (JSON Schema; see
+     `docs/module-spec.md`) describing params, actions, status, runtime shape,
+     build recipe, and test requirements.
+  3. **Auto-generated panel** — rendered by the shared panel generator from the
+     spec, never hand-coded. Replaces today's hard-coded per-component panels
+     (AFEPanel / KWSPanel / FewShotPanel / TrainingPanel).
+  4. **Full test coverage** — unit (L1, vitest) + wasm-runtime (L2, Node) +
+     e2e (L3, Playwright) per the testing ADR (ADR-026).
+  5. **Playground page** — a standalone route where the module's function can
+     be experienced without the rest of the app.
+  6. **Multi-target deliverables** — whatever is needed beyond the web app:
+     local service (Node), cloud build (GitHub Actions), and device SDK glue
+     (ADR-021), as applicable. "As applicable" is judged per module, not
+     mandated wholesale.
+- **Module boundary rules:**
+  - A module depends on the **platform layer** (`src/platform/*`: audio IO,
+    wasm loader, runtime abstraction) and on **declared interfaces** of other
+    modules only — never on another module's internals.
+  - Adding a module must not require editing shared modules (extends the
+    ADR-024 decoupling rule to all modules).
+  - Shared pure logic (DSP) may live in a module and be imported by other
+    modules' *tests*, but cross-module runtime imports go through the declared
+    contract.
+- **Monorepo layout (2026-07-31):**
+  - `apps/web` (PWA), `apps/local-service` (Node API, the Self-hosted training
+    backend of ADR-005), `packages/contracts` (shared types + schemas),
+    `packages/module-kit` (panel generator / playground router / spec
+    validator), `packages/test-kit` (L2 wasm runner), `packages/modules/*`
+    (functional modules), `packages/sdk` (device SDK, ADR-021), and a top-level
+    `device/` root for the C/C++ build tree.
+  - **Device world lives in top-level `device/`**, separate from the JS world:
+    module `device/` directories are pulled into its CMake build tree via
+    `add_subdirectory`, not npm. Rationale: the C toolchain (CMake/compilers)
+    is a different build system; mixing it into pnpm workspaces adds nothing.
+  - Contracts (`packages/contracts`) are the only cross-module dependency
+    surface; per-target package exports (`./web` `/node` `/spec` `/train`
+    `/device`) keep each world importing only what it needs.
+- **Panel generator:** `renderPanel(spec) -> React component` is a pure function
+  over `ModuleSpec`; the existing `ParameterDescriptor`/`describeParameters()`
+  (ADR-017) becomes the per-parameter leaf of the spec. Two or three panel
+  layouts (classification, pipeline, training) cover all current modules.
+- **Maturity scoring:** each module carries a public scorecard
+  (core / spec / panel / tests / playground / targets) so "Complete" means
+  something measurable. The README status table will be generated from these
+  scorecards, not hand-maintained (fixes the current over-optimistic statuses).
+- **Rationale:** The "uncontrollable" feel of the project comes from modules
+  being shipped at very different levels (some are engines, some are UI shells,
+  some are doc stubs) with no per-module definition of done. Self-contained
+  modules with a spec + generator + scorecard make each module independently
+  verifiable and extendable, and make the roadmap legible.
+- **Consequences:**
+  - Migration is incremental: one **pilot module first** (RNNoise — small,
+    vendored wasm, no Python) to validate the full module lifecycle, then the
+    rest. No big-bang rewrite.
+  - `docs/modules/*.md` evolve into module specs; `docs/module-spec.md` defines
+    the schema; `docs/build-artifacts.md` (ADR-027) defines the CI build SOP;
+    the testing ADR (ADR-026) defines L1/L2/L3; train scripts use uv
+    (ADR-028).
+  - Hand-written panels are deleted as their modules migrate to the generator.
+- **Status of this ADR:** Accepted (2026-07-31). The monorepo layout, the
+  `device/` root, and per-target module exports are decided. The panel generator
+  and the RNNoise pilot are the next concrete steps.
+
+---
+
+## ADR-026 — Three-layer testing: unit (L1), local wasm runtime (L2), browser e2e (L3)
+
+- **Status:** Proposed (draft for human review)
+- **Origin:** Human architecture direction (2026-07-31 discussion, Q6)
+- **Decision:** Testing is organized into three layers, run at different
+  frequencies:
+  - **L1 Unit (vitest, Node/JSDOM):** pure logic — DSP, matching, state
+    machines, smoothing/trigger rules. No runtime/model dependencies. Runs on
+    every PR (already the case; 102 tests today).
+  - **L2 WASM runtime (Node):** the emscripten/ONNX artifacts are loaded in a
+    **local Node process** and exercised directly — compile the wasm, init the
+    runtime, load the model, run one inference pass over a synthetic clip. This
+    verifies "the artifact actually boots and produces output" in seconds,
+    without a browser and without a 55 MB fetch. Runs on every PR.
+  - **L3 Browser e2e (Playwright):** full UI flows in a real browser. Slow
+    (large wasm fetches), so it runs on merge/PR only after L1+L2 pass, and at
+    a lower cadence (e.g. before merging to `main`, or nightly).
+- **Rationale:** Today, verifying "the sherpa-onnx-kws wasm boots" requires the
+  180-second browser e2e (which fetches ~55 MB); that is too slow and too
+  flaky to gate every change. The emscripten glue the project already uses
+  supports `ENVIRONMENT=node`, and sherpa-onnx ships Node bindings, so an L2
+  runner is nearly free — it is the same wasm file, loaded by Node instead of a
+  browser.
+- **Consequences:**
+  - Each module with wasm/onnx artifacts ships an L2 runner
+    (`<module>/__tests__/wasm-runtime.test.ts`) that loads the artifact from
+    `prebuilts/` or `public/` and asserts boot + one inference pass.
+  - L3 becomes the gate for merge to `main`, not for every PR.
+  - L2 does **not** replace L3: thread/SharedArrayBuffer behavior differs
+    between Node and browsers; the browser e2e remains the authority for
+    browser-only semantics (this is exactly the pitfall noted in the
+    sherpa-onnx-kws commit).
+- **Status of this ADR:** Proposed — awaiting human review of the layer
+  definitions and the L3 cadence.
+
+---
+
+## ADR-027 — External artifacts are built in GitHub Actions and synced locally via a standard fetch SOP
+
+- **Status:** Proposed (draft for human review)
+- **Origin:** Human architecture direction (2026-07-31 discussion, Q5)
+- **Decision:** Every externally-built artifact (wasm, onnx, models) follows a
+  **standard build-and-fetch SOP**, formalizing what the project already does
+  ad-hoc:
+  1. **Build in CI, not on the dev machine.** One `workflow_dispatch` workflow
+     per artifact (emsdk/CMake/Python toolchains stay off dev machines; `main`
+     stays protected). Existing: `build-sherpa-onnx-kws-wasm.yml`,
+     `export-plixkws.yml`.
+  2. **Artifacts are never committed** (ADR-011). The workflow uploads them as
+     a downloadable artifact.
+  3. **Sync to local via a standard fetch script** — `scripts/fetch-<name>.mjs`
+     under a shared pattern; `pnpm fetch:all` runs them all. The fetch script
+     pins the expected artifact (name + hash) and verifies what it downloaded.
+  4. **Registry:** `public/model-registry.json` is extended to carry, per
+     artifact: version, source workflow, hash, fetch command, date. It is the
+     single source of truth for "what artifact should be present locally."
+  5. **Fail loudly when missing:** if a module's artifact is absent at runtime,
+     the UI shows the exact fetch command instead of failing silently.
+- **Canonical SOP:** `docs/build-artifacts.md`.
+- **Rationale:** The project already has the correct bones (3 workflows, a
+  fetch script, gitignored assets); what is missing is the standard
+  job/format/signature so every future artifact is handled identically and the
+  developer never guesses how to obtain it.
+- **Consequences:**
+  - New module with a build step gets: workflow + fetch script + registry entry
+    + missing-asset error message. Nothing hand-rolled.
+  - Artifact version bumps are explicit (hash in registry + fetch script),
+    making stale-wasm regressions diagnosable.
+- **Status of this ADR:** Proposed — awaiting human review of the SOP and the
+  registry schema.
+
+---
+
+## ADR-028 — Module train scripts use `uv` (Astral) for Python environment management
+
+- **Status:** Accepted (implemented in the RNNoise pilot)
+- **Origin:** Human product direction (2026-07-31 discussion, Q: Python env for
+  train scripts)
+- **Decision:** Module `train/` scripts declare their Python environment in a
+  `pyproject.toml` (or a thin `requirements.txt` for simple modules) and are run
+  through **`uv run`** (Astral, Rust, single binary). No conda, no per-module
+  venv management by hand, no Docker required for local runs. Docker remains an
+  option for CI isolation but is not the default local path.
+- **Rationale:** `uv` is a drop-in replacement for pip/venv/poetry with fast,
+  hermetic, cacheable environments; one static binary installs in seconds and it
+  exists on GitHub-hosted runners and on the dev machine. It shields the repo
+  from "it works on my machine" Python drift: the exact interpreter + pinned deps
+  are declared next to the script, and `uv run` resolves them deterministically.
+  Lightweight (no Docker daemon, no image build) and cross-platform.
+- **Consequences:**
+  - Module `train/` must contain a `pyproject.toml` (or `requirements.txt`) and
+    a `train.py` (or `train.sh` wrapping `uv run python train.py`).
+  - The local service's `train-runner.ts` invokes `uv run --project <module>/train
+    python train.py ...` in a working directory the module owns; output artifacts
+    (checkpoint, metrics) are written under the module's `out/` and registered in
+    `model-registry.json` (ADR-027).
+  - CI `train-<module>.yml` invokes the same command on a runner with `uv`
+    installed (`astral-sh/setup-uv`), so local and CI share one code path.
+  - Docker is **not** required; modules may add a `Dockerfile` only when they
+    need GPU/system deps that `uv` alone cannot provide.
+- **Status:** Accepted.
+
+---
+
 _Open questions still pending human input: Q10 (self-hosted training engine) is
 open for Phase 5. Q9 (training backends) is ADR-013 (amended: in-browser training
 removed, Cloud Providers unified, Colab added as ADR-023); targets are ADR-019
 (supersedes ADR-006); pluggable KWS backends are ADR-020; the device-side SDK is
-ADR-021; the data-source layer is ADR-022. Project name is ADR-014; CI/CD
-deferral is ADR-015; AFE Phase 1 design is ADR-016; the config panel is ADR-017;
-KWS Phase 2 design is ADR-018 (Phase 2 paused per Q5, resumes against the
-`KWSBackend` interface). Defaults from Q2/Q3/Q4/Q7 are applied per this log and
-may be overridden._
+ADR-021; the data-source layer is ADR-022; the module platform is ADR-025
+(Accepted - monorepo + module layout); testing layers are ADR-026 (Proposed);
+build-artifact SOP is ADR-027 (Proposed); train scripts use uv (ADR-028,
+Accepted). Project name is ADR-014; CI/CD deferral is ADR-015; AFE Phase 1
+design is ADR-016; the config panel is ADR-017; KWS Phase 2 design is ADR-018
+(Phase 2 paused per Q5, resumes against the `KWSBackend` interface). Defaults
+from Q2/Q3/Q4/Q7 are applied per this log and may be overridden._

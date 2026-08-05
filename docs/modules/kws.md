@@ -5,14 +5,15 @@
 - **Plan phase:** Phase 2
 - **Related ADRs:** ADR-001 (pipeline stages), ADR-002 (PLiX Few-Shot encoder), ADR-011 (lazy model registry), ADR-017 (per-component config panel), ADR-018 (KWS Phase 2 design decisions), ADR-020 (pluggable KWS backends)
 - **Depends on (modules):** AFE (consumes the 16 kHz output stream)
-- **Last updated:** 2026-07-27
+- **Last updated:** 2026-07-31
 
 ## 1. Purpose
 
 The KWS module detects a wake word in real time from the AFE's processed 16 kHz
-output stream. It runs ONNX inference in the browser (onnxruntime-web), smooths
-the posterior score, applies a threshold + minimum-duration rule, and raises a
-trigger event. It also scaffolds the Few-Shot `embed(audio)` function (frozen
+output stream. It runs model inference in the browser (onnxruntime-web for
+OpenWakeWord / PLiX; emscripten-compiled WASM for sherpa-onnx KWS), smooths the
+posterior score, applies a threshold + minimum-duration rule, and raises a
+trigger event. It also provides the Few-Shot `embed(audio)` function (frozen
 PLiX encoder) for Phase 3 enrollment. Delivers the KWS half of the in-browser
 experience (requirement R5).
 
@@ -20,16 +21,21 @@ experience (requirement R5).
 
 - **In scope:** a pluggable `KWSBackend` interface (ADR-020) with adapters;
   onnxruntime-web integration (WebGPU + WASM fallback); the OpenWakeWord backend
-  (melspectrogram -> embedding -> classifier) as the v1 browser demo backend;
-  score smoothing (sliding window); threshold + min-duration trigger logic; VAD
-  gating via the AFE's RNNoise VAD; live score-curve visualization; the Few-Shot
+  (melspectrogram -> embedding -> classifier); the **sherpa-onnx KWS backend**
+  (transducer keyword spotter, emscripten WASM on the main thread); score
+  smoothing (sliding window); threshold + min-duration trigger logic; VAD gating
+  via the AFE's RNNoise VAD; live score-curve visualization; the Few-Shot
   `embed(audio)` scaffold (load PLiX, extract embeddings - matching is Phase 3);
   KWS config panel (ADR-017). Backend selection is exposed in the panel
-  (openWakeWord available in v1; micro-wake-word / PLiX Few-Shot / PocketSphinx
-  are registered but not browser-feasible until later phases).
+  (openWakeWord and sherpa-onnx KWS are browser-feasible; micro-wake-word /
+  PocketSphinx are registered for the device SDK (ADR-021) but not browser-
+  feasible; PLiX Few-Shot is Phase 3, created by the worker with an enrolled
+  prototype).
 - **Out of scope:** Few-Shot enrollment + prototype matching (Phase 3); model
   export (Phase 4); model training (Phase 5); the AFE pipeline itself (Phase 1 -
-  KWS consumes its output).
+  KWS consumes its output). The former ASR-Decoding (`asr-decode`) backend was
+  removed in 2026-07-31 (ba52a61) - a broken heuristic over an ASR decoder - and
+  is replaced by sherpa-onnx KWS (see `docs/kws-categories.md` §2.2).
 - **Public surface:** a `KWSEngine` controller the UI drives (load model, start/stop
   detection, subscribe to scores/triggers, configure threshold/min-duration) and an
   `embed(audio)` function for Phase 3.
@@ -90,7 +96,8 @@ import type { AFEOutputFrame } from '../afe'
 export type KWSBackendId =
   | 'openwakeword'   // mel -> speech_embedding -> classifier (app-class)
   | 'microwakeword'  // TFLite-Micro streaming CNN (MCU; not browser-feasible v1)
-  | 'plixkws'       // PLiX embedding + prototype-distance (app-class; Phase 3)
+  | 'plixkws'        // PLiX embedding + prototype-distance (app-class; Phase 3)
+  | 'sherpa-onnx-kws' // Direct keyword spotting via sherpa-onnx KWS wasm (transducer)
   | 'pocketsphinx'   // lightweight HMM/GMM (MCU+; WASM port pending)
 
 /** One score sample emitted per inference frame (~every 10 ms). */
@@ -127,6 +134,23 @@ export interface KWSConfig {
   vadThreshold: number           // default 0.3 (VAD probability below which KWS is gated)
   cooldownMs: number             // default 2000 (min time between triggers)
   executionProvider: 'webgpu' | 'wasm'  // default 'webgpu' with 'wasm' fallback
+  runtime?: ModelRuntime         // global model-runtime hint (ADR-002 amendment)
+}
+
+/** sherpa-onnx KWS backend configuration (see src/kws/types.ts). */
+export interface SherpaOnnxKwsConfig {
+  /** Base URL where sherpa-onnx-kws.{js,wasm,data} are served. */
+  wasmBaseUrl: string
+  /**
+   * sherpa-onnx keyword list; each line is `spaced tokens @display name`
+   * (e.g. `x iǎo ài t óng x ué @小爱同学`). Defaults to the bundled model's
+   * keywords when omitted.
+   */
+  keywords?: string
+  /** Number of decode threads (wasm is single-threaded; keep at 1). */
+  numThreads?: number
+  /** Per-keyword score threshold (0..1) passed to sherpa-onnx. */
+  keywordsThreshold?: number
 }
 
 /** Descriptor for one tunable parameter (shared with AFE, ADR-017). */
@@ -163,6 +187,13 @@ export interface KWSBackend {
   reset(): void
   /** Release model resources. */
   dispose(): Promise<void>
+  /**
+   * Optional capability: sherpa-onnx KWS streams partial keyword detections;
+   * the backend emits them as detections (KWSEngine may convert to scores).
+   */
+  onDetection?: (cb: (word: string) => void) => () => void
+  /** Apply sherpa-onnx-specific config before load(). */
+  configure?(cfg: Partial<SherpaOnnxKwsConfig>): void
 }
 
 /** Optional capability: extract a speaker embedding for Few-Shot (Phase 3). */
@@ -176,6 +207,11 @@ export interface BackendModelUrls {
   embedding?: string
   classifier?: string
   plixkws?: string
+  sherpaKws?: {
+    js: string
+    wasm: string
+    data: string
+  }
 }
 
 /** Top-level controller the UI drives. */
@@ -205,16 +241,18 @@ export interface KWSEngine {
 
 ## 5. Data flow / sequence
 
-**Threading (ADR-018):** KWS inference runs in a **Web Worker**
-(off-main-thread) to avoid blocking the UI. The main thread owns the `KWSEngine`
-controller and visualization; the worker owns the ONNX sessions + inference loop.
-They communicate via `postMessage` (scores/triggers out, config in). Rationale:
-ONNX inference on a ~1.4M-param model at 10 ms/frame can take 2-10 ms per frame;
-running it on the main thread risks janky viz. The AFE's AudioWorklet already runs
-off-main-thread; KWS follows the same principle.
+**Threading (ADR-018, amended 2026-07-31):** ONNX-based backends (OpenWakeWord,
+PLiX) run inference in a **Web Worker** (off-main-thread) to avoid blocking the
+UI; the main thread owns the `KWSEngine` controller and visualization, the worker
+owns the ONNX sessions + inference loop, and they communicate via `postMessage`.
+The **sherpa-onnx KWS backend deviates**: its classic emscripten glue requires
+`document` (it drives `Module.onRuntimeInitialized` and expects DOM shims), so
+it runs on the **main thread** and drives its own smoothing/trigger loop there
+(see `src/kws/backends/sherpa-onnx-kws.ts` + `KWSEngine`). Both paths expose the
+same `onScore`/`onTrigger` events to the UI.
 
 ```
-AFE (AudioWorklet)                KWS Worker                  Main thread (UI)
+AFE (AudioWorklet)                KWS Worker (ONNX backends)   Main thread (UI)
       │                               │                            │
       │ -- AFEOutputFrame (16kHz) --> │                            │
       │                               │ -- VAD gate                │
@@ -262,16 +300,27 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
 
 | Parameter | Default | Range | Notes |
 |---|---|---|---|
-| `backend` | `openwakeword` | `openwakeword` \| `microwakeword` \| `plixkws` \| `pocketsphinx` | Pluggable KWS backend (ADR-020). Only `openwakeword` is browser-feasible in v1; the others are registered for later phases. |
+| `backend` | `openwakeword` | `openwakeword` \| `microwakeword` \| `plixkws` \| `sherpa-onnx-kws` \| `pocketsphinx` | Pluggable KWS backend (ADR-020). Browser-feasible: `openwakeword`, `sherpa-onnx-kws`; `plixkws` (Phase 3, needs enrollment); `microwakeword` / `pocketsphinx` are export-only (ADR-021). |
 | `threshold` | 0.5 | 0-1 | Smoothed score must exceed this to trigger. |
 | `minDurationMs` | 500 | 100-3000 | Score must exceed threshold for this long to trigger. |
 | `smoothingWindowFrames` | 10 | 1-30 | Sliding-window size for max-pooling (~10 ms/frame). |
 | `vadGateEnabled` | true | - | Suppress triggers (not inference) when VAD < threshold; keeps the audio window current. |
 | `vadThreshold` | 0.3 | 0-1 | VAD probability below which KWS is gated. |
 | `cooldownMs` | 2000 | 500-10000 | Minimum time between triggers. |
-| `executionProvider` | `webgpu` | `webgpu` \| `wasm` | WebGPU first; WASM fallback if unsupported. |
+| `executionProvider` | `webgpu` | `webgpu` \| `wasm` | WebGPU first; WASM fallback if unsupported. sherpa-onnx-kws is always WASM (emscripten build). |
+| `runtime` | `onnx` | `onnx` \| `transformers` | Global model-runtime hint (ADR-002 amendment) for ONNX-based backends. |
 | `melWindowSize` | 1280 | fixed | Melspectrogram window in samples (80 ms @ 16 kHz). |
 | `melHopSize` | 160 | fixed | Melspectrogram hop (10 ms @ 16 kHz = 1 AFE frame). |
+
+**sherpa-onnx KWS backend parameters** (`SherpaOnnxKwsConfig`, set via
+`engine.load(..., sherpaKwsConfig)`):
+
+| Parameter | Default | Notes |
+|---|---|---|
+| `wasmBaseUrl` | `/sherpa-onnx-kws/` | Where `sherpa-onnx-kws.{js,wasm,data}` are served (ADR-011 lazy fetch; gitignored, see `docs/build-artifacts.md`). |
+| `keywords` | bundled model's | `spaced tokens @display name` lines override the model's built-in keyword list. |
+| `numThreads` | 1 | WASM is single-threaded; keep at 1. |
+| `keywordsThreshold` | model default | Per-keyword score threshold (0..1) passed to sherpa-onnx. |
 
 > **Trigger tuning:** `threshold` + `minDurationMs` + `cooldownMs` form the
 > false-alarm / false-reject trade-off. Lower threshold + shorter duration = more
@@ -283,6 +332,9 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
 - **Model fetch failure** (network/CORS): `load()` rejects with a descriptive
   error; UI shows "failed to load KWS models - check connection." Models are
   fetched lazily from the registry (ADR-011).
+- **sherpa-onnx KWS assets missing** (the ~55 MB `public/sherpa-onnx-kws/*`
+  bundle is gitignored, ADR-011): `load()` rejects with a message pointing at
+  `pnpm fetch-sherpa-kws-assets` (see `docs/build-artifacts.md`).
 - **ONNX session creation failure** (unsupported op, WASM unavailable): `load()`
   rejects; UI shows "KWS inference unavailable in this browser."
 - **WebGPU unavailable:** automatic fallback to WASM execution provider; UI shows
@@ -318,14 +370,19 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
 - **Unit (Vitest):** the pure logic - score smoothing (sliding-window max),
   threshold + min-duration trigger logic, cooldown, VAD gate. These are extracted
   to a testable module (like `afe/dsp.ts`) with no ONNX dependency.
-- **Integration:** load a real ONNX model in a jsdom/Node environment with
-  onnxruntime-node (CI) or a browser (Playwright); feed a test audio clip and
-  assert the score rises on the wake word and stays low on silence.
-- **Manual / on-device:** speak the demo wake word -> confirm a trigger fires with
-  < 500 ms latency; adjust threshold/min-duration sliders -> confirm behavior
-  changes predictably; confirm VAD silences KWS during silence.
-- **e2e (Playwright):** assert the KWS panel renders and the score curve is
-  visible after model load (audio-level trigger testing is manual).
+- **WASM runtime test (L2, Node):** load the sherpa-onnx-kws emscripten bundle in
+  a Node process (the glue supports `ENVIRONMENT=node`), instantiate the
+  `KeywordSpotter`, and run one inference pass over a synthetic clip. Fast, runs
+  on every PR; catches wasm/model regressions before the slow browser e2e.
+- **Integration (browser):** load a real model in Playwright; feed a test audio
+  clip and assert the score rises on the wake word and stays low on silence.
+- **Manual / on-device:** speak the demo wake word -> confirm a trigger fires
+  with < 500 ms latency; adjust threshold/min-duration sliders -> confirm
+  behavior changes predictably; confirm VAD silences KWS during silence.
+- **e2e (Playwright):** `e2e/sherpa-kws.spec.ts` asserts the sherpa-onnx-kws
+  backend boots in the browser (wasm initializes + KeywordSpotter created,
+  status becomes `ready`, `EP: WASM` label renders). Slow (~55 MB wasm fetch),
+  so it runs at a lower cadence than L1/L2 (see testing ADR).
 
 ## 10. Security & privacy
 
@@ -388,3 +445,4 @@ All Phase 2 open questions are resolved (ADR-018); the contract is locked.
 | 2026-07-27 | Fix the OpenWakeWord pipeline: correct mel output shape `[1,1,time,32]` (was misread as `[time,1,76,32]`), add the required `x/10+2` melspectrogram transform, window 76 mel FRAMES (not per-timestep) for the embedding model, use 480-sample streaming overlap. Post 0-scores during ~2 s warmup so the curve renders. | agent |
 | 2026-07-28 | VAD gate now suppresses triggers, not inference. The old gate dropped audio frames during VAD-off, losing wake-word onset (RNNoise VAD is conservative) and making triggering difficult. Inference always runs so the audio window stays current. | agent |
 | 2026-07-28 | Migrate the Few-Shot encoder from WavLM-base-plus to **PLiX** (`aaqibsaeed/plixkws`, Apache-2.0). WavLM-base-plus was too heavy for end-side devices; PLiX is a compact CNN (EfficientNet-v2 "base" / TinyNet-E "small") with Prototypical-Network scoring (embedding -> mean prototype -> distance). New `plixkws` backend id + `PlixKwsEmbedProvider` (log-Mel front-end, WASM-pinned). Scoring uses squared-Euclidean distance to the prototype, rescaled to [0,1] via `1/(1+d^2)`. Replaces `wavlm-few-shot` / `WavLMEmbedProvider`. | agent |
+| 2026-07-31 | Add `sherpa-onnx-kws` backend (real KWS transducer, emscripten WASM, main-thread) to the backend union, `KWSBackend` optional `onDetection`/`configure`, `SherpaOnnxKwsConfig`, `BackendModelUrls.sherpaKws`, `KWSConfig.runtime`. Threading §5 amended (sherpa runs main-thread), config table + error model + testing strategy updated. Docs-only sync with ba52a61. | agent |
