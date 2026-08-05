@@ -26,6 +26,7 @@
     "@radix-ui/react-toast": "^1.2.23",
     "@radix-ui/react-tooltip": "^1.2.16",
     "@wake-studio/contracts": "workspace:*",
+    "@wake-studio/module-kit": "workspace:^",
     "@wake-studio/module-rnnoise": "workspace:^",
     "onnxruntime-web": "^1.27.0",
     "react": "^18.3.1",

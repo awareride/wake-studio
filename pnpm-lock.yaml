@@ -57,6 +57,9 @@ importers:
       '@wake-studio/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@wake-studio/module-kit':
+        specifier: workspace:^
+        version: link:../../packages/module-kit
       '@wake-studio/module-rnnoise':
         specifier: workspace:^
         version: link:../../packages/modules/afe/rnnoise

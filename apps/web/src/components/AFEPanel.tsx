@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import type { MutableRefObject } from 'react'
 import type { AFEPipeline } from '../afe'
 import { AFEPipeline as AFEPipelineClass } from '../afe'
 import type { StageFrameData } from '../afe'
@@ -7,11 +8,13 @@ import { PipelineOverview } from './PipelineOverview'
 import { RecordReplay } from './RecordReplay'
 
 interface AFEPanelProps {
-  afeRef: React.MutableRefObject<AFEPipeline | null>
+  afeRef: MutableRefObject<AFEPipeline | null>
   onRunningChange: (running: boolean) => void
+  /** Optional: external control (workspace pipeline canvas) to start/stop. */
+  commandRef?: MutableRefObject<{ start: () => void; stop: () => void } | null>
 }
 
-export function AFEPanel({ afeRef, onRunningChange }: AFEPanelProps) {
+export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps) {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [latencyMs, setLatencyMs] = useState(0)
@@ -50,6 +53,13 @@ export function AFEPanel({ afeRef, onRunningChange }: AFEPanelProps) {
     setFrameData({})
     setLatencyMs(0)
   }, [afeRef, onRunningChange])
+
+  // Expose start/stop to the workspace pipeline canvas via commandRef.
+  useEffect(() => {
+    if (commandRef) {
+      commandRef.current = { start: () => void handleStart(), stop: handleStop }
+    }
+  }, [commandRef, handleStart, handleStop])
 
   const toggleBypass = useCallback(
     (stageId: 'aec' | 'bss' | 'ns') => {

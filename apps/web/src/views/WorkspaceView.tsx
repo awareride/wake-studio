@@ -1,13 +1,18 @@
 /**
- * Workspace view (Phase 1).
+ * Workspace view (Phase 2) - project bar + pipeline canvas + stepped panels.
  *
- * Orchestrates the pipeline (AFE → BSS → NS → KWS) and hosts the existing
- * live panels. Phase 2 reworks the internals; this phase establishes the
- * view + a shared run/stop surface and wires shell status + toasts.
+ * Layout:
+ *   1. Project bar (select / create active project)
+ *   2. Pipeline canvas (AEC -> BSS -> NS -> KWS) with shared run/stop
+ *   3. Stepped panels: Live (AFE / KWS / Few-Shot) and Modules (Training /
+ *      pipeline info), hosted in tabs.
  *
- * NOTE: AFE/KWS internals are explicitly out of scope for the console
- * refactor (human decision 2026-08-05) — the panels below are mounted
- * as-is behind the workspace shell.
+ * Config panels are rendered through the unified (module-kit driven) config
+ * panel where the descriptors exist (read-side unification); writes still go
+ * through the existing setConfig paths.
+ *
+ * NOTE: AFE/KWS engine internals are out of scope for the console refactor
+ * (human decision 2026-08-05) - the live DSP path is untouched here.
  */
 
 import * as React from 'react'
@@ -17,18 +22,29 @@ import { FewShotPanel } from '../components/FewShotPanel'
 import { TrainingPanel } from '../components/TrainingPanel'
 import { PipelineView } from '../components/PipelineView'
 import { Domains } from '../components/Domains'
+import { ProjectBar } from '../components/ProjectBar'
+import { PipelineCanvas } from '../components/PipelineCanvas'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui'
 import type { AFEPipeline } from '../afe'
 import { useConsoleStatus } from '../status'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui'
+import { useProjects } from '../projects'
 
 export function WorkspaceView() {
-  // Shared AFE pipeline ref + running state (same contract as before, now
-  // owned by the workspace instead of the old App).
   const afeRef = React.useRef<AFEPipeline | null>(null)
+  const afeCommandRef = React.useRef<{ start: () => void; stop: () => void } | null>(null)
   const [afeRunning, setAfeRunning] = React.useState(false)
   const { setStatus } = useConsoleStatus()
+  const { current } = useProjects()
 
-  // Publish global status when the AFE / detection state changes.
+  const handleStart = React.useCallback(() => {
+    afeCommandRef.current?.start()
+  }, [])
+
+  const handleStop = React.useCallback(() => {
+    afeCommandRef.current?.stop()
+  }, [])
+
+  // Publish global status when AFE state changes.
   React.useEffect(() => {
     setStatus({
       mic: afeRunning ? 'active' : 'idle',
@@ -38,43 +54,58 @@ export function WorkspaceView() {
   }, [afeRunning, setStatus])
 
   return (
-    <div className="space-y-8">
-      {/* Welcome card (replaces the old marketing hero) */}
-      <div className="rounded-xl border border-line bg-gradient-to-br from-brand-50 to-surface-2 p-6">
-        <h2 className="text-xl font-semibold text-ink-1">Workspace</h2>
-        <p className="mt-1 max-w-2xl text-sm text-ink-2">
+    <div className="space-y-6">
+      {/* Welcome + project bar */}
+      <div className="rounded-xl border border-line bg-gradient-to-br from-brand-50 to-surface-2 p-5">
+        <h2 className="text-lg font-semibold text-ink-1">Workspace</h2>
+        <p className="mt-1 text-sm text-ink-2">
           Build, visualize and test on-device wake-word pipelines — all in the
-          browser. Live AFE → KWS → Few-Shot enrollment below; projects and
-          the full studio surface land next.
+          browser. Select or create a project, then run the pipeline.
         </p>
       </div>
 
-      {/* Pipeline status strip */}
-      <div className="rounded-xl border border-line bg-surface-2 p-4">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-3">
-          Pipeline · AEC → BSS → NS → KWS
-        </div>
-        <Tabs defaultValue="live">
-          <TabsList>
-            <TabsTrigger value="live">Live pipeline</TabsTrigger>
-            <TabsTrigger value="modules">Modules</TabsTrigger>
-          </TabsList>
-          <TabsContent value="live" className="mt-4">
-            <div className="space-y-8">
-              <AFEPanel afeRef={afeRef} onRunningChange={setAfeRunning} />
-              <KWSPanel afePipeline={afeRef.current} afeRunning={afeRunning} />
-              <FewShotPanel afePipeline={afeRef.current} afeRunning={afeRunning} />
-            </div>
-          </TabsContent>
-          <TabsContent value="modules" className="mt-4">
-            <div className="space-y-8">
-              <TrainingPanel />
-              <PipelineView />
-              <Domains />
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+      <ProjectBar />
+
+      <PipelineCanvas
+        afeRunning={afeRunning}
+        onStart={handleStart}
+        onStop={handleStop}
+        status={useConsoleStatus().status}
+      />
+
+      {/* Stepped panels */}
+      <Tabs defaultValue="live">
+        <TabsList>
+          <TabsTrigger value="live">Live pipeline</TabsTrigger>
+          <TabsTrigger value="modules">Modules</TabsTrigger>
+        </TabsList>
+        <TabsContent value="live" className="mt-4">
+          <div className="space-y-8">
+            <AFEPanel
+              afeRef={afeRef}
+              onRunningChange={setAfeRunning}
+              commandRef={afeCommandRef}
+            />
+            <KWSPanel afePipeline={afeRef.current} afeRunning={afeRunning} />
+            <FewShotPanel afePipeline={afeRef.current} afeRunning={afeRunning} />
+          </div>
+        </TabsContent>
+        <TabsContent value="modules" className="mt-4">
+          <div className="space-y-8">
+            <TrainingPanel />
+            <PipelineView />
+            <Domains />
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {current && (
+        <p className="text-xs text-ink-3">
+          Active project:{' '}
+          <span className="font-medium text-ink-2">{current.name}</span> · config
+          snapshots are saved with the project.
+        </p>
+      )}
     </div>
   )
 }

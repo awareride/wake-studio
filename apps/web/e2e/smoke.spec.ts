@@ -115,6 +115,29 @@ test('Traditional KWS Training panel renders (§4.2)', async ({ page }) => {
   await expect(page.getByText(/Audio augmentation/i)).toBeVisible()
 })
 
+test('workspace: create a project and it persists across reload', async ({ page }) => {
+  await page.goto('/#/workspace')
+
+  // Project bar dropdown -> New project. The trigger shows the current
+  // project name or "No project selected".
+  await page.getByRole('button', { name: /No project selected|▾/ }).first().click()
+  await page.getByRole('menuitem', { name: /New project/ }).click()
+
+  await page.getByRole('textbox', { name: 'Project name' }).fill('E2E Word')
+  await page.getByRole('textbox', { name: 'Wake word' }).fill('hey e2e')
+  await page.getByRole('button', { name: 'Create' }).click()
+
+  // Project bar shows the new project; pipeline canvas is present.
+  await expect(page.getByText('E2E Word').first()).toBeVisible()
+  await expect(page.getByText('AEC → BSS → NS → KWS')).toBeVisible()
+
+  // Reload: the project (and selection) persists via IndexedDB + localStorage.
+  // refresh() is async (IndexedDB), so wait for the project bar to settle.
+  await page.reload()
+  await page.waitForSelector('aside')
+  await expect(page.getByText('E2E Word').first()).toBeVisible({ timeout: 10_000 })
+})
+
 /** Click a primary/secondary nav item in the left sidebar. */
 async function sidebarNav(
   page: import('@playwright/test').Page,
