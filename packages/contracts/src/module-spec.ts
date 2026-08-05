@@ -89,13 +89,41 @@ export interface ModuleTrain {
   outputs: Record<string, string>
 }
 
+/** A build input for the generic build workflow (workflow_dispatch input). */
+export interface ModuleBuildInput {
+  id: string
+  label: string
+  type: 'string' | 'boolean' | 'choice'
+  default?: string
+  required?: boolean
+  description?: string
+  /** For type === 'choice': the allowed options. */
+  options?: string[]
+}
+
+/** Toolchains the generic build workflow installs before running the script. */
+export interface ModuleBuildToolchains {
+  /** Emscripten/emsdk version, e.g. "4.0.23". */
+  emsdk?: string
+  /** Python version, e.g. "3.11". */
+  python?: string
+  /** Install `uv` (Astral) and run via it. */
+  uv?: boolean
+}
+
 export interface ModuleBuild {
   /** "workflow" | "script" | "none". */
   recipe: 'workflow' | 'script' | 'none'
   workflowRef?: string
+  /** Module-owned build logic; run by the generic workflow with inputs as env. */
+  script?: string
   fetchScript?: string
   artifactName?: string
   registryEntry?: string
+  /** Toolchains the generic workflow installs (keyed by tool). */
+  toolchains?: ModuleBuildToolchains
+  /** workflow_dispatch inputs declared by the module (dynamic UI). */
+  inputs?: ModuleBuildInput[]
 }
 
 export interface ModuleTests {

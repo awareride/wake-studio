@@ -8,6 +8,8 @@ export type {
   ActionKind,
   ModuleAction,
   ModuleBuild,
+  ModuleBuildInput,
+  ModuleBuildToolchains,
   ModuleCategory,
   ModuleInterfaces,
   ModuleMeta,

@@ -1,0 +1,122 @@
+{
+  "$schema": "../../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "kws-sherpa",
+    "name": "sherpa-onnx KWS (ASR-Decoding driver)",
+    "category": "kws",
+    "version": "0.1.0",
+    "maturity": "draft",
+    "owner": "WakeStudio team",
+    "license": "Apache-2.0 (sherpa-onnx) + MIT (integration)",
+    "status": "proposed"
+  },
+  "params": [
+    {
+      "id": "keywords",
+      "label": "Wake words (comma-separated)",
+      "group": "primary",
+      "type": "string",
+      "default": "hey buddy",
+      "description": "Editable text wake-word list for ASR-Decoding KWS (ADR-024)."
+    },
+    {
+      "id": "threshold",
+      "label": "Trigger threshold",
+      "group": "primary",
+      "type": "slider",
+      "default": 0.5,
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "description": "Detection threshold on the KWS posterior."
+    }
+  ],
+  "actions": [
+    {
+      "id": "load",
+      "label": "Load sherpa-onnx KWS",
+      "kind": "load",
+      "progress": "determinate",
+      "requires": []
+    },
+    {
+      "id": "start",
+      "label": "Start detection",
+      "kind": "start",
+      "requires": ["platform.mic"]
+    },
+    {
+      "id": "stop",
+      "label": "Stop detection",
+      "kind": "stop"
+    }
+  ],
+  "status": [
+    {
+      "id": "trigger",
+      "label": "Trigger events",
+      "renderer": "badge",
+      "source": "event:trigger",
+      "refreshMs": 500
+    }
+  ],
+  "runtime": {
+    "web": {
+      "engine": "SherpaOnnxKwsBackend",
+      "wasm": {
+        "url": "/modules/kws/sherpa/assets/sherpa-onnx-kws/sherpa-onnx-wasm-kws-main.js",
+        "loader": "emscripten"
+      },
+      "worker": true
+    },
+    "cloud": {
+      "workflowRef": ".github/workflows/build.yaml",
+      "artifact": "sherpa-onnx-kws-wasm"
+    }
+  },
+  "build": {
+    "recipe": "workflow",
+    "workflowRef": ".github/workflows/build.yaml",
+    "script": "scripts/build-sherpa-kws.mjs",
+    "artifactName": "sherpa-onnx-kws-wasm",
+    "registryEntry": "public/model-registry.json#kws-sherpa",
+    "toolchains": {
+      "emsdk": "4.0.23"
+    },
+    "inputs": [
+      {
+        "id": "sherpa_version",
+        "label": "sherpa-onnx release tag",
+        "type": "string",
+        "default": "v1.13.4",
+        "required": false
+      },
+      {
+        "id": "emsdk_version",
+        "label": "emsdk (Emscripten) version",
+        "type": "string",
+        "default": "4.0.23",
+        "required": false
+      },
+      {
+        "id": "kws_model",
+        "label": "KWS model archive",
+        "type": "string",
+        "default": "sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01.tar.bz2",
+        "required": false
+      }
+    ]
+  },
+  "tests": {
+    "l1": "packages/modules/kws/sherpa/tests/params.test.ts",
+    "required": ["l1"]
+  },
+  "playground": {
+    "route": "/playground/kws/sherpa",
+    "entry": "packages/modules/kws/sherpa/web/playground.tsx"
+  },
+  "interfaces": {
+    "provides": ["KWSBackend"],
+    "consumes": ["AFEOutputFrame"]
+  }
+}

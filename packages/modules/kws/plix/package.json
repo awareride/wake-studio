@@ -1,0 +1,27 @@
+{
+  "name": "@wake-studio/module-kws-plix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PLiX Few-Shot encoder driver module (ADR-002/020/024). Driver boundary + spec + build pipeline; embed logic lands in module-migration §6.3.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./core/index.ts",
+    "./spec": "./spec/module.spec.json",
+    "./web": "./web/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "fetch:all": "node ../../../../scripts/fetch-artifact.mjs kws-plix"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "globals": "^15.13.0",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "^8.16.0",
+    "vitest": "^2.1.9"
+  }
+}

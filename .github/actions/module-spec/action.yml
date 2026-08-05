@@ -1,0 +1,53 @@
+name: 'Module spec'
+description: >-
+  Reads a module's spec/module.spec.json and outputs its build block fields
+  (toolchains, artifact name) for the generic build workflow (ADR-027 §6.7).
+inputs:
+  module:
+    description: 'Module id (spec meta.id)'
+    required: true
+outputs:
+  emsdk:
+    description: 'emsdk version to install ("" if none)'
+    value: ${{ steps.read.outputs.emsdk }}
+  python:
+    description: 'Python version to install ("" if none)'
+    value: ${{ steps.read.outputs.python }}
+  uv:
+    description: '"true" if uv is required'
+    value: ${{ steps.read.outputs.uv }}
+  artifact_name:
+    description: 'Artifact name to upload'
+    value: ${{ steps.read.outputs.artifact_name }}
+runs:
+  using: 'composite'
+  steps:
+    - id: read
+      shell: bash
+      run: |
+        MODULE="${{ inputs.module }}"
+        # Locate the module spec by scanning packages/modules for meta.id.
+        SPEC=""
+        while IFS= read -r f; do
+          if grep -q "\"id\": \"$MODULE\"" "$f" 2>/dev/null; then SPEC="$f"; break; fi
+        done < <(find packages/modules -path '*/spec/module.spec.json' 2>/dev/null)
+        if [ -z "$SPEC" ]; then
+          echo "::error::no module spec found for id '$MODULE'"
+          exit 1
+        fi
+        # Extract fields with node (spec is JSON; node is available on runners).
+        node -e '
+          const fs = require("fs");
+          const spec = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+          const b = spec.build || {};
+          const t = b.toolchains || {};
+          const out = {
+            emsdk: t.emsdk || "",
+            python: t.python || "",
+            uv: t.uv ? "true" : "",
+            artifact_name: b.artifactName || spec.meta.id,
+          };
+          for (const [k, v] of Object.entries(out)) {
+            console.log(`::set-output name=${k}::${v}`);
+          }
+        ' "$SPEC"

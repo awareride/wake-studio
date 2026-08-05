@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wake-studio.dev/module-spec.schema.json",
+  "title": "WakeStudio ModuleSpec",
+  "description": "Declarative contract for a WakeStudio module (ADR-025). Consumed by the panel generator, playground router, test runner, local-service route registry, and the generic build/train workflows.",
+  "type": "object",
+  "required": ["meta", "params", "actions", "status", "runtime", "tests", "playground", "interfaces"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["id", "name", "category", "version", "maturity", "owner", "license", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "Unique kebab-case id (not necessarily the directory basename; e.g. kws-openwakeword)." },
+        "name": { "type": "string" },
+        "category": { "enum": ["afe", "kws", "few-shot", "training", "data", "export", "platform"] },
+        "version": { "type": "string" },
+        "maturity": { "enum": ["draft", "pilot", "stable", "deprecated"] },
+        "owner": { "type": "string" },
+        "license": { "type": "string" },
+        "status": { "enum": ["proposed", "accepted", "released"] }
+      }
+    },
+    "params": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "group", "type", "default"],
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "group": { "enum": ["primary", "advanced"] },
+          "type": { "enum": ["number", "boolean", "select", "enum", "slider", "secret"] },
+          "default": {},
+          "min": { "type": "number" },
+          "max": { "type": "number" },
+          "step": { "type": "number" },
+          "unit": { "type": "string" },
+          "description": { "type": "string" },
+          "options": { "type": "array", "items": { "type": "string" } },
+          "validation": {
+            "type": "object",
+            "properties": { "required": { "type": "boolean" }, "if": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "kind"],
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "kind": { "enum": ["load", "start", "stop", "export", "train", "record", "reset"] },
+          "confirm": { "type": "boolean" },
+          "progress": { "enum": ["none", "determinate", "indeterminate"] },
+          "requires": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "status": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "renderer", "source", "refreshMs"],
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "renderer": { "enum": ["bar", "waveform", "badge", "gauge", "text", "curve"] },
+          "source": { "type": "string" },
+          "refreshMs": { "type": "number" }
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["web"],
+      "properties": {
+        "web": {
+          "type": "object",
+          "required": ["engine"],
+          "properties": {
+            "engine": { "type": "string" },
+            "wasm": {
+              "type": "object",
+              "properties": {
+                "url": { "type": "string" },
+                "loader": { "enum": ["classic", "emscripten", "onnx"] }
+              }
+            },
+            "worker": { "type": "boolean" }
+          }
+        },
+        "local": {
+          "type": "object",
+          "properties": {
+            "command": { "type": "string" },
+            "ports": { "type": "array", "items": { "type": "integer" } },
+            "protocol": { "enum": ["stdio", "http"] }
+          }
+        },
+        "cloud": {
+          "type": "object",
+          "properties": {
+            "workflowRef": { "type": "string" },
+            "artifact": { "type": "string" }
+          }
+        },
+        "device": {
+          "type": "object",
+          "properties": {
+            "sdkModule": { "type": "string" },
+            "targets": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "train": {
+      "type": "object",
+      "properties": {
+        "entry": { "type": "string" },
+        "python": { "type": "string" },
+        "deps": { "type": "string" },
+        "invocation": { "type": "array", "items": { "enum": ["subprocess", "ci", "colab"] } },
+        "outputs": {
+          "type": "object",
+          "properties": {
+            "checkpoint": { "type": "string" },
+            "metrics": { "type": "string" }
+          }
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "required": ["recipe"],
+      "properties": {
+        "recipe": { "enum": ["workflow", "script", "none"] },
+        "workflowRef": { "type": "string" },
+        "script": { "type": "string", "description": "Module-owned build script (e.g. scripts/build-sherpa-kws.mjs); run by the generic workflow with inputs as env." },
+        "fetchScript": { "type": "string" },
+        "artifactName": { "type": "string" },
+        "registryEntry": { "type": "string" },
+        "toolchains": {
+          "type": "object",
+          "properties": {
+            "emsdk": { "type": "string" },
+            "python": { "type": "string" },
+            "uv": { "type": "boolean" }
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "label", "type"],
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "type": { "enum": ["string", "boolean", "choice"] },
+              "default": { "type": "string" },
+              "required": { "type": "boolean" },
+              "description": { "type": "string" },
+              "options": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "required": ["required"],
+      "properties": {
+        "l1": { "type": "string" },
+        "l2": { "type": "string" },
+        "l3": { "type": "string" },
+        "required": { "type": "array", "items": { "enum": ["l1", "l2", "l3"] } }
+      }
+    },
+    "playground": {
+      "type": "object",
+      "required": ["route", "entry"],
+      "properties": {
+        "route": { "type": "string" },
+        "entry": { "type": "string" }
+      }
+    },
+    "interfaces": {
+      "type": "object",
+      "required": ["provides", "consumes"],
+      "properties": {
+        "provides": { "type": "array", "items": { "type": "string" } },
+        "consumes": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
