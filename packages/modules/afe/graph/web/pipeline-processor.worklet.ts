@@ -18,10 +18,11 @@
  */
 
 // Stage modules (pure TS cores; see above). The NS stage's wasm glue is
-// imported from the rnnoise module's web target (synchronous, base64-embedded).
+// imported from the rnnoise module's worklet-safe loader sub-entry
+// (synchronous, base64-embedded; no React/UI in the bundle).
 import { AecStage } from '@wake-studio/module-afe-aec'
 import { BssStage } from '@wake-studio/module-afe-bss'
-import { loadRnnoiseStage } from '@wake-studio/module-rnnoise/web'
+import { loadRnnoiseStage } from '@wake-studio/module-rnnoise/web/loader'
 
 import type { MainMessage, StageFrameData, WorkletMessage } from '../core/types'
 import { CIRCULAR_BUFFER_SIZE, RNNOISE_FRAME_SIZE } from '../core/defaults'

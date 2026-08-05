@@ -9,6 +9,7 @@
     ".": "./core/index.ts",
     "./core": "./core/index.ts",
     "./web": "./web/index.ts",
+    "./web/loader": "./web/loader.ts",
     "./node": "./node/index.ts",
     "./spec": "./spec/module.spec.json",
     "./train": "./train/index.ts"
