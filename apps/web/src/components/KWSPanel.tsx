@@ -84,7 +84,12 @@ export const KWSPanel = memo(function KWSPanel({
       engine.setConfig({ backend: config.backend, threshold: config.threshold })
       const sherpaKwsConfig: Partial<SherpaOnnxKwsConfig> =
         config.backend === 'sherpa-onnx-kws'
-          ? { wasmBaseUrl: '/sherpa-onnx-kws/', keywords: KWS_KEYWORDS }
+          ? {
+              // Q-K2: wasm lives in the sherpa driver module's assets dir
+              // (served at /modules/kws/sherpa/assets/... in dev).
+              wasmBaseUrl: '/modules/kws/sherpa/assets/sherpa-onnx-kws/',
+              keywords: KWS_KEYWORDS,
+            }
           : {}
       await engine.load(MODEL_URLS, undefined, sherpaKwsConfig)
       setStatus(engine.status)

@@ -17,21 +17,41 @@ models.**
 
 ## Status
 
-Phases 0–1 are complete. Phase 2 (KWS) is **paused** while a product-direction
-update is folded into the architecture (ADR-019..023: expanded target matrix,
-pluggable KWS backends, a device-side SDK, a data-source layer, and a Colab
-backend). See `.agents/plan/goal.plan` for the full phased roadmap and
+Phases 0–3 shipped (AFE, KWS, Few-Shot, console/studio productization), and
+the module platform migration (ADR-025) is complete: all functional areas
+(AFE stages, KWS engine + drivers, Few-Shot, Training) are self-contained
+modules with specs + generated panels. Phase 4 (device SDK + export kits) is
+next. See `.agents/plan/goal.plan` for the full phased roadmap and
 [`DECISIONS.md`](./DECISIONS.md) for recorded decisions.
 
 | Phase | Goal | Status |
 |---|---|---|
 | 0 | Foundation, decisions & scaffold | ✅ Complete |
 | 1 | In-browser AFE + pipeline visualization | ✅ Complete |
-| 2 | KWS inference in the browser | ✅ Complete (pluggable KWSBackend, ADR-020; OpenWakeWord pipeline fixed; **sherpa-onnx KWS wasm backend** — real keyword spotting, ADR-024 2nd category) |
+| 2 | KWS inference in the browser | ✅ Complete (pluggable KWSBackend, ADR-020; openWakeWord + sherpa-onnx KWS wasm) |
 | 3 | Few-Shot custom wake-word enrollment | ✅ Complete (PLiX embed + prototype-distance, client-side) |
+| 3.5 | Console/Studio productization (shell, projects, library, session console) | ✅ Complete |
 | 4 | Model export & integration kits (device SDK) | ⏳ Pending |
-| 5 | Custom-model training (multi-backend) | ⏳ Pending (Training panel UI scaffolded, §4.2) |
+| 5 | Custom-model training (multi-backend) | ⏳ Pending (contract locked, docs/modules/training.md) |
 | 6 | Polish, PWA, packaging, docs | ⏳ Pending |
+
+**Module platform (ADR-025)** — generated from per-module scorecards
+(`node scripts/gen-module-status.mjs`):
+
+<!-- MODULE-STATUS:generated -->
+| Module | Category | Maturity | Core Spec Panel Tests Playground Targets | Score |
+|---|---|---|---|---|
+| `afe-aec` | afe | draft | ✅✅✅✅✅✅ | 100% |
+| `afe-bss` | afe | draft | ✅✅✅✅✅✅ | 100% |
+| `afe-graph` | afe | pilot | ✅✅✅✅✅✅ | 100% |
+| `rnnoise` | afe | pilot | ✅✅✅✅✅✅ | 100% |
+| `few-shot` | few-shot | pilot | ✅✅✅✅✅✅ | 100% |
+| `kws-engine` | kws | pilot | ✅✅✅✅✅✅ | 100% |
+| `kws-openwakeword` | kws | pilot | ✅✅✅✅✅✅ | 100% |
+| `kws-plix` | kws | draft | ✅✅✅✅✅✅ | 100% |
+| `kws-sherpa` | kws | draft | ✅✅✅✅✅✅ | 100% |
+| `training` | training | draft | ✅✅✅✅✅✅ | 100% |
+<!-- /MODULE-STATUS -->
 
 ## Two domains
 

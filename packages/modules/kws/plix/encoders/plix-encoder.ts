@@ -53,7 +53,7 @@ export interface PlixEncoderVariant {
   id: 'base' | 'small'
   /** Human-readable label shown in the encoder selector. */
   label: string
-  /** Local ONNX URL served from /prebuilts/plixkws/ (onnx runtime). */
+  /** Local ONNX URL served from /modules/kws/plix/assets/ (onnx runtime). */
   onnxUrl: string
   /**
    * Local HF-style directory URL for the transformers runtime. The PLiX ONNX
