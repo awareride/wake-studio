@@ -1,22 +1,30 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import type { MutableRefObject } from 'react'
 import type { AFEPipeline } from '../afe'
 import { AFEPipeline as AFEPipelineClass } from '../afe'
 import type { StageFrameData } from '../afe'
 import { describeParameters } from '../afe'
+import { UnifiedConfigPanel } from './UnifiedConfigPanel'
+import { useProjectStageConfig } from '../projects'
+import { logInfo, logError } from '../log'
 import { PipelineOverview } from './PipelineOverview'
 import { RecordReplay } from './RecordReplay'
 
 interface AFEPanelProps {
-  afeRef: React.MutableRefObject<AFEPipeline | null>
+  afeRef: MutableRefObject<AFEPipeline | null>
   onRunningChange: (running: boolean) => void
+  /** Optional: external control (workspace pipeline canvas) to start/stop. */
+  commandRef?: MutableRefObject<{ start: () => void; stop: () => void } | null>
 }
 
-export function AFEPanel({ afeRef, onRunningChange }: AFEPanelProps) {
+export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps) {
+  const { projectConfig: projCfg, persist } = useProjectStageConfig('afe')
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [latencyMs, setLatencyMs] = useState(0)
   const [frameData, setFrameData] = useState<Record<string, StageFrameData>>({})
-  const [vizFps, setVizFps] = useState(30)
+  // Seed vizFps from the active project's AFE snapshot (falls back to 30).
+  const [vizFps, setVizFps] = useState(projCfg?.vizFps ?? 30)
   const [bypass, setBypass] = useState({ aec: true, bss: true, ns: false })
 
   // Keep a ref to bypass so toggleBypass has a stable identity (for memo).
@@ -38,8 +46,10 @@ export function AFEPanel({ afeRef, onRunningChange }: AFEPanelProps) {
       await p.start()
       setRunning(true)
       onRunningChange(true)
+      logInfo('afe', 'Pipeline started (microphone live)')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
+      logError('afe', err instanceof Error ? err.message : String(err))
     }
   }, [afeRef, onRunningChange])
 
@@ -49,7 +59,15 @@ export function AFEPanel({ afeRef, onRunningChange }: AFEPanelProps) {
     onRunningChange(false)
     setFrameData({})
     setLatencyMs(0)
+    logInfo('afe', 'Pipeline stopped')
   }, [afeRef, onRunningChange])
+
+  // Expose start/stop to the workspace pipeline canvas via commandRef.
+  useEffect(() => {
+    if (commandRef) {
+      commandRef.current = { start: () => void handleStart(), stop: handleStop }
+    }
+  }, [commandRef, handleStart, handleStop])
 
   const toggleBypass = useCallback(
     (stageId: 'aec' | 'bss' | 'ns') => {
@@ -162,39 +180,36 @@ export function AFEPanel({ afeRef, onRunningChange }: AFEPanelProps) {
         </div>
       )}
 
-      {/* Config panel (ADR-017) */}
+      {/* Config panel (ADR-017) - unified spec-driven rendering. */}
       <div className="mt-6 rounded-xl border border-line bg-surface-2 p-5">
         <h3 className="mb-4 text-sm font-semibold text-ink-1">
           Configuration{' '}
           <span className="text-xs font-normal text-ink-3">(ADR-017)</span>
         </h3>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="flex items-center gap-3 text-sm">
-            <span className="w-32 text-ink-2">Visualization FPS</span>
-            <input
-              type="range"
-              min={15}
-              max={60}
-              step={5}
-              value={vizFps}
-              onChange={(e) => {
-                const v = Number(e.target.value)
-                setVizFps(v)
-                afeRef.current?.setConfig({ vizFps: v })
-              }}
-              className="flex-1 accent-brand-400"
-            />
-            <span className="w-10 text-right font-mono text-ink-2">
-              {vizFps}
-            </span>
-          </label>
-          <div className="flex items-center gap-3 text-sm text-ink-3">
-            <span className="w-32">Topology</span>
-            <span className="rounded bg-surface-4 px-2 py-1 text-xs text-ink-2">
-              single-worklet (v1)
-            </span>
-          </div>
-        </div>
+        <UnifiedConfigPanel
+          title="Pipeline parameters"
+          subtitle="Rendered from describeParameters() via module-kit controls."
+          params={params}
+          values={{
+            vizFps,
+            'bypass.aec': bypass.aec,
+            'bypass.bss': bypass.bss,
+            'bypass.ns': bypass.ns,
+          }}
+          onParamChange={(id, v) => {
+            if (id === 'vizFps') {
+              const n = Number(v)
+              setVizFps(n)
+              afeRef.current?.setConfig({ vizFps: n })
+              persist({ vizFps: n })
+            } else if (id.startsWith('bypass.')) {
+              const stageId = id.slice('bypass.'.length) as 'aec' | 'bss' | 'ns'
+              toggleBypass(stageId)
+            }
+          }}
+          advancedIds={['bypass.aec', 'bypass.bss', 'bypass.ns', 'latencyBudgetMs']}
+          disabled={running}
+        />
         <p className="mt-3 text-xs text-ink-3">
           {params.length} parameters exposed via{' '}
           <code className="text-ink-2">describeParameters()</code> · config

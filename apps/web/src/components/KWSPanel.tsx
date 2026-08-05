@@ -15,6 +15,9 @@ import type {
 } from '../kws'
 import { MEL_WINDOW_SIZE } from '../kws'
 import type { SherpaOnnxKwsConfig } from '../kws'
+import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
+import { useProjectStageConfig } from '../projects'
+import { logTrigger, logInfo, logError } from '../log'
 
 // Default keyword list for the sherpa-onnx KWS backend (matches the model
 // prebuilt into the wasm .data bundle). For the wenetspeech-3.3M-2024-01-01
@@ -53,11 +56,15 @@ export const KWSPanel = memo(function KWSPanel({
   const [running, setRunning] = useState(false)
   const [triggerFlash, setTriggerFlash] = useState(false)
   const [warmup, setWarmup] = useState(false)
-  const [config, setConfig] = useState<KWSConfig>({ ...DEFAULT_CONFIG })
+  // Seed config from the active project's KWS snapshot (falls back to defaults).
+  const { projectConfig: projCfg, persist } = useProjectStageConfig('kws')
+  const [config, setConfig] = useState<KWSConfig>({
+    ...DEFAULT_CONFIG,
+    ...(projCfg as Partial<KWSConfig> | undefined),
+  })
   const [executionProvider, setExecutionProvider] = useState<'webgpu' | 'wasm'>(
     'wasm',
   )
-  const [advancedOpen, setAdvancedOpen] = useState(false)
   const [logExport, setLogExport] = useState(false)
 
   const [lastKeyword, setLastKeyword] = useState('')
@@ -82,9 +89,11 @@ export const KWSPanel = memo(function KWSPanel({
       await engine.load(MODEL_URLS, undefined, sherpaKwsConfig)
       setStatus(engine.status)
       setExecutionProvider(engine.executionProvider)
+      logInfo('kws', `Models loaded (backend: ${config.backend})`)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
+      logError('kws', err instanceof Error ? err.message : String(err))
     }
   }, [config.backend, config.threshold])
 
@@ -112,7 +121,9 @@ export const KWSPanel = memo(function KWSPanel({
       engineRef.current?.setConfig(patch)
       return next
     })
-  }, [])
+    // Persist to the active project's KWS snapshot.
+    persist(patch)
+  }, [persist])
 
   // Render the score curve via requestAnimationFrame.
   useEffect(() => {
@@ -151,10 +162,14 @@ export const KWSPanel = memo(function KWSPanel({
     engine.onTrigger((e: KWSTriggerEvent) => {
       setTriggerFlash(true)
       setTimeout(() => setTriggerFlash(false), 500)
-      console.log('[KWS] Trigger:', e.word, e.peakScore.toFixed(3))
+      // Publish to the session console (Phase 4) - replaces console.log.
+      logTrigger('kws', e)
     })
     engine.onPartial((text: string) => {
-      if (text) setLastKeyword(text)
+      if (text) {
+        setLastKeyword(text)
+        logInfo('kws', `partial: ${text}`)
+      }
     })
     engine.setConfig({ backend: config.backend, threshold: config.threshold })
     // The engine is created once; backend/threshold changes are pushed via
@@ -288,12 +303,12 @@ export const KWSPanel = memo(function KWSPanel({
             </span>
           </h3>
 
-          {/* Primary: inference mode, threshold, output mode */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          {/* Read-only surface flags (not tunable params; reserved). */}
+          <div className="mb-4 grid gap-4 sm:grid-cols-2">
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
               <span className="w-32 shrink-0 text-ink-2">Inference mode</span>
               <select
-                value={config.executionProvider === 'webgpu' ? 'realtime' : 'realtime'}
+                value="realtime"
                 disabled
                 className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
                 title="Real-time mic detection (offline-file import is reserved)."
@@ -301,23 +316,6 @@ export const KWSPanel = memo(function KWSPanel({
                 <option value="realtime">Real-time mic</option>
                 <option value="offline">Offline file</option>
               </select>
-            </label>
-            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-ink-2">Confidence</span>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={config.threshold}
-                onChange={(e) =>
-                  updateConfig({ threshold: Number(e.target.value) })
-                }
-                className="flex-1 accent-brand-400"
-              />
-              <span className="w-10 shrink-0 text-right font-mono text-ink-2">
-                {config.threshold.toFixed(2)}
-              </span>
             </label>
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
               <span className="w-32 shrink-0 text-ink-2">Output mode</span>
@@ -333,122 +331,46 @@ export const KWSPanel = memo(function KWSPanel({
               </select>
             </label>
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-ink-2">VAD gate</span>
+              <span className="w-32 shrink-0 text-ink-2">Acceleration</span>
+              <select
+                value={config.executionProvider}
+                disabled
+                className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
+                title="WebGPU when available, else WASM (ADR-018)."
+              >
+                <option value="webgpu">WebGPU</option>
+                <option value="wasm">WASM</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
+              <span className="w-32 shrink-0 text-ink-2">Log export</span>
               <input
                 type="checkbox"
-                checked={config.vadGateEnabled}
-                onChange={(e) =>
-                  updateConfig({ vadGateEnabled: e.target.checked })
-                }
+                checked={logExport}
+                onChange={(e) => setLogExport(e.target.checked)}
                 className="accent-brand-400"
               />
               <span className="text-xs text-ink-3">
-                Suppress triggers in silence
+                Stream scores to console
               </span>
             </label>
           </div>
 
-          {/* Advanced (collapsible) */}
-          <div className="mt-4 border-t border-line pt-3">
-            <button
-              onClick={() => setAdvancedOpen((v) => !v)}
-              className="text-xs font-medium text-ink-2 hover:text-ink-1"
-            >
-              {advancedOpen ? '▾' : '▸'} Advanced
-            </button>
-            {advancedOpen && (
-              <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-                  <span className="w-32 shrink-0 text-ink-2">Min. duration</span>
-                  <input
-                    type="range"
-                    min={100}
-                    max={3000}
-                    step={100}
-                    value={config.minDurationMs}
-                    onChange={(e) =>
-                      updateConfig({ minDurationMs: Number(e.target.value) })
-                    }
-                    className="flex-1 accent-brand-400"
-                  />
-                  <span className="w-14 shrink-0 text-right font-mono text-ink-2">
-                    {config.minDurationMs} ms
-                  </span>
-                </label>
-                <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-                  <span className="w-32 shrink-0 text-ink-2">Smoothing</span>
-                  <input
-                    type="range"
-                    min={1}
-                    max={30}
-                    step={1}
-                    value={config.smoothingWindowFrames}
-                    onChange={(e) =>
-                      updateConfig({
-                        smoothingWindowFrames: Number(e.target.value),
-                      })
-                    }
-                    className="flex-1 accent-brand-400"
-                  />
-                  <span className="w-10 shrink-0 text-right font-mono text-ink-2">
-                    {config.smoothingWindowFrames}
-                  </span>
-                </label>
-                <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-                  <span className="w-32 shrink-0 text-ink-2">Cooldown</span>
-                  <input
-                    type="range"
-                    min={500}
-                    max={10000}
-                    step={500}
-                    value={config.cooldownMs}
-                    onChange={(e) =>
-                      updateConfig({ cooldownMs: Number(e.target.value) })
-                    }
-                    className="flex-1 accent-brand-400"
-                  />
-                  <span className="w-14 shrink-0 text-right font-mono text-ink-2">
-                    {config.cooldownMs} ms
-                  </span>
-                </label>
-                <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-                  <span className="w-32 shrink-0 text-ink-2">Mel window</span>
-                  <input
-                    type="number"
-                    value={MEL_WINDOW_SIZE}
-                    disabled
-                    className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
-                  />
-                </label>
-                <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-                  <span className="w-32 shrink-0 text-ink-2">
-                    Acceleration
-                  </span>
-                  <select
-                    value={config.executionProvider}
-                    disabled
-                    className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
-                    title="WebGPU when available, else WASM (ADR-018)."
-                  >
-                    <option value="webgpu">WebGPU</option>
-                    <option value="wasm">WASM</option>
-                  </select>
-                </label>
-                <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-                  <span className="w-32 shrink-0 text-ink-2">Log export</span>
-                  <input
-                    type="checkbox"
-                    checked={logExport}
-                    onChange={(e) => setLogExport(e.target.checked)}
-                    className="accent-brand-400"
-                  />
-                  <span className="text-xs text-ink-3">
-                    Stream scores to console
-                  </span>
-                </label>
-              </div>
-            )}
-          </div>
+          {/* Tunable params rendered from the spec descriptors (module-kit). */}
+          <UnifiedConfigPanel
+            title="Tunable parameters"
+            subtitle="Rendered from describeParameters() via module-kit controls."
+            params={params}
+            values={config as unknown as Record<string, ParamValue>}
+            onParamChange={(id, v) => updateConfig({ [id]: v })}
+            advancedIds={[
+              'minDurationMs',
+              'smoothingWindowFrames',
+              'cooldownMs',
+              'vadThreshold',
+            ]}
+            disabled={running}
+          />
           <p className="mt-3 text-xs text-ink-3">
             {params.length} parameters exposed via{' '}
             <code className="text-ink-2">describeParameters()</code>. Mel

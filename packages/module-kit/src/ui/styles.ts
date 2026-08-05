@@ -30,12 +30,15 @@ export const BTN_VARIANTS = {
 
 /** Radix slider track/thumb styling (data-* attributes drive state). */
 export const SLIDER_CLS = {
-  root: 'relative flex h-5 w-full touch-none select-none items-center',
+  root: 'relative flex h-5 w-full min-w-44 touch-none select-none items-center',
   track:
     'relative h-1.5 w-full grow overflow-hidden rounded-full bg-surface-4',
   range: 'absolute h-full rounded-full bg-brand-500',
+  // Radix positions the thumb via inline left + translateX; it MUST be
+  // absolutely positioned within the (relative) root or the knob visually
+  // detaches from the value. top-1/2 -translate-y-1/2 centers it vertically.
   thumb:
-    'block h-4 w-4 rounded-full bg-white shadow ring-1 ring-line-2 transition-colors hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
+    'absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white shadow ring-1 ring-line-2 transition-colors hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
 }
 
 /** Radix switch (toggle) styling. */

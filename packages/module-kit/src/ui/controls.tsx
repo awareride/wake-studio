@@ -38,7 +38,7 @@ export function UiSlider({ value, min, max, step = 1, onChange, disabled, ariaLa
   return (
     <div className="flex w-full items-center gap-3">
       <SliderPrimitive.Root
-        className={cn(SLIDER_CLS.root, disabled && 'opacity-40 pointer-events-none')}
+        className={cn(SLIDER_CLS.root, 'min-w-44', disabled && 'opacity-40 pointer-events-none')}
         min={min}
         max={max}
         step={step}
@@ -272,7 +272,9 @@ export function UiParamRow({ label, description, children }: UiParamRowProps) {
         <div className="text-sm text-ink-2">{label}</div>
         {description && <div className="mt-0.5 text-xs text-ink-3">{description}</div>}
       </div>
-      <div className="shrink-0">{children}</div>
+      {/* Controls that need width (sliders) must not be collapsed; allow them
+          to grow but keep a sensible cap so labels stay readable. */}
+      <div className="shrink-0 grow-0 basis-auto">{children}</div>
     </div>
   )
 }

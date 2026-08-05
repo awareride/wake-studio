@@ -37,12 +37,14 @@ export interface ModelRegistry {
   models: RegistryModel[]
 }
 
+import { resolveAsset } from '../config'
+
 const REGISTRY_URL = 'model-registry.json'
 
 export async function loadRegistry(
   signal?: AbortSignal,
 ): Promise<ModelRegistry> {
-  const res = await fetch(REGISTRY_URL, { signal })
+  const res = await fetch(resolveAsset(REGISTRY_URL), { signal })
   if (!res.ok) {
     throw new Error(`Failed to load model registry: HTTP ${res.status}`)
   }
