@@ -8,14 +8,8 @@ import { test, expect } from '@playwright/test'
  */
 
 test('RNNoise playground loads and processes a frame', async ({ page }) => {
-  await page.goto('/')
-
-  // Open the playground from the console hero.
-  const playgroundButton = page.getByRole('button', {
-    name: /RNNoise module playground/i,
-  })
-  await expect(playgroundButton).toBeVisible()
-  await playgroundButton.click()
+  // Navigate directly to the module playground route (hash deep link).
+  await page.goto('/#/playground/rnnoise')
 
   // The module's own heading is visible.
   await expect(
@@ -26,13 +20,22 @@ test('RNNoise playground loads and processes a frame', async ({ page }) => {
   const processButton = page.getByRole('button', { name: /Process one frame/i })
   await expect(processButton).toBeEnabled({ timeout: 30_000 })
 
-  // VAD is rendered in the third stat card; start at 0.000.
-  const vadCard = page.locator('div.rounded-lg').nth(2)
-  await expect(vadCard).toContainText('0.000')
+  // VAD stat card (third stat card: label 'VAD' + UiBar; NOT the 'VAD
+  // history' curve card above it).
+  const vadCard = page
+    .locator('div.rounded-lg')
+    .filter({ hasText: 'VAD' })
+    .filter({ hasNotText: 'history' })
+    .first()
+  await expect(vadCard).toContainText('VAD')
+
+  // Before processing, the UiBar fill is 0% (inline style width).
+  const fill = vadCard.locator('.h-full.rounded-full')
+  await expect(fill).toHaveAttribute('style', /width: 0%/)
 
   await processButton.click()
 
-  // After processing, VAD should be a value in [0,1] - assert the text is no
-  // longer exactly "0.000" (a real frame always produces a non-zero VAD).
-  await expect(vadCard).not.toContainText('0.000', { timeout: 5_000 })
+  // After processing, a real frame always produces a non-zero VAD, so the
+  // UiBar fill grows past 0%.
+  await expect(fill).not.toHaveCSS('width', '0%', { timeout: 5_000 })
 })

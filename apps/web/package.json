@@ -20,6 +20,11 @@
     "fetch:all": "node scripts/fetch-sherpa-kws-assets.mjs"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.23",
+    "@radix-ui/react-dropdown-menu": "^2.1.24",
+    "@radix-ui/react-tabs": "^1.1.21",
+    "@radix-ui/react-toast": "^1.2.23",
+    "@radix-ui/react-tooltip": "^1.2.16",
     "@wake-studio/contracts": "workspace:*",
     "@wake-studio/module-rnnoise": "workspace:^",
     "onnxruntime-web": "^1.27.0",

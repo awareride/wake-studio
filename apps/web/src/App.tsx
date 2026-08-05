@@ -1,75 +1,47 @@
-import { useRef, useState } from 'react'
-import type { AFEPipeline } from './afe'
-import { Header } from './components/Header'
-import { PipelineView } from './components/PipelineView'
-import { AFEPanel } from './components/AFEPanel'
-import { KWSPanel } from './components/KWSPanel'
-import { TrainingPanel } from './components/TrainingPanel'
-import { FewShotPanel } from './components/FewShotPanel'
-import { Domains } from './components/Domains'
-import { Footer } from './components/Footer'
+/**
+ * WakeStudio console app.
+ *
+ * Phase 1 shell: left sidebar + top bar + hash-routed views, built on Radix
+ * primitives. The Workspace hosts the existing live panels (AFE/KWS/Few-Shot)
+ * — their internals are refactored in Phase 2.
+ */
+
+import { useConsoleRoute } from './router'
+import { ConsoleShell } from './components/ConsoleShell'
+import { ConsoleStatusProvider } from './status'
+import { AppToastProvider } from './components/toast'
+import { WorkspaceView } from './views/WorkspaceView'
+import { ModelLibraryView } from './views/ModelLibraryView'
+import { ComingSoonView, ProjectsView } from './views/placeholders'
 import { RnnoisePlayground } from '@wake-studio/module-rnnoise/web'
 
 export default function App() {
-  // Shared AFE pipeline ref + running state, passed to both AFEPanel and KWSPanel
-  // so KWS can subscribe to the AFE output stream.
-  const afeRef = useRef<AFEPipeline | null>(null)
-  const [afeRunning, setAfeRunning] = useState(false)
-  const [route, setRoute] = useState<'main' | 'playground-rnnoise'>('main')
+  const [route, navigate] = useConsoleRoute()
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-
-      <main className="flex-1">
-        {route === 'playground-rnnoise' ? (
-          <>
-            <button
-              onClick={() => setRoute('main')}
-              className="mt-6 ml-6 rounded-lg border border-line px-3 py-1 text-xs text-ink-3 hover:bg-surface-4/50"
-            >
-              ← Back to console
-            </button>
+    <ConsoleStatusProvider>
+      <AppToastProvider>
+        <ConsoleShell route={route} onNavigate={navigate}>
+          {route === 'workspace' && <WorkspaceView />}
+          {route === 'library' && <ModelLibraryView />}
+          {route === 'projects' && <ProjectsView />}
+          {route === 'playground-rnnoise' && (
             <RnnoisePlayground />
-          </>
-        ) : (
-          <>
-            {/* Hero */}
-            <section className="mx-auto max-w-5xl px-6 pt-16 pb-4 text-center">
-              <h1 className="text-4xl font-bold tracking-tight text-ink-1 sm:text-5xl">
-                From wake-word idea to deployable{' '}
-                <span className="bg-gradient-to-r from-brand-500 to-brand-600 bg-clip-text text-transparent">
-                  KWS bundle
-                </span>
-              </h1>
-              <p className="mx-auto mt-4 max-w-2xl text-base text-ink-2">
-                A browser-first studio for the full far-field voice pipeline - no
-                toolchain, runtime, or Python to install. Visualize every stage,
-                enroll a custom wake word with a few samples, and export a
-                ready-to-build package for your target chip.
-              </p>
-              <p className="mt-4 text-xs uppercase tracking-widest text-brand-600/80">
-                Phase 1-3 · AFE + KWS + Few-Shot enrollment · in progress
-              </p>
-              <button
-                onClick={() => setRoute('playground-rnnoise')}
-                className="mt-6 rounded-lg bg-brand-500/10 px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-500/20"
-              >
-                Try the RNNoise module playground
-              </button>
-            </section>
-
-            <AFEPanel afeRef={afeRef} onRunningChange={setAfeRunning} />
-            <KWSPanel afePipeline={afeRef.current} afeRunning={afeRunning} />
-            <TrainingPanel />
-            <FewShotPanel afePipeline={afeRef.current} afeRunning={afeRunning} />
-            <PipelineView />
-            <Domains />
-          </>
-        )}
-      </main>
-
-      <Footer />
-    </div>
+          )}
+          {route === 'settings' && (
+            <ComingSoonView
+              title="Settings"
+              description="Console preferences, model source configuration and export defaults will live here."
+            />
+          )}
+          {route === 'device-sdk' && (
+            <ComingSoonView
+              title="Device SDK"
+              description="Export kits and device-side SDK tooling for your target chips arrive in Phase 4."
+            />
+          )}
+        </ConsoleShell>
+      </AppToastProvider>
+    </ConsoleStatusProvider>
   )
 }
