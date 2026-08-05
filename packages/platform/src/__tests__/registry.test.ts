@@ -1,12 +1,14 @@
 /**
- * Model registry / probe unit tests.
+ * Model registry + base-path unit tests.
  *
- * Covers the license gate (isCommerciallyUsable) and the reachability probe
- * (HEAD against a mock fetch). The probe uses fetch, so we stub globalThis.
+ * Covers the license gate (isCommerciallyUsable), the base-path resolver
+ * (resolveAsset), and the reachability probe (HEAD against a mock fetch) -
+ * moved from `apps/web/src/data/__tests__/registry.test.ts` (§6.1).
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { isCommerciallyUsable, type RegistryModel } from '../registry'
+import { resolveAsset, APP_BASE } from '../base-path'
 import { probeModelUrl } from '../probe'
 
 function model(partial: Partial<RegistryModel> = {}): RegistryModel {
@@ -40,7 +42,28 @@ describe('isCommerciallyUsable (license gate)', () => {
   })
 
   it('false when demo-only even if commercial flag set', () => {
-    expect(isCommerciallyUsable(model({ class: 'demo-only', commercial: true }))).toBe(false)
+    expect(
+      isCommerciallyUsable(model({ class: 'demo-only', commercial: true })),
+    ).toBe(false)
+  })
+})
+
+describe('resolveAsset (base-path, ADR-012)', () => {
+  it('passes absolute http(s) URLs through unchanged', () => {
+    expect(resolveAsset('https://example.com/m.onnx')).toBe(
+      'https://example.com/m.onnx',
+    )
+  })
+
+  it('joins a root-relative path under the app base', () => {
+    const base = APP_BASE.endsWith('/') ? APP_BASE : `${APP_BASE}/`
+    expect(resolveAsset('/prebuilts/x.wasm')).toBe(`${base}prebuilts/x.wasm`)
+  })
+
+  it('keeps a path already under the base unchanged', () => {
+    expect(resolveAsset(`${APP_BASE}model-registry.json`)).toBe(
+      `${APP_BASE}model-registry.json`,
+    )
   })
 })
 

@@ -45,8 +45,10 @@ function LicenseBadge({ model }: { model: RegistryModel }) {
 
 function ProbeButton({ model }: { model: RegistryModel }) {
   const { toast } = useToast()
-  const [probe, setProbe] = React.useState<ProbeResult>({ state: 'idle', sizeBytes: null })
-
+  const [probe, setProbe] = React.useState<ProbeResult>({
+    state: 'idle',
+    sizeBytes: null,
+  })
   const run = async () => {
     setProbe({ state: 'probing', sizeBytes: null })
     const result = await probeModelUrl(model.url)
