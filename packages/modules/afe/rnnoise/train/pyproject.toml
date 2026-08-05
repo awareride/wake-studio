@@ -1,0 +1,10 @@
+[project]
+name = "wake-studio-module-rnnoise-train"
+version = "0.1.0"
+description = "RNNoise module train target (ADR-028). RNNoise weights are frozen; this is a stub that produces run metadata."
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

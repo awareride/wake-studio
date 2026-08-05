@@ -1,0 +1,108 @@
+{
+  "$schema": "../../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "rnnoise",
+    "name": "RNNoise Noise Suppression",
+    "category": "afe",
+    "version": "1.0.0",
+    "maturity": "pilot",
+    "owner": "WakeStudio team",
+    "license": "BSD-3-Clause (RNNoise) + MIT (integration)",
+    "status": "accepted"
+  },
+  "params": [
+    {
+      "id": "strength",
+      "label": "Noise reduction strength",
+      "group": "primary",
+      "type": "slider",
+      "default": 1.0,
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "description": "Aggressiveness of the noise gate (vadProb threshold for denoising)."
+    },
+    {
+      "id": "denoiseEnabled",
+      "label": "Denoise",
+      "group": "primary",
+      "type": "boolean",
+      "default": true,
+      "description": "Whether processed frames are denoised in place."
+    }
+  ],
+  "actions": [
+    {
+      "id": "load",
+      "label": "Load RNNoise WASM",
+      "kind": "load",
+      "progress": "determinate",
+      "requires": []
+    },
+    {
+      "id": "reset",
+      "label": "Reset state",
+      "kind": "reset",
+      "confirm": false
+    }
+  ],
+  "status": [
+    {
+      "id": "vadProbability",
+      "label": "VAD probability",
+      "renderer": "bar",
+      "source": "event:frame",
+      "refreshMs": 100
+    }
+  ],
+  "runtime": {
+    "web": {
+      "engine": "RnnoiseModule",
+      "wasm": { "url": "/modules/rnnoise/rnnoise.wasm", "loader": "emscripten" },
+      "worker": false
+    },
+    "local": {
+      "command": "node packages/modules/afe/rnnoise/node/cli.mjs",
+      "protocol": "stdio"
+    },
+    "cloud": {
+      "workflowRef": ".github/workflows/build-rnnoise-wasm.yml",
+      "artifact": "rnnoise-wasm"
+    },
+    "device": {
+      "sdkModule": "@wake-studio/sdk-afe",
+      "targets": ["arm-cortex-m4"]
+    }
+  },
+  "train": {
+    "entry": "train/train.py",
+    "python": "3.11",
+    "deps": "train/pyproject.toml",
+    "invocation": ["ci"],
+    "outputs": {
+      "checkpoint": "out/rnnoise.onnx",
+      "metrics": "out/metrics.json"
+    }
+  },
+  "build": {
+    "recipe": "workflow",
+    "workflowRef": ".github/workflows/build-rnnoise-wasm.yml",
+    "fetchScript": "scripts/fetch-rnnoise-assets.mjs",
+    "artifactName": "rnnoise-wasm",
+    "registryEntry": "public/model-registry.json#rnnoise"
+  },
+  "tests": {
+    "l1": "packages/modules/afe/rnnoise/tests/dsp.test.ts",
+    "l2": "packages/modules/afe/rnnoise/tests/wasm-runtime.test.ts",
+    "l3": "apps/web/e2e/rnnoise.spec.ts",
+    "required": ["l1", "l2"]
+  },
+  "playground": {
+    "route": "/playground/rnnoise",
+    "entry": "packages/modules/afe/rnnoise/web/playground.tsx"
+  },
+  "interfaces": {
+    "provides": ["denoiseFrame", "vadProbability"],
+    "consumes": ["AFEOutputFrame"]
+  }
+}
