@@ -26,4 +26,7 @@ export type {
   ParamType,
   ParamValidation,
   StatusRenderer,
+  AFEStage,
+  AFEStageResult,
+  AFEStageKind,
 } from './module-spec'

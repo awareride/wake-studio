@@ -1,10 +1,9 @@
 /**
  * AFE graph module - web target (browser).
  *
- * The pipeline AudioWorklet lives here (with its vendored RNNoise copy), and
- * the main-thread AFEPipeline controller is re-exported from core. The
- * `?worker&url` worklet import is Vite-specific; the worklet file itself is
- * module-local so any bundler (or the vite middleware) can resolve it.
+ * The pipeline AudioWorklet lives here and **drives the stage modules**
+ * (AEC/BSS/NS) through the AFEStage interface - it owns only the scheduling,
+ * not the stage DSP. The `?worker&url` worklet import is Vite-specific.
  */
 
 export { AFEPipeline } from '../core'

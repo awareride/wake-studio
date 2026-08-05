@@ -19,3 +19,4 @@ export {
   type RnnoiseFrameResult,
   type RnnoiseConfig,
 } from './engine'
+export { RnnoiseNsStage } from './afe-stage'

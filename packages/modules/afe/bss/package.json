@@ -1,0 +1,30 @@
+{
+  "name": "@wake-studio/module-afe-bss",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BSS stage module (ADR-001/016): pluggable Blind Source Separation. v1 is single-mic passthrough; 2-mic beamforming opt-in later.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./core/index.ts",
+    "./core": "./core/index.ts",
+    "./spec": "./spec/module.spec.json"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "fetch:all": "echo 'no artifacts'"
+  },
+  "dependencies": {
+    "@wake-studio/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "globals": "^15.13.0",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "^8.16.0",
+    "vitest": "^2.1.9"
+  }
+}

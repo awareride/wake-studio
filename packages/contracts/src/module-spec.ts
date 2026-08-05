@@ -186,3 +186,27 @@ export interface ModuleScorecard {
     targets: boolean
   }
 }
+
+// ---------------------------------------------------------------------------
+// Cross-module stage interface (ADR-025; AFE stage modules)
+// ---------------------------------------------------------------------------
+
+/** A pluggable AFE stage (AEC / BSS / NS), per the per-stage module design. */
+export type AFEStageKind = 'aec' | 'bss' | 'ns'
+
+/** Result of one processed frame; stages denoise in place and report metrics. */
+export interface AFEStageResult {
+  /** VAD probability in [0,1] (NS stages; AEC/BSS may return 0). */
+  vadProbability: number
+  /** RMS level of the frame after processing, for visualization. */
+  levelDb: number
+}
+
+/** A single AFE stage module's headless engine (usable in any JS env). */
+export interface AFEStage {
+  readonly kind: AFEStageKind
+  /** Process one frame in place; returns stage metrics. */
+  process(frame: Float32Array): AFEStageResult
+  /** Reset internal state (e.g. on stop/record). */
+  reset(): void
+}

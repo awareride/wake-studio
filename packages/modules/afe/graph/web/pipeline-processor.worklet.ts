@@ -1,27 +1,28 @@
 /**
  * AFE pipeline AudioWorklet processor (single-worklet topology, ADR-016).
  *
- * Runs the stage chain AEC -> BSS -> NS at 48 kHz inside a single AudioWorklet:
- *   - AEC: passthrough (WebRTC AEC3 deferred to v1.x, ADR-016)
- *   - BSS: passthrough (single-mic, ADR-016)
- *   - NS:  RNNoise (vendored prebuilt WASM, denoises 480-sample frames)
+ * Runs the stage chain AEC -> BSS -> NS at 48 kHz inside a single AudioWorklet
+ * by **driving each stage module through the AFEStage interface** (ADR-025):
+ *   - AEC: `@wake-studio/module-afe-aec` AecStage (passthrough for v1, ADR-016)
+ *   - BSS: `@wake-studio/module-afe-bss` BssStage (passthrough for v1, ADR-016)
+ *   - NS:  `@wake-studio/module-rnnoise` RnnoiseNsStage (RNNoise WASM, denoises
+ *          480-sample frames in place)
+ *
+ * The stage engines are pure TS over their own wasm interfaces - no DOM, so
+ * they import cleanly into the AudioWorkletGlobalScope. The graph module owns
+ * only the *scheduling* (circular buffer, frame assembly, viz throttling,
+ * recording) - not the stage DSP.
  *
  * Emits per-stage visualization data (throttled to vizFps) and 16 kHz output
  * frames (160 samples / 10 ms) for downstream KWS.
- *
- * Pure DSP functions (FFT, level, downsample, spectrum) are extracted to
- * `./dsp` for unit testability - see docs/modules/afe.md §9.
- *
- * The circular-buffer approach follows the vendored NoiseSuppressorWorklet:
- * buffer size = LCM(128, 480) = 1920, so residues never split on wrap-around.
  */
 
-// Vendored prebuilt RNNoise (WASM embedded in rnnoise-sync.js as base64).
-// The RNNoise wasm itself lives in the rnnoise module (ADR-025); this module
-// vendors the pipeline processor's copy to keep the worklet self-contained.
-import '../../vendor/rnnoise/polyfills'
-import RnnoiseProcessor from '../../vendor/rnnoise/RnnoiseProcessor'
-import createRNNWasmModuleSync from '../../vendor/rnnoise/generated/rnnoise-sync'
+// Stage modules (pure TS cores; see above). The NS stage's wasm glue is
+// imported from the rnnoise module's web target (synchronous, base64-embedded).
+import { AecStage } from '@wake-studio/module-afe-aec'
+import { BssStage } from '@wake-studio/module-afe-bss'
+import { loadRnnoiseStage } from '@wake-studio/module-rnnoise/web'
+
 import type { MainMessage, StageFrameData, WorkletMessage } from '../core/types'
 import { CIRCULAR_BUFFER_SIZE, RNNOISE_FRAME_SIZE } from '../core/defaults'
 import { computeSpectrum, downsample48to16, downsampleForViz, levelDb } from '../core/dsp'
@@ -29,8 +30,10 @@ import { computeSpectrum, downsample48to16, downsampleForViz, levelDb } from '..
 const PROCESSOR_NAME = 'pipeline-processor'
 
 class PipelineProcessor extends AudioWorkletProcessor {
-  private _rnnoise: RnnoiseProcessor | null = null
-  private _nsOk = false
+  // Stage modules, driven through the AFEStage interface.
+  private _aec: AecStage
+  private _bss: BssStage
+  private _ns: ReturnType<typeof loadRnnoiseStage> | null = null
 
   // Circular buffer (LCM(128, 480) = 1920 samples).
   private _buffer = new Float32Array(CIRCULAR_BUFFER_SIZE)
@@ -60,13 +63,15 @@ class PipelineProcessor extends AudioWorkletProcessor {
   constructor() {
     super()
 
-    // Synchronously instantiate RNNoise (addModule doesn't await promises).
+    // AEC + BSS: passthrough engines (v1).
+    this._aec = new AecStage()
+    this._bss = new BssStage()
+
+    // NS: RNNoise, synchronously instantiated (addModule doesn't await promises).
     try {
-      this._rnnoise = new RnnoiseProcessor(createRNNWasmModuleSync())
-      this._nsOk = true
+      this._ns = loadRnnoiseStage()
     } catch (err) {
-      this._rnnoise = null
-      this._nsOk = false
+      this._ns = null
       this._post({ type: 'error', message: `RNNoise init failed: ${String(err)}` })
     }
 
@@ -114,20 +119,21 @@ class PipelineProcessor extends AudioWorkletProcessor {
     this._buffer.set(inData, this._inputLength)
     this._inputLength += inData.length
 
-    // --- 2. Process RNNoise frames (480 samples each) ---
+    // --- 2. Run the stage chain over 480-sample frames ---
     while (this._denoisedLength + RNNOISE_FRAME_SIZE <= this._inputLength) {
       const frame = this._buffer.subarray(
         this._denoisedLength,
         this._denoisedLength + RNNOISE_FRAME_SIZE,
       )
 
-      // AEC -> BSS -> NS (all passthrough except NS for v1).
-      // AEC: passthrough (copy through, no-op since we operate in place).
-      // BSS: passthrough.
-      // NS: RNNoise denoise (or passthrough if bypassed/failed).
+      // AEC -> BSS -> NS through the AFEStage interface.
+      // AEC/BSS: passthrough engines for v1 (their process() is a no-op on the
+      // frame, but the interface call keeps the chain honest + future-proof).
       let vad = 0
-      if (!this._bypass.ns && this._nsOk && this._rnnoise) {
-        vad = this._rnnoise.processAudioFrame(frame, true)
+      if (!this._bypass.aec) this._aec.process(frame)
+      if (!this._bypass.bss) this._bss.process(frame)
+      if (!this._bypass.ns && this._ns) {
+        vad = this._ns.process(frame).vadProbability
       }
 
       // Keep a copy of the last NS frame for stable visualization

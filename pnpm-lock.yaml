@@ -187,11 +187,67 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
 
+  packages/modules/afe/aec:
+    dependencies:
+      '@wake-studio/contracts':
+        specifier: workspace:*
+        version: link:../../../contracts
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
+      typescript:
+        specifier: ~5.6.3
+        version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
+
+  packages/modules/afe/bss:
+    dependencies:
+      '@wake-studio/contracts':
+        specifier: workspace:*
+        version: link:../../../contracts
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
+      typescript:
+        specifier: ~5.6.3
+        version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
+
   packages/modules/afe/graph:
     dependencies:
       '@wake-studio/contracts':
         specifier: workspace:*
         version: link:../../../contracts
+      '@wake-studio/module-afe-aec':
+        specifier: workspace:^
+        version: link:../aec
+      '@wake-studio/module-afe-bss':
+        specifier: workspace:^
+        version: link:../bss
       '@wake-studio/module-rnnoise':
         specifier: workspace:^
         version: link:../rnnoise
@@ -230,15 +286,27 @@ importers:
         specifier: workspace:^
         version: link:../../../module-kit
     devDependencies:
+      '@eslint/js':
+        specifier: ^9.16.0
+        version: 9.39.5
       '@types/react':
         specifier: ^18.3.12
         version: 18.3.31
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.5(jiti@1.21.7)
+      globals:
+        specifier: ^15.13.0
+        version: 15.15.0
       react:
         specifier: ^18.3.1
         version: 18.3.1
       typescript:
         specifier: ~5.6.3
         version: 5.6.3
+      typescript-eslint:
+        specifier: ^8.16.0
+        version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.6.3)
       vitest:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@20.19.43)(terser@5.49.0)
