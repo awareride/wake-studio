@@ -43,9 +43,9 @@
  * @see docs/modules/kws.md §4 (KWSBackend), §5 (Few-Shot scaffold)
  */
 
-import type { EmbedProvider, KWSBackend } from '../types'
-import type { WakeWordPrototype } from '../../few-shot/types'
-import { squaredEuclidean, plixScore } from '../../few-shot/dsp'
+import type { EmbedProvider, KWSBackend } from '@wake-studio/module-kws-engine'
+import type { WakeWordPrototype } from './prototype'
+import { squaredEuclidean, plixScore } from './prototype'
 
 /** Detection hop in frames (80 ms / 10 ms = 8 frames at the AFE cadence). */
 const HOP_FRAMES = 8

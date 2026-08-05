@@ -29,7 +29,7 @@
  *      Deployment Strategies for WavLM-base-plus and plixkws.md §3.1
  */
 
-import type { EmbedProvider, ModelRuntime } from '../types'
+import type { EmbedProvider, ModelRuntime } from '@wake-studio/module-kws-engine'
 import type { PlixEncoder } from './plix-encoder'
 import { PlixOnnxEncoder } from './plix-onnx'
 import { PlixTransformersEncoder } from './plix-transformers'

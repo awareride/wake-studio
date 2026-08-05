@@ -1,15 +1,40 @@
 /**
- * KWS module - public exports.
+ * KWS module - apps/web facade.
  *
- * @see docs/modules/kws.md for the full contract (ADR-018, ADR-020).
+ * The implementation moved to the KWS engine + driver modules (module-migration
+ * §6.3): `@wake-studio/module-kws-engine` (engine + registry seam) and the
+ * driver modules (openwakeword / sherpa / plix). This file re-exports the
+ * engine's public API for migration compatibility AND imports the driver
+ * modules so their registration side-effects run (ADR-024 decoupling).
+ *
+ * New imports should come from the module packages directly.
  */
 
-export { KWSEngine } from './KWSEngine'
-export { DEFAULT_CONFIG, describeParameters } from './defaults'
-export { MEL_WINDOW_SIZE, MEL_HOP_SIZE, MEL_OVERLAP } from './defaults'
-export { ScoreSmoother, TriggerDetector, shouldGateByVad } from './dsp'
-export { BACKEND_REGISTRY, createBackend, getBackendRegistration } from './backend'
-export type { KWSBackendRegistration } from './backend'
+// Registration side-effects (must run once): driver modules register into the
+// engine's registry. Importing this facade registers all browser-feasible
+// backends (openwakeword, sherpa-onnx-kws, plixkws) + the plix embed provider.
+import '@wake-studio/module-kws-openwakeword'
+import '@wake-studio/module-kws-sherpa'
+import '@wake-studio/module-kws-plix'
+
+export {
+  KWSEngine,
+  DEFAULT_CONFIG,
+  describeParameters,
+  MEL_WINDOW_SIZE,
+  MEL_HOP_SIZE,
+  MEL_OVERLAP,
+  ScoreSmoother,
+  TriggerDetector,
+  shouldGateByVad,
+  createBackend,
+  createMainThreadBackend,
+  getBackendRegistration,
+  getBackendRegistry,
+  registerEmbedProviderFactory,
+  registerKwsBackend,
+} from '@wake-studio/module-kws-engine'
+export type { KWSBackendRegistration } from '@wake-studio/module-kws-engine'
 
 export type {
   BackendModelUrls,
@@ -22,5 +47,6 @@ export type {
   KWSStatus,
   ParameterDescriptor,
   SherpaOnnxKwsConfig,
-} from './types'
-export { KWSLoadError, KWSUnsupportedError } from './types'
+} from '@wake-studio/module-kws-engine'
+export { KWSLoadError, KWSUnsupportedError } from '@wake-studio/module-kws-engine'
+export type { ModelRuntime } from '@wake-studio/platform'

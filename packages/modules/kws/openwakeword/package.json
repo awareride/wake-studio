@@ -1,26 +1,26 @@
 {
-  "name": "@wake-studio/module-kws-sherpa",
+  "name": "@wake-studio/module-kws-openwakeword",
   "version": "0.1.0",
   "private": true,
-  "description": "sherpa-onnx KWS driver module (ADR-020/024; ASR-Decoding category): main-thread KWS transducer backend + wasm build pipeline.",
+  "description": "OpenWakeWord KWS driver module (ADR-020/024, Traditional category): melspectrogram -> speech_embedding -> classifier in the browser.",
   "license": "MIT",
   "type": "module",
   "exports": {
     ".": "./core/index.ts",
     "./core": "./core/index.ts",
-    "./spec": "./spec/module.spec.json",
-    "./web": "./web/index.ts"
+    "./spec": "./spec/module.spec.json"
   },
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
-    "fetch:all": "node ../../../../scripts/fetch-artifact.mjs kws-sherpa"
+    "fetch:all": "echo 'no artifacts (models are registry-fetched, ADR-011)'"
   },
   "dependencies": {
     "@wake-studio/contracts": "workspace:*",
     "@wake-studio/module-kws-engine": "workspace:^",
-    "@wake-studio/platform": "workspace:^"
+    "@wake-studio/platform": "workspace:^",
+    "onnxruntime-web": "^1.27.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",

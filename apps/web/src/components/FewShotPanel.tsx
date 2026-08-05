@@ -12,7 +12,7 @@ import {
   PLIX_ENCODER_VARIANTS,
   getPlixEncoderVariant,
   type PlixEncoderVariant,
-} from '../kws/backends/plix-encoder'
+} from '@wake-studio/module-kws-plix/encoders/plix-encoder'
 import { RUNTIME_LABELS } from '../runtime'
 
 // PLiX Few-Shot encoder (aaqibsaeed/plixkws, Apache-2.0) - compact CNN

@@ -27,8 +27,8 @@
  */
 
 import * as ort from 'onnxruntime-web'
-import type { BackendModelUrls, KWSBackend } from '../types'
-import { MEL_OVERLAP, MEL_WINDOW_SIZE } from '../defaults'
+import type { BackendModelUrls, KWSBackend } from '@wake-studio/module-kws-engine'
+import { MEL_OVERLAP, MEL_WINDOW_SIZE } from '@wake-studio/module-kws-engine'
 
 // Use the CDN for the onnxruntime-web WASM runtime files (Phase 6 will vendor
 // these for offline support, consistent with the RNNoise vendoring in Phase 1).

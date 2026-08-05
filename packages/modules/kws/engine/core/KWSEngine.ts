@@ -8,7 +8,7 @@
 
 import type {
   AFEOutputFrame,
-} from '../afe'
+} from '@wake-studio/module-afe-graph'
 import type {
   BackendModelUrls,
   KWSConfig,
@@ -24,10 +24,10 @@ import { DEFAULT_CONFIG } from './defaults'
 import { describeParameters } from './defaults'
 import { KWSLoadError } from './types'
 import { ScoreSmoother, TriggerDetector, shouldGateByVad } from './dsp'
-import { SherpaOnnxKwsBackend } from './backends/sherpa-onnx-kws'
+import { createMainThreadBackend } from './backend'
 
 // Vite bundles the worker into a separate file.
-import KWSWorker from './worker?worker'
+import KWSWorker from '../web/worker?worker'
 
 type ScoreCallback = (sample: KWSScoreSample) => void
 type TriggerCallback = (event: KWSTriggerEvent) => void
@@ -94,12 +94,19 @@ export class KWSEngine {
     // The sherpa-onnx-kws backend uses a classic emscripten sherpa-onnx wasm
     // build that requires a DOM (document + script injection), so it cannot boot
     // inside the DOM-less Web Worker. It is therefore loaded and driven on the
-    // MAIN THREAD; all other backends run in the worker. When set, AFE frames
-    // are processed via _processMainThread.
+    // MAIN THREAD via the driver's mainThreadFactory (ADR-024 decoupling); all
+    // other backends run in the worker. When set, AFE frames are processed via
+    // _processMainThread.
     if (this._config.backend === 'sherpa-onnx-kws') {
       try {
-        const backend = new SherpaOnnxKwsBackend()
-        backend.configure(sherpaKwsConfig ?? {})
+        const backend = createMainThreadBackend('sherpa-onnx-kws')
+        if (!backend) {
+          throw new KWSLoadError(
+            'sherpa-onnx-kws main-thread backend is not registered. Load the kws-sherpa driver module.',
+          )
+        }
+        // The sherpa driver's main-thread backend exposes configure().
+        ;(backend as KWSBackend & { configure?: (c: unknown) => void }).configure?.(sherpaKwsConfig ?? {})
         await backend.load(undefined as never, 'wasm')
         this._mainThreadBackend = backend
         this._smoother = new ScoreSmoother(this._config.smoothingWindowFrames)
@@ -249,7 +256,7 @@ export class KWSEngine {
   private _ensureWorker(): void {
     if (this._worker) return
     this._worker = new KWSWorker()
-    this._worker.onmessage = (e: MessageEvent<KWSMainMessage>) => {
+    this._worker!.onmessage = (e: MessageEvent<KWSMainMessage>) => {
       this._handleMessage(e.data)
     }
   }

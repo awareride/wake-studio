@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ScoreSmoother, TriggerDetector, shouldGateByVad } from '../dsp'
+import { ScoreSmoother, TriggerDetector, shouldGateByVad } from '../core/dsp'
 
 // ---------------------------------------------------------------------------
 // ScoreSmoother

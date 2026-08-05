@@ -9,8 +9,8 @@
 // Public API types (docs/modules/kws.md §4)
 // ---------------------------------------------------------------------------
 
-import type { ModelRuntime } from '../runtime'
-import { DEFAULT_MODEL_RUNTIME } from '../runtime'
+import type { ModelRuntime } from '@wake-studio/platform'
+import { DEFAULT_MODEL_RUNTIME } from '@wake-studio/platform'
 /**
  * Pluggable KWS backend identifiers (ADR-020). The engine delegates inference
  * to a `KWSBackend` adapter; selection is per-target / per-word.

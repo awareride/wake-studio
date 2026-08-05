@@ -3,5 +3,5 @@
   "compilerOptions": {
     "jsx": "react-jsx"
   },
-  "include": ["core", "encoders", "web", "spec", "tests", "src"]
+  "include": ["core", "web", "spec", "tests", "src"]
 }

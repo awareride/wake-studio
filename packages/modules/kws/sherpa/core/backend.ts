@@ -24,9 +24,15 @@
  *   -> generic smoother/trigger in the worker (ADR-018).
  */
 
-import type { KWSBackend, SherpaOnnxKwsConfig } from '../types'
+import type { KWSBackend, SherpaOnnxKwsConfig } from '@wake-studio/module-kws-engine'
+import { resolveAsset } from '@wake-studio/platform'
 
-const DEFAULT_WASM_BASE_URL = '/sherpa-onnx-kws/'
+/**
+ * Default wasm base URL: the sherpa driver's own assets dir (Q-K2 / ADR-025),
+ * base-aware so it survives sub-path deployment (ADR-012). Overridable via
+ * config.wasmBaseUrl.
+ */
+const DEFAULT_WASM_BASE_URL = resolveAsset('/modules/kws/sherpa/assets/sherpa-onnx-kws/')
 
 /**
  * sherpa-onnx KeywordResult JSON shape (the bits we use). When no keyword is

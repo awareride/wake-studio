@@ -16,4 +16,9 @@ export {
   type ModelClass,
 } from './registry'
 export { probeModelUrl, type ProbeResult } from './probe'
+export {
+  DEFAULT_MODEL_RUNTIME,
+  RUNTIME_LABELS,
+  type ModelRuntime,
+} from './runtime'
 export type { WasmLoader, AudioSource } from './seams'

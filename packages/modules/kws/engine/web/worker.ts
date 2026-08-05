@@ -17,13 +17,15 @@ import type {
   KWSConfig,
   KWSMainMessage,
   KWSWorkerMessage,
-} from './types'
-import { DEFAULT_MODEL_RUNTIME } from '../runtime'
-import { createBackend } from './backend'
-import { PlixKwsEmbedProvider } from './backends/plixkws-embed'
-import { PlixKwsBackend } from './backends/plixkws'
-import { DEFAULT_CONFIG } from './defaults'
-import { ScoreSmoother, TriggerDetector, shouldGateByVad } from './dsp'
+  EmbedProvider,
+} from '../core/types'
+import { DEFAULT_MODEL_RUNTIME } from '@wake-studio/platform'
+import {
+  createBackend,
+  createEmbedProvider,
+} from '../core/backend'
+import { DEFAULT_CONFIG } from '../core/defaults'
+import { ScoreSmoother, TriggerDetector, shouldGateByVad } from '../core/dsp'
 
 // ---------------------------------------------------------------------------
 // State
@@ -32,7 +34,7 @@ import { ScoreSmoother, TriggerDetector, shouldGateByVad } from './dsp'
 let config: KWSConfig = { ...DEFAULT_CONFIG }
 
 let backend: KWSBackend | null = null
-let embedProvider: PlixKwsEmbedProvider | null = null
+let embedProvider: EmbedProvider | null = null
 let actualExecutionProvider: 'webgpu' | 'wasm' = 'wasm'
 
 // Generic inference state (backend-agnostic).
@@ -106,8 +108,16 @@ async function handleLoad(
     // the real reason (e.g. a missing ONNX graph or external-data file).
     if (urls.plixkws) {
       const runtime = globalRuntime
-      embedProvider = new PlixKwsEmbedProvider(urls.plixkws, runtime)
-      await embedProvider.load(urls.plixkws, actualExecutionProvider)
+      embedProvider = (await createEmbedProvider(
+        urls.plixkws,
+        runtime,
+      )) as EmbedProvider | null
+      if (embedProvider) {
+        await (embedProvider as unknown as { load: (u: string, p: string) => Promise<void> }).load(
+          urls.plixkws,
+          actualExecutionProvider,
+        )
+      }
     }
 
     // Tracks whether a GPU-capable detection backend was actually loaded. The
@@ -136,12 +146,11 @@ async function handleLoad(
         sampleIds: [],
         createdAtMs: Date.now(),
       }
-      backend = new PlixKwsBackend(
-        embedProvider,
-        proto,
-        1500,
-        false,
-      )
+      // The plixkws detection backend is created through the registry so the
+      // worker stays decoupled from the plix driver module (ADR-024). It
+      // expects the shared embedProvider + prototype.
+      backend = createBackend('plixkws')
+      await (backend as KWSBackend & { initWithPrototype?: (p: unknown, e: unknown) => void }).initWithPrototype?.(proto, embedProvider)
     } else {
       // Detection backend: only load if its required URLs are present. If only
       // plixkws is provided (Few-Shot enrollment / embed-only mode), skip the

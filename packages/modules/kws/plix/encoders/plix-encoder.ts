@@ -23,7 +23,7 @@
  *      Deployment Strategies for WavLM-base-plus and plixkws.md
  */
 
-import type { ModelRuntime } from '../../runtime'
+import type { ModelRuntime } from '@wake-studio/platform'
 
 /** A PLiX encoder runtime: 16 kHz mono audio -> 1280-dim embedding. */
 export interface PlixEncoder {
@@ -78,15 +78,15 @@ export const PLIX_ENCODER_VARIANTS: ReadonlyArray<PlixEncoderVariant> = [
   {
     id: 'base',
     label: 'PLiX base (EfficientNet-v2-M, 1280-d)',
-    onnxUrl: '/prebuilts/plixkws/plixkws-base.onnx',
-    transformersLocalDir: '/prebuilts/plixkws/hf/plixkws',
+    onnxUrl: '/modules/kws/plix/assets/plixkws-base.onnx',
+    transformersLocalDir: '/modules/kws/plix/assets/hf/plixkws',
     note: 'Heavier CNN; default. Needs plixkws-base.onnx (exported ONNX).',
   },
   {
     id: 'small',
     label: 'PLiX small (TinyNet-E, 1280-d)',
-    onnxUrl: '/prebuilts/plixkws/plixkws-small.onnx',
-    transformersLocalDir: '/prebuilts/plixkws/hf/plixkws',
+    onnxUrl: '/modules/kws/plix/assets/plixkws-small.onnx',
+    transformersLocalDir: '/modules/kws/plix/assets/hf/plixkws',
     note: 'Lighter / low-RAM. Needs plixkws-small.onnx + plixkws-small.onnx.data (external weights).',
   },
 ]

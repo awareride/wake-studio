@@ -108,7 +108,7 @@
     ]
   },
   "tests": {
-    "l1": "packages/modules/kws/sherpa/tests/params.test.ts",
+    "l1": "packages/modules/kws/sherpa/tests/spec.test.ts",
     "required": ["l1"]
   },
   "playground": {

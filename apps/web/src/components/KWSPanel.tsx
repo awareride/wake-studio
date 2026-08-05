@@ -4,7 +4,7 @@ import {
   KWSEngine,
   DEFAULT_CONFIG,
   describeParameters,
-  BACKEND_REGISTRY,
+  getBackendRegistry,
 } from '../kws'
 import type {
   BackendModelUrls,
@@ -206,7 +206,7 @@ export const KWSPanel = memo(function KWSPanel({
             }
             className="truncate rounded bg-surface-3 px-2 py-1 text-ink-2"
           >
-            {BACKEND_REGISTRY.map((r) => (
+            {getBackendRegistry().map((r) => (
               <option key={r.id} value={r.id} disabled={!r.browserFeasible}>
                 {r.id}
               </option>
