@@ -120,3 +120,12 @@ export function IconMenu(props: IconProps) {
     </svg>
   )
 }
+
+export function IconConsole(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 5h16v14H4z" />
+      <path d="M7 9l3 3-3 3M12 15h5" />
+    </svg>
+  )
+}

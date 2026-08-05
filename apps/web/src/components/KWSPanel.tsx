@@ -17,6 +17,7 @@ import { MEL_WINDOW_SIZE } from '../kws'
 import type { SherpaOnnxKwsConfig } from '../kws'
 import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
 import { useProjectStageConfig } from '../projects'
+import { logTrigger, logInfo, logError } from '../log'
 
 // Default keyword list for the sherpa-onnx KWS backend (matches the model
 // prebuilt into the wasm .data bundle). For the wenetspeech-3.3M-2024-01-01
@@ -88,9 +89,11 @@ export const KWSPanel = memo(function KWSPanel({
       await engine.load(MODEL_URLS, undefined, sherpaKwsConfig)
       setStatus(engine.status)
       setExecutionProvider(engine.executionProvider)
+      logInfo('kws', `Models loaded (backend: ${config.backend})`)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
+      logError('kws', err instanceof Error ? err.message : String(err))
     }
   }, [config.backend, config.threshold])
 
@@ -159,10 +162,14 @@ export const KWSPanel = memo(function KWSPanel({
     engine.onTrigger((e: KWSTriggerEvent) => {
       setTriggerFlash(true)
       setTimeout(() => setTriggerFlash(false), 500)
-      console.log('[KWS] Trigger:', e.word, e.peakScore.toFixed(3))
+      // Publish to the session console (Phase 4) - replaces console.log.
+      logTrigger('kws', e)
     })
     engine.onPartial((text: string) => {
-      if (text) setLastKeyword(text)
+      if (text) {
+        setLastKeyword(text)
+        logInfo('kws', `partial: ${text}`)
+      }
     })
     engine.setConfig({ backend: config.backend, threshold: config.threshold })
     // The engine is created once; backend/threshold changes are pushed via

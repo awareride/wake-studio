@@ -6,6 +6,7 @@ import type { StageFrameData } from '../afe'
 import { describeParameters } from '../afe'
 import { UnifiedConfigPanel } from './UnifiedConfigPanel'
 import { useProjectStageConfig } from '../projects'
+import { logInfo, logError } from '../log'
 import { PipelineOverview } from './PipelineOverview'
 import { RecordReplay } from './RecordReplay'
 
@@ -45,8 +46,10 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
       await p.start()
       setRunning(true)
       onRunningChange(true)
+      logInfo('afe', 'Pipeline started (microphone live)')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
+      logError('afe', err instanceof Error ? err.message : String(err))
     }
   }, [afeRef, onRunningChange])
 
@@ -56,6 +59,7 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
     onRunningChange(false)
     setFrameData({})
     setLatencyMs(0)
+    logInfo('afe', 'Pipeline stopped')
   }, [afeRef, onRunningChange])
 
   // Expose start/stop to the workspace pipeline canvas via commandRef.

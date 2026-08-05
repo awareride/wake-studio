@@ -12,6 +12,7 @@ import {
   IconFolder,
   IconSettings,
   IconChip,
+  IconConsole,
 } from './icons'
 
 export interface NavItem {
@@ -25,6 +26,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { route: 'workspace', label: 'Workspace', icon: IconWorkspace },
   { route: 'library', label: 'Model Library', icon: IconLibrary },
   { route: 'projects', label: 'Projects', icon: IconFolder },
+  { route: 'console', label: 'Console', icon: IconConsole },
 ]
 
 export const SECONDARY_NAV: NavItem[] = [

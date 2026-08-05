@@ -11,8 +11,10 @@ import { ConsoleShell } from './components/ConsoleShell'
 import { ConsoleStatusProvider } from './status'
 import { AppToastProvider } from './components/toast'
 import { ProjectProvider } from './projects'
+import { LogProvider } from './log'
 import { WorkspaceView } from './views/WorkspaceView'
 import { ModelLibraryView } from './views/ModelLibraryView'
+import { SessionConsoleView } from './views/SessionConsoleView'
 import { ComingSoonView, ProjectsView } from './views/placeholders'
 import { RnnoisePlayground } from '@wake-studio/module-rnnoise/web'
 
@@ -23,24 +25,27 @@ export default function App() {
     <ConsoleStatusProvider>
       <AppToastProvider>
         <ProjectProvider>
-          <ConsoleShell route={route} onNavigate={navigate}>
-            {route === 'workspace' && <WorkspaceView />}
-            {route === 'library' && <ModelLibraryView />}
-            {route === 'projects' && <ProjectsView />}
-            {route === 'playground-rnnoise' && <RnnoisePlayground />}
-            {route === 'settings' && (
-              <ComingSoonView
-                title="Settings"
-                description="Console preferences, model source configuration and export defaults will live here."
-              />
-            )}
-            {route === 'device-sdk' && (
-              <ComingSoonView
-                title="Device SDK"
-                description="Export kits and device-side SDK tooling for your target chips arrive in Phase 4."
-              />
-            )}
-          </ConsoleShell>
+          <LogProvider>
+            <ConsoleShell route={route} onNavigate={navigate}>
+              {route === 'workspace' && <WorkspaceView />}
+              {route === 'library' && <ModelLibraryView />}
+              {route === 'projects' && <ProjectsView />}
+              {route === 'console' && <SessionConsoleView />}
+              {route === 'playground-rnnoise' && <RnnoisePlayground />}
+              {route === 'settings' && (
+                <ComingSoonView
+                  title="Settings"
+                  description="Console preferences, model source configuration and export defaults will live here."
+                />
+              )}
+              {route === 'device-sdk' && (
+                <ComingSoonView
+                  title="Device SDK"
+                  description="Export kits and device-side SDK tooling for your target chips arrive in Phase 4."
+                />
+              )}
+            </ConsoleShell>
+          </LogProvider>
         </ProjectProvider>
       </AppToastProvider>
     </ConsoleStatusProvider>
