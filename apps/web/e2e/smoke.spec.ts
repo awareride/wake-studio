@@ -31,7 +31,7 @@ test('hash routing navigates between views', async ({ page }) => {
   // Model Library: registry-driven view.
   await sidebarNav(page, 'Model Library')
   await expect(page).toHaveURL(/#\/library/)
-  await expect(page.getByRole('heading', { name: /Models \(\d+\)/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Models \(\d+ of \d+\)/ })).toBeVisible()
 
   // Projects scaffold.
   await sidebarNav(page, 'Projects')
