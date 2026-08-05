@@ -77,10 +77,9 @@ node scripts/fetch-<artifact>.mjs [--force] [--version <v>]
 | RNNoise wasm (pilot) | embedded base64 in `web/vendor/`; standalone CI build planned | (not needed while embedded) | `packages/modules/afe/rnnoise/assets/` | `rnnoise` |
 
 > **Asset placement rule (ADR-025):** new artifacts go into the owning module's
-> `assets/` dir (served at `/modules/<category>/<module>/assets/...`). The
-> `apps/web/prebuilts/` and `apps/web/public/sherpa-onnx-kws/` entries above are
-> legacy locations for assets whose owning module hasn't been extracted yet;
-> they migrate into module `assets/` as the KWS / Few-Shot modules land.
+> `assets/` dir (served at `/modules/<category>/<module>/assets/...`). All assets
+> migrated to module `assets/` on 2026-08-05; the legacy `apps/web/prebuilts/`
+> and `apps/web/public/sherpa-onnx-kws/` pools were retired.
 
 > Inventory entries are filled as the SOP lands; the RNNoise row is the ADR-025
 > pilot and will prove the SOP end-to-end.

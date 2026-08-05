@@ -23,11 +23,11 @@ ADR-025 module boundary rules require ("a module depends on the platform layer
 
 - **In scope:**
   - **base-path resolver** — `APP_BASE`, `resolveAsset()` (moved from
-    `apps/web/src/config.ts`), so every asset URL survives sub-path deployment
+    `packages/platform/src/base-path.ts`), so every asset URL survives sub-path deployment
     (GitHub Pages `/<repo>/`, Cloudflare `/`).
   - **lazy model manager** — `loadRegistry()` + the typed `RegistryModel`
     loader and the `isCommerciallyUsable()` license gate (moved from
-    `apps/web/src/data/registry.ts`), plus a small runtime service
+    `packages/platform/src/registry.ts`), plus a small runtime service
     (load/get/status) with integrity check (ADR-011/027).
   - **wasm loader seam** — a thin, runtime-agnostic loader interface
     (emscripten / classic / onnxruntime) that modules implement against,
@@ -49,11 +49,11 @@ stays local until a second consumer appears. The package must stay thin.
 ## 4. Public API & types
 
 ```ts
-// --- base path (from apps/web/src/config.ts) ---
+// --- base path (from packages/platform/src/base-path.ts) ---
 export const APP_BASE: string            // import.meta.env.BASE_URL ?? '/'
 export function resolveAsset(path: string): string
 
-// --- model registry (from apps/web/src/data/registry.ts) ---
+// --- model registry (from packages/platform/src/registry.ts) ---
 export type ModelTier = 'low-power' | 'high-performance'
 export type ModelClass = 'redistributable' | 'demo-only'
 export interface RegistryModel { id, name, tier, source, url, format,
@@ -98,8 +98,8 @@ export interface AudioSource { start(): Promise<void>; stop(): void }
 
 ## 9. Testing strategy
 
-- L1 unit: move `apps/web/src/data/__tests__/registry.test.ts` (license gate +
-  probe) with the code; add a base-path resolve test.
+- L1 unit: `packages/platform/src/__tests__/registry.test.ts` (license gate +
+  base-path + probe) with the code; add a base-path resolve test.
 - No L2/L3 (no wasm/UI here).
 
 ## 10. Security & privacy
@@ -114,7 +114,8 @@ export interface AudioSource { start(): Promise<void>; stop(): void }
 ## 12. References
 
 - ADR-011/012/025/027; module-migration.plan §6.1; `docs/architecture.md` §3.
-- Legacy homes: `apps/web/src/config.ts`, `apps/web/src/data/registry.ts`.
+- Legacy homes (migrated 2026-08-05): `apps/web/src/config.ts`,
+  `apps/web/src/data/registry.ts` → `packages/platform/src/`.
 
 ## 13. Change log
 

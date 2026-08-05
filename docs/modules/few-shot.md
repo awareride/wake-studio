@@ -1,13 +1,15 @@
 # Few-Shot Custom Wake-Word Enrollment - Module Specification
 
-- **Status:** Draft (docs-first, pending human review)
+- **Status:** Accepted (Phase 3 shipped; module-migration §6.4)
 - **Owner:** WakeStudio team
 - **Plan phase:** Phase 3
 - **Related ADRs:** ADR-002 (PLiX Few-Shot encoder), ADR-013 (enrollment is client-side,
   not training), ADR-017 (config panel), ADR-020 (EmbedProvider/KWSBackend),
   ADR-021 (device SDK shares the interface)
 - **Depends on (modules):** KWS (`embed(audio)` scaffold + `PlixKwsEmbedProvider`),
-  AFE (16 kHz output stream for live detection)
+  AFE (16 kHz output stream for live detection); consumes `WakeWordPrototype` +
+  scoring from the plix driver (single source of truth)
+- **Last updated:** 2026-08-05
 - **Last updated:** 2026-07-28
 
 ## 1. Purpose
@@ -232,7 +234,7 @@ unchanged.
   panel (ADR-002). Both emit a 1280-dim embedding, so scoring is identical;
   only compute/params differ. The `small` export uses external data
   (`plixkws-small.onnx` + `plixkws-small.onnx.data`), served co-located from
-  `/prebuilts/plixkws/`.
+  `/modules/kws/plix/assets/`.
 - `[Q-FS-2]` Whether to offer the smaller "small" PLiX encoder (TinyNet-E) for
   low-RAM devices (ADR-002 mitigation). Now first-class: select the encoder
   variant at load time.

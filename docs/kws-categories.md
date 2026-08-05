@@ -42,9 +42,9 @@ Each category has an explicit **functional scope** (what is supported today) and
   quantization and export to TFLite / ONNX.
 - **Functional scope (this platform):** Fully support the **complete training &
   inference pipelines**.
-- **In the repo today:** inference is implemented via the OpenWakeWord backend
-  (`src/kws/backends/openwakeword.ts`); a Traditional **training** panel is
-  reserved (§4.2) and implemented in Phase 5.
+- **In the repo today:** inference is implemented via the OpenWakeWord driver
+  (`packages/modules/kws/openwakeword/core/backend.ts`); a Traditional
+  **training** panel is reserved (§4.2) and implemented in Phase 5.
 - **Extensibility reserve:** none required — training is already in scope.
 
 ### 2.2 ASR Decoding KWS (Inference Only)
@@ -70,9 +70,10 @@ Each category has an explicit **functional scope** (what is supported today) and
 - **Functional scope (this platform):** **Inference only**, limited to
   **pre-trained multi-language universal weights**; **no custom-language training
   or fine-tuning** functions.
-- **In the repo today:** implemented via the PLiX backend (`src/few-shot/`,
-  `src/kws/backends/plixkws.ts`) — enrollment-based prototype-distance scoring
-  with the `base` / `small` encoder variants (ADR-002).
+- **In the repo today:** implemented via the PLiX driver + Few-Shot module
+  (`packages/modules/kws/plix/`, `packages/modules/few-shot/`) —
+  enrollment-based prototype-distance scoring with the `base` / `small`
+  encoder variants (ADR-002).
 - **Extensibility reserve:** the platform reserves an expansion interface to add
   **fine-tuning and a full training pipeline** for few-shot KWS in a later
   iteration.
@@ -98,8 +99,8 @@ These are the stable contracts. Adding a KWS type must **not** modify them.
   integrity validation. (Anchored on the lazy registry, ADR-011.)
 - **Inference task dispatcher** — owns the generic detection loop (VAD gating,
   score smoothing, threshold + min-duration trigger, threading). (Web Worker in
-  `src/kws/worker.ts`; shared by every backend via the `KWSBackend` interface,
-  ADR-020.)
+  `packages/modules/kws/engine/web/worker.ts`; shared by every backend via the
+  `KWSBackend` interface, ADR-020.)
 - **Model artifact exporter** — client-side bundle generation for export targets
   (ADR-021 / Phase 4).
 - **Unified base panel renderer** — renders tunables from a `describeParameters()`
@@ -118,8 +119,9 @@ adds.
 - **Few-Shot KWS** — support-set audio upload, feature extraction, prototype
   distance calculation.
 
-> **Decoupling in practice:** the existing `KWSBackend` interface (`src/kws/types.ts`)
-> is the seam. Traditional and Few-Shot already implement it. ASR Decoding will
+> **Decoupling in practice:** the `KWSBackend` interface
+> (`packages/modules/kws/engine/core/types.ts`) is the seam. Traditional and
+> Few-Shot already implement it. ASR Decoding will
 > implement the same interface (its "model" is a text wake-word list + an ASR
 > graph), so the shared dispatcher, score-curve rendering, and trigger logic are
 > reused unchanged.
@@ -184,7 +186,7 @@ parameter descriptors differ per type.
    new type is a new adapter — not a new loading path.
 2. **Standardized inference event output structure for frontend rendering.**
    The frontend consumes a single `KWSScoreSample` / `KWSTriggerEvent` shape
-   (see `src/kws/types.ts`); the underlying KWS type is **not** distinguished in
+   (see `packages/modules/kws/engine/core/types.ts`); the underlying KWS type is **not** distinguished in
    the rendered output. A Traditional, ASR-Decoding, or Few-Shot trigger looks
    identical to the UI.
 

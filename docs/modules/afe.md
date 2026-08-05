@@ -1,18 +1,35 @@
 # AFE (Audio Front-End) - Module Specification
 
-- **Status:** Accepted (human review complete; open questions resolved - ADR-016/017)
+- **Status:** Accepted (human review complete; ADR-016/017/029)
 - **Owner:** WakeStudio team
-- **Plan phase:** Phase 1
-- **Related ADRs:** ADR-001 (pipeline stages AEC -> BSS -> NS -> KWS), ADR-003 (vendor vs portable AFE), ADR-016 (AFE Phase 1 design decisions), ADR-017 (per-component config panel)
-- **Depends on (modules):** none (capture is the source of the audio graph)
-- **Last updated:** 2026-07-27
+- **Plan phase:** Phase 1 (AFE); module-migration §6.2 (per-stage modules)
+- **Related ADRs:** ADR-001 (pipeline stages AEC -> BSS -> NS -> KWS), ADR-003 (vendor vs portable AFE), ADR-016 (AFE Phase 1 design decisions), ADR-017 (per-component config panel), ADR-029 (per-stage modules)
+- **Depends on (modules):** none (capture is the source of the audio graph); the graph module depends on the aec/bss/rnnoise stage modules
+- **Last updated:** 2026-08-05
+
+## 0. Module layout (ADR-029)
+
+The AFE is **per-stage modules** + a graph orchestration module (NOT one
+module). A new AEC/BSS/NS implementation plugs in behind `AFEStage` without
+touching the graph:
+
+| Module | What it is | Implementations | Location |
+|---|---|---|---|
+| `afe-aec` | AEC stage | v1 passthrough; WebRTC AEC3 future (v1.x) | `packages/modules/afe/aec/` |
+| `afe-bss` | BSS stage | v1 single-mic passthrough; beamforming future | `packages/modules/afe/bss/` |
+| `afe-rnnoise` | NS stage (one impl) | RNNoise (the shipped pilot module) | `packages/modules/afe/rnnoise/` |
+| `afe-graph` | Orchestrates AEC→BSS→NS via `AFEStage`; owns the AudioWorklet | — | `packages/modules/afe/graph/` |
+
+The `AFEStage` interface lives in `packages/contracts`. The graph's worklet
+imports the stage modules headlessly (worklet-safe loader sub-entry, no React
+in the bundle).
 
 ## 1. Purpose
 
-The AFE module captures microphone audio and runs the real-time far-field front-end
+The AFE captures microphone audio and runs the real-time far-field front-end
 pipeline **AEC -> BSS -> NS** (ADR-001), producing a clean 16 kHz mono stream for
-the KWS engine (Phase 2) and emitting per-stage data for live visualization. It
-delivers the first half of the in-browser experience (requirements R1 and R5).
+the KWS engine and emitting per-stage data for live visualization. It delivers
+the first half of the in-browser experience (requirements R1 and R5).
 
 ## 2. Scope & boundaries
 
@@ -40,7 +57,7 @@ delivers the first half of the in-browser experience (requirements R1 and R5).
     lives in exported demos (ADR-003).
   - RNNoise via **`@timephy/rnnoise-wasm`** (Apache-2.0 port of the BSD-3 RNNoise
     core) - NS stage (ADR-016). The prebuilt WASM is **vendored into the repo** at
-    `src/afe/vendor/rnnoise/` (the `.wasm` is embedded as base64 in
+    `packages/modules/afe/rnnoise/web/vendor/` (the `.wasm` is embedded as base64 in
     `generated/rnnoise-sync.js`); no runtime fetch, no npm dependency.
   - VAD: for v1 the viz VAD curve uses **RNNoise's built-in VAD score** (returned
     by `processAudioFrame`). Silero VAD (ONNX, onnxruntime-web, MIT) is deferred to
@@ -269,7 +286,7 @@ Canvas render ~5 ms + display refresh ~16 ms.
   permission.
 - Browser AEC/NS/AGC are disabled on the `getUserMedia` track so our DSP is the
   only processing (avoids double-processing and opaque vendor DSP).
-- RNNoise WASM is **vendored into the repo** at `src/afe/vendor/rnnoise/`
+- RNNoise WASM is **vendored into the repo** at `packages/modules/afe/rnnoise/web/vendor/`
   (ADR-016) - no runtime fetch. Other WASM/models follow the lazy registry (ADR-011)
   from Phase 2 onward. The Content Security Policy must allow `wasm-unsafe-eval`.
 
@@ -300,7 +317,7 @@ All Phase 1 open questions are resolved (ADR-016); the contract is locked.
   returns a VAD score; Phase 1 uses it for the viz VAD curve. Silero VAD
   (onnxruntime-web) is deferred to Phase 2 for KWS gating.
 - **Prebuilt WASM vendored into the repo (ADR-016 amendment).** The RNNoise
-  prebuilt JS (with embedded WASM) is committed under `src/afe/vendor/rnnoise/`;
+  prebuilt JS (with embedded WASM) is committed under `packages/modules/afe/rnnoise/web/vendor/`;
   no npm dependency, no runtime fetch.
 
 ## 12. References
@@ -310,7 +327,7 @@ All Phase 1 open questions are resolved (ADR-016); the contract is locked.
   AFE), ADR-011 (lazy model registry for WASM/model fetch).
 - Upstream: WebRTC `audio_processing` (AEC3); RNNoise (xiph); Silero VAD; Web
   Audio API / AudioWorklet spec (W3C).
-- Vendored prebuilt: `src/afe/vendor/rnnoise/` (`@timephy/rnnoise-wasm@1.0.0`,
+- Vendored prebuilt: `packages/modules/afe/rnnoise/web/vendor/` (`@timephy/rnnoise-wasm@1.0.0`,
   Apache-2.0; WASM embedded in `generated/rnnoise-sync.js`).
 - Related module docs: `docs/modules/kws.md` (Phase 2, downstream consumer - not
   yet written).
@@ -321,4 +338,4 @@ All Phase 1 open questions are resolved (ADR-016); the contract is locked.
 |---|---|---|
 | 2026-07-27 | Initial draft (docs-first, pending human review). | agent |
 | 2026-07-27 | Human review: resolved Q-AFE-1..4 (ADR-016); added config panel API + per-engine frame config (ADR-017). Status -> Accepted. | agent |
-| 2026-07-27 | ADR-016 amendment: AEC3 deferred to v1.x (passthrough for v1); AFE DSP at 48 kHz (resample to 16 kHz at output); VAD from RNNoise for v1 (Silero -> Phase 2); RNNoise prebuilt WASM vendored at src/afe/vendor/rnnoise/. | agent |
+| 2026-07-27 | ADR-016 amendment: AEC3 deferred to v1.x (passthrough for v1); AFE DSP at 48 kHz (resample to 16 kHz at output); VAD from RNNoise for v1 (Silero -> Phase 2); RNNoise prebuilt WASM vendored at packages/modules/afe/rnnoise/web/vendor/. | agent |

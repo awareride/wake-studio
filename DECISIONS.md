@@ -609,7 +609,7 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 
 ## ADR-026 — Three-layer testing: unit (L1), local wasm runtime (L2), browser e2e (L3)
 
-- **Status:** Proposed (draft for human review)
+- **Status:** Accepted (implemented; L2 in the rnnoise module, per-module L1 in every module)
 - **Origin:** Human architecture direction (2026-07-31 discussion, Q6)
 - **Decision:** Testing is organized into three layers, run at different
   frequencies:
@@ -632,34 +632,39 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   browser.
 - **Consequences:**
   - Each module with wasm/onnx artifacts ships an L2 runner
-    (`<module>/__tests__/wasm-runtime.test.ts`) that loads the artifact from
-    `prebuilts/` or `public/` and asserts boot + one inference pass.
+    (`<module>/tests/wasm-runtime.test.ts`) that loads the artifact from
+    the module's `assets/` and asserts boot + one inference pass.
   - L3 becomes the gate for merge to `main`, not for every PR.
   - L2 does **not** replace L3: thread/SharedArrayBuffer behavior differs
     between Node and browsers; the browser e2e remains the authority for
     browser-only semantics (this is exactly the pitfall noted in the
     sherpa-onnx-kws commit).
-- **Status of this ADR:** Proposed — awaiting human review of the layer
-  definitions and the L3 cadence.
+- **Status of this ADR:** Accepted. Implemented: rnnoise L2 wasm-runtime test;
+  per-module L1 suites (10 modules, ~158 tests). L2 for sherpa/plix wasm is a
+  follow-up (currently e2e-only).
 
 ---
 
 ## ADR-027 — External artifacts are built in GitHub Actions and synced locally via a standard fetch SOP
 
-- **Status:** Proposed (draft for human review)
+- **Status:** Accepted (implemented; generic build skeleton + fetch-artifact, 2026-08-05)
 - **Origin:** Human architecture direction (2026-07-31 discussion, Q5)
 - **Decision:** Every externally-built artifact (wasm, onnx, models) follows a
   **standard build-and-fetch SOP**, formalizing what the project already does
   ad-hoc:
-  1. **Build in CI, not on the dev machine.** One `workflow_dispatch` workflow
-     per artifact (emsdk/CMake/Python toolchains stay off dev machines; `main`
-     stays protected). Existing: `build-sherpa-onnx-kws-wasm.yml`,
-     `export-plixkws.yml`.
+  1. **Build in CI, not on the dev machine.** The **generic build skeleton**
+     `.github/workflows/build.yaml` builds any module's artifact via its spec
+     `build` block (script, toolchains, inputs) — the workflow never pre-knows
+     the parameters (ADR-027 §6.7, module-migration plan). `main` stays
+     protected. Existing bespoke workflows (sherpa/plix) were folded into it
+     (2026-08-05).
   2. **Artifacts are never committed** (ADR-011). The workflow uploads them as
      a downloadable artifact.
-  3. **Sync to local via a standard fetch script** — `scripts/fetch-<name>.mjs`
-     under a shared pattern; `pnpm fetch:all` runs them all. The fetch script
-     pins the expected artifact (name + hash) and verifies what it downloaded.
+  3. **Sync to local via a standard fetch script** — `scripts/fetch-artifact.mjs
+     <module-id>` (shared, generic; reads the module spec's build.artifactName),
+     or `scripts/fetch-<name>.mjs` for bespoke cases. `pnpm fetch:all` runs all
+     module fetch scripts. The fetch script pins the expected artifact (name +
+     hash) and verifies what it downloaded.
   4. **Registry:** `public/model-registry.json` is extended to carry, per
      artifact: version, source workflow, hash, fetch command, date. It is the
      single source of truth for "what artifact should be present locally."
@@ -671,12 +676,15 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   job/format/signature so every future artifact is handled identically and the
   developer never guesses how to obtain it.
 - **Consequences:**
-  - New module with a build step gets: workflow + fetch script + registry entry
-    + missing-asset error message. Nothing hand-rolled.
+  - New module with a build step gets: spec `build` block + `scripts/build-<id>.mjs`
+    + fetch via `scripts/fetch-artifact.mjs` + registry entry + missing-asset
+    error message. Nothing hand-rolled in `.github/workflows/`.
   - Artifact version bumps are explicit (hash in registry + fetch script),
     making stale-wasm regressions diagnosable.
-- **Status of this ADR:** Proposed — awaiting human review of the SOP and the
-  registry schema.
+- **Status of this ADR:** Accepted. Implemented: generic `build.yaml` skeleton,
+  `scripts/build-module.mjs` (driver), `scripts/fetch-artifact.mjs`,
+  module-spec `build` block (script/toolchains/inputs). The bespoke sherpa/plix
+  workflows were folded in; the dynamic dispatch-input bridge is a follow-up.
 
 ---
 
@@ -711,14 +719,70 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 
 ---
 
+## ADR-029 — The AFE is a set of per-stage modules plus a graph orchestration module
+
+- **Status:** Accepted (2026-08-05; supersedes the single-graph-module reading of §6.2)
+- **Origin:** Human correction during the module migration (each AFE stage is a
+  module with pluggable implementations; RNNoise is one NS implementation)
+- **Decision:** The AFE is NOT one module. Four modules:
+  - `afe-aec` (v1 passthrough; WebRTC AEC3 future),
+  - `afe-bss` (v1 single-mic passthrough; beamforming future),
+  - `afe-rnnoise` (one NS implementation; the shipped pilot module),
+  - `afe-graph` (pure orchestration AEC→BSS→NS over the `AFEStage` interface,
+    owns the AudioWorklet scheduling; no stage DSP).
+  A new AEC/BSS/NS implementation plugs in behind `AFEStage` (contracts) without
+  editing the graph (ADR-024/025 decoupling).
+- **Consequences:** contracts gained `AFEStage`/`AFEStageResult`; the graph's
+  worklet imports stage modules headlessly (worklet-safe loader sub-entry,
+  no React in the bundle); a later stage implementation is a new module.
+
+## ADR-030 — The KWS layer is an engine module plus per-backend driver modules
+
+- **Status:** Accepted (2026-08-05; Q-K1 resolved)
+- **Origin:** Human decision during the module migration (split per backend for
+  independent single-module testing/evaluation)
+- **Decision:** The KWS layer is `kws-engine` (KWSEngine, worker loop,
+  `KWSBackend` interface, registry seam) + one driver module per backend:
+  `kws-openwakeword`, `kws-sherpa` (main-thread transducer), `kws-plix`
+  (EmbedProvider + prototype-distance). Drivers self-register via
+  `registerKwsBackend`; sherpa uses `mainThreadFactory` (classic emscripten
+  wasm needs DOM); plix registers the embed-provider factory. Asset paths are
+  module-owned (`assets/`, Q-K2); `meta.id` is unique kebab (dir basename
+  may differ, e.g. `kws-engine`).
+- **Consequences:** adding a backend = a new driver module + registration, no
+  engine edits (ADR-024). Each driver is independently tested/scorecared.
+
+## ADR-031 — Training adapts to upstream scripts/notebooks, not vice versa
+
+- **Status:** Accepted (2026-08-05)
+- **Origin:** Human decision during the training-contract review (preserve
+  upstream `train.py` / `.ipynb`; adapt to them)
+- **Decision:** Upstream training artifacts stay byte-identical; WakeStudio
+  wraps them with an adapter layer. `spec/train` gains `script` (pinned
+  upstream repo script: repo/path/ref/language/entrypoint/args) or `notebook`
+  (paramsCell/outputsCell) plus `adapter`/`adapterOptions`. The
+  `standardize-results` adapter (`ResultsAdapter`) normalizes ANY upstream run
+  output into the standard artifact bundle (single importer). This matches the
+  product principle "select, integrate, harden, and package" — we never fork
+  or rewrite third-party training code.
+- **Consequences:** `ModuleTrain.entry` is optional (local uv script vs
+  upstream script vs notebook); contracts/schema extended; local-service
+  train-runner handles the adapter path. Full adapter implementations land in
+  goal.plan Phase 5.
+
+---
+
 _Open questions still pending human input: Q10 (self-hosted training engine) is
 open for Phase 5. Q9 (training backends) is ADR-013 (amended: in-browser training
 removed, Cloud Providers unified, Colab added as ADR-023); targets are ADR-019
 (supersedes ADR-006); pluggable KWS backends are ADR-020; the device-side SDK is
 ADR-021; the data-source layer is ADR-022; the module platform is ADR-025
-(Accepted - monorepo + module layout); testing layers are ADR-026 (Proposed);
-build-artifact SOP is ADR-027 (Proposed); train scripts use uv (ADR-028,
-Accepted). Project name is ADR-014; CI/CD deferral is ADR-015; AFE Phase 1
+(Accepted - monorepo + module layout); testing layers are ADR-026 (Accepted -
+L1 per module, L2 in rnnoise, L3 browser); build-artifact SOP is ADR-027
+(Accepted - generic build.yaml + fetch-artifact); train scripts use uv (ADR-028,
+Accepted). The AFE is per-stage modules (ADR-029), the KWS layer is engine +
+per-backend drivers (ADR-030), and training adapts to upstream scripts/notebooks
+(ADR-031). Project name is ADR-014; CI/CD deferral is ADR-015; AFE Phase 1
 design is ADR-016; the config panel is ADR-017; KWS Phase 2 design is ADR-018
-(Phase 2 paused per Q5, resumes against the `KWSBackend` interface). Defaults
-from Q2/Q3/Q4/Q7 are applied per this log and may be overridden._
+(resumes against the `KWSBackend` interface). Defaults from Q2/Q3/Q4/Q7 are
+applied per this log and may be overridden._

@@ -1,6 +1,7 @@
 # Module Spec — declarative contract for a WakeStudio module (ADR-025)
 
-- **Status:** Draft (pilot pending)
+- **Status:** Accepted (2026-08-05; validated by the RNNoise pilot + the full
+  module migration - 10 modules ship specs)
 - **Related:** ADR-025 (module platform), ADR-017 (config panel),
   ADR-026 (testing layers), ADR-027 (build-artifact SOP)
 
@@ -24,7 +25,9 @@ below is filled in **and** the referenced deliverables exist.
 {
   "$schema": "../../module-spec.schema.json",
   "meta": {
-    "id": "rnnoise",                 // unique, kebab-case; == directory name
+    "id": "rnnoise",                 // unique, kebab-case (ADR-030: may differ
+                                       // from the dir basename, e.g. id
+                                       // "kws-engine" in dir kws/engine/)
     "name": "RNNoise Noise Suppression",
     "category": "afe",               // afe | kws | few-shot | training | data | export | platform
     "version": "1.0.0",
@@ -74,7 +77,7 @@ below is filled in **and** the referenced deliverables exist.
   "runtime": {
     "web": {
       "engine": "AFEPipeline",
-      "wasm": { "url": "/prebuilts/rnnoise/rnnoise.wasm", "loader": "classic" },
+      "wasm": { "url": "/modules/afe/rnnoise/rnnoise.wasm", "loader": "classic" },
       "worker": false
     },
     "local": {                        // Node service, if applicable
@@ -92,32 +95,36 @@ below is filled in **and** the referenced deliverables exist.
     }
   },
 
-  "train": {                          // train scripts (ADR-028, uv-based)
-    "entry": "train/train.py",
-    "python": "3.11",
-    "deps": "train/pyproject.toml",
+  "train": {                          // train scripts (ADR-028) OR upstream
+    "entry": "train/train.py",        //   local uv script - OR (ADR-031):
+    "python": "3.11",                //   "script": { pinned upstream repo script }
+    "deps": "train/pyproject.toml",   //   "notebook": { upstream .ipynb }
     "invocation": ["subprocess", "ci"],   // who may invoke: subprocess (local service), ci, colab
-    "outputs": { "checkpoint": "out/model.onnx", "metrics": "out/metrics.json" }
+    "outputs": { "checkpoint": "out/model.onnx", "metrics": "out/metrics.json" },
+    "adapter": "standardize-results"  // optional: normalize ANY run dir into
+                                        //   the standard bundle (ADR-031)
   },
 
   "build": {
     "recipe": "workflow",            // workflow | script | none
-    "workflowRef": ".github/workflows/build-rnnoise-wasm.yml",
-    "fetchScript": "scripts/fetch-rnnoise-assets.mjs",
+    "workflowRef": ".github/workflows/build.yaml",  // generic skeleton (ADR-027 §6.7)
+    "script": "scripts/build-<id>.mjs",             // module-owned build logic
     "artifactName": "rnnoise-wasm",
+    "toolchains": { "emsdk": "4.0.23" },           // installed by the workflow
+    "inputs": [{ "id": "<param>", "label": "...", "type": "string" }]
     "registryEntry": "public/model-registry.json#rnnoise"
   },
 
   "tests": {
-    "l1": "src/afe/rnnoise/__tests__/dsp.test.ts",        // unit (vitest)
-    "l2": "src/afe/rnnoise/__tests__/wasm-runtime.test.ts", // Node wasm runtime
+    "l1": "packages/modules/afe/rnnoise/tests/dsp.test.ts",        // unit (vitest)
+    "l2": "packages/modules/afe/rnnoise/tests/wasm-runtime.test.ts", // Node wasm runtime
     "l3": "e2e/rnnoise.spec.ts",                          // Playwright
     "required": ["l1", "l2", "l3"]
   },
 
   "playground": {
     "route": "/playground/rnnoise",
-    "entry": "src/afe/rnnoise/playground.tsx"
+    "entry": "packages/modules/afe/rnnoise/web/playground.tsx"
   },
 
   "interfaces": {
@@ -176,9 +183,8 @@ e2e/<module>.spec.ts              # L3 browser tests
 > **Asset location rule (ADR-025):** a module's binary artifacts live in its
 > own `assets/` directory, NOT in a central pool. The web app serves them via
 > the vite middleware at `/modules/<category>/<module>/assets/...`; the
-> legacy `apps/web/prebuilts/` pool remains only for assets whose owning module
-> has not been extracted yet (openWakeWord, plixkws - KWS/Few-Shot modules
-> pending). Artifacts that ship embedded in source (e.g. RNNoise's base64 wasm
+> legacy `apps/web/prebuilts/` pool was retired (2026-08-05); all assets now
+> live in the owning module's `assets/` (Q-K2). Artifacts that ship embedded in source (e.g. RNNoise's base64 wasm
 > glue) need no `assets/` entry.
 
 ## 6. Train scripts (ADR-028)

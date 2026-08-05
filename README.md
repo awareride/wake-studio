@@ -92,6 +92,14 @@ pnpm build
 pnpm preview
 ```
 
+Fetch runtime assets (sherpa KWS wasm ~53 MB, plixkws ONNX) into the module
+`assets/` dirs (gitignored, ADR-011):
+
+```bash
+pnpm --filter @wake-studio/web fetch-sherpa-kws-assets   # sherpa-onnx KWS wasm
+node scripts/fetch-artifact.mjs kws-plix                 # plixkws ONNX (generic path)
+```
+
 > The first `pnpm install` requires authorization per `AGENTS.md`.
 
 ## Key docs
@@ -99,7 +107,9 @@ pnpm preview
 - [`AGENTS.md`](./AGENTS.md) - ground rules for humans and coding agents.
 - [`DECISIONS.md`](./DECISIONS.md) - architecture decision records.
 - [`docs/module-spec.md`](./docs/module-spec.md) - declarative module spec + panel generator (ADR-025).
+- [`docs/platform.md`](./docs/platform.md) - the shared platform package (base-path, model registry, seams).
 - [`docs/build-artifacts.md`](./docs/build-artifacts.md) - CI-built artifact SOP (ADR-027).
+- [`docs/modules/training.md`](./docs/modules/training.md) - training integration contract (ADR-013/023/031).
 - [`LICENSES.md`](./LICENSES.md) - third-party license matrix & policy.
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) - setup, scripts, conventions.
 - `docs/Technical Pre-Research & Feasibility Study_ On-Device Wake Word Detection Systems.md`
