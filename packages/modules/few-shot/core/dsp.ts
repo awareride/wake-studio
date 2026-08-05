@@ -37,53 +37,11 @@ export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
  * distance to that prototype (lower distance = closer = better match).
  * Returns 0 if the vectors differ in length.
  */
-export function squaredEuclidean(
-  a: Float32Array,
-  b: Float32Array,
-): number {
-  if (a.length !== b.length || a.length === 0) return 0
-  let sum = 0
-  for (let i = 0; i < a.length; i++) {
-    const d = a[i] - b[i]
-    sum += d * d
-  }
-  return sum
-}
-
-/**
- * Rescale a squared-Euclidean distance to a [0,1] similarity score:
- *     score = 1 / (1 + d^2)
- *
- * This mirrors PLiX's framing of the negative squared distance as a softmax
- * logit, mapped into [0,1] so the existing threshold/min-duration trigger UI
- * (higher = trigger) works unchanged. Returns 0 for a zero-norm vector.
- */
-export function plixScore(squaredDistance: number): number {
-  if (!Number.isFinite(squaredDistance) || squaredDistance < 0) return 0
-  return 1 / (1 + squaredDistance)
-}
-
-/**
- * Mean-pool an array of embeddings into a single prototype vector.
- *
- * All embeddings must have the same dimensionality. Returns a new Float32Array
- * (does not mutate inputs).
- */
-export function meanPool(embeddings: Float32Array[]): Float32Array {
-  if (embeddings.length === 0) return new Float32Array(0)
-  const dim = embeddings[0].length
-  const result = new Float32Array(dim)
-  for (const emb of embeddings) {
-    for (let i = 0; i < dim; i++) {
-      result[i] += emb[i]
-    }
-  }
-  const n = embeddings.length
-  for (let i = 0; i < dim; i++) {
-    result[i] /= n
-  }
-  return result
-}
+export {
+  squaredEuclidean,
+  plixScore,
+  meanPool,
+} from '@wake-studio/module-kws-plix'
 
 /** Peak level in dBFS (full scale = 0 dBFS). */
 export function peakDbfs(samples: Float32Array): number {

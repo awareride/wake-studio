@@ -32,6 +32,7 @@
     "@wake-studio/module-kws-openwakeword": "workspace:^",
     "@wake-studio/module-kws-plix": "workspace:^",
     "@wake-studio/module-kws-sherpa": "workspace:^",
+    "@wake-studio/module-few-shot": "workspace:^",
     "@wake-studio/module-rnnoise": "workspace:^",
     "@wake-studio/platform": "workspace:^",
     "onnxruntime-web": "^1.27.0",

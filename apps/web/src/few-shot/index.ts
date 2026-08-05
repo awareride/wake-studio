@@ -1,11 +1,13 @@
 /**
- * Few-Shot module - public exports.
+ * Few-Shot module - apps/web facade.
  *
- * @see docs/modules/few-shot.md for the full contract (Phase 3).
+ * The implementation moved to @wake-studio/module-few-shot (module-migration
+ * §6.4). This file re-exports the module's public API for migration
+ * compatibility. New imports should come from the module package directly.
  */
 
-export { FewShotEngine } from './FewShotEngine'
-export { DEFAULT_CONFIG, describeParameters } from './defaults'
+export { FewShotEngine } from '@wake-studio/module-few-shot'
+export { DEFAULT_CONFIG, describeParameters } from '@wake-studio/module-few-shot'
 export {
   cosineSimilarity,
   squaredEuclidean,
@@ -16,12 +18,12 @@ export {
   isClipped,
   estimateSnrDb,
   checkSampleQuality,
-} from './dsp'
+} from '@wake-studio/module-few-shot'
 export type {
   EnrolledSample,
   FewShotConfig,
   ParameterDescriptor,
   SampleQuality,
   SerializedPrototype,
-  WakeWordPrototype,
-} from './types'
+} from '@wake-studio/module-few-shot'
+export type { WakeWordPrototype } from '@wake-studio/module-few-shot'

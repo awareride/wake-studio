@@ -6,7 +6,7 @@ import { FewShotEngine, DEFAULT_CONFIG as FS_DEFAULTS, describeParameters } from
 import type { EnrolledSample, FewShotConfig, WakeWordPrototype } from '../few-shot'
 import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
 import { useProjectStageConfig } from '../projects'
-import recorderUrl from '../few-shot/recorder.worklet.ts?worker&url'
+import { recorderWorkletUrl as recorderUrl } from '@wake-studio/module-few-shot/web'
 import type { ModelRuntime } from '../runtime'
 import {
   PLIX_ENCODER_VARIANTS,

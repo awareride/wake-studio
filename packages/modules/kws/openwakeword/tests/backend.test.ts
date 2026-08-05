@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { OpenWakeWordBackend } from '../core'
-import { registerKwsBackend, getBackendRegistry } from '@wake-studio/module-kws-engine'
+import { getBackendRegistry } from '@wake-studio/module-kws-engine'
 
 describe('OpenWakeWordBackend', () => {
   it('is not ready before load', () => {

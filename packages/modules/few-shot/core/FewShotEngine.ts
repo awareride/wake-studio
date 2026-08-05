@@ -11,7 +11,7 @@
  * @see docs/modules/few-shot.md §4-§5
  */
 
-import type { KWSEngine } from '../kws'
+import type { KWSEngine } from '@wake-studio/module-kws-engine'
 import type { FewShotConfig, EnrolledSample, WakeWordPrototype } from './types'
 import type { ParameterDescriptor } from './types'
 import { DEFAULT_CONFIG } from './defaults'

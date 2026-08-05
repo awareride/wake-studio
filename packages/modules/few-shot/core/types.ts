@@ -2,7 +2,13 @@
  * Few-Shot module - shared types.
  *
  * Public API surface: see docs/modules/few-shot.md §4.
+ * WakeWordPrototype is owned by the plix driver (module-migration §6.3) and
+ * re-exported here for callers; this module defines its own enrollment types.
  */
+
+import type { WakeWordPrototype } from '@wake-studio/module-kws-plix'
+
+export type { WakeWordPrototype }
 
 /** A single enrolled sample (audio + metadata). */
 export interface EnrolledSample {
@@ -22,15 +28,8 @@ export interface SampleQuality {
   acceptable: boolean
 }
 
-/** A stored wake-word prototype. */
-export interface WakeWordPrototype {
-  id: string
-  word: string
-  vector: Float32Array
-  negativeVector?: Float32Array
-  sampleIds: string[]
-  createdAtMs: number
-}
+/** A stored wake-word prototype (owned by the plix driver, §6.3). */
+// (re-exported above)
 
 /** Few-Shot configuration (ADR-017 config panel). */
 export interface FewShotConfig {
