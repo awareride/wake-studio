@@ -168,8 +168,8 @@ export const KWSPanel = memo(function KWSPanel({
   return (
     <section className="mx-auto max-w-5xl px-6 py-12">
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-white">KWS detection</h2>
-        <p className="text-sm text-slate-400">
+        <h2 className="text-lg font-semibold text-ink-1">KWS detection</h2>
+        <p className="text-sm text-ink-2">
           Phase 2 · pluggable KWS backend (ADR-020) running in a Web Worker
           (ADR-018). Active backend:{' '}
           <span className="text-emerald-300/80">OpenWakeWord</span> (hey-buddy,
@@ -180,16 +180,16 @@ export const KWSPanel = memo(function KWSPanel({
       </div>
 
       {/* Controls */}
-      <div className="mb-6 flex flex-wrap items-center gap-4 whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="mb-6 flex flex-wrap items-center gap-4 whitespace-nowrap rounded-xl border border-line bg-surface-2 p-5">
         <label className="flex items-center gap-2 text-sm">
-          <span className="text-slate-400">Backend</span>
+          <span className="text-ink-2">Backend</span>
           <select
             value={config.backend}
             disabled={status === 'loading' || running}
             onChange={(e) =>
               updateConfig({ backend: e.target.value as KWSConfig['backend'] })
             }
-            className="truncate rounded bg-slate-800/80 px-2 py-1 text-slate-300"
+            className="truncate rounded bg-surface-3 px-2 py-1 text-ink-2"
           >
             {BACKEND_REGISTRY.map((r) => (
               <option key={r.id} value={r.id} disabled={!r.browserFeasible}>
@@ -201,18 +201,18 @@ export const KWSPanel = memo(function KWSPanel({
         {status === 'idle' && (
           <button
             onClick={handleLoad}
-            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-400"
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-brand-400"
           >
             Load KWS models
           </button>
         )}
         {status === 'loading' && (
-          <span className="text-sm text-slate-400">Loading models…</span>
+          <span className="text-sm text-ink-2">Loading models…</span>
         )}
         {canStart && (
           <button
             onClick={handleStart}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-emerald-500"
           >
             Start detection
           </button>
@@ -220,26 +220,26 @@ export const KWSPanel = memo(function KWSPanel({
         {running && (
           <button
             onClick={handleStop}
-            className="rounded-lg bg-red-500/80 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-500"
+            className="rounded-lg bg-danger/90 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-red-500"
           >
             Stop detection
           </button>
         )}
 
         {status === 'ready' && !afeRunning && (
-          <span className="text-xs text-amber-300/80">
+          <span className="text-xs text-warning">
             Start the AFE microphone first
           </span>
         )}
 
         {status === 'ready' && (
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-ink-3">
             EP: {executionProvider === 'webgpu' ? 'WebGPU' : 'WASM'}
           </span>
         )}
 
         {running && warmup && (
-          <span className="text-xs text-amber-300/80">
+          <span className="text-xs text-warning">
             Warming up… (collecting ~2 s of audio context)
           </span>
         )}
@@ -248,20 +248,20 @@ export const KWSPanel = memo(function KWSPanel({
         <div
           className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
             triggerFlash
-              ? 'scale-125 bg-amber-400 text-slate-900'
-              : 'bg-slate-700 text-slate-500'
+              ? 'scale-125 bg-amber-400 text-ink-1'
+              : 'bg-surface-4 text-ink-3'
           }`}
         >
           {triggerFlash ? '!' : '·'}
         </div>
 
-        {error && <span className="text-sm text-red-400">{error}</span>}
+        {error && <span className="text-sm text-danger">{error}</span>}
       </div>
 
       {/* Score curve */}
       {running && (
-        <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
+        <div className="mb-6 rounded-xl border border-line bg-surface-2 p-5">
+          <div className="mb-2 flex items-center justify-between text-xs text-ink-3">
             <span>Score curve (raw + smoothed + threshold)</span>
             <span className="font-mono">
               {historyRef.current.length > 0
@@ -273,17 +273,17 @@ export const KWSPanel = memo(function KWSPanel({
             ref={canvasRef}
             width={800}
             height={160}
-            className="h-[160px] w-full rounded bg-slate-950/60"
+            className="h-[160px] w-full rounded bg-surface-3"
           />
         </div>
       )}
 
       {/* Config panel (ADR-017) - dual-layer: Primary + Advanced (kws-categories §4.1) */}
       {status === 'ready' && (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-          <h3 className="mb-4 text-sm font-semibold text-white">
+        <div className="rounded-xl border border-line bg-surface-2 p-5">
+          <h3 className="mb-4 text-sm font-semibold text-ink-1">
             Configuration{' '}
-            <span className="text-xs font-normal text-slate-500">
+            <span className="text-xs font-normal text-ink-3">
               (Traditional KWS · Primary)
             </span>
           </h3>
@@ -291,11 +291,11 @@ export const KWSPanel = memo(function KWSPanel({
           {/* Primary: inference mode, threshold, output mode */}
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-slate-400">Inference mode</span>
+              <span className="w-32 shrink-0 text-ink-2">Inference mode</span>
               <select
                 value={config.executionProvider === 'webgpu' ? 'realtime' : 'realtime'}
                 disabled
-                className="flex-1 rounded bg-slate-800/80 px-2 py-1 text-slate-300"
+                className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
                 title="Real-time mic detection (offline-file import is reserved)."
               >
                 <option value="realtime">Real-time mic</option>
@@ -303,7 +303,7 @@ export const KWSPanel = memo(function KWSPanel({
               </select>
             </label>
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-slate-400">Confidence</span>
+              <span className="w-32 shrink-0 text-ink-2">Confidence</span>
               <input
                 type="range"
                 min={0}
@@ -315,16 +315,16 @@ export const KWSPanel = memo(function KWSPanel({
                 }
                 className="flex-1 accent-brand-400"
               />
-              <span className="w-10 shrink-0 text-right font-mono text-slate-300">
+              <span className="w-10 shrink-0 text-right font-mono text-ink-2">
                 {config.threshold.toFixed(2)}
               </span>
             </label>
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-slate-400">Output mode</span>
+              <span className="w-32 shrink-0 text-ink-2">Output mode</span>
               <select
                 value="trigger"
                 disabled
-                className="flex-1 rounded bg-slate-800/80 px-2 py-1 text-slate-300"
+                className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
                 title="Emit a trigger event + score (reserved: score-only / CSV)."
               >
                 <option value="trigger">Trigger + score</option>
@@ -333,7 +333,7 @@ export const KWSPanel = memo(function KWSPanel({
               </select>
             </label>
             <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-slate-400">VAD gate</span>
+              <span className="w-32 shrink-0 text-ink-2">VAD gate</span>
               <input
                 type="checkbox"
                 checked={config.vadGateEnabled}
@@ -342,24 +342,24 @@ export const KWSPanel = memo(function KWSPanel({
                 }
                 className="accent-brand-400"
               />
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-ink-3">
                 Suppress triggers in silence
               </span>
             </label>
           </div>
 
           {/* Advanced (collapsible) */}
-          <div className="mt-4 border-t border-white/10 pt-3">
+          <div className="mt-4 border-t border-line pt-3">
             <button
               onClick={() => setAdvancedOpen((v) => !v)}
-              className="text-xs font-medium text-slate-400 hover:text-slate-200"
+              className="text-xs font-medium text-ink-2 hover:text-ink-1"
             >
               {advancedOpen ? '▾' : '▸'} Advanced
             </button>
             {advancedOpen && (
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
                 <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-                  <span className="w-32 shrink-0 text-slate-400">Min. duration</span>
+                  <span className="w-32 shrink-0 text-ink-2">Min. duration</span>
                   <input
                     type="range"
                     min={100}
@@ -371,12 +371,12 @@ export const KWSPanel = memo(function KWSPanel({
                     }
                     className="flex-1 accent-brand-400"
                   />
-                  <span className="w-14 shrink-0 text-right font-mono text-slate-300">
+                  <span className="w-14 shrink-0 text-right font-mono text-ink-2">
                     {config.minDurationMs} ms
                   </span>
                 </label>
                 <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-                  <span className="w-32 shrink-0 text-slate-400">Smoothing</span>
+                  <span className="w-32 shrink-0 text-ink-2">Smoothing</span>
                   <input
                     type="range"
                     min={1}
@@ -390,12 +390,12 @@ export const KWSPanel = memo(function KWSPanel({
                     }
                     className="flex-1 accent-brand-400"
                   />
-                  <span className="w-10 shrink-0 text-right font-mono text-slate-300">
+                  <span className="w-10 shrink-0 text-right font-mono text-ink-2">
                     {config.smoothingWindowFrames}
                   </span>
                 </label>
                 <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-                  <span className="w-32 shrink-0 text-slate-400">Cooldown</span>
+                  <span className="w-32 shrink-0 text-ink-2">Cooldown</span>
                   <input
                     type="range"
                     min={500}
@@ -407,27 +407,27 @@ export const KWSPanel = memo(function KWSPanel({
                     }
                     className="flex-1 accent-brand-400"
                   />
-                  <span className="w-14 shrink-0 text-right font-mono text-slate-300">
+                  <span className="w-14 shrink-0 text-right font-mono text-ink-2">
                     {config.cooldownMs} ms
                   </span>
                 </label>
                 <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-                  <span className="w-32 shrink-0 text-slate-400">Mel window</span>
+                  <span className="w-32 shrink-0 text-ink-2">Mel window</span>
                   <input
                     type="number"
                     value={MEL_WINDOW_SIZE}
                     disabled
-                    className="flex-1 rounded bg-slate-800/80 px-2 py-1 text-slate-300"
+                    className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
                   />
                 </label>
                 <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-                  <span className="w-32 shrink-0 text-slate-400">
+                  <span className="w-32 shrink-0 text-ink-2">
                     Acceleration
                   </span>
                   <select
                     value={config.executionProvider}
                     disabled
-                    className="flex-1 rounded bg-slate-800/80 px-2 py-1 text-slate-300"
+                    className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
                     title="WebGPU when available, else WASM (ADR-018)."
                   >
                     <option value="webgpu">WebGPU</option>
@@ -435,23 +435,23 @@ export const KWSPanel = memo(function KWSPanel({
                   </select>
                 </label>
                 <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-                  <span className="w-32 shrink-0 text-slate-400">Log export</span>
+                  <span className="w-32 shrink-0 text-ink-2">Log export</span>
                   <input
                     type="checkbox"
                     checked={logExport}
                     onChange={(e) => setLogExport(e.target.checked)}
                     className="accent-brand-400"
                   />
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-ink-3">
                     Stream scores to console
                   </span>
                 </label>
               </div>
             )}
           </div>
-          <p className="mt-3 text-xs text-slate-500">
+          <p className="mt-3 text-xs text-ink-3">
             {params.length} parameters exposed via{' '}
-            <code className="text-slate-400">describeParameters()</code>. Mel
+            <code className="text-ink-2">describeParameters()</code>. Mel
             window: {MEL_WINDOW_SIZE} samples (80 ms @ 16 kHz).
             {lastKeyword && (
               <>

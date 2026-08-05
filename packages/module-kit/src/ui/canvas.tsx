@@ -51,9 +51,9 @@ export function UiBar({ value, label, height = 6, threshold = 0.5, className }: 
   const over = value >= threshold
   return (
     <div className={className}>
-      {label && <div className="mb-1 text-xs text-slate-500">{label}</div>}
+      {label && <div className="mb-1 text-xs text-ink-3">{label}</div>}
       <div
-        className="relative w-full overflow-hidden rounded-full bg-slate-800"
+        className="relative w-full overflow-hidden rounded-full bg-surface-3"
         style={{ height }}
       >
         <div

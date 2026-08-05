@@ -53,17 +53,17 @@ export const PipelineOverview = memo(function PipelineOverview({ frameData, runn
   }, [running])
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+    <div className="rounded-xl border border-line bg-surface-2 p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white">Pipeline overview</h3>
+        <h3 className="text-sm font-semibold text-ink-1">Pipeline overview</h3>
         {running && (
           <span
             className={`font-mono text-xs ${
               latencyMs > 150
-                ? 'text-red-400'
+                ? 'text-danger'
                 : latencyMs > 100
-                  ? 'text-amber-400'
-                  : 'text-emerald-400'
+                  ? 'text-warning'
+                  : 'text-success'
             }`}
           >
             {latencyMs.toFixed(0)} ms
@@ -90,7 +90,7 @@ export const PipelineOverview = memo(function PipelineOverview({ frameData, runn
 
       {/* Scrolling level + VAD curve */}
       <div className="relative">
-        <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
+        <div className="mb-1 flex items-center justify-between text-xs text-ink-3">
           <span>Level (dBFS) + VAD · last ~10 s</span>
           <div className="flex gap-3">
             {STAGES.map((id) => (
@@ -103,7 +103,7 @@ export const PipelineOverview = memo(function PipelineOverview({ frameData, runn
               </span>
             ))}
             <span className="flex items-center gap-1">
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="inline-block h-2 w-2 rounded-full bg-success" />
               VAD
             </span>
           </div>
@@ -157,7 +157,7 @@ function FlowNode({
         ref={canvasRef}
         width={80}
         height={40}
-        className="rounded bg-slate-950/60"
+        className="rounded bg-surface-3"
       />
       <span
         className="text-[10px] font-medium uppercase"
@@ -275,7 +275,7 @@ function ScrollingCurve({
       ref={canvasRef}
       width={800}
       height={120}
-      className="h-[120px] w-full rounded bg-slate-950/60"
+      className="h-[120px] w-full rounded bg-surface-3"
     />
   )
 }

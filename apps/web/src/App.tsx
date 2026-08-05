@@ -26,7 +26,7 @@ export default function App() {
           <>
             <button
               onClick={() => setRoute('main')}
-              className="mt-6 ml-6 rounded-lg border border-white/10 px-3 py-1 text-xs text-slate-400 hover:bg-white/5"
+              className="mt-6 ml-6 rounded-lg border border-line px-3 py-1 text-xs text-ink-3 hover:bg-surface-4/50"
             >
               ← Back to console
             </button>
@@ -36,24 +36,24 @@ export default function App() {
           <>
             {/* Hero */}
             <section className="mx-auto max-w-5xl px-6 pt-16 pb-4 text-center">
-              <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
+              <h1 className="text-4xl font-bold tracking-tight text-ink-1 sm:text-5xl">
                 From wake-word idea to deployable{' '}
-                <span className="bg-gradient-to-r from-brand-300 to-brand-500 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-brand-500 to-brand-600 bg-clip-text text-transparent">
                   KWS bundle
                 </span>
               </h1>
-              <p className="mx-auto mt-4 max-w-2xl text-base text-slate-400">
+              <p className="mx-auto mt-4 max-w-2xl text-base text-ink-2">
                 A browser-first studio for the full far-field voice pipeline - no
                 toolchain, runtime, or Python to install. Visualize every stage,
                 enroll a custom wake word with a few samples, and export a
                 ready-to-build package for your target chip.
               </p>
-              <p className="mt-4 text-xs uppercase tracking-widest text-amber-300/80">
+              <p className="mt-4 text-xs uppercase tracking-widest text-brand-600/80">
                 Phase 1-3 · AFE + KWS + Few-Shot enrollment · in progress
               </p>
               <button
                 onClick={() => setRoute('playground-rnnoise')}
-                className="mt-6 rounded-lg bg-brand-500/10 px-4 py-2 text-sm font-medium text-brand-300 hover:bg-brand-500/20"
+                className="mt-6 rounded-lg bg-brand-500/10 px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-500/20"
               >
                 Try the RNNoise module playground
               </button>

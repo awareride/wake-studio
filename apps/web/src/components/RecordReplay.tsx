@@ -100,10 +100,10 @@ export const RecordReplay = memo(function RecordReplay({ pipeline, running }: Pr
   }, [stopPlayback])
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-      <h3 className="mb-4 text-sm font-semibold text-white">
+    <div className="rounded-xl border border-line bg-surface-2 p-5">
+      <h3 className="mb-4 text-sm font-semibold text-ink-1">
         Record &amp; replay{' '}
-        <span className="text-xs font-normal text-slate-500">
+        <span className="text-xs font-normal text-ink-3">
           · 10 s A/B comparison
         </span>
       </h3>
@@ -114,8 +114,8 @@ export const RecordReplay = memo(function RecordReplay({ pipeline, running }: Pr
           disabled={recording}
           className={`min-w-[140px] whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             recording
-              ? 'cursor-not-allowed bg-slate-700 text-slate-500'
-              : 'bg-red-500/80 text-white hover:bg-red-500'
+              ? 'cursor-not-allowed bg-surface-4 text-ink-3'
+              : 'bg-danger/90 text-ink-1 hover:bg-red-500'
           }`}
         >
           {recording
@@ -125,7 +125,7 @@ export const RecordReplay = memo(function RecordReplay({ pipeline, running }: Pr
 
         {/* Always rendered to prevent layout shift; hidden when idle. */}
         <div
-          className={`h-2 w-48 overflow-hidden rounded-full bg-slate-700 transition-opacity ${
+          className={`h-2 w-48 overflow-hidden rounded-full bg-surface-4 transition-opacity ${
             recording ? 'opacity-100' : 'opacity-0'
           }`}
         >
@@ -142,8 +142,8 @@ export const RecordReplay = memo(function RecordReplay({ pipeline, running }: Pr
               disabled={playing !== null}
               className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 playing === 'raw'
-                  ? 'bg-amber-500/30 text-amber-300'
-                  : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                  ? 'bg-amber-500/30 text-warning'
+                  : 'bg-surface-4 text-ink-1 hover:bg-surface-4'
               }`}
             >
               {playing === 'raw' ? 'Playing raw…' : 'Play raw'}
@@ -164,7 +164,7 @@ export const RecordReplay = memo(function RecordReplay({ pipeline, running }: Pr
             {playing && (
               <button
                 onClick={stopPlayback}
-                className="rounded-lg bg-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-600"
+                className="rounded-lg bg-surface-4 px-3 py-2 text-sm text-ink-2 hover:bg-surface-4"
               >
                 Stop
               </button>
@@ -177,7 +177,7 @@ export const RecordReplay = memo(function RecordReplay({ pipeline, running }: Pr
       {clip && !recording && (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
-            <div className="mb-1 text-xs font-medium text-amber-300/80">
+            <div className="mb-1 text-xs font-medium text-warning">
               Raw (before NS)
             </div>
             <RecordingWaveform data={clip.raw} color="#fbbf24" />
@@ -236,7 +236,7 @@ function RecordingWaveform({
       ref={canvasRef}
       width={400}
       height={64}
-      className="h-16 w-full rounded bg-slate-950/60"
+      className="h-16 w-full rounded bg-surface-3"
     />
   )
 }
