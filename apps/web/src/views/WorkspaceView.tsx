@@ -73,42 +73,44 @@ export function WorkspaceView() {
         status={useConsoleStatus().status}
       />
 
-      {/* Stepped panels */}
-      <Tabs defaultValue="live">
-        <TabsList>
-          <TabsTrigger value="live">Live pipeline</TabsTrigger>
-          <TabsTrigger value="modules">Modules</TabsTrigger>
-        </TabsList>
-        <TabsContent value="live" className="mt-4">
-          <div className="space-y-8">
-            {/* key={current?.id} remounts the panels when the project changes
-                so their config re-seeds from the new project's snapshot. */}
-            <AFEPanel
-              key={`afe-${current?.id ?? 'none'}`}
-              afeRef={afeRef}
-              onRunningChange={setAfeRunning}
-              commandRef={afeCommandRef}
-            />
-            <KWSPanel
-              key={`kws-${current?.id ?? 'none'}`}
-              afePipeline={afeRef.current}
-              afeRunning={afeRunning}
-            />
-            <FewShotPanel
-              key={`fs-${current?.id ?? 'none'}`}
-              afePipeline={afeRef.current}
-              afeRunning={afeRunning}
-            />
-          </div>
-        </TabsContent>
-        <TabsContent value="modules" className="mt-4">
-          <div className="space-y-8">
-            <TrainingPanel />
-            <PipelineView />
-            <Domains />
-          </div>
-        </TabsContent>
-      </Tabs>
+      {/* Stepped panels - tab container (IDE-style): tab bar + content box. */}
+      <div className="overflow-hidden rounded-xl border border-line bg-surface-2">
+        <Tabs defaultValue="live">
+          <TabsList className="bg-surface-2">
+            <TabsTrigger value="live">Live pipeline</TabsTrigger>
+            <TabsTrigger value="modules">Modules</TabsTrigger>
+          </TabsList>
+          <TabsContent value="live" className="p-5">
+            <div className="space-y-8">
+              {/* key={current?.id} remounts the panels when the project changes
+                  so their config re-seeds from the new project's snapshot. */}
+              <AFEPanel
+                key={`afe-${current?.id ?? 'none'}`}
+                afeRef={afeRef}
+                onRunningChange={setAfeRunning}
+                commandRef={afeCommandRef}
+              />
+              <KWSPanel
+                key={`kws-${current?.id ?? 'none'}`}
+                afePipeline={afeRef.current}
+                afeRunning={afeRunning}
+              />
+              <FewShotPanel
+                key={`fs-${current?.id ?? 'none'}`}
+                afePipeline={afeRef.current}
+                afeRunning={afeRunning}
+              />
+            </div>
+          </TabsContent>
+          <TabsContent value="modules" className="p-5">
+            <div className="space-y-8">
+              <TrainingPanel />
+              <PipelineView />
+              <Domains />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {current && (
         <p className="text-xs text-ink-3">

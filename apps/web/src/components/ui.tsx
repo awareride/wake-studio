@@ -18,7 +18,7 @@ import { cn } from './cn'
 import { IconMenu } from './icons'
 
 // ---------------------------------------------------------------------------
-// Tabs
+// Tabs (tab-container style)
 // ---------------------------------------------------------------------------
 export const Tabs = TabsPrimitive.Root
 export const TabsList = React.forwardRef<
@@ -28,7 +28,7 @@ export const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      'inline-flex items-center gap-1 rounded-lg border border-line bg-surface-2 p-1',
+      'inline-flex items-center gap-1 border-b border-line px-2 pt-1.5 pb-0',
       className,
     )}
     {...props}
@@ -42,9 +42,10 @@ export const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      'rounded-md px-3 py-1.5 text-sm font-medium text-ink-2 outline-none transition-colors',
+      'rounded-t-md border border-b-0 px-3 py-1.5 text-sm font-medium text-ink-2 outline-none transition-colors',
       'hover:text-ink-1 focus-visible:ring-2 focus-visible:ring-brand-400',
-      'data-[state=active]:bg-brand-500/10 data-[state=active]:text-brand-700',
+      'data-[state=active]:border-line data-[state=active]:bg-surface-2 data-[state=active]:text-brand-700',
+      'data-[state=inactive]:border-transparent data-[state=inactive]:bg-transparent',
       className,
     )}
     {...props}
