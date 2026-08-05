@@ -1,0 +1,26 @@
+{
+  "name": "@wake-studio/module-kit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WakeStudio module kit: spec validator + registry (ADR-025).",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "fetch:all": "echo 'no artifacts'"
+  },
+  "dependencies": {
+    "@wake-studio/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

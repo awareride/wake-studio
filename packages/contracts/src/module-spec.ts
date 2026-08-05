@@ -1,0 +1,160 @@
+/**
+ * ModuleSpec - the declarative contract every WakeStudio module ships
+ * (ADR-025, docs/module-spec.md).
+ *
+ * This is the SINGLE shared fact source: the web panel generator, the
+ * local-service route registry, and the CI build/train workflows all consume
+ * one spec per module. It lives in `packages/contracts` so web, local-service,
+ * and modules import the same types (no drift between worlds).
+ */
+
+/** Param control kinds (ADR-017 leaf; panel generator maps 1:1). */
+export type ParamType = 'number' | 'boolean' | 'select' | 'enum' | 'slider' | 'secret'
+
+export interface ParamValidation {
+  required?: boolean
+  /** A dotted param id (e.g. "params.vadEnabled") this param depends on. */
+  if?: string
+}
+
+export interface ModuleParam {
+  id: string
+  label: string
+  /** primary | advanced drives the collapsible Advanced section (ADR-024). */
+  group: 'primary' | 'advanced'
+  type: ParamType
+  default: number | boolean | string
+  min?: number
+  max?: number
+  step?: number
+  unit?: string
+  description: string
+  options?: ReadonlyArray<{ value: string; label: string }>
+  validation?: ParamValidation
+}
+
+export type ActionKind = 'load' | 'start' | 'stop' | 'export' | 'train' | 'record' | 'reset'
+
+export interface ModuleAction {
+  id: string
+  label: string
+  kind: ActionKind
+  confirm?: boolean
+  /** none | determinate | indeterminate */
+  progress?: 'none' | 'determinate' | 'indeterminate'
+  /** Dotted requirements, e.g. ["params.vadEnabled", "platform.mic"]. */
+  requires?: string[]
+}
+
+export type StatusRenderer = 'bar' | 'waveform' | 'badge' | 'gauge' | 'text' | 'curve'
+
+export interface ModuleStatus {
+  id: string
+  label: string
+  renderer: StatusRenderer
+  /** "event:<name>" | "engine:<getter>" | "spec:<const>". */
+  source: string
+  refreshMs?: number
+}
+
+/** Runtime shape for each target world. */
+export interface ModuleRuntime {
+  web?: {
+    engine: string
+    wasm?: { url: string; loader: 'classic' | 'emscripten' }
+    worker?: boolean
+  }
+  local?: {
+    command: string
+    ports?: number[]
+    protocol: 'stdio' | 'http' | 'ws'
+  }
+  cloud?: {
+    workflowRef: string
+    artifact?: string
+  }
+  device?: {
+    sdkModule?: string
+    targets?: string[]
+  }
+}
+
+/** Train-script declaration (ADR-028: run via `uv run`). */
+export interface ModuleTrain {
+  entry: string
+  python?: string
+  deps: string
+  /** Who may invoke: "subprocess" (local service), "ci", "colab". */
+  invocation: Array<'subprocess' | 'ci' | 'colab'>
+  outputs: Record<string, string>
+}
+
+export interface ModuleBuild {
+  /** "workflow" | "script" | "none". */
+  recipe: 'workflow' | 'script' | 'none'
+  workflowRef?: string
+  fetchScript?: string
+  artifactName?: string
+  registryEntry?: string
+}
+
+export interface ModuleTests {
+  /** Paths to the L1/L2/L3 test entrypoints (ADR-026). */
+  l1?: string
+  l2?: string
+  l3?: string
+  required: Array<'l1' | 'l2' | 'l3'>
+}
+
+export interface ModulePlayground {
+  route: string
+  entry: string
+}
+
+export interface ModuleInterfaces {
+  provides: string[]
+  consumes: string[]
+}
+
+export type ModuleCategory = 'afe' | 'kws' | 'few-shot' | 'training' | 'data' | 'export' | 'platform'
+export type ModuleMaturity = 'draft' | 'pilot' | 'stable' | 'deprecated'
+export type ModuleStatusFlag = 'proposed' | 'accepted' | 'released'
+
+export interface ModuleMeta {
+  id: string
+  name: string
+  category: ModuleCategory
+  version: string
+  maturity: ModuleMaturity
+  owner: string
+  license: string
+  status: ModuleStatusFlag
+}
+
+/** The full module spec (ADR-025; schema in docs/module-spec.md). */
+export interface ModuleSpec {
+  $schema?: string
+  meta: ModuleMeta
+  params: ModuleParam[]
+  actions: ModuleAction[]
+  status: ModuleStatus[]
+  runtime: ModuleRuntime
+  train?: ModuleTrain
+  build?: ModuleBuild
+  tests: ModuleTests
+  playground: ModulePlayground
+  interfaces: ModuleInterfaces
+}
+
+/** A module's maturity scorecard (ADR-025 §4; drives the README table). */
+export interface ModuleScorecard {
+  meta: ModuleMeta
+  axes: {
+    core: boolean
+    spec: boolean
+    panel: boolean
+    tests: boolean
+    playground: boolean
+    targets: boolean
+  }
+}

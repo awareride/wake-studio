@@ -2,7 +2,7 @@
   "name": "wake-studio",
   "version": "0.0.1",
   "private": true,
-  "description": "WakeStudio - a PWA console for training, visualizing, and exporting on-device wake-word (KWS) pipelines. AEC -> BSS -> NS -> KWS.",
+  "description": "WakeStudio monorepo - a PWA console + local service + device SDK for on-device wake-word (KWS) pipelines. AEC -> BSS -> NS -> KWS.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@9.15.4",
@@ -10,45 +10,19 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --port 4173",
-    "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright install chromium && playwright test",
-    "test:unit": "vitest run",
-    "test": "vitest run && pnpm test:e2e",
-    "gen-icons": "node scripts/gen-icons.mjs",
-    "gen-plix-hf-dir": "node scripts/gen-plix-hf-dir.mjs",
-    "fetch-sherpa-kws-assets": "node scripts/fetch-sherpa-kws-assets.mjs"
-  },
-  "dependencies": {
-    "onnxruntime-web": "^1.27.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "sherpa-onnx": "^1.13.4"
-  },
-  "optionalDependencies": {
-    "@huggingface/transformers": "^4.2.0"
+    "dev": "pnpm --filter @wake-studio/web dev",
+    "build": "pnpm --filter @wake-studio/web build",
+    "preview": "pnpm --filter @wake-studio/web preview",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test:unit": "pnpm -r test:unit",
+    "test:e2e": "pnpm --filter @wake-studio/web test:e2e",
+    "test": "pnpm test:unit && pnpm test:e2e",
+    "gen-icons": "pnpm --filter @wake-studio/web gen-icons",
+    "fetch-sherpa-kws-assets": "pnpm --filter @wake-studio/web fetch-sherpa-kws-assets",
+    "fetch:all": "pnpm -r fetch:all"
   },
   "devDependencies": {
-    "@eslint/js": "^9.16.0",
-    "@playwright/test": "^1.49.0",
-    "@types/node": "^20.17.6",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "eslint": "^9.16.0",
-    "eslint-plugin-react-hooks": "^5.1.0",
-    "eslint-plugin-react-refresh": "^0.4.16",
-    "globals": "^15.13.0",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.17",
-    "typescript": "~5.6.3",
-    "typescript-eslint": "^8.16.0",
-    "vite": "^5.4.11",
-    "vite-plugin-pwa": "^0.21.1",
-    "vitest": "^2.1.9"
+    "typescript": "~5.6.3"
   }
 }

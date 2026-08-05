@@ -8,6 +8,10 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 
 const projectRoot = dirname(fileURLToPath(import.meta.url))
 const prebuiltsRoot = resolve(projectRoot, 'prebuilts')
+// Monorepo module-assets root: packages/modules/<category>/<module>/assets/.
+// Served at /modules/<category>/<module>/assets/... (ADR-025 - a module's
+// binary artifacts live with the module, not in a central prebuilts/ pool).
+const modulesRoot = resolve(projectRoot, '../../packages/modules')
 
 /**
  * Dev/preview plugin: serve the local `prebuilts/` directory at `/prebuilts/`
@@ -26,32 +30,61 @@ function servePrebuilts() {
     '.wasm': 'application/wasm',
     '.json': 'application/json',
   }
-  const handler = (req: IncomingMessage, res: ServerResponse, next: () => void) => {
-    const url = req.url ?? ''
-    if (!url.startsWith('/prebuilts/')) return next()
-    // Strip query and the leading "/prebuilts/".
-    const rel = url.split('?')[0].slice('/prebuilts/'.length)
-    const filePath = resolve(prebuiltsRoot, rel)
-    // Path-traversal guard: must stay under prebuilts/.
-    if (!filePath.startsWith(prebuiltsRoot + '/') && filePath !== prebuiltsRoot) {
-      return next()
-    }
-    try {
-      const stat = statSync(filePath)
-      if (!stat.isFile()) {
+
+  /**
+   * Serve files from a disk root at a URL prefix, with a path-traversal guard.
+   *
+   * @param urlPrefix  e.g. '/prebuilts/'
+   * @param diskRoot   e.g. resolve(projectRoot, 'prebuilts')
+   * @param strip      how much of the URL to strip before resolving (defaults
+   *                   to urlPrefix).
+   */
+  const makeHandler = (
+    urlPrefix: string,
+    diskRoot: string,
+    strip?: string,
+  ) => {
+    const prefix = strip ?? urlPrefix
+    return (req: IncomingMessage, res: ServerResponse, next: () => void) => {
+      const url = req.url ?? ''
+      if (!url.startsWith(urlPrefix)) return next()
+      const rel = url.split('?')[0].slice(prefix.length)
+      const filePath = resolve(diskRoot, rel)
+      // Path-traversal guard: must stay under diskRoot.
+      if (!filePath.startsWith(diskRoot + '/') && filePath !== diskRoot) {
+        return next()
+      }
+      try {
+        const stat = statSync(filePath)
+        if (!stat.isFile()) {
+          res.statusCode = 404
+          res.end('Not found')
+          return
+        }
+        res.setHeader(
+          'Content-Type',
+          contentTypes[extname(filePath).toLowerCase()] ?? 'application/octet-stream',
+        )
+        res.setHeader('Content-Length', stat.size)
+        createReadStream(filePath).pipe(res)
+      } catch {
+        // File missing or unreadable - return 404 (don't fall through to the SPA
+        // fallback, which would serve index.html and confuse fetch()/onnxruntime).
         res.statusCode = 404
         res.end('Not found')
-        return
       }
-      res.setHeader('Content-Type', contentTypes[extname(filePath).toLowerCase()] ?? 'application/octet-stream')
-      res.setHeader('Content-Length', stat.size)
-      createReadStream(filePath).pipe(res)
-    } catch {
-      // File missing or unreadable - return 404 (don't fall through to the SPA
-      // fallback, which would serve index.html and confuse fetch()/onnxruntime).
-      res.statusCode = 404
-      res.end('Not found')
     }
+  }
+
+  // Legacy central pool (ADR-011 amendment): /prebuilts/<rel> -> prebuilts/<rel>.
+  const prebuiltsHandler = makeHandler('/prebuilts/', prebuiltsRoot)
+  // Module-owned assets (ADR-025): /modules/<category>/<module>/assets/<rel>
+  // -> packages/modules/<category>/<module>/assets/<rel>. A module declares its
+  // artifact URLs in spec/module.spec.json runtime.web.wasm.url.
+  const modulesHandler = makeHandler('/modules/', modulesRoot, '/modules/')
+
+  const handler = (req: IncomingMessage, res: ServerResponse, next: () => void) => {
+    prebuiltsHandler(req, res, () => modulesHandler(req, res, next))
   }
   return {
     name: 'wake-studio:serve-prebuilts',

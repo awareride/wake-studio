@@ -27,8 +27,7 @@ backend). See `.agents/plan/goal.plan` for the full phased roadmap and
 |---|---|---|
 | 0 | Foundation, decisions & scaffold | ✅ Complete |
 | 1 | In-browser AFE + pipeline visualization | ✅ Complete |
-| 2 | KWS inference in the browser | ✅ Complete (pluggable KWSBackend, ADR-020; OpenWakeWord pipeline fixed) |
-| 2-ext | ASR-Decoding KWS (sherpa-onnx token matching) | ✅ Complete (3rd KWS category, ADR-024) |
+| 2 | KWS inference in the browser | ✅ Complete (pluggable KWSBackend, ADR-020; OpenWakeWord pipeline fixed; **sherpa-onnx KWS wasm backend** — real keyword spotting, ADR-024 2nd category) |
 | 3 | Few-Shot custom wake-word enrollment | ✅ Complete (PLiX embed + prototype-distance, client-side) |
 | 4 | Model export & integration kits (device SDK) | ⏳ Pending |
 | 5 | Custom-model training (multi-backend) | ⏳ Pending (Training panel UI scaffolded, §4.2) |
@@ -45,11 +44,17 @@ backend). See `.agents/plan/goal.plan` for the full phased roadmap and
 > **Updated scope (ADR-019..023):** the validated target matrix is now the full
 > cross-device set (Arm Cortex-M primary MCU tier; Raspberry Pi; Android & iOS;
 > Chrome/Safari/Firefox/Edge; Linux/macOS/Windows desktop; ESP32-S3 deferred). KWS
-> is a pluggable `KWSBackend` interface (openWakeWord, micro-wake-word, PLiX
+> is a pluggable `KWSBackend` interface (openWakeWord, sherpa-onnx KWS, PLiX
 > Few-Shot, PocketSphinx); all exports build on a layered device-side SDK. See
 > `docs/architecture.md` §4–§6. KWS is also organized into three functional
 > categories (Traditional / ASR-Decoding / Few-Shot) with a decoupling rule and a
 > unified panel spec — see `docs/kws-categories.md` (ADR-024).
+>
+> **Backend note (2026-07-31):** the former ASR-Decoding category's only
+> implementation (`asr-decode` token-matching) was removed in `ba52a61` — it was
+> a broken heuristic over an ASR decoder. It is replaced by the
+> `sherpa-onnx-kws` backend, which runs a real KWS transducer model via compiled
+> WASM in-browser. Category docs: `docs/kws-categories.md`.
 
 ## Quick start
 
@@ -73,6 +78,8 @@ pnpm preview
 
 - [`AGENTS.md`](./AGENTS.md) - ground rules for humans and coding agents.
 - [`DECISIONS.md`](./DECISIONS.md) - architecture decision records.
+- [`docs/module-spec.md`](./docs/module-spec.md) - declarative module spec + panel generator (ADR-025).
+- [`docs/build-artifacts.md`](./docs/build-artifacts.md) - CI-built artifact SOP (ADR-027).
 - [`LICENSES.md`](./LICENSES.md) - third-party license matrix & policy.
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) - setup, scripts, conventions.
 - `docs/Technical Pre-Research & Feasibility Study_ On-Device Wake Word Detection Systems.md`

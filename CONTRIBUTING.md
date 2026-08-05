@@ -30,24 +30,26 @@ three before making changes.
 ├─ CONTRIBUTING.md      # this file
 ├─ README.md            # project overview + quick start
 ├─ docs/                # architecture + per-module specs (docs-first)
-│  ├─ architecture.md   # durable high-level architecture
+│  ├─ architecture.md   # durable high-level architecture (monorepo, §3.1)
+│  ├─ module-spec.md    # declarative module spec + panel generator (ADR-025)
+│  ├─ build-artifacts.md# CI-built artifact SOP (ADR-027)
 │  ├─ module-template.md# template for module specs
 │  └─ modules/          # per-module specs, written just-in-time (plan §11)
-├─ index.html           # Vite entry
-├─ vite.config.ts       # Vite + PWA + Tailwind plugin
-├─ tsconfig*.json       # TS project references
-├─ eslint.config.js     # flat ESLint config
-├─ public/
-│  ├─ model-registry.json  # lazily-fetched model catalog (ADR-011)
-│  └─ icon.svg             # PWA icon source
-├─ src/
-│  ├─ main.tsx           # React entry
-│  ├─ App.tsx            # app shell
-│  ├─ index.css          # Tailwind entry
-│  ├─ components/        # UI components
-│  └─ data/              # typed data + registry loader
-├─ e2e/                  # Playwright smoke tests
-└─ .github/workflows/    # ci.yml (push/PR) + deploy.yml (manual)
+├─ apps/
+│  ├─ web/              # PWA (React + Vite); public/ = model-registry.json, icons
+│  ├─ local-service/    # Node API service (Self-hosted training backend, ADR-005)
+│  └─ cli/              # ops CLI (fetch, health, train trigger) - optional
+├─ packages/
+│  ├─ contracts/        # shared types + schemas (module-spec, kws, afe, train)
+│  ├─ module-kit/       # panel generator / playground router / spec validator
+│  ├─ test-kit/         # L2 wasm runner (ADR-026)
+│  ├─ modules/          # functional modules: packages/modules/<category>/<name>/
+│  │                     #   core/ web/ node/ train/ device/ spec/ tests/
+│  └─ sdk/              # device-side SDK (ADR-021)
+├─ device/              # device world root (C/C++, CMake build tree)
+├─ scripts/             # root-level ops scripts (fetch-*.mjs per ADR-027)
+├─ e2e/                 # Playwright L3 tests (web app)
+└─ .github/workflows/   # ci.yml + build-<artifact>.yml + train-<module>.yml + deploy.yml
 ```
 
 ## First-time setup
@@ -76,8 +78,24 @@ pnpm dev
 | `pnpm preview` | Serve the production build locally. |
 | `pnpm lint` | Run ESLint over the project. |
 | `pnpm typecheck` | Run `tsc` without emitting. |
-| `pnpm test:e2e` | Run Playwright e2e tests (auto-installs the Chromium browser if needed). |
+| `pnpm test:unit` | Run the L1 unit tests (vitest). |
+| `pnpm test:e2e` | Run Playwright e2e (L3) tests (auto-installs the Chromium browser if needed). |
+| `pnpm fetch:<artifact>` | Sync a CI-built artifact locally (ADR-027, `docs/build-artifacts.md`). |
+| `pnpm fetch:all` | Sync every CI-built artifact. |
 | `pnpm pwa-assets` | Regenerate raster PWA icons from `public/icon.svg`. |
+
+## Testing layers (ADR-026)
+
+- **L1 unit (vitest, fast):** pure logic - DSP, matchers, state machines. No
+  runtime/model dependencies. Runs on every PR.
+- **L2 wasm runtime (Node, fast):** a module's wasm/onnx artifact is loaded in
+  a Node process and exercised (boot + one inference pass). Same artifact the
+  browser uses, no browser, no 55 MB fetch. Runs on every PR.
+- **L3 browser e2e (Playwright, slow):** full UI flows; the authority for
+  browser-only semantics (threads, SharedArrayBuffer). Runs before merge to
+  `main`, at a lower cadence than L1/L2.
+
+Run `pnpm test:unit` before pushing; the CI runs L1+L2 on every PR.
 
 ## Branching & commits
 
@@ -100,6 +118,11 @@ WakeStudio follows a **documentation-first** workflow (see plan §11):
   and fill in the contract (purpose, scope, public API/types, data flow,
   configuration, error model, testing). Get that reviewed *before* implementing
   the module.
+- **Modules follow the module platform (ADR-025).** Each functional area is a
+  self-contained module with a `module.spec.json` (see
+  `docs/module-spec.md`): spec-driven auto-generated panel (never hand-coded),
+  L1/L2/L3 tests (ADR-026), a playground route, and multi-target deliverables
+  (web / local / cloud / device) as applicable.
 - **Docs and code ship together.** A module doc is a living document: update it
   in the **same change** as the code it describes. A change that touches a
   module's contract without updating its doc is incomplete; reviewers should
