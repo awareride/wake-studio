@@ -89,6 +89,11 @@ jobs:
         run: |
           pnpm --filter @wake-studio/web fetch-sherpa-kws-assets || echo "sherpa wasm fetch failed; sherpa-kws spec will be skipped"
 
+      - name: Build PWA (for preview server)
+        # `pnpm preview` serves dist/; the e2e job must build it first (the
+        # lint-build job's dist artifact is not shared).
+        run: pnpm build
+
       - name: Run e2e tests
         run: pnpm test:e2e
 
