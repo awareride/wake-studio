@@ -11,7 +11,7 @@
 export { KWSEngine } from './KWSEngine'
 export { DEFAULT_CONFIG, describeParameters } from './defaults'
 export { MEL_WINDOW_SIZE, MEL_HOP_SIZE, MEL_OVERLAP } from './defaults'
-export { ScoreSmoother, TriggerDetector, shouldGateByVad } from './dsp'
+export { ScoreSmoother, TriggerDetector, shouldGateByVad } from './logic'
 export {
   createBackend,
   createEmbedProvider,

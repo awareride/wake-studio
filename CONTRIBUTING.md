@@ -86,7 +86,8 @@ pnpm dev
 
 ## Testing layers (ADR-026)
 
-- **L1 unit (vitest, fast):** pure logic - DSP, matchers, state machines. No
+- **L1 unit (vitest, fast):** pure logic - DSP (in `@wake-studio/dsp`, ADR-032),
+  matchers, state machines. No
   runtime/model dependencies. Runs on every PR.
 - **L2 wasm runtime (Node, fast):** a module's wasm/onnx artifact is loaded in
   a Node process and exercised (boot + one inference pass). Same artifact the

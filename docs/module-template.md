@@ -35,6 +35,8 @@ WakeStudio. State the single responsibility clearly.
 - **Downstream (provides to):** modules/services that consume this module's output.
 - **External libraries / models:** third-party packages or model weights, with
   license and source (cross-link `LICENSES.md`).
+- **Numeric DSP:** if the module needs FFT/STFT/mel/level/SNR, import from
+  `@wake-studio/dsp` (ADR-032) - do not hand-write DSP in the module.
 
 ## 4. Public API & types
 

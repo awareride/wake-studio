@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest'
 import createRNNWasmModuleSync from '../web/vendor/generated/rnnoise-sync'
 import { RnnoiseModule } from '../core'
-import { RNNOISE_FRAME_SIZE } from '../core/dsp'
+import { RNNOISE_FRAME_SIZE } from '../core/constants'
 
 function sineFrame(freq = 440, amp = 1): Float32Array {
   const f = new Float32Array(RNNOISE_FRAME_SIZE)

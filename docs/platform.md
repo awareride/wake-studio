@@ -116,6 +116,9 @@ export interface AudioSource { start(): Promise<void>; stop(): void }
 - ADR-011/012/025/027; module-migration.plan §6.1; `docs/architecture.md` §3.
 - Legacy homes (migrated 2026-08-05): `apps/web/src/config.ts`,
   `apps/web/src/data/registry.ts` → `packages/platform/src/`.
+- **Sibling platform package:** `@wake-studio/dsp` (ADR-032, `packages/dsp/`)
+  owns the numeric DSP layer (FFT/STFT/mel/level) that modules import instead
+  of hand-writing DSP. See `packages/dsp/README.md`.
 
 ## 13. Change log
 

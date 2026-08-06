@@ -99,7 +99,7 @@
     }
   },
   "tests": {
-    "l1": "packages/modules/few-shot/tests/dsp.test.ts",
+    "l1": "packages/modules/few-shot/tests/quality.test.ts",
     "required": ["l1"]
   },
   "playground": {

@@ -47,7 +47,8 @@ the first half of the in-browser experience (requirements R1 and R5).
 ## 3. Dependencies
 
 - **Upstream (consumes from):** Web Audio API (`getUserMedia`, `AudioContext`,
-  `AudioWorklet`).
+  `AudioWorklet`); numeric DSP from **`@wake-studio/dsp`** (ADR-032: fft.js
+  core + scipy/numpy conformance fixtures).
 - **Downstream (provides to):** KWS engine (Phase 2) consumes the NS output frame
   stream.
 - **External libraries / models** (see `LICENSES.md`):

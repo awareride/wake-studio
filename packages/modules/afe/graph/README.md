@@ -30,10 +30,10 @@ latency measurement, and visualization data.
 ## Layout
 
 ```
-core/    AFEPipeline, stage types, DSP
+core/    AFEPipeline, stage types, defaults/constants (DSP numerics live in @wake-studio/dsp)
 web/     wasm/panel wiring, playground entry
 spec/    module.spec.json
-tests/   L1 unit tests
+tests/   L1 unit tests (module's own logic; DSP in @wake-studio/dsp)
 ```
 
 ## Docs

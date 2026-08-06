@@ -16,8 +16,8 @@ import type { FewShotConfig, EnrolledSample, WakeWordPrototype } from './types'
 import type { ParameterDescriptor } from './types'
 import { DEFAULT_CONFIG } from './defaults'
 import { describeParameters } from './defaults'
-import { meanPool } from './dsp'
-import { checkSampleQuality } from './dsp'
+import { meanPool } from './quality'
+import { checkSampleQuality } from './quality'
 import {
   savePrototype,
   listPrototypes,

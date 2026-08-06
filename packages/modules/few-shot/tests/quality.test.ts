@@ -9,7 +9,7 @@ import {
   isClipped,
   estimateSnrDb,
   checkSampleQuality,
-} from '../core/dsp'
+} from '../core/quality'
 
 // ---------------------------------------------------------------------------
 // cosineSimilarity

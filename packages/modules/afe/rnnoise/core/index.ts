@@ -12,7 +12,7 @@
  * interface, so every target can provide its own.
  */
 
-export { RNNOISE_FRAME_SIZE, vadToProbability, frameRms, applyGain } from './dsp'
+export { RNNOISE_FRAME_SIZE, vadToProbability, frameRms, applyGain } from './constants'
 export type { RnnoiseWasmModule, RnnoiseWasmModuleFactory } from './wasm-interface'
 export {
   RnnoiseModule,

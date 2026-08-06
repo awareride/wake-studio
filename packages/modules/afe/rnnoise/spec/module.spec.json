@@ -92,7 +92,7 @@
     "registryEntry": "public/model-registry.json#rnnoise"
   },
   "tests": {
-    "l1": "packages/modules/afe/rnnoise/tests/dsp.test.ts",
+    "l1": "packages/modules/afe/rnnoise/tests/constants.test.ts",
     "l2": "packages/modules/afe/rnnoise/tests/wasm-runtime.test.ts",
     "l3": "apps/web/e2e/rnnoise.spec.ts",
     "required": ["l1", "l2"]

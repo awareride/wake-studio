@@ -564,7 +564,9 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
     ADR-024 decoupling rule to all modules).
   - Shared pure logic (DSP) may live in a module and be imported by other
     modules' *tests*, but cross-module runtime imports go through the declared
-    contract.
+    contract. **Amended by ADR-032 (2026-08-06):** shared *numeric* DSP now
+    lives in `@wake-studio/dsp` (the platform DSP package); modules import it
+    instead of defining their own.
 - **Monorepo layout (2026-07-31):**
   - `apps/web` (PWA), `apps/local-service` (Node API, the Self-hosted training
     backend of ADR-005), `packages/contracts` (shared types + schemas),
@@ -769,6 +771,64 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   upstream script vs notebook); contracts/schema extended; local-service
   train-runner handles the adapter path. Full adapter implementations land in
   goal.plan Phase 5.
+
+---
+
+## ADR-032 — Platform DSP package (@wake-studio/dsp) replaces hand-written FFT/DSP
+
+- **Status:** Accepted (implemented 2026-08-06)
+- **Origin:** Human decision (2026-08-06 discussion): DSP/FFT is core to the
+  project's future (AEC/BSS/NS, mel front-ends, spectrograms); needs a
+  long-term reliable, reusable solution, not per-module hand-written code.
+- **Decision:** A new platform-level package `packages/dsp`
+  (`@wake-studio/dsp`) owns the numeric DSP layer:
+  1. **FFT core is `fft.js`** (MIT, indutny) - a battle-tested pure-JS radix-4
+     FFT (dependency-free, no DOM/wasm, AudioWorklet-safe). We do NOT
+     hand-write the FFT.
+  2. **STFT/ISTFT, windows, Slaney mel filterbank, melSpectrogram, resample,
+     level meters** are thin TS wrappers in the package, pure and
+     context-agnostic (Node, browser, worker, AudioWorklet).
+  3. **Correctness is anchored by conformance fixtures** generated from
+     scipy/numpy (`scripts/gen-conformance-fixtures.py`, committed under
+     `tests/fixtures/`): FFT vs `scipy.fft.fft`, STFT vs
+     `scipy.signal.stft`, mel vs the PLiX `backbone.py` math. Any refactor
+     that drifts numeric behavior fails CI.
+  4. **Migration:** `plix-frontend.ts` mel front-end and the AFE graph viz
+     spectrum now delegate to the package; their hand-written radix-2 FFTs
+     are deleted. `few-shot` RMS/SNR helpers are unchanged (no FFT).
+  5. **Removed module-level DSP (2026-08-06 follow-up):** the duplicated
+     `levelDb` in afe-aec/afe-bss/rnnoise AFE-stage, the `frameRms`/`applyGain`
+     in rnnoise, and the `peakDbfs`/`rmsDbfs`/`isClipped`/`estimateSnrDb` in
+     few-shot all now live in `@wake-studio/dsp` (re-exported for call-site
+     compatibility). No module contains a numeric DSP implementation anymore;
+     what remains in-module is domain logic (KWS smoothing/trigger, cosine
+     similarity, VAD mapping), not DSP.
+  6. **Renamed non-DSP files (2026-08-06):** `afe/rnnoise/core/dsp.ts` ->
+     `constants.ts` (RNNOISE_FRAME_SIZE, vadToProbability, dsp re-exports);
+     `few-shot/core/dsp.ts` -> `quality.ts` (cosine similarity,
+     sample-quality checks); `kws/engine/core/dsp.ts` -> `logic.ts`
+     (ScoreSmoother/TriggerDetector/VAD gate - decision logic, not DSP).
+     `afe/graph/core/dsp.ts` was moved into `@wake-studio/dsp` as
+     `spectrum.ts` (computeSpectrum + test helpers) - the graph module now
+     has no in-module DSP file at all. Its `l1` test covers the module's own
+     pure logic (defaults/constants/parameter descriptors,
+     `tests/defaults.test.ts`), per the module-self-testing rule.
+- **Rationale:** (a) eliminates three duplicated hand-written FFTs and the
+  PLiX/openWakeWord front-end drift risk; (b) the FFT core is a mature
+  third-party implementation that can be fully audited; (c) higher-level
+  behavior is pinned by Python-reference fixtures, so "reliable" is a test
+  guarantee, not a code review promise; (d) one seam (`createFft`) allows a
+  future SIMD/wasm backend for AEC3/beamforming without touching call sites.
+- **Consequences:**
+  - `plix` and `afe-graph` gain a workspace dependency on `@wake-studio/dsp`.
+  - New DSP functionality (AEC3 NLMS, beamforming, ISTFT) builds on this
+    package rather than in-module.
+  - WASM is deliberately NOT used for FFT now (pure-JS is far below the
+    real-time budget, e.g. ~0.008 ms/256-pt FFT); RNNoise remains the only
+    DSP-stage wasm. If a future stage needs more, the `createFft` seam
+    supports a wasm backend.
+  - Conformance fixtures require Python (scipy/numpy) only when regenerating;
+    the committed fixtures keep the JS test suite Python-free.
 
 ---
 

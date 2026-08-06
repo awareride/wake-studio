@@ -159,6 +159,9 @@ wake-studio/                          # pnpm workspace root
 - **Contracts live in `packages/contracts`** — web, studio-backend, and modules
   import *the same type/schema package*; modules depend on contracts, never on
   another module's internals.
+- **Shared DSP lives in `packages/dsp`** (`@wake-studio/dsp`, ADR-032) — pure-TS
+  FFT/STFT/mel layer (fft.js core + scipy/numpy conformance fixtures); modules
+  import it instead of hand-writing DSP. See `packages/dsp/README.md`.
 - **Per-target exports** — a module package exposes `@wake-studio/module-*/web`,
   `/node`, `/spec`, `/train`, `/device` subpaths; each world imports only what it
   needs (§3.2).
@@ -175,7 +178,7 @@ wake-studio/                          # pnpm workspace root
 packages/modules/<category>/<module>/     # e.g. packages/modules/afe/rnnoise/
 ├── package.json          # name @wake-studio/module-rnnoise; exports ./web /node /spec /train /device
 ├── spec/module.spec.json # the single fact source (docs/module-spec.md)
-├── core/                 # portable TS: types, DSP, engine facade (web + node share)
+├── core/                 # portable TS: types, domain logic, engine facade (DSP numerics in @wake-studio/dsp, ADR-032)
 ├── web/                  # wasm loader + panel config + playground.tsx (browser)
 ├── node/                 # native/subprocess impl for the studio-backend
 ├── train/                # train.py + pyproject.toml + requirements (uv, ADR-028)

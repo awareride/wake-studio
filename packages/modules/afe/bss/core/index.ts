@@ -7,6 +7,7 @@
  */
 
 import type { AFEStage, AFEStageKind, AFEStageResult } from '@wake-studio/contracts'
+import { levelDb } from '@wake-studio/dsp'
 
 export interface BssConfig {
   /** Single-mic passthrough for v1. */
@@ -37,11 +38,4 @@ export class BssStage implements AFEStage {
   reset(): void {
     /* no state in the passthrough implementation */
   }
-}
-
-function levelDb(frame: Float32Array): number {
-  let sum = 0
-  for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i]
-  const rms = Math.sqrt(sum / Math.max(1, frame.length))
-  return rms < 1e-10 ? -120 : 20 * Math.log10(rms)
 }

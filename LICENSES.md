@@ -70,6 +70,7 @@ Every model or component that enters an **export bundle** is classified:
 | onnxruntime-web | `microsoft/onnxruntime` | Apache-2.0 | Yes | ✅ | ONNX Runtime license (Apache-2.0). |
 | @tensorflow/tfjs (only if TFLite-only model) | `tensorflow/tfjs` | Apache-2.0 | Yes | ✅ | TF.js license. |
 | Web Audio API + AudioWorklet | W3C standard | Royalty-free | Yes | ✅ | W3C RF policy. |
+| fft.js (DSP FFT core, `@wake-studio/dsp` ADR-032) | `indutny/fft.js` | MIT | Yes | ✅ | MIT license (see npm). |
 
 ## TTS for synthetic training data (Phase 5) — ⚠️ license change
 

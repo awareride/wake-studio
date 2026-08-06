@@ -1,0 +1,37 @@
+{
+  "name": "@wake-studio/dsp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WakeStudio platform DSP package: FFT, STFT/ISTFT, windows, mel filterbank, resample, level meters (ADR-032). Pure TS, no DOM/wasm, runs in any JS context including AudioWorklet.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./fft": "./src/fft.ts",
+    "./stft": "./src/stft.ts",
+    "./windows": "./src/windows.ts",
+    "./mel": "./src/mel.ts",
+    "./resample": "./src/resample.ts",
+    "./level": "./src/level.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "test:conformance": "node scripts/gen-conformance-fixtures.mjs && vitest run tests/conformance",
+    "fetch:all": "echo 'no artifacts'"
+  },
+  "dependencies": {
+    "fft.js": "^4.0.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "globals": "^15.13.0",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "^8.16.0",
+    "vitest": "^2.1.9"
+  }
+}

@@ -1,5 +1,6 @@
 /**
- * RNNoise module - L1 unit tests (ADR-026). Pure DSP only, no wasm.
+ * RNNoise module - L1 unit tests (ADR-026). Domain constants + VAD mapping +
+ * re-exported dsp helpers, no wasm dependency.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -8,7 +9,7 @@ import {
   vadToProbability,
   frameRms,
   applyGain,
-} from '../core/dsp'
+} from '../core/constants'
 
 describe('RNNOISE_FRAME_SIZE', () => {
   it('is 480 samples (10 ms at 48 kHz)', () => {
