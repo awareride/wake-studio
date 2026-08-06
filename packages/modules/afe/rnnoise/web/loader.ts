@@ -8,6 +8,13 @@
  * Import as `@wake-studio/module-rnnoise/web/loader`.
  */
 
+// Side-effect polyfills for the AudioWorkletGlobalScope: the vendored RNNoise
+// wasm glue (generated/rnnoise-sync.js) calls bare `atob()` and reads
+// `self.location.href`, neither of which exists inside a worklet. polyfills.js
+// installs `globalThis.atob` + `globalThis.self.location` - import it FIRST so
+// the glue resolves them at instantiation time.
+import './vendor/polyfills'
+
 import createRNNWasmModuleSync from './vendor/generated/rnnoise-sync'
 import { RnnoiseNsStage, type RnnoiseConfig } from '../core'
 
