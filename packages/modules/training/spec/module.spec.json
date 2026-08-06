@@ -101,7 +101,7 @@
       "engine": "TrainingJob"
     },
     "local": {
-      "command": "node apps/local-service/src/server.ts",
+      "command": "node apps/studio-backend/src/server.ts",
       "protocol": "http"
     },
     "cloud": {

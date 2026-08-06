@@ -1,7 +1,15 @@
 /**
- * local-service - HTTP server (ADR-005 Self-hosted backend, skeleton).
+ * studio-backend - optional execution backend (ADR-005 Self-hosted Service).
  *
- * Zero-dependency Node http server exposing the module platform:
+ * Zero-dependency Node http server that does the heavy lifting the PWA cannot
+ * (or should not) do in the browser: running module train scripts (uv,
+ * ADR-028) and, in later phases, generating SDK / model artifacts. The web
+ * app is fully functional without it - training can instead run on a Cloud
+ * Provider (Hugging Face, Google Cloud, ...) or Google Colab (ADR-013), or
+ * against a user-supplied backend API. This server is WakeStudio's own
+ * default implementation of that optional backend.
+ *
+ * Routes:
  *
  *   GET  /health                    -> liveness + module count
  *   GET  /modules                   -> catalog (specs + targets present)
@@ -17,17 +25,17 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { discoverModules, findModule } from './module-registry'
 import { runTrain } from './train-runner'
 
-export interface LocalServiceOptions {
+export interface StudioBackendOptions {
   port?: number
   host?: string
 }
 
-export class LocalService {
+export class StudioBackend {
   private readonly port: number
   private readonly host: string
   private lastTrain: Record<string, { at: string; exitCode: number }> = {}
 
-  constructor(options: LocalServiceOptions = {}) {
+  constructor(options: StudioBackendOptions = {}) {
     this.port = options.port ?? 4824
     this.host = options.host ?? '127.0.0.1'
   }
@@ -38,7 +46,7 @@ export class LocalService {
     server.listen(this.port, this.host, () => {
       const modules = discoverModules()
       console.log(
-        `[local-service] listening on http://${this.host}:${this.port} ` +
+        `[studio-backend] listening on http://${this.host}:${this.port} ` +
           `(${modules.length} module(s) discovered)`,
       )
     })
@@ -53,7 +61,7 @@ export class LocalService {
       if (req.method === 'GET' && path === '/health') {
         return this.json(res, 200, {
           ok: true,
-          name: 'wake-studio local-service',
+          name: 'wake-studio studio-backend',
           modules: discoverModules().length,
         })
       }
@@ -127,7 +135,7 @@ export class LocalService {
 /** Run when executed directly (not imported by tests). */
 export function main(): void {
   const port = Number(process.env.PORT ?? 4824)
-  const service = new LocalService({ port })
+  const service = new StudioBackend({ port })
   service.listen()
 }
 

@@ -1,11 +1,11 @@
 /**
- * local-service - train runner (ADR-028).
+ * studio-backend - train runner (ADR-028).
  *
  * Spawns a module's train script via `uv run` in the module's train/
  * directory, streams stdout/stderr, and resolves with the outputs declared in
  * the module spec (spec.train.outputs).
  *
- * Both the local service and CI (train-<module>.yml) invoke the SAME path -
+ * Both the studio backend and CI (train-<module>.yml) invoke the SAME path -
  * one code path, two callers.
  */
 
@@ -51,7 +51,7 @@ export async function runTrain(
   const entryRel = train.entry?.replace(/^train\//, '')
   if (!entryRel) {
     // Upstream-script adapter path (docs/modules/training.md §4): the script
-    // is fetched/run by the adapter, not a local uv entry. The local-service
+    // is fetched/run by the adapter, not a local uv entry. The studio-backend
     // invocation for this shape is handled by the adapter in Phase 5.
     throw new Error(
       `module ${module.id} declares no local train entry (adapter-based train lands in Phase 5)`,

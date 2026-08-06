@@ -51,7 +51,7 @@ interface TrainingJob {
 
 interface ArtifactBundleRef {
   // One shared bundle manifest is the single retrieval contract (§4).
-  manifestUrl: string   // local-service artifact URL / cloud presigned URL / colab download
+  manifestUrl: string   // backend artifact URL (studio-backend) / cloud presigned URL / colab download
   sha256?: string
 }
 ```
@@ -60,13 +60,13 @@ interface ArtifactBundleRef {
 
 | Backend | submit | poll | retrieve | Credentials |
 |---|---|---|---|---|
-| Self-hosted (local-service) | `POST /modules/:id/train` | `GET /modules/:id/status` | `GET /modules/:id/artifacts/<name>` | none (localhost trust) |
+| Self-hosted (studio-backend) | `POST /modules/:id/train` | `GET /modules/:id/status` | `GET /modules/:id/artifacts/<name>` | none (localhost trust) |
 | Cloud Provider | provider API (submit job) | provider API (status) | presigned/download URL | client-side only (ADR-013) |
 | Colab | open notebook (ADR-023) | user-driven (no polling) | import bundle from Drive/zip | user's Google account |
 
-## 3. Self-hosted Service - local-service API (ADR-005)
+## 3. Self-hosted Service - studio-backend API (ADR-005)
 
-The PWA talks to `apps/local-service` on `localhost`. The skeleton server
+The PWA talks to `apps/studio-backend` on `localhost`. The skeleton server
 already exposes the train routes; this contract pins the shapes the PWA
 consumes:
 
@@ -146,7 +146,7 @@ stays byte-identical; WakeStudio wraps it.
 
 | Where | What invokes the adapter | Notes |
 |---|---|---|
-| local-service | `train-runner.ts` (uv, ADR-028) | clones the pinned upstream ref into a cache, runs the upstream script, then normalizes outputs |
+| studio-backend | `train-runner.ts` (uv, ADR-028) | clones the pinned upstream ref into a cache, runs the upstream script, then normalizes outputs |
 | CI `train-<module>.yml` | same `train-runner` path | one code path, two callers (ADR-028) |
 | Colab | the notebook itself (a WakeStudio-provided cell) | see §5 |
 
@@ -160,7 +160,7 @@ never changed. This is exactly the "we package, we do not invent" stance.
 
 ## 6. Artifact bundle manifest (single retrieval contract)
 
-One manifest serves ALL backends - local-service, cloud, and Colab - so the PWA
+One manifest serves ALL backends - studio-backend, cloud, and Colab - so the PWA
 has **one importer** that validates + imports any trained model:
 
 ```
@@ -198,7 +198,7 @@ rewrite** an upstream notebook - we adapt to it:
 
 1. Upstream notebooks stay byte-identical; the module's `spec/train.notebook`
    declares which cell maps job params and which cell writes results.
-2. A **WakeStudio-provided adapter cell** (prepended by the local-service / CI
+2. A **WakeStudio-provided adapter cell** (prepended by the studio-backend / CI
    path, or the user pastes it into Colab) normalizes the notebook's output
    dir into the standard bundle (§6) via `standardize-results`.
 3. The user downloads the bundle (zip from Drive / notebook file download).
@@ -229,7 +229,7 @@ for every provider. Capability labels: train-capable vs inference-only.
 
 | ID | Question | Recommended default |
 |---|---|---|
-| T-1 | **local-service train: synchronous (current skeleton) vs async job + streaming** | Keep the synchronous skeleton for the module scaffolding (§6.5 Step B); add async queue + SSE streaming in goal.plan Phase 5. The PWA polls `GET /status`; a job id is added when the queue lands. |
+| T-1 | **studio-backend train: synchronous (current skeleton) vs async job + streaming** | Keep the synchronous skeleton for the module scaffolding (§6.5 Step B); add async queue + SSE streaming in goal.plan Phase 5. The PWA polls `GET /status`; a job id is added when the queue lands. |
 | T-2 | **Colab import: zip upload vs Drive picker** | Start with zip upload (no Drive API dependency); Drive picker as an enhancement. |
 | T-3 | **Artifact serving auth on a deployed self-hosted service** | Deferred to Phase 5 (per-deployment concern); localhost has no auth. |
 | T-4 | **Where the bundle manifest lives in the PWA** | `packages/modules/training/core/manifest.ts` - the single importer used by all backends. |

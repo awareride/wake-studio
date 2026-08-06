@@ -1,13 +1,13 @@
 /**
- * local-service - HTTP server tests (L1, real sockets).
+ * studio-backend - HTTP server tests (L1, real sockets).
  *
- * Starts the LocalService on an ephemeral port and exercises the module
+ * Starts the StudioBackend on an ephemeral port and exercises the module
  * catalog + health endpoints. Train is tested separately (spawns uv).
  */
 
 import { describe, it, expect, afterAll } from 'vitest'
 import type { Server } from 'node:http'
-import { LocalService } from '../src/server'
+import { StudioBackend } from '../src/server'
 
 let server: Server | undefined
 let baseUrl = ''
@@ -15,7 +15,7 @@ let baseUrl = ''
 async function start(): Promise<string> {
   if (server) return baseUrl
   // Port 0 -> ephemeral.
-  const service = new LocalService({ port: 0 })
+  const service = new StudioBackend({ port: 0 })
   server = service.listen()
   await new Promise<void>((resolve) => server!.on('listening', () => resolve()))
   const addr = server!.address()
@@ -29,7 +29,7 @@ async function get(path: string): Promise<{ status: number; body: unknown }> {
   return { status: res.status, body: await res.json() }
 }
 
-describe('local-service HTTP', () => {
+describe('studio-backend HTTP', () => {
   afterAll(async () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()))
   })

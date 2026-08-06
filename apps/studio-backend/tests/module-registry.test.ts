@@ -1,5 +1,5 @@
 /**
- * local-service - module registry tests (L1).
+ * studio-backend - module registry tests (L1).
  *
  * Verifies discovery over the real monorepo: the rnnoise pilot module is
  * found with its spec parsed and targets detected.

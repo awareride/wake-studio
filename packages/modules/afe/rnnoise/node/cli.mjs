@@ -1,8 +1,8 @@
 /**
- * RNNoise module - CLI (invoked by the local service / humans).
+ * RNNoise module - CLI (invoked by the studio backend / humans).
  *
  * Reads 480-sample float32 frames from stdin (little-endian), denoises them,
- * and writes the denoised frames to stdout. Used by the local-service
+ * and writes the denoised frames to stdout. Used by the studio-backend
  * `train-runner.ts`-style subprocess invocations and manual testing.
  *
  *   cat frames.f32 | node node/cli.mjs > denoised.f32

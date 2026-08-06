@@ -1,16 +1,16 @@
 /**
- * local-service - module registry (ADR-025).
+ * studio-backend - module registry (ADR-025).
  *
  * Discovers every module in the monorepo (packages/modules/.../spec/
  * module.spec.json), validates its spec with module-kit, and exposes the
  * catalog for route mounting + train/artifact operations.
  *
  * The registry is the single source of truth for "what modules exist" in the
- * local world - mirroring how the web panel registry consumes the same specs.
+ * backend world - mirroring how the web panel registry consumes the same specs.
  *
  * Note: the walk here is intentionally a 2-level scan (category/module). The
  * shared scripts/lib/module-discovery.mjs handles the recursive discovery for
- * the repo-level build scripts; the local-service registry instead validates
+ * the repo-level build scripts; the studio-backend registry instead validates
  * specs (module-kit) and probes the filesystem for runtime targets, which the
  * build scripts do not need.
  */

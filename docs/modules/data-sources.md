@@ -43,7 +43,7 @@ possible without the user hand-collecting audio.
 
 ## 3. Dependencies
 
-- **Upstream (consumes from):** configured endpoints (local service / project API
+- **Upstream (consumes from):** configured endpoints (studio-backend / project API
   / public TTS); platform dataset catalog.
 - **Downstream (provides to):** Training module (Phase 5) feeds generated/fetched
   audio into the selected backend's training pipeline.
