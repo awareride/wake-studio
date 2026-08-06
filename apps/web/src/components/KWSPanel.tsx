@@ -28,8 +28,9 @@ import type {
 } from '@wake-studio/module-kws-engine'
 import { MEL_WINDOW_SIZE } from '@wake-studio/module-kws-engine'
 import type { SherpaOnnxKwsConfig } from '@wake-studio/module-kws-engine'
+import type { ParameterDescriptor } from '@wake-studio/module-afe-graph'
 import { loadRegistry, type ModelRegistry } from '@wake-studio/platform'
-import type { ModuleSpec } from '@wake-studio/contracts'
+import type { ModuleSpec, ModuleParam } from '@wake-studio/contracts'
 import sherpaSpecJson from '@wake-studio/module-kws-sherpa/spec'
 import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
 import { useProjectStageConfig } from '../projects'
@@ -58,16 +59,53 @@ export function modelUrlsFromRegistry(registry: ModelRegistry): BackendModelUrls
 
 /** Resolve the sherpa-onnx KWS driver config from its module spec: the
  *  keywords param (ASR-Decoding category, ADR-024) replaces the hard-coded
- *  keyword list. The wasm base URL lives in the driver module (ADR-025). */
-export function sherpaConfigFromSpec(): Partial<SherpaOnnxKwsConfig> {
+ *  keyword list. The wasm base URL lives in the driver module (ADR-025).
+ *  `keywords` (if given) overrides the spec default so the panel's editable
+ *  value wins. */
+export function sherpaConfigFromSpec(
+  keywords?: string,
+): Partial<SherpaOnnxKwsConfig> {
   const sherpaSpec = sherpaSpecJson as unknown as ModuleSpec
   const kwParam = sherpaSpec.params?.find((p) => p.id === 'keywords')
-  const kw = typeof kwParam?.default === 'string' ? kwParam.default : undefined
+  const kw =
+    keywords ??
+    (typeof kwParam?.default === 'string' ? kwParam.default : undefined)
   return {
     wasmBaseUrl: '/modules/kws/sherpa/assets/sherpa-onnx-kws/',
     keywords: kw,
   }
 }
+
+/** Build a ParameterDescriptor from a ModuleSpec param (spec -> panel).
+ *  ModuleParam.type has extra kinds (enum/secret/slider); map to the panel's
+ *  ParameterDescriptor union (number/boolean/select/string). */
+function descriptorFromParam(param: ModuleParam): ParameterDescriptor {
+  const type: ParameterDescriptor['type'] =
+    param.type === 'slider'
+      ? 'number'
+      : param.type === 'enum'
+        ? 'select'
+        : param.type === 'secret'
+          ? 'string'
+          : param.type
+  return {
+    id: param.id,
+    label: param.label,
+    type,
+    default: param.default,
+    min: param.min,
+    max: param.max,
+    step: param.step,
+    unit: param.unit,
+    description: param.description,
+    options: param.options as ParameterDescriptor['options'],
+  }
+}
+
+/** The sherpa driver's own tunable params (from its spec, ADR-025). */
+const SHERPA_PARAMS: ReadonlyArray<ParameterDescriptor> = ((
+  sherpaSpecJson as unknown as ModuleSpec
+).params ?? []).map(descriptorFromParam)
 
 export const KWSPanel = memo(function KWSPanel({
   afePipeline,
@@ -89,6 +127,12 @@ export const KWSPanel = memo(function KWSPanel({
     'wasm',
   )
   const [lastKeyword, setLastKeyword] = useState('')
+  // Editable sherpa keywords (seeded from the spec default; edited via the
+  // config panel, then applied on the next Load).
+  const [sherpaKeywords, setSherpaKeywords] = useState<string>(() => {
+    const p = SHERPA_PARAMS.find((x) => x.id === 'keywords')
+    return typeof p?.default === 'string' ? p.default : ''
+  })
 
   const historyRef = useRef<KWSScoreSample[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -110,7 +154,7 @@ export const KWSPanel = memo(function KWSPanel({
       // hard-coded here; the UI shows the exact fetch command if absent.
       const registry = await loadRegistry()
       urlsRef.current = modelUrlsFromRegistry(registry)
-      sherpaCfgRef.current = sherpaConfigFromSpec()
+      sherpaCfgRef.current = sherpaConfigFromSpec(sherpaKeywords)
       await engine.load(urlsRef.current, undefined, sherpaCfgRef.current)
       setStatus(engine.status)
       setExecutionProvider(engine.executionProvider)
@@ -120,7 +164,7 @@ export const KWSPanel = memo(function KWSPanel({
       setStatus('error')
       logError('kws', err instanceof Error ? err.message : String(err))
     }
-  }, [config.backend, config.threshold])
+  }, [config.backend, config.threshold, sherpaKeywords])
 
   const handleStart = useCallback(() => {
     if (!engineRef.current || !afePipeline || !afeRunning) return
@@ -319,9 +363,32 @@ export const KWSPanel = memo(function KWSPanel({
           <h3 className="mb-4 text-sm font-semibold text-ink-1">
             Configuration{' '}
             <span className="text-xs font-normal text-ink-3">
-              (Traditional KWS · Primary)
+              {config.backend === 'sherpa-onnx-kws'
+                ? '(ASR-Decoding KWS · Primary)'
+                : '(Traditional KWS · Primary)'}
             </span>
           </h3>
+
+          {/* sherpa driver params from its spec (keywords + threshold) */}
+          {config.backend === 'sherpa-onnx-kws' && (
+            <div className="mb-4">
+              <UnifiedConfigPanel
+                title="Sherpa-onnx KWS"
+                subtitle="Params from the kws-sherpa module spec (ADR-025). Apply keywords by clicking Load again."
+                params={SHERPA_PARAMS}
+                values={{
+                  keywords: sherpaKeywords,
+                  threshold: config.threshold,
+                }}
+                onParamChange={(id, v) => {
+                  if (id === 'keywords') setSherpaKeywords(String(v))
+                  else updateConfig({ [id]: v as ParamValue })
+                }}
+                advancedIds={[]}
+                disabled={running}
+              />
+            </div>
+          )}
 
           {/* Tunable params rendered from the spec descriptors (module-kit). */}
           <UnifiedConfigPanel

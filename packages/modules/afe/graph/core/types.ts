@@ -37,7 +37,7 @@ export interface AFEConfig {
 export interface ParameterDescriptor {
   id: string
   label: string
-  type: 'number' | 'boolean' | 'select'
+  type: 'number' | 'boolean' | 'select' | 'string'
   default: number | boolean | string
   min?: number
   max?: number
