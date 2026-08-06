@@ -21,6 +21,10 @@ import {
   FFT_SIZE,
   SPECTRUM_BINS,
   HANN_WINDOW,
+  spectrogramColumn,
+  SPECTROGRAM_WINDOW_SIZE,
+  SPECTROGRAM_BINS,
+  SPECTROGRAM_WINDOW,
 } from '../src'
 
 // fft()
@@ -320,5 +324,92 @@ describe('HANN_WINDOW', () => {
     // Hann formula: 0.5*(1 - cos(2*pi*i/(N-1))). At i=N/2, the cosine isn't
     // exactly -1 (because N/2 / (N-1) != 0.5), so the peak is ~0.99996.
     expect(HANN_WINDOW[FFT_SIZE / 2]).toBeCloseTo(1.0, 4)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// spectrogramColumn() (Spectro-style, ADR-032)
+// ---------------------------------------------------------------------------
+
+describe('spectrogramColumn', () => {
+  it('returns SPECTROGRAM_BINS values at the default window size', () => {
+    const frame = constant(0, SPECTROGRAM_WINDOW_SIZE)
+    const { column } = spectrogramColumn(frame)
+    expect(column.length).toBe(SPECTROGRAM_BINS)
+    expect(SPECTROGRAM_BINS).toBe(SPECTROGRAM_WINDOW_SIZE / 2)
+  })
+
+  it('silence produces an all-zero column', () => {
+    const { column } = spectrogramColumn(constant(0, SPECTROGRAM_WINDOW_SIZE))
+    for (const v of column) expect(v).toBeLessThan(1e-10)
+  })
+
+  it('zero-pads a short frame (no window buffering needed)', () => {
+    const { column } = spectrogramColumn(constant(0.5, 1024))
+    // A 1024-sample half-amplitude frame zero-padded to 4096: the DC bin is
+    // 0.5 * (sum of BH window over the first 1024 samples) / sqrt(4096)
+    // = 0.0725 (the 7-term BH window is small near its edges, so a short
+    // frame carries little DC energy). All other bins stay near zero.
+    expect(column[0]).toBeGreaterThan(0.03)
+    expect(column[0]).toBeLessThan(0.2)
+  })
+
+  it('peaks at the bin matching a sine wave frequency', () => {
+    const sampleRate = 48000
+    const binFreq = sampleRate / SPECTROGRAM_WINDOW_SIZE // Hz per bin
+    const targetBin = 200
+    const freqHz = targetBin * binFreq
+    const frame = sineWave(freqHz, sampleRate, SPECTROGRAM_WINDOW_SIZE)
+    const { column } = spectrogramColumn(frame)
+    const peak = argMax(column)
+    // 7-term Blackman-Harris has a wider main lobe than Hann; the peak still
+    // lands within a bin or two of the true frequency.
+    expect(Math.abs(peak - targetBin)).toBeLessThanOrEqual(3)
+    // Peak should be significantly above the average.
+    const avg = column.reduce((a, b) => a + b, 0) / column.length
+    expect(column[peak]).toBeGreaterThan(avg * 10)
+  })
+
+  it('higher frequency sine peaks at a higher bin', () => {
+    const sampleRate = 48000
+    const binFreq = sampleRate / SPECTROGRAM_WINDOW_SIZE
+    const lowBin = 50
+    const highBin = 300
+    const lowCol = spectrogramColumn(
+      sineWave(lowBin * binFreq, sampleRate, SPECTROGRAM_WINDOW_SIZE),
+    ).column
+    const highCol = spectrogramColumn(
+      sineWave(highBin * binFreq, sampleRate, SPECTROGRAM_WINDOW_SIZE),
+    ).column
+    expect(argMax(lowCol)).toBeLessThan(argMax(highCol))
+  })
+
+  it('amplitude is normalized by sqrt(windowSize) (Spectro convention)', () => {
+    const sampleRate = 48000
+    const binFreq = sampleRate / SPECTROGRAM_WINDOW_SIZE
+    const freqHz = 40 * binFreq
+    const frame = sineWave(freqHz, sampleRate, SPECTROGRAM_WINDOW_SIZE, 0.5)
+    const { column } = spectrogramColumn(frame)
+    // 7-term BH window DC gain: sum(window) = 1110.2 for N=4096. A sine of
+    // amplitude A at a bin center therefore peaks at
+    //   A * sum(window) / sqrt(N) = 0.5 * 1110.2 / 64 = 8.67
+    // (NOT A*N/2/sqrt(N) - the BH window attenuates the tone). The bin
+    // centerlands within the main lobe, so we assert the magnitude is in the
+    // same ballpark: clearly above the 1/√N noise floor, below 16.
+    const peak = column[argMax(column)]
+    expect(peak).toBeGreaterThan(4)
+    expect(peak).toBeLessThan(16)
+  })
+
+  it('throws for a non-power-of-2 window size', () => {
+    expect(() =>
+      spectrogramColumn(constant(0, 1000), { windowSize: 1000 }),
+    ).toThrow(/power of 2/)
+  })
+
+  it('exposes the precomputed default window (symmetric, endpoints ~equal)', () => {
+    expect(SPECTROGRAM_WINDOW.length).toBe(SPECTROGRAM_WINDOW_SIZE)
+    // 7-term BH is nearly symmetric: first/last samples agree to ~1e-3.
+    expect(SPECTROGRAM_WINDOW[0]).toBeCloseTo(SPECTROGRAM_WINDOW[SPECTROGRAM_WINDOW_SIZE - 1], 3)
   })
 })

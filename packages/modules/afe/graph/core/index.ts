@@ -20,6 +20,7 @@ export type {
   FrameConfig,
   ParameterDescriptor,
   RecordedClip,
+  SpectrogramData,
   StageFrameData,
   StageState,
   StageStatus,

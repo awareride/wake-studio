@@ -17,6 +17,7 @@ export {
   hannSymmetric,
   hamming,
   blackman,
+  blackmanHarris7,
   applyWindow,
 } from './windows'
 
@@ -32,6 +33,15 @@ export {
   SPECTRUM_BINS,
   HANN_WINDOW,
 } from './spectrum'
+
+export {
+  spectrogramColumn,
+  SPECTROGRAM_WINDOW_SIZE,
+  SPECTROGRAM_WINDOW_STEP,
+  SPECTROGRAM_BINS,
+  SPECTROGRAM_WINDOW,
+} from './spectrogram'
+export type { SpectrogramColumnOptions } from './spectrogram'
 
 export {
   downsample48to16,
