@@ -8,8 +8,8 @@
  */
 
 import * as React from 'react'
-import type { RegistryModel } from '../data/registry'
-import { isCommerciallyUsable } from '../data/registry'
+import type { RegistryModel } from '@wake-studio/platform'
+import { isCommerciallyUsable } from '@wake-studio/platform'
 import {
   Dialog,
   DialogContent,

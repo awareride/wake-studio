@@ -1,20 +1,20 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import type { AFEPipeline } from '../afe'
+import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import {
   KWSEngine,
   DEFAULT_CONFIG,
   describeParameters,
   getBackendRegistry,
-} from '../kws'
+} from '@wake-studio/module-kws-engine'
 import type {
   BackendModelUrls,
   KWSConfig,
   KWSScoreSample,
   KWSTriggerEvent,
   KWSStatus,
-} from '../kws'
-import { MEL_WINDOW_SIZE } from '../kws'
-import type { SherpaOnnxKwsConfig } from '../kws'
+} from '@wake-studio/module-kws-engine'
+import { MEL_WINDOW_SIZE } from '@wake-studio/module-kws-engine'
+import type { SherpaOnnxKwsConfig } from '@wake-studio/module-kws-engine'
 import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
 import { useProjectStageConfig } from '../projects'
 import { logTrigger, logInfo, logError } from '../log'

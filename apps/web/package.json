@@ -32,13 +32,8 @@
     "@wake-studio/module-rnnoise": "workspace:^",
     "@wake-studio/module-training": "workspace:^",
     "@wake-studio/platform": "workspace:^",
-    "onnxruntime-web": "^1.27.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "sherpa-onnx": "^1.13.4"
-  },
-  "optionalDependencies": {
-    "@huggingface/transformers": "^4.2.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",
