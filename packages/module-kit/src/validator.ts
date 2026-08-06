@@ -2,8 +2,7 @@
  * Module spec validator (ADR-025).
  *
  * Pure function over `ModuleSpec` - used by the panel generator, the
- * local-service route registry, and CI to fail loudly on a malformed spec.
- */
+ * studio-backend route registry, and CI to fail loudly on a malformed spec. */
 
 import type { ModuleSpec, ModuleScorecard } from '@wake-studio/contracts'
 

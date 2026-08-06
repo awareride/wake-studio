@@ -3,8 +3,8 @@
  * (ADR-025, docs/module-spec.md).
  *
  * This is the SINGLE shared fact source: the web panel generator, the
- * local-service route registry, and the CI build/train workflows all consume
- * one spec per module. It lives in `packages/contracts` so web, local-service,
+ * studio-backend route registry, and the CI build/train workflows all consume
+ * one spec per module. It lives in `packages/contracts` so web, studio-backend,
  * and modules import the same types (no drift between worlds).
  */
 
@@ -85,7 +85,7 @@ export interface ModuleTrain {
   entry?: string
   python?: string
   deps?: string
-  /** Who may invoke: "subprocess" (local service), "ci", "colab". */
+  /** Who may invoke: "subprocess" (studio-backend), "ci", "colab". */
   invocation: Array<'subprocess' | 'ci' | 'colab'>
   outputs: Record<string, string>
   /**

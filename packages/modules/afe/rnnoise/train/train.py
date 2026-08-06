@@ -3,7 +3,7 @@
 
 RNNoise weights are frozen (xiph/rnnoise); WakeStudio does not retrain them.
 This script satisfies the module train contract by producing the run metadata
-that the local service / CI expect, and exits 0 so tooling can exercise the
+that the studio backend / CI expect, and exits 0 so tooling can exercise the
 full train pipeline end-to-end.
 
 Phase 5 will replace this with a real fine-tuning entrypoint if a target-domain

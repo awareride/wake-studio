@@ -2,7 +2,7 @@
   "name": "wake-studio",
   "version": "0.0.1",
   "private": true,
-  "description": "WakeStudio monorepo - a PWA console + local service + device SDK for on-device wake-word (KWS) pipelines. AEC -> BSS -> NS -> KWS.",
+  "description": "WakeStudio monorepo - a PWA console + optional studio-backend + device SDK for on-device wake-word (KWS) pipelines. AEC -> BSS -> NS -> KWS.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@9.15.4",
@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter @wake-studio/web dev",
-    "dev:service": "pnpm --filter @wake-studio/local-service dev",
+    "dev:service": "pnpm --filter @wake-studio/studio-backend dev",
     "build": "pnpm --filter @wake-studio/web build",
     "preview": "pnpm --filter @wake-studio/web preview",
     "lint": "pnpm -r lint",

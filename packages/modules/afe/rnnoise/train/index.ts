@@ -1,5 +1,5 @@
 /**
- * RNNoise module - train target metadata (consumed by the local-service
+ * RNNoise module - train target metadata (consumed by the studio-backend
  * `train-runner.ts` and CI `train-rnnoise.yml`, ADR-028).
  */
 
@@ -14,6 +14,6 @@ export const RNNOISE_TRAIN = {
     checkpoint: 'out/rnnoise.onnx',
     metrics: 'out/metrics.json',
   },
-  /** Invocation: CI only (local service will use this metadata too). */
+  /** Invocation: CI only (studio-backend will use this metadata too). */
   invocation: ['ci', 'subprocess'] as const,
 } as const

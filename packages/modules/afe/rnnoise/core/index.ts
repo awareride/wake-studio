@@ -2,7 +2,7 @@
  * RNNoise module - portable core (ADR-025 pilot).
  *
  * This directory is shared by ALL targets: the web app (wasm loader), the
- * local service (node impl), and tests. It contains:
+ * studio backend (node impl), and tests. It contains:
  *   - the engine facade `RnnoiseModule` (frame-in/out + VAD),
  *   - the wasm interface types (RnnoiseWasmModule),
  *   - pure DSP helpers usable headlessly.

@@ -1,8 +1,8 @@
 {
-  "name": "@wake-studio/local-service",
+  "name": "@wake-studio/studio-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "WakeStudio local service - the Self-hosted backend (ADR-005): module registry, train-runner (uv, ADR-028), artifact sync (ADR-027).",
+  "description": "WakeStudio optional execution backend (ADR-005 Self-hosted Service): runs the heavy work the PWA cannot - module train scripts (uv, ADR-028), SDK/model generation - alongside Cloud/Colab backends (ADR-013).",
   "license": "MIT",
   "type": "module",
   "main": "./src/server.ts",

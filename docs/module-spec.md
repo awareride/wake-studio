@@ -99,7 +99,7 @@ below is filled in **and** the referenced deliverables exist.
     "entry": "train/train.py",        //   local uv script - OR (ADR-031):
     "python": "3.11",                //   "script": { pinned upstream repo script }
     "deps": "train/pyproject.toml",   //   "notebook": { upstream .ipynb }
-    "invocation": ["subprocess", "ci"],   // who may invoke: subprocess (local service), ci, colab
+    "invocation": ["subprocess", "ci"],   // who may invoke: subprocess (studio-backend), ci, colab
     "outputs": { "checkpoint": "out/model.onnx", "metrics": "out/metrics.json" },
     "adapter": "standardize-results"  // optional: normalize ANY run dir into
                                         //   the standard bundle (ADR-031)
@@ -169,7 +169,7 @@ packages/modules/<category>/<module>/  # e.g. packages/modules/afe/rnnoise/
   spec/module.spec.json           # this spec
   core/                           # portable TS: types, DSP, engine facade
   web/                            # wasm loader + panel config + playground.tsx
-  node/                           # native/subprocess impl for the local service
+  node/                           # native/subprocess impl for the studio-backend
   train/                          # train.py + pyproject.toml (uv, ADR-028)
   device/                         # C/C++ + CMakeLists.txt (pulled into device/ tree)
   assets/                         # module-owned binary artifacts (ADR-025):
@@ -194,7 +194,7 @@ e2e/<module>.spec.ts             # L3 browser tests
 - Invoked with `uv run --project <module>/train python train.py ...` from the
   module's working directory; artifacts land under `out/` and are registered in
   `model-registry.json` (ADR-027).
-- Both the local service (`train-runner.ts`) and CI (`train-<module>.yml`, using
+- Both the studio-backend (`train-runner.ts`) and CI (`train-<module>.yml`, using
   `astral-sh/setup-uv`) call the same command — one code path, two callers.
 - Docker is optional per module, only when system/GPU deps exceed what `uv`
   provides.

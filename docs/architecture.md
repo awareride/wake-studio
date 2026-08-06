@@ -91,11 +91,24 @@ ESP-SR, Infineon audio-front-end, and XMOS voice-interface docs):
   "Zero setup" holds for the in-browser live/enrollment/export journey; the three
   training backends are *optional* and chosen only when training is needed.
 
+**What the backend does - and doesn't do (ADR-005 / ADR-013):**
+
+- **`apps/studio-backend/`** (`@wake-studio/studio-backend`, the "Self-hosted
+  Service" / evolution of the "Studio Engine") is WakeStudio's own **default
+  implementation of an optional execution backend**. It runs the work the PWA
+  cannot (or should not) do in the browser: module train scripts via uv
+  (ADR-028), and in later phases SDK / model generation.
+- **It is NOT required.** The PWA is fully functional without it: a user can
+  point the web app at **their own backend API** (self-deployed), or run
+  training on a **Cloud Provider** (Hugging Face, Google Cloud, ...) or
+  **Google Colab** (ADR-023) instead. The studio-backend is one of several
+  interchangeable execution paths, not a dependency of the web app.
+
 ### 3.1 Repository structure — pnpm monorepo (ADR-025)
 
 The repo is a **pnpm workspace monorepo** (2026-07-31). It hosts four
 worlds in one tree, each with its own build toolchain, so a module can deliver
-web, local-service, device, and train artifacts side by side:
+web, studio-backend, device, and train artifacts side by side:
 
 ```
 wake-studio/                          # pnpm workspace root
@@ -107,7 +120,7 @@ wake-studio/                          # pnpm workspace root
 │   │   ├── src/
 │   │   ├── public/                   # model-registry.json, icons (ADR-011 registry)
 │   │   └── e2e/                      # L3 browser tests (ADR-026)
-│   ├── local-service/                # Node API service (the Self-hosted backend, ADR-005)
+│   ├── studio-backend/             # optional execution backend (ADR-005 Self-hosted Service)
 │   │   ├── src/
 │   │   │   ├── server.ts             # HTTP server (zero-dep Node http)
 │   │   │   ├── module-registry.ts    # reads module.spec.json -> mounts module /node routes
@@ -143,14 +156,14 @@ wake-studio/                          # pnpm workspace root
 
 **Cross-world sharing rules (ADR-025):**
 
-- **Contracts live in `packages/contracts`** — web, local-service, and modules
+- **Contracts live in `packages/contracts`** — web, studio-backend, and modules
   import *the same type/schema package*; modules depend on contracts, never on
   another module's internals.
 - **Per-target exports** — a module package exposes `@wake-studio/module-*/web`,
   `/node`, `/spec`, `/train`, `/device` subpaths; each world imports only what it
   needs (§3.2).
 - **module.spec.json is the single shared fact source** — the web panel generator,
-  the local-service route registry, and the CI build/train workflows all derive
+  the studio-backend route registry, and the CI build/train workflows all derive
   from one spec per module.
 - **device/** is the C world root and stays separate from the JS world (its own
   CMake build tree); module `device/` directories are pulled in via
@@ -164,7 +177,7 @@ packages/modules/<category>/<module>/     # e.g. packages/modules/afe/rnnoise/
 ├── spec/module.spec.json # the single fact source (docs/module-spec.md)
 ├── core/                 # portable TS: types, DSP, engine facade (web + node share)
 ├── web/                  # wasm loader + panel config + playground.tsx (browser)
-├── node/                 # native/subprocess impl for the local service
+├── node/                 # native/subprocess impl for the studio-backend
 ├── train/                # train.py + pyproject.toml + requirements (uv, ADR-028)
 ├── device/               # C/C++ + CMakeLists.txt (into device/ build tree)
 └── tests/                # L1 (vitest) / L2 (wasm in Node) / L3 (playwright)

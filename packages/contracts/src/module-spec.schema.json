@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://wake-studio.dev/module-spec.schema.json",
   "title": "WakeStudio ModuleSpec",
-  "description": "Declarative contract for a WakeStudio module (ADR-025). Consumed by the panel generator, playground router, test runner, local-service route registry, and the generic build/train workflows.",
+  "description": "Declarative contract for a WakeStudio module (ADR-025). Consumed by the panel generator, playground router, test runner, studio-backend route registry, and the generic build/train workflows.",
   "type": "object",
   "required": [
     "meta",

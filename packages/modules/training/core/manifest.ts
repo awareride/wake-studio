@@ -5,7 +5,7 @@ type TrainingJobBackend = TrainingJob['backend']
 /**
  * Training module - artifact bundle manifest (docs/modules/training.md §4).
  *
- * ONE manifest serves all backends (local-service / cloud / Colab) so the PWA
+ * ONE manifest serves all backends (studio-backend / cloud / Colab) so the PWA
  * has a single importer that validates + imports any trained model. The
  * provenance is the license-gate input (goal.plan Phase 4): a trained model is
  * user-owned / commercially clean.

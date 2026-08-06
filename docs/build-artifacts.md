@@ -30,7 +30,7 @@ workflows are `workflow_dispatch` and never push.
 3. **Registry entry** — `apps/web/public/model-registry.json` records per
    artifact: version, source workflow, artifact name, sha256, fetch command,
    updated date. This is the **single shared fact source** for the web app and
-   the local service (ADR-027).
+   the studio-backend (ADR-027).
 4. **Package script** — each module's `fetch:all` runs
    `node ../../../../scripts/fetch-artifact.mjs <module-id>`; a top-level
    `pnpm fetch:all` runs every module's fetch.
@@ -40,12 +40,12 @@ workflows are `workflow_dispatch` and never push.
 ### 2.1 Training artifacts
 
 Train scripts are **not** built by these artifact workflows; they are run by the
-module's `train/` directory via `uv run` (ADR-028) from either the local
-service (`train-runner.ts`, `subprocess` invocation) or a CI `train-<module>.yml`
-workflow. The trained output (checkpoint + metrics) is registered in
-`model-registry.json` exactly like a built artifact — same hash/version/fetch
-discipline, so the web app and local service consume trained models
-identically.
+module's `train/` directory via `uv run` (ADR-028) from either the
+studio-backend (`train-runner.ts`, `subprocess` invocation) or a CI
+`train-<module>.yml` workflow. The trained output (checkpoint + metrics) is
+registered in `model-registry.json` exactly like a built artifact — same
+hash/version/fetch discipline, so the web app and studio-backend consume
+trained models identically.
 
 ## 3. Fetch script contract
 

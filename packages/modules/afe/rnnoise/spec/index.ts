@@ -2,7 +2,7 @@
  * RNNoise module spec (typed).
  *
  * Single shared fact source (ADR-025) - the web panel generator, the
- * local-service registry, and CI all consume this one spec object.
+ * studio-backend registry, and CI all consume this one spec object.
  */
 
 import raw from './module.spec.json'

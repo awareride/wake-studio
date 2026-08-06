@@ -3,7 +3,7 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 /**
- * local-service eslint config (flat, ESLint 9).
+ * studio-backend eslint config (flat, ESLint 9).
  * Node-only service (HTTP server + train runner); no browser globals.
  */
 export default tseslint.config(
