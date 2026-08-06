@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@wake-studio/contracts": "workspace:*",
+    "@wake-studio/dsp": "workspace:*",
     "@wake-studio/module-afe-aec": "workspace:^",
     "@wake-studio/module-afe-bss": "workspace:^",
     "@wake-studio/module-rnnoise": "workspace:^",

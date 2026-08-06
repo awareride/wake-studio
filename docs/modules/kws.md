@@ -386,7 +386,8 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
 
 - **Unit (Vitest):** the pure logic - score smoothing (sliding-window max),
   threshold + min-duration trigger logic, cooldown, VAD gate. These are extracted
-  to a testable module (like `afe/dsp.ts`) with no ONNX dependency.
+  to a testable module (like `afe/graph/dsp.ts`, itself delegating to
+  `@wake-studio/dsp` ADR-032) with no ONNX dependency.
 - **WASM runtime test (L2, Node):** load the sherpa-onnx-kws emscripten bundle in
   a Node process (the glue supports `ENVIRONMENT=node`), instantiate the
   `KeywordSpotter`, and run one inference pass over a synthetic clip. Fast, runs

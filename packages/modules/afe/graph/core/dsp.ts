@@ -1,10 +1,21 @@
 /**
- * AFE module - pure DSP functions.
+ * AFE graph module - visualization DSP.
  *
- * Extracted from the worklet for unit testing. These functions have no
- * dependencies on AudioWorkletGlobalScope and can run in any JS environment
- * (Node, browser, AudioWorklet). See docs/modules/afe.md §9 (testing strategy).
+ * The numeric cores (FFT, windows, level meters, resampling) live in the
+ * platform DSP package (`@wake-studio/dsp`, ADR-032); this file keeps only
+ * the AFE-specific spectrum computation and the test helpers. No dependency
+ * on AudioWorkletGlobalScope - runs in Node, browser, or the worklet.
+ *
+ * @see docs/modules/afe.md §9 (testing strategy)
  */
+
+import {
+  createFft,
+  hannSymmetric,
+  levelDb,
+  downsample48to16,
+  downsampleForViz,
+} from '@wake-studio/dsp'
 
 /** FFT size for spectrum computation (must be power of 2, <= RNNOISE_FRAME_SIZE). */
 export const FFT_SIZE = 256
@@ -13,112 +24,25 @@ export const FFT_SIZE = 256
 export const SPECTRUM_BINS = 64
 
 /** Pre-computed Hann window for FFT. */
-export const HANN_WINDOW = new Float32Array(FFT_SIZE)
-for (let i = 0; i < FFT_SIZE; i++) {
-  HANN_WINDOW[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (FFT_SIZE - 1)))
-}
-
-/** In-place radix-2 Cooley-Tukey FFT (n must be a power of 2). */
-export function fft(real: Float32Array, imag: Float32Array, n: number): void {
-  // Bit-reversal permutation.
-  for (let i = 1, j = 0; i < n; i++) {
-    let bit = n >> 1
-    for (; j & bit; bit >>= 1) j ^= bit
-    j ^= bit
-    if (i < j) {
-      ;[real[i], real[j]] = [real[j], real[i]]
-      ;[imag[i], imag[j]] = [imag[j], imag[i]]
-    }
-  }
-  // Butterfly.
-  for (let len = 2; len <= n; len <<= 1) {
-    const ang = (-2 * Math.PI) / len
-    const wR = Math.cos(ang)
-    const wI = Math.sin(ang)
-    const half = len >> 1
-    for (let i = 0; i < n; i += len) {
-      let cR = 1
-      let cI = 0
-      for (let j = 0; j < half; j++) {
-        const uR = real[i + j]
-        const uI = imag[i + j]
-        const tR = real[i + j + half] * cR - imag[i + j + half] * cI
-        const tI = real[i + j + half] * cI + imag[i + j + half] * cR
-        real[i + j] = uR + tR
-        imag[i + j] = uI + tI
-        real[i + j + half] = uR - tR
-        imag[i + j + half] = uI - tI
-        const nR = cR * wR - cI * wI
-        cI = cR * wI + cI * wR
-        cR = nR
-      }
-    }
-  }
-}
-
-/**
- * Compute RMS level in dBFS for a frame.
- * Returns -120 for near-silence (avoids -Infinity from log10(0)).
- */
-export function levelDb(frame: Float32Array): number {
-  let sum = 0
-  for (let i = 0; i < frame.length; i++) {
-    sum += frame[i] * frame[i]
-  }
-  const rms = Math.sqrt(sum / frame.length)
-  return rms < 1e-10 ? -120 : 20 * Math.log10(rms)
-}
-
-/**
- * Downsample 48 kHz -> 16 kHz by averaging groups of 3 samples.
- * Input length must be a multiple of 3. Returns a new Float32Array.
- */
-export function downsample48to16(frame480: Float32Array): Float32Array {
-  const ratio = 3
-  const out = new Float32Array(frame480.length / ratio)
-  for (let i = 0, j = 0; i < frame480.length; i += ratio, j++) {
-    let sum = 0
-    for (let k = 0; k < ratio; k++) {
-      sum += frame480[i + k]
-    }
-    out[j] = sum / ratio
-  }
-  return out
-}
-
-/**
- * Downsample a frame to N points for waveform display (nearest-sample pick).
- * The output has exactly `points` samples regardless of input length.
- */
-export function downsampleForViz(
-  frame: Float32Array,
-  points: number,
-): Float32Array {
-  const out = new Float32Array(points)
-  const step = frame.length / points
-  for (let i = 0; i < points; i++) {
-    out[i] = frame[Math.floor(i * step)]
-  }
-  return out
-}
+export const HANN_WINDOW = hannSymmetric(FFT_SIZE)
 
 /**
  * Compute a magnitude spectrum (SPECTRUM_BINS bins) from a frame.
- * Uses FFT_SIZE-point FFT with Hann window. If the frame is shorter than
+ * Uses FFT_SIZE-point FFT with a Hann window. If the frame is shorter than
  * FFT_SIZE it is zero-padded (lets AEC/BSS pass the 128-sample worklet
  * quantum directly without an allocation - the spectrum will simply
  * represent a windowed, padded slice of the live signal).
  */
 export function computeSpectrum(frame: Float32Array): Float32Array {
+  const n = Math.min(frame.length, FFT_SIZE)
   const real = new Float32Array(FFT_SIZE)
   const imag = new Float32Array(FFT_SIZE)
-  const n = Math.min(frame.length, FFT_SIZE)
   for (let i = 0; i < n; i++) {
     real[i] = frame[i] * HANN_WINDOW[i]
   }
   // Remaining bins (if any) stay 0 (zero-padding) - leaves the Hann window
   // tapering to zero at the end and keeps the FFT consistent.
-  fft(real, imag, FFT_SIZE)
+  createFft(FFT_SIZE).transform(real, imag)
   const mag = new Float32Array(SPECTRUM_BINS)
   for (let i = 0; i < SPECTRUM_BINS; i++) {
     // Normalize by sqrt(FFT_SIZE), not FFT_SIZE (matches the reference
@@ -131,6 +55,8 @@ export function computeSpectrum(frame: Float32Array): Float32Array {
   }
   return mag
 }
+
+export { createFft, levelDb, downsample48to16, downsampleForViz }
 
 // ---------------------------------------------------------------------------
 // Test helpers (used by unit tests; not imported by the worklet)

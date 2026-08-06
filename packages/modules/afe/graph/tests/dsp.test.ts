@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  fft,
+  createFft,
   levelDb,
   downsample48to16,
   downsampleForViz,
@@ -23,7 +23,7 @@ describe('fft', () => {
     const real = constant(1.0, n)
     const imag = new Float32Array(n)
 
-    fft(real, imag, n)
+    createFft(n).transform(real, imag)
 
     // Bin 0 (DC) should be n; all others ~0.
     expect(Math.abs(real[0] - n)).toBeLessThan(0.001)
@@ -41,7 +41,7 @@ describe('fft', () => {
       real[i] = i % 2 === 0 ? 1 : -1
     }
 
-    fft(real, imag, n)
+    createFft(n).transform(real, imag)
 
     // Bin n/2 (Nyquist) should be n; all others ~0.
     expect(Math.abs(real[n / 2] - n)).toBeLessThan(0.001)
@@ -55,7 +55,7 @@ describe('fft', () => {
     const real = sineWave(freqHz, sampleRate, n)
     const imag = new Float32Array(n)
 
-    fft(real, imag, n)
+    createFft(n).transform(real, imag)
 
     // Find the peak bin.
     const mags = new Float32Array(n / 2)
@@ -71,7 +71,7 @@ describe('fft', () => {
     const real = sineWave(1000, 48000, n)
     const imag = new Float32Array(n)
 
-    fft(real, imag, n)
+    createFft(n).transform(real, imag)
 
     // For real input: X[k] = conj(X[n-k]).
     for (let k = 1; k < n / 2; k++) {

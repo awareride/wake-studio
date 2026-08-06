@@ -159,6 +159,9 @@ wake-studio/                          # pnpm workspace root
 - **Contracts live in `packages/contracts`** — web, studio-backend, and modules
   import *the same type/schema package*; modules depend on contracts, never on
   another module's internals.
+- **Shared DSP lives in `packages/dsp`** (`@wake-studio/dsp`, ADR-032) — pure-TS
+  FFT/STFT/mel layer (fft.js core + scipy/numpy conformance fixtures); modules
+  import it instead of hand-writing DSP. See `packages/dsp/README.md`.
 - **Per-target exports** — a module package exposes `@wake-studio/module-*/web`,
   `/node`, `/spec`, `/train`, `/device` subpaths; each world imports only what it
   needs (§3.2).
