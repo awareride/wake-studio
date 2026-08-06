@@ -34,7 +34,8 @@ import {
 // The encoder VARIANT ('base' / 'small') is now selectable in the UI (ADR-002):
 // the chosen variant selects which exported ONNX graph (or HF repo) the
 // embedder loads. Both emit a 1280-dim embedding, so scoring is identical.
-const PLIX_VARIANTS: ReadonlyArray<PlixEncoderVariant> = PLIX_ENCODER_VARIANTS
+// PLiX encoder variants are owned by the plix driver module (ADR-025) - web
+// just consumes them; the default matches the module's spec param default.
 const DEFAULT_VARIANT: PlixEncoderVariant['id'] = 'base'
 
 const RECORD_MS = 1500
@@ -321,7 +322,7 @@ export const FewShotPanel = memo(function FewShotPanel({
                 className="rounded bg-surface-3 px-2 py-1 text-ink-1"
                 title="Select the PLiX encoder variant (ADR-002). 'base' = EfficientNet-v2-M; 'small' = TinyNet-E (lighter). Both emit a 1280-dim embedding."
               >
-                {PLIX_VARIANTS.map((v) => (
+                {PLIX_ENCODER_VARIANTS.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.label}
                   </option>

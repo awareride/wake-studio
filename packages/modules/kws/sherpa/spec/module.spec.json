@@ -16,8 +16,8 @@
       "label": "Wake words (comma-separated)",
       "group": "primary",
       "type": "string",
-      "default": "hey buddy",
-      "description": "Editable text wake-word list for ASR-Decoding KWS (ADR-024)."
+      "default": "n ǐ h ǎo j ūn g ē :1.5 #0.35 @你好军哥\nn ǐ h ǎo w èn w èn :1.5 #0.35 @你好问问\nx iǎo ài t óng x ué :1.5 #0.35 @小爱同学",
+      "description": "Editable text wake-word list for ASR-Decoding KWS (ADR-024). One keyword per line: `spaced tokens :score #threshold @label` (sherpa-onnx text2token). Defaults match the keywords prebuilt into the wasm .data bundle."
     },
     {
       "id": "threshold",

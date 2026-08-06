@@ -26,6 +26,8 @@
 
 import type { KWSBackend, SherpaOnnxKwsConfig } from '@wake-studio/module-kws-engine'
 import { resolveAsset } from '@wake-studio/platform'
+import type { ModuleSpec } from '@wake-studio/contracts'
+import sherpaSpec from '../spec/module.spec.json'
 
 /**
  * Default wasm base URL: the sherpa driver's own assets dir (Q-K2 / ADR-025),
@@ -149,12 +151,12 @@ async function loadSherpaKws(
   return spotter
 }
 
-const DEFAULT_KEYWORDS = [
-  // wenetspeech-3.3M-2024-01-01 keyword tokens (ppinyin + @label).
-  'n ǐ h ǎo j ūn g ē :1.5 #0.35 @你好军哥',
-  'n ǐ h ǎo w èn w èn :1.5 #0.35 @你好问问',
-  'x iǎo ài t óng x ué :1.5 #0.35 @小爱同学',
-].join('\n')
+// The keyword list is owned by the module spec (single source of truth,
+// ADR-025) - the same value the web panel consumes to configure this backend.
+const DEFAULT_KEYWORDS =
+  ((sherpaSpec as unknown as ModuleSpec).params?.find((p) => p.id === 'keywords')
+    ?.default as string | undefined) ??
+  'hey buddy'
 
 export class SherpaOnnxKwsBackend implements KWSBackend {
   readonly id = 'sherpa-onnx-kws' as const

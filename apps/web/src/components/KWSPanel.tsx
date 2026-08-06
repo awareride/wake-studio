@@ -1,3 +1,16 @@
+/**
+ * KWS detection panel (live DSP orchestration, not spec-driven).
+ *
+ * The KWS stage's params/actions/status surface is declared in the module
+ * specs (kws-engine `describeParameters()`, per-driver specs like
+ * kws-sherpa's `keywords`); this panel is the LIVE orchestration layer on top
+ * of the engine: boot/load/start/stop, AFE stream wiring, score curve and
+ * trigger flash. Model locations come from the platform model registry
+ * (ADR-011/027), never hard-coded here.
+ *
+ * Spec-driven params render through UnifiedConfigPanel (module-kit controls).
+ */
+
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import {
@@ -15,36 +28,45 @@ import type {
 } from '@wake-studio/module-kws-engine'
 import { MEL_WINDOW_SIZE } from '@wake-studio/module-kws-engine'
 import type { SherpaOnnxKwsConfig } from '@wake-studio/module-kws-engine'
+import { loadRegistry, type ModelRegistry } from '@wake-studio/platform'
+import type { ModuleSpec } from '@wake-studio/contracts'
+import sherpaSpecJson from '@wake-studio/module-kws-sherpa/spec'
 import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
 import { useProjectStageConfig } from '../projects'
 import { logTrigger, logInfo, logError } from '../log'
-
-// Default keyword list for the sherpa-onnx KWS backend (matches the model
-// prebuilt into the wasm .data bundle). For the wenetspeech-3.3M-2024-01-01
-// model these use the ppinyin tokenization (per sherpa-onnx text2token).
-const KWS_KEYWORDS = [
-  'n ǐ h ǎo j ūn g ē :1.5 #0.35 @你好军哥',
-  'n ǐ h ǎo w èn w èn :1.5 #0.35 @你好问问',
-  'x iǎo ài t óng x ué :1.5 #0.35 @小爱同学',
-].join('\n')
-
-// Model URLs (ADR-011). The feature models (melspectrogram, speech-embedding)
-// are served from the openwakeword module's own assets dir (ADR-025) -
-// byte-identical to the hey-buddy re-hosts and Apache-2.0. The classifier
-// stays on the remote hey-buddy model (CC-BY-4.0, commercially clean) - see
-// ADR-018 Q-KWS-1.
-const MODEL_URLS: BackendModelUrls = {
-  melspectrogram: '/modules/kws/openwakeword/assets/openWakeWord/melspectrogram.onnx',
-  embedding: '/modules/kws/openwakeword/assets/openWakeWord/embedding_model.onnx',
-  classifier:
-    'https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/models/hey-buddy.onnx',
-}
 
 const HISTORY_MAX = 300 // ~3 s at ~100 fps
 
 interface Props {
   afePipeline: AFEPipeline | null
   afeRunning: boolean
+}
+
+/**
+ * Resolve the model URLs for the openWakeWord backend from the platform
+ * registry (ADR-011/027). Keyed by registry id; the URL is the module-owned
+ * assets path (ADR-025) for local models, remote for the classifier.
+ */
+export function modelUrlsFromRegistry(registry: ModelRegistry): BackendModelUrls {
+  const byId = new Map(registry.models.map((m) => [m.id, m.url]))
+  return {
+    melspectrogram: byId.get('melspectrogram'),
+    embedding: byId.get('speech_embedding'),
+    classifier: byId.get('hey-buddy'),
+  }
+}
+
+/** Resolve the sherpa-onnx KWS driver config from its module spec: the
+ *  keywords param (ASR-Decoding category, ADR-024) replaces the hard-coded
+ *  keyword list. The wasm base URL lives in the driver module (ADR-025). */
+export function sherpaConfigFromSpec(): Partial<SherpaOnnxKwsConfig> {
+  const sherpaSpec = sherpaSpecJson as unknown as ModuleSpec
+  const kwParam = sherpaSpec.params?.find((p) => p.id === 'keywords')
+  const kw = typeof kwParam?.default === 'string' ? kwParam.default : undefined
+  return {
+    wasmBaseUrl: '/modules/kws/sherpa/assets/sherpa-onnx-kws/',
+    keywords: kw,
+  }
 }
 
 export const KWSPanel = memo(function KWSPanel({
@@ -66,12 +88,13 @@ export const KWSPanel = memo(function KWSPanel({
   const [executionProvider, setExecutionProvider] = useState<'webgpu' | 'wasm'>(
     'wasm',
   )
-  const [logExport, setLogExport] = useState(false)
-
   const [lastKeyword, setLastKeyword] = useState('')
 
   const historyRef = useRef<KWSScoreSample[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  // Registry-loaded model URLs (lazy; resolved at load time, ADR-011).
+  const urlsRef = useRef<BackendModelUrls>({})
+  const sherpaCfgRef = useRef<Partial<SherpaOnnxKwsConfig>>({})
 
   const params = describeParameters()
 
@@ -83,16 +106,12 @@ export const KWSPanel = memo(function KWSPanel({
       setStatus('loading')
       // Ensure the engine has the latest backend selection before loading.
       engine.setConfig({ backend: config.backend, threshold: config.threshold })
-      const sherpaKwsConfig: Partial<SherpaOnnxKwsConfig> =
-        config.backend === 'sherpa-onnx-kws'
-          ? {
-              // Q-K2: wasm lives in the sherpa driver module's assets dir
-              // (served at /modules/kws/sherpa/assets/... in dev).
-              wasmBaseUrl: '/modules/kws/sherpa/assets/sherpa-onnx-kws/',
-              keywords: KWS_KEYWORDS,
-            }
-          : {}
-      await engine.load(MODEL_URLS, undefined, sherpaKwsConfig)
+      // Resolve model URLs from the platform registry (ADR-011) - never
+      // hard-coded here; the UI shows the exact fetch command if absent.
+      const registry = await loadRegistry()
+      urlsRef.current = modelUrlsFromRegistry(registry)
+      sherpaCfgRef.current = sherpaConfigFromSpec()
+      await engine.load(urlsRef.current, undefined, sherpaCfgRef.current)
       setStatus(engine.status)
       setExecutionProvider(engine.executionProvider)
       logInfo('kws', `Models loaded (backend: ${config.backend})`)
@@ -151,9 +170,7 @@ export const KWSPanel = memo(function KWSPanel({
 
   // Create the engine on mount (so backend/config changes made via the panel
   // before the first Load actually reach it), wire subscriptions, and push the
-  // current config in. Previously the engine was only instantiated inside
-  // handleLoad, which meant an early backend selection was silently ignored
-  // and the default (openwakeword) was loaded instead.
+  // current config in.
   useEffect(() => {
     if (!engineRef.current) {
       engineRef.current = new KWSEngine()
@@ -168,7 +185,7 @@ export const KWSPanel = memo(function KWSPanel({
     engine.onTrigger((e: KWSTriggerEvent) => {
       setTriggerFlash(true)
       setTimeout(() => setTriggerFlash(false), 500)
-      // Publish to the session console (Phase 4) - replaces console.log.
+      // Publish to the session console (Phase 4).
       logTrigger('kws', e)
     })
     engine.onPartial((text: string) => {
@@ -178,9 +195,6 @@ export const KWSPanel = memo(function KWSPanel({
       }
     })
     engine.setConfig({ backend: config.backend, threshold: config.threshold })
-    // The engine is created once; backend/threshold changes are pushed via
-    // updateConfig -> engine.setConfig, so only config.backend/threshold are
-    // re-applied here when the user changes them before loading.
     return () => engine.dispose()
   }, [config.backend, config.threshold])
 
@@ -308,59 +322,6 @@ export const KWSPanel = memo(function KWSPanel({
               (Traditional KWS · Primary)
             </span>
           </h3>
-
-          {/* Read-only surface flags (not tunable params; reserved). */}
-          <div className="mb-4 grid gap-4 sm:grid-cols-2">
-            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-ink-2">Inference mode</span>
-              <select
-                value="realtime"
-                disabled
-                className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
-                title="Real-time mic detection (offline-file import is reserved)."
-              >
-                <option value="realtime">Real-time mic</option>
-                <option value="offline">Offline file</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-ink-2">Output mode</span>
-              <select
-                value="trigger"
-                disabled
-                className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
-                title="Emit a trigger event + score (reserved: score-only / CSV)."
-              >
-                <option value="trigger">Trigger + score</option>
-                <option value="score">Score only</option>
-                <option value="csv">CSV log</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-ink-2">Acceleration</span>
-              <select
-                value={config.executionProvider}
-                disabled
-                className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
-                title="WebGPU when available, else WASM (ADR-018)."
-              >
-                <option value="webgpu">WebGPU</option>
-                <option value="wasm">WASM</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-ink-2">Log export</span>
-              <input
-                type="checkbox"
-                checked={logExport}
-                onChange={(e) => setLogExport(e.target.checked)}
-                className="accent-brand-400"
-              />
-              <span className="text-xs text-ink-3">
-                Stream scores to console
-              </span>
-            </label>
-          </div>
 
           {/* Tunable params rendered from the spec descriptors (module-kit). */}
           <UnifiedConfigPanel
