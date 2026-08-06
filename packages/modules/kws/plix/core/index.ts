@@ -37,6 +37,7 @@ registerEmbedProviderFactory((url, runtime) => {
 registerKwsBackend({
   id: 'plixkws',
   label: 'PLiX Few-Shot (prototype distance)',
+  category: 'few-shot',
   create: () => {
     const backend = new PlixKwsBackend(
       // The embedProvider is set via initWithPrototype; the constructor's

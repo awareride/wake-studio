@@ -34,6 +34,7 @@ describe('KWS backend registry (engine seam)', () => {
     registerKwsBackend({
       id: 'openwakeword',
       label: 'test',
+      category: 'traditional',
       create: () => stub,
       browserFeasible: true,
       availabilityNote: 'test',
@@ -55,6 +56,7 @@ describe('KWS backend registry (engine seam)', () => {
     registerKwsBackend({
       id: 'openwakeword',
       label: 'dup',
+      category: 'traditional',
       create: () => null as unknown as KWSBackend,
       browserFeasible: false,
       availabilityNote: '',

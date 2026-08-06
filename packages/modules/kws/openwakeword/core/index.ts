@@ -15,6 +15,7 @@ export { OpenWakeWordBackend } from './backend'
 registerKwsBackend({
   id: 'openwakeword',
   label: 'OpenWakeWord (mel -> embedding -> classifier)',
+  category: 'traditional',
   create: () => new OpenWakeWordBackend(),
   browserFeasible: true,
   availabilityNote: 'Available',

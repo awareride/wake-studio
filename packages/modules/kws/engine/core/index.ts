@@ -27,6 +27,7 @@ export type {
   BackendModelUrls,
   EmbedProvider,
   KWSBackend,
+  KWSBackendCategory,
   KWSBackendId,
   KWSConfig,
   KWSScoreSample,

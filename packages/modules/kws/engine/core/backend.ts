@@ -8,13 +8,20 @@
  * @see docs/modules/kws.md §4 (KWSBackend), §6 (backend config)
  */
 
-import type { KWSBackend, KWSBackendId } from './types'
+import type { KWSBackend, KWSBackendId, KWSBackendCategory } from './types'
 import type { ModuleSpec } from '@wake-studio/contracts'
 
 /** A registry entry for a KWS backend. */
 export interface KWSBackendRegistration {
   id: KWSBackendId
   label: string
+  /**
+   * KWS functional category (ADR-024 §2): 'traditional' | 'asr-decoding' |
+   * 'few-shot'. Hosts branch on this (e.g. enrollment flow for few-shot)
+   * instead of on backend ids, so a new few-shot driver gets the shared
+   * enrollment UI without touching the host. Defaults to 'traditional'.
+   */
+  category: KWSBackendCategory
   /**
    * Factory: create a backend instance. Throws if the backend has no
    * browser-feasible adapter yet.
