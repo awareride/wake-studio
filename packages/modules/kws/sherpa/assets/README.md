@@ -12,15 +12,12 @@ ADR-027 §6.7) and published as the `sherpa-onnx-kws-wasm` artifact.
 ```bash
 # generic path (reads the module spec's build.artifactName):
 node scripts/fetch-artifact.mjs kws-sherpa
-
-# or the legacy convenience script (same target dir):
-pnpm --filter @wake-studio/web fetch-sherpa-kws-assets
 ```
 
 Or point at an already-downloaded artifact dir:
 
 ```bash
-KWS_WASM_ARTIFACT_DIR=/path/to/artifact node scripts/fetch-artifact.mjs kws-sherpa
+node scripts/fetch-artifact.mjs kws-sherpa --from /path/to/artifact
 ```
 
 Expected files:

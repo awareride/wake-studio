@@ -351,7 +351,7 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
 - **sherpa-onnx KWS assets missing** (the ~55 MB
   `packages/modules/kws/sherpa/assets/sherpa-onnx-kws/*`
   bundle is gitignored, ADR-011): `load()` rejects with a message pointing at
-  `pnpm fetch-sherpa-kws-assets` (see `docs/build-artifacts.md`).
+  `node scripts/fetch-artifact.mjs kws-sherpa` (see `docs/build-artifacts.md`).
 - **ONNX session creation failure** (unsupported op, WASM unavailable): `load()`
   rejects; UI shows "KWS inference unavailable in this browser."
 - **WebGPU unavailable:** automatic fallback to WASM execution provider; UI shows

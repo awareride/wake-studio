@@ -76,6 +76,17 @@ export function renderParamControl({ param, value, onChange, disabled }: ParamCo
           className="h-8 w-48 rounded-lg border border-line bg-surface-3 px-2.5 text-sm text-ink-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-40"
         />
       )
+    case 'string':
+      return (
+        <input
+          type="text"
+          value={typeof value === 'string' ? value : ''}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          placeholder={typeof param.default === 'string' ? String(param.default) : ''}
+          className="h-8 w-48 rounded-lg border border-line bg-surface-3 px-2.5 text-sm text-ink-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-40"
+        />
+      )
     default:
       return null
   }

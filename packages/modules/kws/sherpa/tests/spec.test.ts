@@ -28,6 +28,14 @@ describe('kws-sherpa module spec', () => {
     expect(spec.build.registryEntry).toContain('model-registry.json')
   })
 
+  it('declares fetch unpacking (subdir + wasm whitelist)', () => {
+    expect(spec.build.fetch?.subdir).toBe('sherpa-onnx-kws')
+    expect(spec.build.fetch?.include).toContain('sherpa-onnx-wasm-kws-main.js')
+    // demo extras must NOT be fetched into the module assets
+    expect(spec.build.fetch?.include).not.toContain('app.js')
+    expect(spec.build.fetch?.include).not.toContain('index.html')
+  })
+
   it('is a kws driver module with KWSBackend interface', () => {
     expect(spec.meta.category).toBe('kws')
     expect(spec.interfaces.provides).toContain('KWSBackend')

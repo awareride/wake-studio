@@ -21,7 +21,7 @@ const sherpaWasm = resolve(
 )
 const SKIP_REASON = existsSync(sherpaWasm)
   ? null
-  : 'sherpa-onnx KWS wasm not present; run `pnpm --filter @wake-studio/web fetch-sherpa-kws-assets`'
+  : 'sherpa-onnx KWS wasm not present; run `node scripts/fetch-artifact.mjs kws-sherpa`'
 
 /**
  * Verifies the sherpa-onnx KWS WebAssembly backend actually boots in the
