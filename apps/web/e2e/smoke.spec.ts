@@ -62,21 +62,17 @@ test('model library renders registry entries', async ({ page }) => {
   await expect(page.getByText('OpenWakeWord (mel -> embedding -> classifier)')).toBeVisible()
 })
 
-test('live workspace panels still render (AFE/KWS/Few-Shot/Training)', async ({ page }) => {
+test('live workspace panels still render (AFE/KWS)', async ({ page }) => {
   await page.goto('/#/workspace')
 
   // AFE live pipeline.
   await expect(page.getByText('Live AFE pipeline')).toBeVisible()
   // KWS detection.
   await expect(page.getByText('KWS detection')).toBeVisible()
-  // Few-Shot enrollment (h2 in the panel).
-  await expect(page.getByRole('main').getByRole('heading', { name: 'Few-Shot enrollment' })).toBeVisible()
-
-  // Training is under the "Modules" tab (spec-driven panel, ADR-025).
-  await page.getByRole('tab', { name: 'Modules' }).click()
-  await expect(
-    page.getByRole('heading', { name: 'Training (custom wake-word)' }),
-  ).toBeVisible()
+  // KWS config is visible up front (spec-driven, ADR-017) - not gated behind
+  // a successful model load (the former "Modules" tab and the Training
+  // placeholder were removed).
+  await expect(page.getByText(/Configuration/)).toBeVisible()
 })
 
 test('KWS panel renders with the pluggable-backend UI (ADR-020)', async ({ page }) => {
@@ -93,27 +89,26 @@ test('KWS panel renders with the pluggable-backend UI (ADR-020)', async ({ page 
   await expect(loadButton).toBeHidden({ timeout: 5_000 })
 })
 
-test('Few-Shot enrollment panel renders (Phase 3)', async ({ page }) => {
+test('Few-Shot enrollment lives in the KWS panel plixkws branch (Phase 3)', async ({ page }) => {
   await page.goto('/#/workspace')
 
-  await expect(page.getByRole('heading', { name: /Few-Shot enrollment/i })).toBeVisible()
+  // Select the plixkws backend; the KWS panel shows the enrollment controls
+  // (encoder variant + runtime + Load PLiX encoder) instead of a dead button.
+  await page.getByLabel('Backend').selectOption('plixkws')
+  await expect(page.getByText(/PLiX Few-Shot enrollment/)).toBeVisible()
   await expect(page.getByRole('button', { name: /Load PLiX encoder/i })).toBeVisible()
+  // The generic KWS config panel is hidden for plixkws (enrollment replaces it).
+  await expect(page.getByText('Tunable parameters')).toBeHidden()
 })
 
-test('Traditional KWS Training panel renders (§4.2, spec-driven)', async ({ page }) => {
+test('Traditional KWS Training panel is not shown (no-op placeholder)', async ({ page }) => {
+  // Training is a no-op stub until real backend wiring lands (Phase 5); it
+  // must not surface in the Workspace. The module keeps its spec-driven panel
+  // for the future - see packages/modules/training.
   await page.goto('/#/workspace')
-
-  await page.getByRole('tab', { name: 'Modules' }).click()
   await expect(
     page.getByRole('heading', { name: 'Training (custom wake-word)' }),
-  ).toBeVisible()
-  await expect(page.getByText(/Wake phrase/i)).toBeVisible()
-  await expect(page.getByText(/Target tier/i)).toBeVisible()
-
-  // Advanced params collapse under the dual-layer "Advanced" section (ADR-024).
-  await expect(page.getByText(/Audio augmentation/i)).toBeHidden()
-  await page.getByRole('button', { name: /Advanced/i }).first().click()
-  await expect(page.getByText(/Audio augmentation/i)).toBeVisible()
+  ).toBeHidden()
 })
 
 test('workspace: create a project and it persists across reload', async ({ page }) => {

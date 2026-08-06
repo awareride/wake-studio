@@ -17,8 +17,23 @@
       "group": "primary",
       "type": "select",
       "default": "base",
-      "options": ["base", "small"],
-      "description": "base = EfficientNet-v2-M (1280-d); small = TinyNet-E."
+      "options": [
+        { "value": "base", "label": "PLiX base (EfficientNet-v2-M, 1280-d)" },
+        { "value": "small", "label": "PLiX small (TinyNet-E, 1280-d)" }
+      ],
+      "description": "base = EfficientNet-v2-M (1280-d); small = TinyNet-E (lighter, low-RAM)."
+    },
+    {
+      "id": "runtime",
+      "label": "PLiX execution runtime",
+      "group": "primary",
+      "type": "select",
+      "default": "onnx",
+      "options": [
+        { "value": "onnx", "label": "ONNX (onnxruntime-web)" },
+        { "value": "transformers", "label": "Transformers.js (browser-native, CDN)" }
+      ],
+      "description": "onnx loads the exported ONNX graph; transformers runs the encoder browser-native via @huggingface/transformers (no ONNX file, zero-Python deployment)."
     }
   ],
   "actions": [

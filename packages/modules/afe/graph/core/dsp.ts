@@ -104,20 +104,30 @@ export function downsampleForViz(
 
 /**
  * Compute a magnitude spectrum (SPECTRUM_BINS bins) from a frame.
- * Uses FFT_SIZE-point FFT with Hann window. The frame must be at least
- * FFT_SIZE samples long.
+ * Uses FFT_SIZE-point FFT with Hann window. If the frame is shorter than
+ * FFT_SIZE it is zero-padded (lets AEC/BSS pass the 128-sample worklet
+ * quantum directly without an allocation - the spectrum will simply
+ * represent a windowed, padded slice of the live signal).
  */
 export function computeSpectrum(frame: Float32Array): Float32Array {
   const real = new Float32Array(FFT_SIZE)
   const imag = new Float32Array(FFT_SIZE)
-  for (let i = 0; i < FFT_SIZE; i++) {
+  const n = Math.min(frame.length, FFT_SIZE)
+  for (let i = 0; i < n; i++) {
     real[i] = frame[i] * HANN_WINDOW[i]
-    imag[i] = 0
   }
+  // Remaining bins (if any) stay 0 (zero-padding) - leaves the Hann window
+  // tapering to zero at the end and keeps the FFT consistent.
   fft(real, imag, FFT_SIZE)
   const mag = new Float32Array(SPECTRUM_BINS)
   for (let i = 0; i < SPECTRUM_BINS; i++) {
-    mag[i] = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]) / FFT_SIZE
+    // Normalize by sqrt(FFT_SIZE), not FFT_SIZE (matches the reference
+    // spectrogram implementation - spectro uses amplitude/sqrt(windowSize)).
+    // With /FFT_SIZE a real room's broadband noise lands below a -60 dB
+    // display floor and the spectrogram looks almost black; /sqrt(N) lifts
+    // typical noise (~-43 dB) into the visible range while keeping speech
+    // (~-23 dB) well separated.
+    mag[i] = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]) / Math.sqrt(FFT_SIZE)
   }
   return mag
 }

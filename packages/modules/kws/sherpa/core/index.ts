@@ -18,6 +18,7 @@ export type { SherpaOnnxKwsConfig } from '@wake-studio/module-kws-engine'
 registerKwsBackend({
   id: 'sherpa-onnx-kws',
   label: 'sherpa-onnx KWS (direct keyword spotting)',
+  category: 'asr-decoding',
   create: () => new SherpaOnnxKwsBackend(),
   browserFeasible: true,
   availabilityNote: 'Inference only - prebuilt transducer model (ADR-020)',

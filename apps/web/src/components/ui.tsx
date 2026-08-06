@@ -9,50 +9,12 @@
  */
 
 import * as React from 'react'
-import * as TabsPrimitive from '@radix-ui/react-tabs'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import * as DropdownPrimitive from '@radix-ui/react-dropdown-menu'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import * as ToastPrimitive from '@radix-ui/react-toast'
 import { cn } from './cn'
 import { IconMenu } from './icons'
-
-// ---------------------------------------------------------------------------
-// Tabs (tab-container style)
-// ---------------------------------------------------------------------------
-export const Tabs = TabsPrimitive.Root
-export const TabsList = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.List
-    ref={ref}
-    className={cn(
-      'inline-flex items-center gap-1 border-b border-line px-2 pt-1.5 pb-0',
-      className,
-    )}
-    {...props}
-  />
-))
-TabsList.displayName = 'TabsList'
-export const TabsTrigger = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      'rounded-t-md border border-b-0 px-3 py-1.5 text-sm font-medium text-ink-2 outline-none transition-colors',
-      'hover:text-ink-1 focus-visible:ring-2 focus-visible:ring-brand-400',
-      'data-[state=active]:border-line data-[state=active]:bg-surface-2 data-[state=active]:text-brand-700',
-      'data-[state=inactive]:border-transparent data-[state=inactive]:bg-transparent',
-      className,
-    )}
-    {...props}
-  />
-))
-TabsTrigger.displayName = 'TabsTrigger'
-export const TabsContent = TabsPrimitive.Content
 
 // ---------------------------------------------------------------------------
 // Dialog

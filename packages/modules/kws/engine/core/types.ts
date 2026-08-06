@@ -15,6 +15,16 @@ import { DEFAULT_MODEL_RUNTIME } from '@wake-studio/platform'
  * Pluggable KWS backend identifiers (ADR-020). The engine delegates inference
  * to a `KWSBackend` adapter; selection is per-target / per-word.
  */
+/**
+ * KWS functional category (ADR-024 §2). Unlike ModuleSpec.meta.category
+ * (module type: afe/kws/few-shot/...), this is the product-level KWS
+ * taxonomy that drives the panel's behavior: Traditional (train+inference),
+ * ASR-Decoding (inference + editable text word list), Few-Shot
+ * (inference + audio-sample enrollment). A driver declares its category at
+ * registration; hosts branch on it instead of on backend ids.
+ */
+export type KWSBackendCategory = 'traditional' | 'asr-decoding' | 'few-shot'
+
 export type KWSBackendId =
   | 'openwakeword' // mel -> speech_embedding -> classifier (app-class)
   | 'microwakeword' // TFLite-Micro streaming CNN (MCU; not browser-feasible v1)

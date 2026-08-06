@@ -26,7 +26,7 @@ import { loadRnnoiseStage } from '@wake-studio/module-rnnoise/web/loader'
 
 import type { MainMessage, StageFrameData, WorkletMessage } from '../core/types'
 import { CIRCULAR_BUFFER_SIZE, RNNOISE_FRAME_SIZE } from '../core/defaults'
-import { computeSpectrum, downsample48to16, downsampleForViz, levelDb } from '../core/dsp'
+import { computeSpectrum, downsample48to16, downsampleForViz, FFT_SIZE, levelDb } from '../core/dsp'
 
 const PROCESSOR_NAME = 'pipeline-processor'
 
@@ -221,21 +221,37 @@ class PipelineProcessor extends AudioWorkletProcessor {
     const vizPoints = 128
     const frames: StageFrameData[] = []
 
-    // AEC stage (passthrough for v1): shows raw input.
+    // Use the last FFT_SIZE samples from the ring buffer for the spectrum so
+    // AEC/BSS get a full-resolution FFT (passing the 128-sample quantum would
+    // zero-pad half the window -> only the lower frequency bins would light
+    // up and the spectrogram would look bottom-heavy). Before the buffer
+    // wraps, _inputLength is the write cursor; subarray slices are contiguous.
+    const specStart = Math.max(0, this._inputLength - FFT_SIZE)
+    const specFrame = this._buffer.subarray(specStart, this._inputLength)
+
+    // AEC stage (passthrough for v1): shows raw input. The metrics field
+    // reserves the ERLE (echo return loss enhancement) slot for the future
+    // AEC3 implementation; passthrough reports 0 dB (no suppression).
     frames.push({
       stageId: 'aec',
       kind: 'aec',
       capturedAtMs,
       waveform: downsampleForViz(rawInput, vizPoints),
       levelDb: levelDb(rawInput),
+      spectrum: computeSpectrum(specFrame),
+      metrics: { erleDb: 0 },
     })
 
-    // BSS stage (passthrough): same as AEC output.
+    // BSS stage (passthrough): same as AEC output. metrics reserves the
+    // separation-quality slot (e.g. SI-SDR improvement) for the future
+    // 2-mic beamforming implementation.
     frames.push({
       stageId: 'bss',
       kind: 'bss',
       capturedAtMs,
       levelDb: levelDb(rawInput),
+      spectrum: computeSpectrum(specFrame),
+      metrics: { siSdrDb: 0 },
     })
 
     // NS stage: always use the last denoised frame (stable, no intermittent gaps).
