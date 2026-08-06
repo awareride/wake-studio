@@ -1,4 +1,4 @@
-# prebuilts/plixkws
+# packages/modules/kws/plix/assets
 
 Browser-ready PLiX Few-Shot KWS encoder (`aaqibsaeed/plixkws`,
 Apache-2.0; arXiv:2305.03058).
@@ -54,11 +54,11 @@ external weights are NOT auto-fetched. The app must pass them explicitly via
 the `externalData` session option:
 
 ```js
-await ort.InferenceSession.create('/prebuilts/plixkws/plixkws-small.onnx', {
+await ort.InferenceSession.create('/modules/kws/plix/assets/plixkws-small.onnx', {
   executionProviders: ['wasm'],
   externalData: [
     { path: 'plixkws-small.onnx.data',          // must match the protobuf location
-      data: '/prebuilts/plixkws/plixkws-small.onnx.data' }, // URL | Blob | Uint8Array
+      data: '/modules/kws/plix/assets/plixkws-small.onnx.data' }, // URL | Blob | Uint8Array
   ],
 })
 ```
@@ -66,7 +66,8 @@ await ort.InferenceSession.create('/prebuilts/plixkws/plixkws-small.onnx', {
 This is already wired in `src/kws/backends/plix-onnx.ts` (`_externalDataOptions`),
 keyed off the model filename. So:
 
-- Keep the two files co-located under `prebuilts/plixkws/`.
+- Keep the two files co-located under this folder (served at
+  `/modules/kws/plix/assets/` per ADR-025).
 - Serve the `.onnx.data` with a binary content-type (the dev/preview server
   already maps `.data` -> `application/octet-stream` in `vite.config.ts`).
 - If you re-export `small` without external data (all weights inlined), no
@@ -83,14 +84,18 @@ ONNX:
 
 ```bash
 pip install "plixkws"          # pulls torch, torchaudio, timm
-python scripts/export-plixkws-onnx.py \
+python packages/modules/kws/plix/scripts/export-plixkws-onnx.py \
     --encoder base --language en \
-    --out prebuilts/plixkws/plixkws-base.onnx
+    --out packages/modules/kws/plix/assets/plixkws-base.onnx
 ```
 
+(Or run the module build: `node packages/modules/kws/plix/scripts/build-plix.mjs
+--out <dir> --input-encoder base`, which wraps the exporter and also stages the
+HF-style dir; CI does this via the generic build workflow, ADR-027 §6.7.)
+
 Drop the resulting `plixkws-base.onnx` (and `plixkws-small.onnx[.data]`) into
-this folder. The app serves them from `/prebuilts/plixkws/` and selects the
-variant via the encoder selector in the Few-Shot panel (see
+this folder. The app serves them from `/modules/kws/plix/assets/` and selects
+the variant via the encoder selector in the Few-Shot panel (see
 `public/model-registry.json`, entries `plixkws` and `plixkws-small`,
 `runtime: "onnx"`).
 
@@ -103,7 +108,7 @@ and point `plixkws` at either:
    `@huggingface/transformers` v4 from the jsDelivr CDN and fetches the model's
    ONNX weights + `config.json` from the Hub at runtime.
 2. **A local HF-style directory** under this folder, e.g.
-   `prebuilts/plixkws/hf/plixkws/` containing:
+   `hf/plixkws/` containing:
    ```
    hf/plixkws/
    ├── config.json
@@ -111,7 +116,7 @@ and point `plixkws` at either:
        ├── model.onnx                 # the exported PLiX graph
        └── plixkws-small.onnx.data     # external weights (only for 'small')
    ```
-   Point `plixkws` at `/prebuilts/plixkws/hf/plixkws`; the encoder sets
+   Point `plixkws` at `/modules/kws/plix/assets/hf/plixkws`; the encoder sets
    `env.allowRemoteModels = false` and `env.localModelPath` so it loads fully
    offline. The graph inside `onnx/model.onnx` is the SAME
    `plixkws-small.onnx` exported above — just renamed to the `model.onnx`
@@ -121,11 +126,12 @@ and point `plixkws` at either:
    `plixkws-small.onnx.data`, resolved relative to the graph). Copy, don't
    move, the originals so the default `onnx` runtime keeps working too.
 
-   Quick generation from the local weights:
+   Quick generation from the local weights (or run the module build, which
+   does this automatically):
    ```bash
-   mkdir -p prebuilts/plixkws/hf/plixkws/onnx
-   cp prebuilts/plixkws/plixkws-small.onnx   prebuilts/plixkws/hf/plixkws/onnx/model.onnx
-   cp prebuilts/plixkws/plixkws-small.onnx.data prebuilts/plixkws/hf/plixkws/onnx/plixkws-small.onnx.data
+   mkdir -p hf/plixkws/onnx
+   cp plixkws-small.onnx   hf/plixkws/onnx/model.onnx
+   cp plixkws-small.onnx.data hf/plixkws/onnx/plixkws-small.onnx.data
    # add hf/plixkws/config.json (see the minimal schema below)
    ```
    (This folder is gitignored — it is a generated, dev-only artifact per

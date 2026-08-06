@@ -5,9 +5,13 @@
  * scripts/build-module.mjs with the module's declared inputs.
  *
  * The actual torch/ONNX export stays in Python
- * (apps/web/scripts/export-plixkws-onnx.py - the toolchain lives in CI via
- * `uv`/python). This script wires the module's declared inputs to that
- * exporter and stages the artifacts (flat ONNX + HF-style dir) under --out.
+ * (packages/modules/kws/plix/scripts/export-plixkws-onnx.py - the toolchain
+ * lives in CI via `uv`/python). This script wires the module's declared inputs
+ * to that exporter and stages the artifacts (flat ONNX + HF-style dir) under
+ * --out.
+ *
+ * The exporter lives in the module's own scripts/ dir (colocated with this
+ * wrapper, ADR-027 §6.7) - it is NOT shared app scaffolding.
  *
  * Usage:
  *   node scripts/build-plix.mjs --out <artifact-dir> \
@@ -20,8 +24,7 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const REPO_ROOT = resolve(__dirname, '..', '..', '..', '..')
-const MODULE_DIR = process.env.MODULE_DIR || REPO_ROOT
+const MODULE_DIR = process.env.MODULE_DIR || resolve(__dirname, '..')
 
 function die(msg) {
   console.error(`[build-plix] ${msg}`)
@@ -53,8 +56,8 @@ function main() {
   const opset = args.inputs.opset || '18'
 
   const exporter = resolve(
-    REPO_ROOT,
-    'apps/web/scripts/export-plixkws-onnx.py',
+    __dirname,
+    'export-plixkws-onnx.py',
   )
   if (!existsSync(exporter)) die(`exporter missing: ${exporter}`)
 

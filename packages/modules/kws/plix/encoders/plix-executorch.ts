@@ -22,7 +22,7 @@
  *      `extension/wasm` build) - requires install authorization (AGENTS.md).
  *   2. Build a `Module` from the `.pte` bytes, call `forward()` with the
  *      1x64x100 log-Mel `Tensor`, and read back the 1280-d embedding.
- *   3. Add the `.pte` export to scripts/export-plixkws-onnx.py.
+ *   3. Add the `.pte` export to packages/modules/kws/plix/scripts/export-plixkws-onnx.py.
  *
  * Like the other runtimes, the acoustic front-end is computed here in JS
  * (`plix-frontend.logMelSpectrogram`) so ExecuTorch receives the same

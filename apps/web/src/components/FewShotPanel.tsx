@@ -142,10 +142,10 @@ export const FewShotPanel = memo(function FewShotPanel({
         setError(
           `PLiX (${encoderVariant}) 'transformers' runtime needs a locally-exported ` +
             `HF-style dir at ${variant?.transformersLocalDir ?? '/modules/kws/plix/assets/hf/plixkws'} ` +
-            `(config.json + onnx/model.onnx). Generate it with: ` +
-            'npm run gen-plix-hf-dir -- --variant ' +
-            encoderVariant +
-            '. Alternatively, use the default ONNX runtime.',
+            `(config.json + onnx/model.onnx). Generate it by running the PLiX module ` +
+            `build (node packages/modules/kws/plix/scripts/build-plix.mjs --out <dir> ` +
+            `--input-encoder ${encoderVariant}); it stages the HF-style dir. ` +
+            'Alternatively, use the default ONNX runtime.',
         )
       } else if (/fetch|404|load failed|not loaded/i.test(msg)) {
         setError(
