@@ -44,7 +44,7 @@ jobs:
       # (gitignored, ADR-011). The build copies them into dist/ (P0-3).
       - name: Fetch runtime assets
         run: |
-          pnpm --filter @wake-studio/web fetch-sherpa-kws-assets || echo "sherpa wasm fetch failed (non-fatal for deploy; backend will 404 until built)"
+          node scripts/fetch-artifact.mjs kws-sherpa || echo "sherpa wasm fetch failed (non-fatal for deploy; backend will 404 until built)"
           node scripts/fetch-artifact.mjs kws-plix || echo "plixkws fetch failed (non-fatal)"
 
       # Project-page sites need a sub-path (ADR-012).
@@ -90,7 +90,7 @@ jobs:
       # Fetch runtime assets into module assets dirs before build (P0-3).
       - name: Fetch runtime assets
         run: |
-          pnpm --filter @wake-studio/web fetch-sherpa-kws-assets || echo "sherpa wasm fetch failed (non-fatal for deploy; backend will 404 until built)"
+          node scripts/fetch-artifact.mjs kws-sherpa || echo "sherpa wasm fetch failed (non-fatal for deploy; backend will 404 until built)"
           node scripts/fetch-artifact.mjs kws-plix || echo "plixkws fetch failed (non-fatal)"
 
       # Cloudflare Pages serves at root (ADR-012).

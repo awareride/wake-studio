@@ -14,8 +14,8 @@
  *      global `Module` and fires `onRuntimeInitialized`.
  *
  * Per the repo's lazy-asset convention (ADR-011), the ~53 MB wasm bundle is NOT
- * committed; it is fetched into `public/sherpa-onnx-kws/` by
- * `scripts/fetch-sherpa-kws-assets.mjs` (or by importing the CI artifact).
+ * committed; it is fetched into the module assets dir by
+ * `scripts/fetch-artifact.mjs kws-sherpa` (or by importing the CI artifact).
  *
  * Pipeline:
  *   AFE 16 kHz frames -> KeywordSpotter.acceptWaveform

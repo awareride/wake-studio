@@ -80,6 +80,15 @@
     "script": "scripts/build-sherpa-kws.mjs",
     "artifactName": "sherpa-onnx-kws-wasm",
     "registryEntry": "public/model-registry.json#kws-sherpa",
+    "fetch": {
+      "subdir": "sherpa-onnx-kws",
+      "include": [
+        "sherpa-onnx-wasm-kws-main.js",
+        "sherpa-onnx-wasm-kws-main.wasm",
+        "sherpa-onnx-wasm-kws-main.data",
+        "sherpa-onnx-kws.js"
+      ]
+    },
     "toolchains": {
       "emsdk": "4.0.23"
     },

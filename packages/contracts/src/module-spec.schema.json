@@ -104,7 +104,8 @@
               "select",
               "enum",
               "slider",
-              "secret"
+              "secret",
+              "string"
             ]
           },
           "default": {},
@@ -430,6 +431,23 @@
         },
         "registryEntry": {
           "type": "string"
+        },
+        "fetch": {
+          "type": "object",
+          "description": "How scripts/fetch-artifact.mjs unpacks the artifact into assets/.",
+          "properties": {
+            "include": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "File whitelist (basenames); when set, only these files are copied, dropping demo extras (e.g. app.js, index.html)."
+            },
+            "subdir": {
+              "type": "string",
+              "description": "Subdirectory of assets/ to copy into (default: assets/ root)."
+            }
+          }
         },
         "toolchains": {
           "type": "object",

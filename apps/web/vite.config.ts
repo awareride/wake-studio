@@ -8,10 +8,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
 
 const projectRoot = dirname(fileURLToPath(import.meta.url))
-const prebuiltsRoot = resolve(projectRoot, 'prebuilts')
 // Monorepo module-assets root: packages/modules/<category>/<module>/assets/.
 // Served at /modules/<category>/<module>/assets/... (ADR-025 - a module's
-// binary artifacts live with the module, not in a central prebuilts/ pool).
+// binary artifacts live with the module, not in a central pool).
 const modulesRoot = resolve(projectRoot, '../../packages/modules')
 
 /**
@@ -99,12 +98,14 @@ function isDir(p: string): boolean {
 }
 
 /**
- * Dev/preview plugin: serve the local `prebuilts/` directory at `/prebuilts/`
- * (ADR-011 amendment - pre-fetched local assets). These are dev-only; they are
- * gitignored and never bundled into the PWA build (dist/). In a deployed build
- * the registry falls back to remote URLs.
+ * Dev/preview plugin: serve module-owned assets and the onnxruntime wasm.
+ *
+ *   /modules/<category>/<module>/assets/<rel> -> packages/modules/.../assets
+ *   /ort/<rel>                                -> onnxruntime-web dist (node_modules)
+ *
+ * (ADR-025; the legacy central /prebuilts/ pool was retired.)
  */
-function servePrebuilts() {
+function serveAssets() {
   const contentTypes: Record<string, string> = {
     '.onnx': 'application/octet-stream',
     // ONNX external-data weights (e.g. plixkws-small.onnx.data). onnxruntime-web
@@ -119,8 +120,8 @@ function servePrebuilts() {
   /**
    * Serve files from a disk root at a URL prefix, with a path-traversal guard.
    *
-   * @param urlPrefix  e.g. '/prebuilts/'
-   * @param diskRoot   e.g. resolve(projectRoot, 'prebuilts')
+   * @param urlPrefix  e.g. '/modules/'
+   * @param diskRoot   e.g. resolve(projectRoot, '../../packages/modules')
    * @param strip      how much of the URL to strip before resolving (defaults
    *                   to urlPrefix).
    */
@@ -161,8 +162,6 @@ function servePrebuilts() {
     }
   }
 
-  // Legacy central pool (ADR-011 amendment): /prebuilts/<rel> -> prebuilts/<rel>.
-  const prebuiltsHandler = makeHandler('/prebuilts/', prebuiltsRoot)
   // Module-owned assets (ADR-025): /modules/<category>/<module>/assets/<rel>
   // -> packages/modules/<category>/<module>/assets/<rel>. A module declares its
   // artifact URLs in spec/module.spec.json runtime.web.wasm.url.
@@ -174,12 +173,10 @@ function servePrebuilts() {
     : (_req: IncomingMessage, _res: ServerResponse, next: () => void) => next()
 
   const handler = (req: IncomingMessage, res: ServerResponse, next: () => void) => {
-    prebuiltsHandler(req, res, () =>
-      modulesHandler(req, res, () => ortHandler(req, res, next)),
-    )
+    modulesHandler(req, res, () => ortHandler(req, res, next))
   }
   return {
-    name: 'wake-studio:serve-prebuilts',
+    name: 'wake-studio:serve-assets',
     configureServer(server: ViteDevServer) {
       server.middlewares.use(handler)
     },
@@ -211,7 +208,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    servePrebuilts(),
+    serveAssets(),
     copyModuleAssets(),
     VitePWA({
       registerType: 'autoUpdate',

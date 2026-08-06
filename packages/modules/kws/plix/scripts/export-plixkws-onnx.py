@@ -27,12 +27,13 @@ module), and trace just the encoder trunk.
 
 Usage:
     pip install "plixkws"   # pulls torch, torchaudio, timm
-    python scripts/export-plixkws-onnx.py \
+    python packages/modules/kws/plix/scripts/export-plixkws-onnx.py \
         --encoder base --language en \
         --out packages/modules/kws/plix/assets/plixkws-base.onnx
 
-Note: `prebuilts/` is gitignored (dev-only); the exported `.onnx` is never
-committed. The browser app loads it from `/prebuilts/plixkws/<name>.onnx`.
+Note: module `assets/` is gitignored (ADR-011); the exported `.onnx` is never
+committed. The browser app loads it from `/modules/kws/plix/assets/<name>.onnx`
+(ADR-025).
 """
 
 import argparse

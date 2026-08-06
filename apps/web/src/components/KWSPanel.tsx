@@ -29,12 +29,13 @@ const KWS_KEYWORDS = [
 ].join('\n')
 
 // Model URLs (ADR-011). The feature models (melspectrogram, speech-embedding)
-// are served from local prebuilts (ADR-011 amendment) - byte-identical to the
-// hey-buddy re-hosts and Apache-2.0. The classifier stays on the remote
-// hey-buddy model (CC-BY-4.0, commercially clean) - see ADR-018 Q-KWS-1.
+// are served from the openwakeword module's own assets dir (ADR-025) -
+// byte-identical to the hey-buddy re-hosts and Apache-2.0. The classifier
+// stays on the remote hey-buddy model (CC-BY-4.0, commercially clean) - see
+// ADR-018 Q-KWS-1.
 const MODEL_URLS: BackendModelUrls = {
-  melspectrogram: '/prebuilts/openWakeWord/melspectrogram.onnx',
-  embedding: '/prebuilts/openWakeWord/embedding_model.onnx',
+  melspectrogram: '/modules/kws/openwakeword/assets/openWakeWord/melspectrogram.onnx',
+  embedding: '/modules/kws/openwakeword/assets/openWakeWord/embedding_model.onnx',
   classifier:
     'https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/models/hey-buddy.onnx',
 }

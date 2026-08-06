@@ -9,7 +9,7 @@
  */
 
 /** Param control kinds (ADR-017 leaf; panel generator maps 1:1). */
-export type ParamType = 'number' | 'boolean' | 'select' | 'enum' | 'slider' | 'secret'
+export type ParamType = 'number' | 'boolean' | 'select' | 'enum' | 'slider' | 'secret' | 'string'
 
 export interface ParamValidation {
   required?: boolean
@@ -150,6 +150,13 @@ export interface ModuleBuild {
   fetchScript?: string
   artifactName?: string
   registryEntry?: string
+  /** How `scripts/fetch-artifact.mjs` unpacks the artifact into assets/. */
+  fetch?: {
+    /** File whitelist; when set, only these basenames are copied (drops demo extras). */
+    include?: string[]
+    /** Subdirectory of assets/ to copy into (default: assets/ root). */
+    subdir?: string
+  }
   /** Toolchains the generic workflow installs (keyed by tool). */
   toolchains?: ModuleBuildToolchains
   /** workflow_dispatch inputs declared by the module (dynamic UI). */

@@ -14,10 +14,8 @@
     "test:unit": "vitest run",
     "test:e2e": "playwright install chromium && playwright test",
     "test": "vitest run && pnpm test:e2e",
-    "gen-icons": "node scripts/gen-icons.mjs",
-    "gen-plix-hf-dir": "node scripts/gen-plix-hf-dir.mjs",
-    "fetch-sherpa-kws-assets": "node scripts/fetch-sherpa-kws-assets.mjs",
-    "fetch:all": "node scripts/fetch-sherpa-kws-assets.mjs"
+    "fetch-sherpa-kws-assets": "node ../../scripts/fetch-artifact.mjs kws-sherpa",
+    "fetch:all": "node ../../scripts/fetch-artifact.mjs kws-sherpa"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",

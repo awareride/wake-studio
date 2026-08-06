@@ -7,8 +7,9 @@
  *
  *   - 'onnx'        -> onnxruntime-web (default). Needs an exported
  *                       `plixkws-<variant>.onnx` file (see
- *                       scripts/export-plixkws-onnx.py). The `small` export
- *                       uses external data (plixkws-small.onnx.data).
+ *                       packages/modules/kws/plix/scripts/export-plixkws-onnx.py).
+ *                       The `small` export uses external data
+ *                       (plixkws-small.onnx.data).
  *   - 'transformers' -> @xenova/transformers `feature-extraction`
  *                       pipeline, run browser-native via WASM/WebGPU. **No ONNX
  *                       file required** - it loads safetensors/bin weights
@@ -59,10 +60,10 @@ export interface PlixEncoderVariant {
    * Local HF-style directory URL for the transformers runtime. The PLiX ONNX
    * graph is NOT hosted on the Hub (the `aaqibsaeed/plixkws` repo only ships
    * `.pt` weights + config.json), so the transformers runtime must load the
-   * graph from a locally-exported HF-style dir produced by
-   * `scripts/export-plixkws-onnx.py --hf-dir prebuilts/plixkws/hf/plixkws`
-   * (config.json + onnx/model.onnx). This path starts with '/' so the
-   * encoder serves it from the dev server (no remote fetch).
+   * graph from a locally-exported HF-style dir produced by the PLiX module
+   * build (packages/modules/kws/plix/scripts/build-plix.mjs), which stages
+   * hf/plixkws/ (config.json + onnx/model.onnx). This path starts with '/' so
+   * the encoder serves it from the dev server (no remote fetch).
    */
   transformersLocalDir: string
   /** One-line note shown in the encoder selector. */
@@ -71,8 +72,9 @@ export interface PlixEncoderVariant {
 
 /**
  * The selectable PLiX encoder variants. The `onnxUrl` points at the ONNX
- * graph exported by scripts/export-plixkws-onnx.py (see the
- * `export-plixkws.yml` workflow with `--encoder base|small`).
+ * graph exported by packages/modules/kws/plix/scripts/export-plixkws-onnx.py
+ * (see the generic module build workflow, ADR-027 §6.7, with
+ * `--encoder base|small`).
  */
 export const PLIX_ENCODER_VARIANTS: ReadonlyArray<PlixEncoderVariant> = [
   {

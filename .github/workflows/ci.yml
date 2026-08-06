@@ -87,7 +87,7 @@ jobs:
         # assets dir (gitignored). Non-fatal: the spec skips if the file is
         # absent (see sherpa-kws.spec.ts).
         run: |
-          pnpm --filter @wake-studio/web fetch-sherpa-kws-assets || echo "sherpa wasm fetch failed; sherpa-kws spec will be skipped"
+          node scripts/fetch-artifact.mjs kws-sherpa || echo "sherpa wasm fetch failed; sherpa-kws spec will be skipped"
 
       - name: Build PWA (for preview server)
         # `pnpm preview` serves dist/; the e2e job must build it first (the

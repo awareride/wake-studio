@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
-    "fetch:all": "echo 'no artifacts (models are registry-fetched, ADR-011)'"
+    "fetch:all": "echo 'models live in assets/openWakeWord/ (copied from the openWakeWord release, ADR-025); see assets/README.md'"
   },
   "dependencies": {
     "@wake-studio/contracts": "workspace:*",

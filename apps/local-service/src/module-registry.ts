@@ -7,21 +7,21 @@
  *
  * The registry is the single source of truth for "what modules exist" in the
  * local world - mirroring how the web panel registry consumes the same specs.
+ *
+ * Note: the walk here is intentionally a 2-level scan (category/module). The
+ * shared scripts/lib/module-discovery.mjs handles the recursive discovery for
+ * the repo-level build scripts; the local-service registry instead validates
+ * specs (module-kit) and probes the filesystem for runtime targets, which the
+ * build scripts do not need.
  */
 
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
-import { resolve, join } from 'node:path'
+import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { ModuleSpec } from '@wake-studio/contracts'
 import { validateModuleSpec } from '@wake-studio/module-kit/validator'
 
-const here = dirname(fileURLToPath(import.meta.url))
-/** Monorepo modules root (packages/modules/<category>/<module>/). */
-const modulesRoot = resolve(here, '../../../packages/modules')
-
-function dirname(p: string): string {
-  return p.split('/').slice(0, -1).join('/')
-}
+const modulesRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../packages/modules')
 
 export interface RegisteredModule {
   /** Package directory (packages/modules/<category>/<module>). */
@@ -64,7 +64,7 @@ export function discoverModules(root: string = modulesRoot): RegisteredModule[] 
           category,
           id: spec.meta.id,
           spec,
-          hasNodeTarget: existsSync(join(dir, 'node', 'index.ts')) || existsSync(join(dir, 'node', 'index.js')),
+          hasNodeTarget: hasFile(dir, 'node', 'index.ts') || hasFile(dir, 'node', 'index.js'),
           hasTrainTarget: existsSync(join(dir, 'train')),
           hasDeviceTarget: existsSync(join(dir, 'device')),
         })
@@ -79,6 +79,15 @@ export function discoverModules(root: string = modulesRoot): RegisteredModule[] 
 /** Find one module by id. */
 export function findModule(id: string, root?: string): RegisteredModule | undefined {
   return discoverModules(root).find((m) => m.id === id)
+}
+
+/** True if `<dir>/<...parts>` is a regular file. */
+function hasFile(dir: string, ...parts: string[]): boolean {
+  try {
+    return existsSync(join(dir, ...parts))
+  } catch {
+    return false
+  }
 }
 
 function safeReaddir(dir: string): string[] {

@@ -57,7 +57,9 @@ describe('resolveAsset (base-path, ADR-012)', () => {
 
   it('joins a root-relative path under the app base', () => {
     const base = APP_BASE.endsWith('/') ? APP_BASE : `${APP_BASE}/`
-    expect(resolveAsset('/prebuilts/x.wasm')).toBe(`${base}prebuilts/x.wasm`)
+    expect(resolveAsset('/modules/kws/sherpa/assets/x.wasm')).toBe(
+      `${base}modules/kws/sherpa/assets/x.wasm`,
+    )
   })
 
   it('keeps a path already under the base unchanged', () => {

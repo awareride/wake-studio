@@ -21,7 +21,7 @@
  *
  * Locator forms (the `modelId` passed to the constructor / `load`):
  *   - HF repo id  : e.g. 'aaqibsaeed/plixkws' (weights fetched from the Hub).
- *   - local HF dir: e.g. '/prebuilts/plixkws/hf/plixkws' - set via
+ *   - local HF dir: e.g. '/modules/kws/plix/assets/hf/plixkws' - set via
  *     `env.localModelPath` + `allowRemoteModels=false`; the dir must contain
  *     config.json and onnx/model.onnx.
  *
@@ -100,7 +100,7 @@ export class PlixTransformersEncoder implements PlixEncoder {
     // base dir and the trailing id.
     if (this._modelId.startsWith('/')) {
       const idx = this._modelId.lastIndexOf('/')
-      const base = this._modelId.slice(0, idx) // e.g. /prebuilts/plixkws/hf
+      const base = this._modelId.slice(0, idx) // e.g. /modules/kws/plix/assets/hf
       const id = this._modelId.slice(idx + 1) // e.g. plixkws
       mod.env.allowRemoteModels = false
       mod.env.allowLocalModels = true
@@ -111,11 +111,12 @@ export class PlixTransformersEncoder implements PlixEncoder {
       // browser via a HARDCODED `_data` naming convention: it looks for
       // `<graph-without-.onnx>_data` (i.e. `onnx/model.onnx_data`), IGNORING
       // the protobuf `location` AND any `externalData` option we pass when
-      // external tensors are present. The generated HF-style graph
-      // (scripts/gen-plix-hf-dir.mjs) therefore rewrites the external
-      // `location` to `model.onnx_data` so it matches. We still pass
-      // `externalData` under that key (the graph's `onnx/model.onnx_data` file
-      // also exists on disk, so ORT-web can fetch it directly if preferred).
+      // external tensors are present. The generated HF-style graph (staged by
+      // packages/modules/kws/plix/scripts/build-plix.mjs) therefore rewrites
+      // the external `location` to `model.onnx_data` so it matches. We still
+      // pass `externalData` under that key (the graph's
+      // `onnx/model.onnx_data` file also exists on disk, so ORT-web can fetch
+      // it directly if preferred).
       const onnxDir = `${this._modelId}/onnx`
       const externalData = [
         {
