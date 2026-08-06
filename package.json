@@ -19,7 +19,6 @@
     "test:unit": "pnpm -r test:unit",
     "test:e2e": "pnpm --filter @wake-studio/web test:e2e",
     "test": "pnpm test:unit && pnpm test:e2e",
-    "fetch-sherpa-kws-assets": "pnpm --filter @wake-studio/web fetch-sherpa-kws-assets",
     "fetch:all": "pnpm -r fetch:all"
   },
   "devDependencies": {

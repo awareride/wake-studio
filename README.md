@@ -93,11 +93,11 @@ pnpm preview
 ```
 
 Fetch runtime assets (sherpa KWS wasm ~53 MB, plixkws ONNX) into the module
-`assets/` dirs (gitignored, ADR-011):
+`assets/` dirs (gitignored, ADR-011) — each artifact-owning module declares its
+own `fetch:all`, and the root command runs them all (ADR-027):
 
 ```bash
-pnpm --filter @wake-studio/web fetch-sherpa-kws-assets   # sherpa-onnx KWS wasm
-node scripts/fetch-artifact.mjs kws-plix                 # plixkws ONNX (generic path)
+pnpm fetch:all
 ```
 
 > The first `pnpm install` requires authorization per `AGENTS.md`.
