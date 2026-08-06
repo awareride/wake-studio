@@ -22,7 +22,7 @@ source of the v1 VAD probability used to gate KWS (ADR-018).
 
 ```
 assets/  prebuilt rnnoise.wasm (vendored, gitignored binary)
-core/    portable DSP + module facade
+core/    constants/VAD mapping + module facade (DSP numerics in @wake-studio/dsp)
 web/     wasm loader + spec-driven playground
 device/  device-side RNNoise (C) integration kit
 train/   train contract (frozen model; no training, ADR-028)

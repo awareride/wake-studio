@@ -564,7 +564,9 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
     ADR-024 decoupling rule to all modules).
   - Shared pure logic (DSP) may live in a module and be imported by other
     modules' *tests*, but cross-module runtime imports go through the declared
-    contract.
+    contract. **Amended by ADR-032 (2026-08-06):** shared *numeric* DSP now
+    lives in `@wake-studio/dsp` (the platform DSP package); modules import it
+    instead of defining their own.
 - **Monorepo layout (2026-07-31):**
   - `apps/web` (PWA), `apps/local-service` (Node API, the Self-hosted training
     backend of ADR-005), `packages/contracts` (shared types + schemas),

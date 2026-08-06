@@ -30,7 +30,7 @@ Enables user-defined wake words without training. Enrollment and inference are
 ## Layout
 
 ```
-core/    FewShotEngine, defaults, types, storage, DSP
+core/    FewShotEngine, defaults, types, storage, quality checks (DSP numerics in @wake-studio/dsp)
 web/     worklet recorder URL + playground entry
 spec/    module.spec.json
 tests/   L1 unit tests

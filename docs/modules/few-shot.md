@@ -49,7 +49,8 @@ to the "zero setup" principle for the primary journey.
 ## 3. Dependencies
 
 - **Upstream (consumes from):** KWS module's `PlixKwsEmbedProvider.embed(audio)`;
-  AFE module's 16 kHz output stream (for live detection).
+  AFE module's 16 kHz output stream (for live detection); numeric DSP
+  (level/SNR/clipping quality metrics) from **`@wake-studio/dsp`** (ADR-032).
 - **Downstream (provides to):** UI (enrollment flow + live detection score
   curve); Phase 4 export (Few-Shot bundle).
 - **External libraries / models:**

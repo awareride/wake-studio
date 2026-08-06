@@ -178,7 +178,7 @@ wake-studio/                          # pnpm workspace root
 packages/modules/<category>/<module>/     # e.g. packages/modules/afe/rnnoise/
 ├── package.json          # name @wake-studio/module-rnnoise; exports ./web /node /spec /train /device
 ├── spec/module.spec.json # the single fact source (docs/module-spec.md)
-├── core/                 # portable TS: types, DSP, engine facade (web + node share)
+├── core/                 # portable TS: types, domain logic, engine facade (DSP numerics in @wake-studio/dsp, ADR-032)
 ├── web/                  # wasm loader + panel config + playground.tsx (browser)
 ├── node/                 # native/subprocess impl for the studio-backend
 ├── train/                # train.py + pyproject.toml + requirements (uv, ADR-028)
