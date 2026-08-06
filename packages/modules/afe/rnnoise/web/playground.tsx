@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react'
 import { UiSlider, UiToggle, UiButton, UiWaveform, UiCurve, UiBar, UiCollapsible, renderPanel, type ModulePanelController } from '@wake-studio/module-kit'
 import { loadRnnoise, type RnnoiseModule } from './index'
 import { RNNOISE_FRAME_SIZE } from '../core'
-import { frameRms } from '../core/dsp'
+import { frameRms } from '../core/constants'
 import { RNNOISE_SPEC } from '../spec'
 
 // Generated panel from the real module spec (ADR-025 §3). The engine state is

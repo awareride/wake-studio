@@ -116,7 +116,7 @@ below is filled in **and** the referenced deliverables exist.
   },
 
   "tests": {
-    "l1": "packages/modules/afe/rnnoise/tests/dsp.test.ts",        // unit (vitest)
+    "l1": "packages/modules/afe/rnnoise/tests/constants.test.ts",        // unit (vitest)
     "l2": "packages/modules/afe/rnnoise/tests/wasm-runtime.test.ts", // Node wasm runtime
     "l3": "e2e/rnnoise.spec.ts",                          // Playwright
     "required": ["l1", "l2", "l3"]

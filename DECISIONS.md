@@ -801,6 +801,12 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
      compatibility). No module contains a numeric DSP implementation anymore;
      what remains in-module is domain logic (KWS smoothing/trigger, cosine
      similarity, VAD mapping), not DSP.
+  6. **Renamed non-DSP files (2026-08-06):** `afe/rnnoise/core/dsp.ts` ->
+     `constants.ts` (RNNOISE_FRAME_SIZE, vadToProbability, dsp re-exports);
+     `few-shot/core/dsp.ts` -> `quality.ts` (cosine similarity,
+     sample-quality checks). `afe/graph/core/dsp.ts` and
+     `kws/engine/core/dsp.ts` keep their names (they contain real
+     spectrum/DSP logic and decision logic respectively).
 - **Rationale:** (a) eliminates three duplicated hand-written FFTs and the
   PLiX/openWakeWord front-end drift risk; (b) the FFT core is a mature
   third-party implementation that can be fully audited; (c) higher-level

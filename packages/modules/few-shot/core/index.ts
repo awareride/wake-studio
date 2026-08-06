@@ -13,7 +13,7 @@ export {
   isClipped,
   estimateSnrDb,
   checkSampleQuality,
-} from './dsp'
+} from './quality'
 export { squaredEuclidean, plixScore, meanPool } from '@wake-studio/module-kws-plix'
 export type {
   EnrolledSample,

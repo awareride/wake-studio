@@ -8,7 +8,7 @@
  */
 
 import type { RnnoiseWasmModule } from './wasm-interface'
-import { RNNOISE_FRAME_SIZE } from './dsp'
+import { RNNOISE_FRAME_SIZE } from './constants'
 
 export interface RnnoiseConfig {
   /** 0..1 - frames below this VAD are treated as silence. */

@@ -1,5 +1,5 @@
 /**
- * RNNoise module - pure DSP helpers (L1-unit-testable, no wasm dependency).
+ * RNNoise module - domain constants and VAD mapping (no DSP).
  *
  * The numeric helpers (frameRms, applyGain) live in `@wake-studio/dsp`
  * (ADR-032) and are re-exported here for call-site compatibility.

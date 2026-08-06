@@ -1,7 +1,7 @@
 /**
  * Few-Shot module - pure logic (testable, no ONNX/encoder dependency).
  *
- * Vector metrics (cosine similarity) and sample-quality assembly. The numeric
+ * Few-Shot quality gating (cosine similarity, sample-quality checks). The
  * DSP (peak/RMS/clipping/SNR) lives in `@wake-studio/dsp` (ADR-032) and is
  * re-exported here for call-site compatibility.
  *
