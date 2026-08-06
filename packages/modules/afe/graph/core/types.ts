@@ -47,6 +47,16 @@ export interface ParameterDescriptor {
   description: string
 }
 
+/** One magnitude-spectrogram column (Spectro-style, ADR-032). */
+export interface SpectrogramData {
+  /** Magnitude bins, bin 0 = DC, last = Nyquist (length windowSize/2). */
+  column: Float32Array
+  /** FFT window size in samples (default 4096). */
+  windowSize: number
+  /** Sample rate the column was computed at (48 kHz AFE). */
+  sampleRate: number
+}
+
 /** Per-frame visualization data emitted by a stage (throttled to vizFps). */
 export interface StageFrameData {
   stageId: string
@@ -59,8 +69,13 @@ export interface StageFrameData {
   levelDb?: number
   /** VAD probability [0,1] (from RNNoise for v1, ADR-016). */
   vadProbability?: number
-  /** Magnitude spectrum for the spectrogram display (NS stage). */
+  /**
+   * Magnitude spectrum for the spectrogram display (NS stage).
+   * @deprecated Replaced by `spectrogram` (Spectro-style column, ADR-032).
+   */
   spectrum?: Float32Array
+  /** Spectro-style spectrogram column (time axis lives in the renderer). */
+  spectrogram?: SpectrogramData
   /** Stage-specific metrics. */
   metrics?: Record<string, number>
 }

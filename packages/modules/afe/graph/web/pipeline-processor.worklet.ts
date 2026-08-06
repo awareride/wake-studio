@@ -25,8 +25,15 @@ import { BssStage } from '@wake-studio/module-afe-bss'
 import { loadRnnoiseStage } from '@wake-studio/module-rnnoise/web/loader'
 
 import type { MainMessage, StageFrameData, WorkletMessage } from '../core/types'
-import { CIRCULAR_BUFFER_SIZE, RNNOISE_FRAME_SIZE } from '../core/defaults'
-import { computeSpectrum, downsample48to16, downsampleForViz, FFT_SIZE, levelDb } from '@wake-studio/dsp'
+import { CIRCULAR_BUFFER_SIZE, INTERNAL_SAMPLE_RATE, RNNOISE_FRAME_SIZE } from '../core/defaults'
+import { SpectrogramHistory } from '../core/spectrogram-history'
+import {
+  downsample48to16,
+  downsampleForViz,
+  levelDb,
+  spectrogramColumn,
+  SPECTROGRAM_WINDOW_SIZE,
+} from '@wake-studio/dsp'
 
 const PROCESSOR_NAME = 'pipeline-processor'
 
@@ -41,6 +48,11 @@ class PipelineProcessor extends AudioWorkletProcessor {
   private _inputLength = 0
   private _denoisedLength = 0
   private _denoisedIndex = 0
+
+  // Contiguous spectrogram history (newest SPECTROGRAM_WINDOW_SIZE samples).
+  private _specHistory = new SpectrogramHistory(SPECTROGRAM_WINDOW_SIZE)
+  // Same for the denoised (NS) stream so its column is a real window too.
+  private _nsSpecHistory = new SpectrogramHistory(SPECTROGRAM_WINDOW_SIZE)
 
   // Viz throttling.
   private _lastVizTime = 0
@@ -119,6 +131,8 @@ class PipelineProcessor extends AudioWorkletProcessor {
     // --- 1. Append raw input to the circular buffer ---
     this._buffer.set(inData, this._inputLength)
     this._inputLength += inData.length
+    // Also append to the spectrogram history (contiguous window source).
+    this._specHistory.push(inData)
 
     // --- 2. Run the stage chain over 480-sample frames ---
     while (this._denoisedLength + RNNOISE_FRAME_SIZE <= this._inputLength) {
@@ -141,6 +155,9 @@ class PipelineProcessor extends AudioWorkletProcessor {
       // (avoids intermittent missing data during circular-buffer wrap-around).
       this._lastNsFrame.set(frame)
       this._hasNsFrame = true
+      // Feed the denoised frame into the NS spectrogram history so its column
+      // comes from a full contiguous window, not a single zero-padded frame.
+      this._nsSpecHistory.push(frame)
 
       // Downsample to 16 kHz and post output for KWS.
       const out160 = downsample48to16(frame)
@@ -221,13 +238,22 @@ class PipelineProcessor extends AudioWorkletProcessor {
     const vizPoints = 128
     const frames: StageFrameData[] = []
 
-    // Use the last FFT_SIZE samples from the ring buffer for the spectrum so
-    // AEC/BSS get a full-resolution FFT (passing the 128-sample quantum would
-    // zero-pad half the window -> only the lower frequency bins would light
-    // up and the spectrogram would look bottom-heavy). Before the buffer
-    // wraps, _inputLength is the write cursor; subarray slices are contiguous.
-    const specStart = Math.max(0, this._inputLength - FFT_SIZE)
-    const specFrame = this._buffer.subarray(specStart, this._inputLength)
+    // Use the most recent SPECTROGRAM_WINDOW_SIZE samples from the contiguous
+    // spectrogram history (Spectro-style, ADR-032). A 4096-sample window at
+    // 48 kHz gives ~85 ms time resolution with 2048 frequency bins - the
+    // frequency axis is where real spectrogram detail lives. The renderer
+    // (WebGL) displays this column per viz frame; the window's time history is
+    // kept in the renderer's circular texture, not here.
+    const specFrame = this._specHistory.window(SPECTROGRAM_WINDOW_SIZE)
+    const spectrogram = spectrogramColumn(specFrame, {
+      windowSize: SPECTROGRAM_WINDOW_SIZE,
+      sampleRate: INTERNAL_SAMPLE_RATE,
+    })
+    const specData = {
+      column: spectrogram.column,
+      windowSize: spectrogram.windowSize,
+      sampleRate: spectrogram.sampleRate,
+    }
 
     // AEC stage (passthrough for v1): shows raw input. The metrics field
     // reserves the ERLE (echo return loss enhancement) slot for the future
@@ -238,7 +264,7 @@ class PipelineProcessor extends AudioWorkletProcessor {
       capturedAtMs,
       waveform: downsampleForViz(rawInput, vizPoints),
       levelDb: levelDb(rawInput),
-      spectrum: computeSpectrum(specFrame),
+      spectrogram: specData,
       metrics: { erleDb: 0 },
     })
 
@@ -250,7 +276,7 @@ class PipelineProcessor extends AudioWorkletProcessor {
       kind: 'bss',
       capturedAtMs,
       levelDb: levelDb(rawInput),
-      spectrum: computeSpectrum(specFrame),
+      spectrogram: specData,
       metrics: { siSdrDb: 0 },
     })
 
@@ -258,13 +284,22 @@ class PipelineProcessor extends AudioWorkletProcessor {
     const nsFrame = this._hasNsFrame
       ? this._lastNsFrame
       : rawInput.subarray(0, Math.min(RNNOISE_FRAME_SIZE, rawInput.length))
+    // NS shows its own denoised column from its own contiguous history.
+    const nsSpectrogram = spectrogramColumn(this._nsSpecHistory.window(SPECTROGRAM_WINDOW_SIZE), {
+      windowSize: SPECTROGRAM_WINDOW_SIZE,
+      sampleRate: INTERNAL_SAMPLE_RATE,
+    })
     frames.push({
       stageId: 'ns',
       kind: 'ns',
       capturedAtMs,
       waveform: downsampleForViz(nsFrame, vizPoints),
       levelDb: levelDb(nsFrame),
-      spectrum: computeSpectrum(nsFrame),
+      spectrogram: {
+        column: nsSpectrogram.column,
+        windowSize: nsSpectrogram.windowSize,
+        sampleRate: nsSpectrogram.sampleRate,
+      },
     })
 
     this._post({ type: 'frame', frames })
