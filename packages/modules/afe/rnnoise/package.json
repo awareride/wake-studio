@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@wake-studio/contracts": "workspace:*",
+    "@wake-studio/dsp": "workspace:*",
     "@wake-studio/module-kit": "workspace:^"
   },
   "devDependencies": {

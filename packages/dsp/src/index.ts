@@ -27,4 +27,10 @@ export {
   downsample48to16,
   downsampleForViz,
   levelDb,
+  peakDbfs,
+  rmsDbfs,
+  isClipped,
+  frameRms,
+  applyGain,
+  estimateSnrDb,
 } from './level'

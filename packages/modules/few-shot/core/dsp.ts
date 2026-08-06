@@ -1,9 +1,16 @@
 /**
  * Few-Shot module - pure logic (testable, no ONNX/encoder dependency).
  *
- * Cosine similarity, prototype mean-pooling, and sample-quality checks.
- * Extracted for unit testing per docs/modules/few-shot.md §9.
+ * Vector metrics (cosine similarity) and sample-quality assembly. The numeric
+ * DSP (peak/RMS/clipping/SNR) lives in `@wake-studio/dsp` (ADR-032) and is
+ * re-exported here for call-site compatibility.
+ *
+ * @see docs/modules/few-shot.md §9
  */
+
+import { peakDbfs, rmsDbfs, isClipped, estimateSnrDb } from '@wake-studio/dsp'
+
+export { peakDbfs, rmsDbfs, isClipped, estimateSnrDb }
 
 /**
  * Cosine similarity between two vectors, rescaled to [0,1].
@@ -42,66 +49,6 @@ export {
   plixScore,
   meanPool,
 } from '@wake-studio/module-kws-plix'
-
-/** Peak level in dBFS (full scale = 0 dBFS). */
-export function peakDbfs(samples: Float32Array): number {
-  let peak = 0
-  for (let i = 0; i < samples.length; i++) {
-    const abs = Math.abs(samples[i])
-    if (abs > peak) peak = abs
-  }
-  if (peak === 0) return -Infinity
-  return 20 * Math.log10(peak)
-}
-
-/** RMS level in dBFS. */
-export function rmsDbfs(samples: Float32Array): number {
-  if (samples.length === 0) return -Infinity
-  let sumSq = 0
-  for (let i = 0; i < samples.length; i++) {
-    sumSq += samples[i] * samples[i]
-  }
-  const rms = Math.sqrt(sumSq / samples.length)
-  if (rms === 0) return -Infinity
-  return 20 * Math.log10(rms)
-}
-
-/** True if any sample reaches the clipping threshold (±1.0). */
-export function isClipped(samples: Float32Array, threshold = 0.99): boolean {
-  for (let i = 0; i < samples.length; i++) {
-    if (Math.abs(samples[i]) >= threshold) return true
-  }
-  return false
-}
-
-/**
- * Estimate signal-to-noise ratio in dB using a simple energy-gating approach:
- * the top 20% of frames (by energy) are "signal", the bottom 20% are "noise".
- * Returns a rough SNR suitable for quality gating (not a precise measurement).
- */
-export function estimateSnrDb(samples: Float32Array, frameSize = 320): number {
-  if (samples.length < frameSize * 5) return 0
-  const energies: number[] = []
-  for (let i = 0; i + frameSize <= samples.length; i += frameSize) {
-    let sumSq = 0
-    for (let j = i; j < i + frameSize; j++) {
-      sumSq += samples[j] * samples[j]
-    }
-    energies.push(sumSq / frameSize)
-  }
-  energies.sort((a, b) => a - b)
-  const n = energies.length
-  const noiseCount = Math.max(1, Math.floor(n * 0.2))
-  const signalCount = Math.max(1, Math.floor(n * 0.2))
-  let noiseEnergy = 0
-  for (let i = 0; i < noiseCount; i++) noiseEnergy += energies[i]
-  noiseEnergy /= noiseCount
-  let signalEnergy = 0
-  for (let i = n - signalCount; i < n; i++) signalEnergy += energies[i]
-  signalEnergy /= signalCount
-  if (noiseEnergy === 0) return 40 // very high SNR (no noise floor)
-  return 10 * Math.log10(signalEnergy / noiseEnergy)
-}
 
 /** Quality metrics for an enrollment sample. */
 export interface SampleQuality {

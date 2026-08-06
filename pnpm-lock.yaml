@@ -261,6 +261,9 @@ importers:
       '@wake-studio/contracts':
         specifier: workspace:*
         version: link:../../../contracts
+      '@wake-studio/dsp':
+        specifier: workspace:*
+        version: link:../../../dsp
     devDependencies:
       '@eslint/js':
         specifier: ^9.16.0
@@ -286,6 +289,9 @@ importers:
       '@wake-studio/contracts':
         specifier: workspace:*
         version: link:../../../contracts
+      '@wake-studio/dsp':
+        specifier: workspace:*
+        version: link:../../../dsp
     devDependencies:
       '@eslint/js':
         specifier: ^9.16.0
@@ -354,6 +360,9 @@ importers:
       '@wake-studio/contracts':
         specifier: workspace:*
         version: link:../../../contracts
+      '@wake-studio/dsp':
+        specifier: workspace:*
+        version: link:../../../dsp
       '@wake-studio/module-kit':
         specifier: workspace:^
         version: link:../../../module-kit
@@ -388,6 +397,9 @@ importers:
       '@wake-studio/contracts':
         specifier: workspace:*
         version: link:../../contracts
+      '@wake-studio/dsp':
+        specifier: workspace:*
+        version: link:../../dsp
       '@wake-studio/module-kws-engine':
         specifier: workspace:^
         version: link:../kws/engine

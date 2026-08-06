@@ -28,7 +28,7 @@ against a reference implementation. This package:
 | `src/stft.ts` | `stft` / `istft` - frame framing, windowing, zero-pad, magnitude or complex output, overlap-add reconstruction. |
 | `src/windows.ts` | Hann (periodic + symmetric), Hamming, Blackman, `applyWindow`. |
 | `src/mel.ts` | `buildMelFilterbank` (Slaney triangular) + `melSpectrogram` (raw or log). |
-| `src/level.ts` | `levelDb`, `downsample48to16`, `downsampleForViz`. |
+| `src/level.ts` | `levelDb`, `peakDbfs`, `rmsDbfs`, `isClipped`, `frameRms`, `applyGain`, `estimateSnrDb`, `downsample48to16`, `downsampleForViz`. |
 | `tests/conformance.test.ts` | Diff against scipy/numpy fixtures. |
 | `scripts/gen-conformance-fixtures.py` | Regenerate fixtures (Python 3 + scipy). |
 

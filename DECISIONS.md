@@ -794,6 +794,13 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   4. **Migration:** `plix-frontend.ts` mel front-end and the AFE graph viz
      spectrum now delegate to the package; their hand-written radix-2 FFTs
      are deleted. `few-shot` RMS/SNR helpers are unchanged (no FFT).
+  5. **Removed module-level DSP (2026-08-06 follow-up):** the duplicated
+     `levelDb` in afe-aec/afe-bss/rnnoise AFE-stage, the `frameRms`/`applyGain`
+     in rnnoise, and the `peakDbfs`/`rmsDbfs`/`isClipped`/`estimateSnrDb` in
+     few-shot all now live in `@wake-studio/dsp` (re-exported for call-site
+     compatibility). No module contains a numeric DSP implementation anymore;
+     what remains in-module is domain logic (KWS smoothing/trigger, cosine
+     similarity, VAD mapping), not DSP.
 - **Rationale:** (a) eliminates three duplicated hand-written FFTs and the
   PLiX/openWakeWord front-end drift risk; (b) the FFT core is a mature
   third-party implementation that can be fully audited; (c) higher-level

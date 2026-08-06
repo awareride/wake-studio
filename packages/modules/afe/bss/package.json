@@ -17,7 +17,8 @@
     "fetch:all": "echo 'no artifacts'"
   },
   "dependencies": {
-    "@wake-studio/contracts": "workspace:*"
+    "@wake-studio/contracts": "workspace:*",
+    "@wake-studio/dsp": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",

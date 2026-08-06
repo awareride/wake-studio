@@ -8,6 +8,7 @@
  */
 
 import type { AFEStage, AFEStageResult } from '@wake-studio/contracts'
+import { levelDb } from '@wake-studio/dsp'
 import { RnnoiseModule, type RnnoiseConfig } from './engine'
 import type { RnnoiseWasmModule } from './wasm-interface'
 
@@ -27,11 +28,4 @@ export class RnnoiseNsStage implements AFEStage {
   reset(): void {
     /* RNNoise state is per-engine; a fresh load resets it. */
   }
-}
-
-function levelDb(frame: Float32Array): number {
-  let sum = 0
-  for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i]
-  const rms = Math.sqrt(sum / Math.max(1, frame.length))
-  return rms < 1e-10 ? -120 : 20 * Math.log10(rms)
 }
