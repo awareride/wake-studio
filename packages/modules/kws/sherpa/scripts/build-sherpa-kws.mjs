@@ -30,6 +30,7 @@
  * The default kws_model is the latest bilingual (zh+en) model
  * sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20 (see
  * https://k2-fsa.github.io/sherpa/onnx/kws/pretrained_models/index.html).
+ */
 
 import { mkdirSync, rmSync, cpSync } from 'node:fs'
 import { resolve, join } from 'node:path'
@@ -78,40 +79,45 @@ function main() {
     'https://github.com/k2-fsa/sherpa-onnx.git', srcDir])
 
   // 2. Download the KWS model into wasm/kws/assets (CMake FATAL_ERRORs otherwise).
+  //
+  // Built as a plain array join (NOT a template literal): the bash here needs
+  // literal bash parameter expansion (e.g. ${sub##*/} and $(find ...)), which
+  // would conflict with JS template interpolation. The array keeps every $ and
+  // {} literal - no escaping to get wrong.
   const assetsDir = join(srcDir, 'wasm', 'kws', 'assets')
   mkdirSync(assetsDir, { recursive: true })
   const expected = kwsModel.replace(/\.tar\.bz2$/, '')
-  run('bash', ['-c', `
-    set -euxo pipefail
-    cd "${assetsDir}"
-    URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/${kwsModel}"
-    for attempt in 1 2 3 4 5; do
-      rm -rf ./*
-      curl -fsSL "$URL" -o model.tar.bz2 || curl -fsSL "$URL?cb=$attempt" -o model.tar.bz2
-      tar xf model.tar.bz2
-      rm -f model.tar.bz2
-      sub=\$(find . -maxdepth 1 -type d ! -name '.' | head -n1)
-      if [ "\${sub##*/}" = "${expected}" ]; then
-        mv -v "$sub"/* ./ && rmdir "$sub"
-        echo "OK: correct model downloaded"; break
-      fi
-      echo "WARN: got wrong model archive, retrying..."; sleep 10
-    done
-    ls -lh
-  `])
+  run('bash', ['-c', [
+    'set -euxo pipefail',
+    `cd "${assetsDir}"`,
+    `URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/${kwsModel}"`,
+    'for attempt in 1 2 3 4 5; do',
+    '  rm -rf ./*',
+    '  curl -fsSL "$URL" -o model.tar.bz2 || curl -fsSL "$URL?cb=$attempt" -o model.tar.bz2',
+    '  tar xf model.tar.bz2',
+    '  rm -f model.tar.bz2',
+    '  sub=$(find . -maxdepth 1 -type d ! -name . | head -n1)',
+    '  if [ "${sub##*/}" = "' + expected + '" ]; then',
+    '    mv -v "$sub"/* ./ && rmdir "$sub"',
+    '    echo "OK: correct model downloaded"; break',
+    '  fi',
+    '  echo "WARN: got wrong model archive, retrying..."; sleep 10',
+    'done',
+    'ls -lh',
+  ].join('\n')])
 
   // 3. Align the CMakeLists decoder epoch with the downloaded model.
-  run('bash', ['-c', `
-    set -euxo pipefail
-    f="${srcDir}/wasm/kws/CMakeLists.txt"
-    cd "${assetsDir}"
-    present=\$(ls decoder-epoch-*-avg-2-chunk-16-left-64.onnx 2>/dev/null | head -n1 || true)
-    if [ -n "$present" ]; then
-      epoch=\$(echo "$present" | sed -E 's/decoder-epoch-([0-9]+)-.*/\\1/')
-      sed -i "s/decoder-epoch-12-avg-2-chunk-16-left-64.onnx/decoder-epoch-\${epoch}-avg-2-chunk-16-left-64.onnx/g" "$f"
-    fi
-    echo '--- patched CMakeLists decoder ref ---'; grep -n "decoder-epoch" "$f" || true
-  `])
+  run('bash', ['-c', [
+    'set -euxo pipefail',
+    `f="${srcDir}/wasm/kws/CMakeLists.txt"`,
+    `cd "${assetsDir}"`,
+    'present=$(ls decoder-epoch-*-avg-2-chunk-16-left-64.onnx 2>/dev/null | head -n1 || true)',
+    'if [ -n "$present" ]; then',
+    "  epoch=$(echo \"$present\" | sed -E 's/decoder-epoch-([0-9]+)-.*/\\1/')",
+    '  sed -i "s/decoder-epoch-12-avg-2-chunk-16-left-64.onnx/decoder-epoch-$epoch-avg-2-chunk-16-left-64.onnx/g" "$f"',
+    'fi',
+    'echo "--- patched CMakeLists decoder ref ---"; grep -n "decoder-epoch" "$f" || true',
+  ].join('\n')])
 
   // 4. (Removed) pthread drop: upstream master dcf56735 (#3836) already
   //    removed -pthread from wasm/kws, so the wasm is single-threaded and
