@@ -47,6 +47,14 @@
       "worker": true
     }
   },
+  "build": {
+    "recipe": "none",
+    "registryEntry": "public/model-registry.json#kws-openwakeword",
+    "fetch": {
+      "subdir": "openWakeWord"
+    },
+    "notes": "Third-party openWakeWord models (melspectrogram / speech_embedding / silero-vad / demo classifiers) are copied into assets/openWakeWord/ from the upstream release; not CI-built. Registry entries point at /modules/kws/openwakeword/assets/openWakeWord/ (ADR-025)."
+  },
   "tests": {
     "l1": "packages/modules/kws/openwakeword/tests/backend.test.ts",
     "required": ["l1"]

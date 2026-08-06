@@ -19,8 +19,8 @@ import { RUNTIME_LABELS } from '../runtime'
 // (EfficientNet-v2 'base' / TinyNet-E 'small') trained as a Prototypical
 // Network on 16 kHz one-second clips. Far lighter than WavLM-base-plus, making
 // it suitable for end-side / IoT devices. Outputs a 1280-dim embedding for
-// prototype-distance matching. Served from local prebuilts in dev (ADR-011
-// amendment); remote fallback for deployed builds.
+// prototype-distance matching. Served from the plix module's own assets dir
+// (ADR-025); remote fallback for deployed builds.
 //
 // Runtime: 'onnx' (default) loads the exported plixkws-<variant>.onnx via
 // onnxruntime-web; 'transformers' loads the encoder browser-native via

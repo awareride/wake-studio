@@ -176,16 +176,15 @@ packages/modules/<category>/<module>/  # e.g. packages/modules/afe/rnnoise/
   │                               #   served at /modules/<category>/<module>/assets/...
   │                               #   gitignored (ADR-011), fetched via ADR-027 SOP
   __tests__/                      # L1 unit + L2 wasm-runtime
-  prebuilts/                      # built artifacts (gitignored, ADR-011)
-e2e/<module>.spec.ts              # L3 browser tests
+e2e/<module>.spec.ts             # L3 browser tests
 ```
 
 > **Asset location rule (ADR-025):** a module's binary artifacts live in its
 > own `assets/` directory, NOT in a central pool. The web app serves them via
 > the vite middleware at `/modules/<category>/<module>/assets/...`; the
 > legacy `apps/web/prebuilts/` pool was retired (2026-08-05); all assets now
-> live in the owning module's `assets/` (Q-K2). Artifacts that ship embedded in source (e.g. RNNoise's base64 wasm
-> glue) need no `assets/` entry.
+> live in the owning module's `assets/` (Q-K2). Artifacts that ship embedded
+> in source (e.g. RNNoise's base64 wasm glue) need no `assets/` entry.
 
 ## 6. Train scripts (ADR-028)
 

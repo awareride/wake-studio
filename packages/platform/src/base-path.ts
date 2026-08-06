@@ -3,8 +3,8 @@
  *
  * GitHub Pages project sites serve under a sub-path (`/<repo>/`), Cloudflare
  * at root. Vite injects the base into `import.meta.env.BASE_URL`; all
- * absolute app URLs (`/prebuilts/...`, `/modules/...`, registry) must be
- * built from this so they survive sub-path deployment.
+ * absolute app URLs (`/modules/...`, `/ort/...`, registry) must be built
+ * from this so they survive sub-path deployment.
  *
  * Moved verbatim from `apps/web/src/config.ts` (module-migration §6.1).
  */

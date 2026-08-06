@@ -97,7 +97,7 @@ function main() {
   }
 
   // Stage built artifacts here; the workflow uploads this dir.
-  const artifactDir = process.env.ARTIFACT_DIR || resolve(dir, 'prebuilts')
+  const artifactDir = process.env.ARTIFACT_DIR || resolve(dir, 'assets')
   mkdirSync(artifactDir, { recursive: true })
 
   // Collect declared inputs from env (INPUT_<ID>), pass as --input-<id> flags.
