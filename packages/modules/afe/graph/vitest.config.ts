@@ -3,14 +3,13 @@ import { defineConfig } from 'vitest/config'
 /**
  * AFE graph module vitest config (ADR-026).
  *
- * DSP logic lives in @wake-studio/dsp (conformance + behavior tests there);
- * the graph module itself owns scheduling, which is browser-e2e tested
- * (L3). No L1 unit tests remain here, so passWithNoTests is enabled.
+ * L1 tests cover the module's own pure logic (defaults/constants/parameter
+ * descriptors in tests/defaults.test.ts). DSP numerics are tested in
+ * @wake-studio/dsp (conformance + behavior), not here - graph imports them.
  */
 export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
-    passWithNoTests: true,
   },
 })

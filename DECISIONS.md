@@ -808,8 +808,9 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
      (ScoreSmoother/TriggerDetector/VAD gate - decision logic, not DSP).
      `afe/graph/core/dsp.ts` was moved into `@wake-studio/dsp` as
      `spectrum.ts` (computeSpectrum + test helpers) - the graph module now
-     has no in-module DSP file at all; its spec `l1` points at the dsp
-     package tests.
+     has no in-module DSP file at all. Its `l1` test covers the module's own
+     pure logic (defaults/constants/parameter descriptors,
+     `tests/defaults.test.ts`), per the module-self-testing rule.
 - **Rationale:** (a) eliminates three duplicated hand-written FFTs and the
   PLiX/openWakeWord front-end drift risk; (b) the FFT core is a mature
   third-party implementation that can be fully audited; (c) higher-level

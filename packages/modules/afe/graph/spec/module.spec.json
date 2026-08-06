@@ -124,7 +124,7 @@
     "fetchScript": "echo 'rnnoise wasm is vendored (no fetch)'"
   },
   "tests": {
-    "l1": "packages/dsp/tests/conformance.test.ts",
+    "l1": "packages/modules/afe/graph/tests/defaults.test.ts",
     "required": ["l1"]
   },
   "playground": {
