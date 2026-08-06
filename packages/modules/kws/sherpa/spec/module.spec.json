@@ -16,8 +16,8 @@
       "label": "Wake words (comma-separated)",
       "group": "primary",
       "type": "string",
-      "default": "n ǐ h ǎo j ūn g ē :1.5 #0.35 @你好军哥\nn ǐ h ǎo w èn w èn :1.5 #0.35 @你好问问\nx iǎo ài t óng x ué :1.5 #0.35 @小爱同学",
-      "description": "Editable text wake-word list for ASR-Decoding KWS (ADR-024). One keyword per line: `spaced tokens :score #threshold @label` (sherpa-onnx text2token). Defaults match the keywords prebuilt into the wasm .data bundle."
+      "default": "n \u01d0 h \u01ceo j \u016bn g \u0113 @\u4f60\u597d\u519b\u54e5\nn \u01d0 h \u01ceo w \u00e8n w \u00e8n @\u4f60\u597d\u95ee\u95ee\nx i\u01ceo \u00e0i t \u00f3ng x u\u00e9 @\u5c0f\u7231\u540c\u5b66",
+      "description": "Editable text wake-word list for ASR-Decoding KWS (ADR-024). One keyword per line: spaced tokens @label (sherpa-onnx text2token; the 2025-12-20 zh-en model uses ppinyin tokens + @display label, no score/threshold suffixes). Defaults match the model test keywords."
     },
     {
       "id": "threshold",
@@ -43,7 +43,9 @@
       "id": "start",
       "label": "Start detection",
       "kind": "start",
-      "requires": ["platform.mic"]
+      "requires": [
+        "platform.mic"
+      ]
     },
     {
       "id": "stop",
@@ -95,9 +97,9 @@
     "inputs": [
       {
         "id": "sherpa_version",
-        "label": "sherpa-onnx release tag",
+        "label": "sherpa-onnx ref (branch/tag; master has the single-threaded wasm fix dcf56735/#3836)",
         "type": "string",
-        "default": "v1.13.4",
+        "default": "master",
         "required": false
       },
       {
@@ -111,21 +113,27 @@
         "id": "kws_model",
         "label": "KWS model archive",
         "type": "string",
-        "default": "sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01.tar.bz2",
+        "default": "sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20.tar.bz2",
         "required": false
       }
     ]
   },
   "tests": {
     "l1": "packages/modules/kws/sherpa/tests/spec.test.ts",
-    "required": ["l1"]
+    "required": [
+      "l1"
+    ]
   },
   "playground": {
     "route": "/playground/kws/sherpa",
     "entry": "packages/modules/kws/sherpa/web/playground.tsx"
   },
   "interfaces": {
-    "provides": ["KWSBackend"],
-    "consumes": ["AFEOutputFrame"]
+    "provides": [
+      "KWSBackend"
+    ],
+    "consumes": [
+      "AFEOutputFrame"
+    ]
   }
 }

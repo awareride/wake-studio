@@ -192,9 +192,9 @@ export class SherpaOnnxKwsBackend implements KWSBackend {
       featConfig: { sampleRate: 16000, featureDim: 80 },
       modelConfig: {
         transducer: {
-          encoder: './encoder-epoch-12-avg-2-chunk-16-left-64.onnx',
-          decoder: './decoder-epoch-12-avg-2-chunk-16-left-64.onnx',
-          joiner: './joiner-epoch-12-avg-2-chunk-16-left-64.onnx',
+          encoder: './encoder-epoch-13-avg-2-chunk-16-left-64.onnx',
+          decoder: './decoder-epoch-13-avg-2-chunk-16-left-64.onnx',
+          joiner: './joiner-epoch-13-avg-2-chunk-16-left-64.onnx',
         },
         tokens: './tokens.txt',
         provider: 'cpu',

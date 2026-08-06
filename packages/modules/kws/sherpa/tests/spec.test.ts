@@ -40,4 +40,19 @@ describe('kws-sherpa module spec', () => {
     expect(spec.meta.category).toBe('kws')
     expect(spec.interfaces.provides).toContain('KWSBackend')
   })
+
+  it('pins the latest single-threaded sherpa build (dcf56735/#3836)', () => {
+    // Master (not a release tag): upstream commit dcf56735 removed WASM
+    // pthread so the wasm boots without COEP/SAB. The v1.13.4 tag predates
+    // it and still ships a pthread build that hangs in-browser.
+    const sv = spec.build.inputs.find((i) => i.id === 'sherpa_version')
+    expect(sv?.default).toBe('master')
+    // Latest bilingual zh+en model (2025-12-20); keywords use ppinyin
+    // `tokens @label` (no :score #threshold suffixes).
+    const kw = spec.build.inputs.find((i) => i.id === 'kws_model')
+    expect(kw?.default).toBe('sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20.tar.bz2')
+    const kwParam = spec.params.find((p) => p.id === 'keywords')
+    expect(kwParam?.default).not.toMatch(/:\d+\.\d+|#\d+\.\d+/)
+    expect(kwParam?.default).toContain('@')
+  })
 })
