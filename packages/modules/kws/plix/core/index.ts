@@ -12,9 +12,11 @@ import {
   registerEmbedProviderFactory,
 } from '@wake-studio/module-kws-engine'
 import type { EmbedProvider } from '@wake-studio/module-kws-engine'
+import type { ModuleSpec } from '@wake-studio/contracts'
 import { PlixKwsBackend } from './backend'
 import { PlixKwsEmbedProvider } from '../encoders/plixkws-embed'
 import type { WakeWordPrototype } from './prototype'
+import plixSpec from '../spec/module.spec.json'
 
 export { PlixKwsBackend } from './backend'
 export { PlixKwsEmbedProvider } from '../encoders/plixkws-embed'
@@ -65,4 +67,7 @@ registerKwsBackend({
   },
   browserFeasible: true,
   availabilityNote: 'Phase 3 (enrollment required)',
+  // The driver's own spec (ADR-025): hosts render its params (encoder)
+  // from the registry instead of hard-coding per-backend cases.
+  spec: plixSpec as unknown as ModuleSpec,
 })

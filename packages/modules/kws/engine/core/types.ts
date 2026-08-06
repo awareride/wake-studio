@@ -150,7 +150,7 @@ export type KWSStatus = 'idle' | 'loading' | 'ready' | 'running' | 'error'
 
 /** Messages sent from the main thread to the worker. */
 export type KWSWorkerMessage =
-  | { type: 'load'; backend: KWSBackendId; models: BackendModelUrls; prototype?: number[]; sherpaKwsConfig?: Partial<SherpaOnnxKwsConfig> }
+  | { type: 'load'; backend: KWSBackendId; models: BackendModelUrls; prototype?: number[] }
   | { type: 'config'; config: KWSConfig }
   | {
       type: 'audio'

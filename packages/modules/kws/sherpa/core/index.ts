@@ -9,6 +9,8 @@
 
 import { registerKwsBackend } from '@wake-studio/module-kws-engine'
 import { SherpaOnnxKwsBackend } from './backend'
+import type { ModuleSpec } from '@wake-studio/contracts'
+import sherpaSpec from '../spec/module.spec.json'
 
 export { SherpaOnnxKwsBackend } from './backend'
 export type { SherpaOnnxKwsConfig } from '@wake-studio/module-kws-engine'
@@ -19,6 +21,9 @@ registerKwsBackend({
   create: () => new SherpaOnnxKwsBackend(),
   browserFeasible: true,
   availabilityNote: 'Inference only - prebuilt transducer model (ADR-020)',
+  // The driver's own spec (ADR-025): hosts render its params (keywords,
+  // threshold) from the registry instead of hard-coding per-backend cases.
+  spec: sherpaSpec as unknown as ModuleSpec,
   // Main-thread backend: the classic emscripten wasm needs DOM.
   mainThreadFactory: () => new SherpaOnnxKwsBackend(),
 })
