@@ -25,65 +25,21 @@
  * documented primary interface so the same script works locally).
  */
 
-import { existsSync, readFileSync, mkdirSync, readdirSync, statSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { existsSync, mkdirSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const repoRoot = resolve(__dirname, '..')
+import { findModuleById } from './lib/module-discovery.mjs'
 
 function die(msg) {
   console.error(`[build-module] ${msg}`)
   process.exit(1)
 }
 
-function findModuleSpec(moduleId) {
-  // Search the module tree for <id>/spec/module.spec.json.
-  const root = resolve(repoRoot, 'packages/modules')
-  const walk = (dir, depth) => {
-    if (depth > 4) return null
-    const specPath = resolve(dir, 'spec', 'module.spec.json')
-    if (existsSync(specPath)) {
-      try {
-        const spec = JSON.parse(readFileSync(specPath, 'utf8'))
-        if (spec.meta?.id === moduleId) return { spec, dir }
-      } catch {
-        /* ignore malformed; keep walking */
-      }
-    }
-    for (const entry of readdirSafe(dir)) {
-      const sub = resolve(dir, entry)
-      if (existsSync(sub) && statSyncSafe(sub)?.isDirectory()) {
-        const found = walk(sub, depth + 1)
-        if (found) return found
-      }
-    }
-    return null
-  }
-  return walk(root, 0)
-}
-
-function readdirSafe(dir) {
-  try {
-    return readdirSync(dir)
-  } catch {
-    return []
-  }
-}
-function statSyncSafe(p) {
-  try {
-    return statSync(p)
-  } catch {
-    return null
-  }
-}
-
 function main() {
   const [moduleId] = process.argv.slice(2)
   if (!moduleId) die('usage: node scripts/build-module.mjs <module-id>')
 
-  const found = findModuleSpec(moduleId)
+  const found = findModuleById(moduleId)
   if (!found) die(`no module spec found for id '${moduleId}'`)
   const { spec, dir } = found
   const build = spec.build

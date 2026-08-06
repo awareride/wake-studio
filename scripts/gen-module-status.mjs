@@ -18,76 +18,32 @@
  * are non-empty - the generator covers all current modules).
  */
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { existsSync, readFileSync, writeFileSync, readdirSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { discoverModules } from './lib/module-discovery.mjs'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const repoRoot = resolve(__dirname, '..')
-const modulesRoot = resolve(repoRoot, 'packages/modules')
+const repoRoot = resolve(import.meta.dirname, '..')
 
-function walk(dir, depth) {
-  if (depth > 5) return []
-  const out = []
-  const specPath = resolve(dir, 'spec', 'module.spec.json')
-  if (existsSync(specPath)) {
+/** Infer maturity evidence flags from the filesystem + spec (ADR-025 §4). */
+function evidenceFor({ dir, spec }) {
+  const hasCore =
+    existsSync(resolve(dir, 'core', 'index.ts')) || existsSync(resolve(dir, 'core', 'index.js'))
+  const hasTests = (() => {
     try {
-      const spec = JSON.parse(readFileSync(specPath, 'utf8'))
-      const hasCore = existsSync(resolve(dir, 'core', 'index.ts')) || existsSync(resolve(dir, 'core', 'index.js'))
-      const hasTests = readdirSafe(resolve(dir, 'tests')).some((f) => f.endsWith('.test.ts'))
-      const evidence = {
-        core: hasCore,
-        spec: true,
-        panel: (spec.params ?? []).length > 0,
-        tests: hasTests,
-        playground: Boolean(spec.playground?.entry),
-        targets: Boolean(spec.runtime?.web),
-      }
-      out.push({ spec, evidence, dir })
+      return readdirSync(resolve(dir, 'tests')).some((f) => f.endsWith('.test.ts'))
     } catch {
-      /* skip malformed */
+      return false
     }
+  })()
+  const evidence = {
+    core: hasCore,
+    spec: true,
+    panel: (spec.params ?? []).length > 0,
+    tests: hasTests,
+    playground: Boolean(spec.playground?.entry),
+    targets: Boolean(spec.runtime?.web),
   }
-  for (const entry of readdirSafe(dir)) {
-    const sub = resolve(dir, entry)
-    if (entry !== 'node_modules' && existsSync(sub) && isDirSafe(sub)) {
-      out.push(...walk(sub, depth + 1))
-    }
-  }  return out
-}
-
-function readdirSafe(p) {
-  try {
-    return readdirSync(p)
-  } catch {
-    return []
-  }
-}
-function isDirSafe(p) {
-  // Recursable: the dir is a module candidate (has spec/) or a category dir
-  // (has module subdirs). Exclude build/lock dirs.
-  try {
-    const entries = readdirSync(p, { withFileTypes: true })
-    if (entries.some((e) => e.isDirectory() && e.name === 'spec')) return true
-    return entries.some(
-      (e) =>
-        e.isDirectory() &&
-        !['node_modules', 'assets', 'tests', 'core', 'web', 'encoders', 'scripts', 'train', 'spec'].includes(e.name) &&
-        fsHasSpec(resolve(p, e.name)),
-    )
-  } catch {
-    return false
-  }
-}
-
-function fsHasSpec(p) {
-  try {
-    return readdirSync(p, { withFileTypes: true }).some(
-      (e) => e.isDirectory() && e.name === 'spec',
-    )
-  } catch {
-    return false
-  }
+  return evidence
 }
 
 // Minimal scoreModule reimplementation here (importing module-kit pulls React
@@ -107,10 +63,13 @@ function scoreModule(spec, evidence) {
 }
 
 function main() {
-  const modules = walk(modulesRoot, 0).sort((a, b) =>
-    a.spec.meta.category.localeCompare(b.spec.meta.category) ||
-    a.spec.meta.id.localeCompare(b.spec.meta.id),
-  )
+  const modules = discoverModules()
+    .map((m) => ({ ...m, evidence: evidenceFor(m) }))
+    .sort(
+      (a, b) =>
+        a.spec.meta.category.localeCompare(b.spec.meta.category) ||
+        a.spec.meta.id.localeCompare(b.spec.meta.id),
+    )
 
   const rows = modules.map(({ spec, evidence }) => {
     const s = scoreModule(spec, evidence)
