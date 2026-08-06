@@ -24,6 +24,16 @@ export { buildMelFilterbank, melSpectrogram } from './mel'
 export type { MelOptions, MelFilterbank, MelSpectrogramOptions } from './mel'
 
 export {
+  computeSpectrum,
+  sineWave,
+  constant,
+  argMax,
+  FFT_SIZE,
+  SPECTRUM_BINS,
+  HANN_WINDOW,
+} from './spectrum'
+
+export {
   downsample48to16,
   downsampleForViz,
   levelDb,

@@ -1,37 +1,31 @@
 /**
- * AFE graph module - visualization DSP.
+ * Spectrum computation + test helpers (migrated from afe/graph core dsp.ts).
  *
- * The numeric cores (FFT, windows, level meters, resampling) live in the
- * platform DSP package (`@wake-studio/dsp`, ADR-032); this file keeps only
- * the AFE-specific spectrum computation and the test helpers. No dependency
- * on AudioWorkletGlobalScope - runs in Node, browser, or the worklet.
+ * `computeSpectrum` computes a magnitude spectrum (SPECTRUM_BINS bins) from a
+ * frame, using a power-of-2 FFT with a Hann window. `sineWave`/`constant`/
+ * `argMax` are test/benchmark helpers used across modules.
  *
- * @see docs/modules/afe.md §9 (testing strategy)
+ * @see ADR-032 (DSP platform package)
  */
 
-import {
-  createFft,
-  hannSymmetric,
-  levelDb,
-  downsample48to16,
-  downsampleForViz,
-} from '@wake-studio/dsp'
+import { createFft } from './fft'
+import { hannSymmetric } from './windows'
 
-/** FFT size for spectrum computation (must be power of 2, <= RNNOISE_FRAME_SIZE). */
+/** Default FFT size for spectrum computation (must be power of 2). */
 export const FFT_SIZE = 256
 
-/** Number of magnitude bins emitted for the spectrogram (FFT_SIZE / 4). */
+/** Number of magnitude bins emitted by `computeSpectrum` (FFT_SIZE / 4). */
 export const SPECTRUM_BINS = 64
 
-/** Pre-computed Hann window for FFT. */
+/** Pre-computed symmetric Hann window over `FFT_SIZE`. */
 export const HANN_WINDOW = hannSymmetric(FFT_SIZE)
 
 /**
  * Compute a magnitude spectrum (SPECTRUM_BINS bins) from a frame.
  * Uses FFT_SIZE-point FFT with a Hann window. If the frame is shorter than
- * FFT_SIZE it is zero-padded (lets AEC/BSS pass the 128-sample worklet
- * quantum directly without an allocation - the spectrum will simply
- * represent a windowed, padded slice of the live signal).
+ * FFT_SIZE it is zero-padded (lets worklet quanta shorter than the FFT pass
+ * through without an allocation - the spectrum simply represents a windowed,
+ * padded slice of the live signal).
  */
 export function computeSpectrum(frame: Float32Array): Float32Array {
   const n = Math.min(frame.length, FFT_SIZE)
@@ -47,19 +41,17 @@ export function computeSpectrum(frame: Float32Array): Float32Array {
   for (let i = 0; i < SPECTRUM_BINS; i++) {
     // Normalize by sqrt(FFT_SIZE), not FFT_SIZE (matches the reference
     // spectrogram implementation - spectro uses amplitude/sqrt(windowSize)).
-    // With /FFT_SIZE a real room's broadband noise lands below a -60 dB
-    // display floor and the spectrogram looks almost black; /sqrt(N) lifts
-    // typical noise (~-43 dB) into the visible range while keeping speech
-    // (~-23 dB) well separated.
+    // With /FFT_SIZE broadband noise lands below a -60 dB display floor and
+    // the spectrogram looks almost black; /sqrt(N) lifts typical noise
+    // (~-43 dB) into the visible range while keeping speech (~-23 dB) well
+    // separated.
     mag[i] = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]) / Math.sqrt(FFT_SIZE)
   }
   return mag
 }
 
-export { createFft, levelDb, downsample48to16, downsampleForViz }
-
 // ---------------------------------------------------------------------------
-// Test helpers (used by unit tests; not imported by the worklet)
+// Test / benchmark helpers
 // ---------------------------------------------------------------------------
 
 /** Generate a sine wave at the given frequency, sample rate, and length. */

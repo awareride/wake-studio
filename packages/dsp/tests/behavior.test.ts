@@ -1,3 +1,13 @@
+/**
+ * Behavioral unit tests for @wake-studio/dsp (migrated from afe/graph).
+ *
+ * These cover detail-level behavior (downsample 3:1, levelDb thresholds,
+ * HANN symmetry, argMax, ...) on top of the conformance fixtures in
+ * conformance.test.ts (which lock the numeric contract against scipy/numpy).
+ *
+ * @see ADR-032 (DSP platform package)
+ */
+
 import { describe, it, expect } from 'vitest'
 import {
   createFft,
@@ -11,9 +21,8 @@ import {
   FFT_SIZE,
   SPECTRUM_BINS,
   HANN_WINDOW,
-} from '../core/dsp'
+} from '../src'
 
-// ---------------------------------------------------------------------------
 // fft()
 // ---------------------------------------------------------------------------
 

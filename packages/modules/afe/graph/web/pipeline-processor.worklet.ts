@@ -26,7 +26,7 @@ import { loadRnnoiseStage } from '@wake-studio/module-rnnoise/web/loader'
 
 import type { MainMessage, StageFrameData, WorkletMessage } from '../core/types'
 import { CIRCULAR_BUFFER_SIZE, RNNOISE_FRAME_SIZE } from '../core/defaults'
-import { computeSpectrum, downsample48to16, downsampleForViz, FFT_SIZE, levelDb } from '../core/dsp'
+import { computeSpectrum, downsample48to16, downsampleForViz, FFT_SIZE, levelDb } from '@wake-studio/dsp'
 
 const PROCESSOR_NAME = 'pipeline-processor'
 

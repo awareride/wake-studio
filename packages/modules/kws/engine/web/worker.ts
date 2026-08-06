@@ -7,7 +7,7 @@
  * optional {@link PlixKwsEmbedProvider} for the Few-Shot `embed()` scaffold
  * (Phase 3), independent of the detection backend.
  *
- * Pure logic (ScoreSmoother, TriggerDetector, VAD gate) is in ./dsp.
+ * Pure logic (ScoreSmoother, TriggerDetector, VAD gate) is in ./logic.
  */
 
 import type {
@@ -25,7 +25,7 @@ import {
   createEmbedProvider,
 } from '../core/backend'
 import { DEFAULT_CONFIG } from '../core/defaults'
-import { ScoreSmoother, TriggerDetector, shouldGateByVad } from '../core/dsp'
+import { ScoreSmoother, TriggerDetector, shouldGateByVad } from '../core/logic'
 
 // ---------------------------------------------------------------------------
 // State

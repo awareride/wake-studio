@@ -23,7 +23,7 @@ import type { KWSBackend } from './types'
 import { DEFAULT_CONFIG } from './defaults'
 import { describeParameters } from './defaults'
 import { KWSLoadError } from './types'
-import { ScoreSmoother, TriggerDetector, shouldGateByVad } from './dsp'
+import { ScoreSmoother, TriggerDetector, shouldGateByVad } from './logic'
 import { createMainThreadBackend } from './backend'
 
 // Vite bundles the worker into a separate file.
