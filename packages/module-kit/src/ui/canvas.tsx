@@ -28,7 +28,7 @@ function useCanvas(
     canvas.height = Math.round(height * dpr)
     ctx.scale(dpr, dpr)
     draw(ctx, width, height)
-  }, deps) // eslint-disable-line react-hooks/exhaustive-deps
+  }, deps)
   return ref
 }
 
@@ -103,7 +103,8 @@ export function UiWaveform({
       for (let i = 0; i < n; i++) {
         const x = (i / (n - 1)) * w
         const y = mid - series[i] * (h / 2 - 2)
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
       }
       ctx.stroke()
     }
@@ -160,7 +161,8 @@ export function UiCurve({ data, threshold, height = 64, color = '#38bdf8', class
     for (let i = 0; i < n; i++) {
       const x = (i / Math.max(1, n - 1)) * w
       const y = h - data[i] * h
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+      if (i === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
     }
     ctx.stroke()
   }

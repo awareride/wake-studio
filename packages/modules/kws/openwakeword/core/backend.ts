@@ -29,12 +29,11 @@
 import * as ort from 'onnxruntime-web'
 import type { BackendModelUrls, KWSBackend } from '@wake-studio/module-kws-engine'
 import { MEL_OVERLAP, MEL_WINDOW_SIZE } from '@wake-studio/module-kws-engine'
+import { resolveAsset } from '@wake-studio/platform'
 
-// Use the CDN for the onnxruntime-web WASM runtime files (Phase 6 will vendor
-// these for offline support, consistent with the RNNoise vendoring in Phase 1).
-// Set once at module load; shared with any other backend in this worker.
-ort.env.wasm.wasmPaths =
-  'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/'
+// onnxruntime-web WASM runtime served locally from /ort/ (public dir, copied
+// into dist/ by vite - P0-4 offline support). base-aware (ADR-012).
+ort.env.wasm.wasmPaths = resolveAsset('/ort/')
 
 /** Fetch a model URL and create an InferenceSession. */
 async function loadModel(
