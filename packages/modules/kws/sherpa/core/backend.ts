@@ -26,6 +26,8 @@
 
 import type { KWSBackend, SherpaOnnxKwsConfig } from '@wake-studio/module-kws-engine'
 import { resolveAsset } from '@wake-studio/platform'
+import type { ModuleSpec } from '@wake-studio/contracts'
+import sherpaSpec from '../spec/module.spec.json'
 
 /**
  * Default wasm base URL: the sherpa driver's own assets dir (Q-K2 / ADR-025),
@@ -99,13 +101,37 @@ async function loadSherpaKws(
     throw new Error('sherpa-onnx-kws glue (createKws) not found.')
   }
 
-  // 2. Boot the wasm. The classic emscripten glue does `var Module = Module || {}`
-  //    at eval time, which REASSIGNS globalThis.Module to a fresh object - so we
-  //    must NOT pre-attach onRuntimeInitialized (it would be discarded). Instead
-  //    we inject the glue (which creates globalThis.Module), then attach the
-  //    init callback to that Module. emscripten reads onRuntimeInitialized from
-  //    globalThis.Module at call time, so this ordering is what upstream
-  //    app.js relies on.
+  // 2. Boot the wasm. Two builds are supported:
+  //
+  //    - v1.13.4 (legacy): the glue does `var Module = Module || {}` at eval
+  //      time, REASSIGNING globalThis.Module; we must attach
+  //      onRuntimeInitialized AFTER injecting the glue (polling), then inject
+  //      the main glue, which boots synchronously.
+  //
+  //    - master (dcf56735/#3836, single-threaded): main.js *auto-runs*
+  //      (run() at the end) and fetches its .data package. Its generated
+  //      PACKAGE_NAME is "../../bin/sherpa-onnx-wasm-kws-main.data" (relative
+  //      to the build's install dir), which does not exist in our flat
+  //      deployment - so we pre-set globalThis.Module.locateFile to rewrite
+  //      any 'sherpa-onnx-wasm-kws-main.*' reference to the module assets dir
+  //      (same directory as the glue). Module is preserved across both
+  //      scripts, so setting it before injecting main.js works for both.
+  //
+  //    The wasm fetches .data over HTTP (fetch(packageName)); the dev/preview
+  //    vite middleware serves /modules/... with correct content-types.
+  //
+  // Pre-set locateFile BEFORE the ready promise so attach() (which polls the
+  // global Module) picks it up; the main glue auto-runs on injection.
+  const g = globalThis as Record<string, unknown>
+  const existingModule = (g.Module as Record<string, unknown> | undefined) ?? {}
+  existingModule.locateFile = (path: string) => {
+    if (path.includes('sherpa-onnx-wasm-kws-main')) {
+      return `${base}${path.split('/').pop()}`
+    }
+    return `${base}${path}`
+  }
+  g.Module = existingModule
+
   const ready = new Promise<SherpaKws>((resolve, reject) => {
     const start = Date.now()
     const timer = setInterval(() => {
@@ -115,8 +141,8 @@ async function loadSherpaKws(
       }
     }, 1000)
 
-    // Attach the init callback to the Module the glue created (poll briefly in
-    // case the glue hasn't finished evaluating yet).
+    // Attach the init callback to the Module (poll briefly in case the glue
+    // hasn't finished evaluating yet).
     const attach = (): void => {
       const module = (globalThis as Record<string, unknown>).Module as
         | (Record<string, unknown> & { onRuntimeInitialized?: () => void })
@@ -149,12 +175,12 @@ async function loadSherpaKws(
   return spotter
 }
 
-const DEFAULT_KEYWORDS = [
-  // wenetspeech-3.3M-2024-01-01 keyword tokens (ppinyin + @label).
-  'n ǐ h ǎo j ūn g ē :1.5 #0.35 @你好军哥',
-  'n ǐ h ǎo w èn w èn :1.5 #0.35 @你好问问',
-  'x iǎo ài t óng x ué :1.5 #0.35 @小爱同学',
-].join('\n')
+// The keyword list is owned by the module spec (single source of truth,
+// ADR-025) - the same value the web panel consumes to configure this backend.
+const DEFAULT_KEYWORDS =
+  ((sherpaSpec as unknown as ModuleSpec).params?.find((p) => p.id === 'keywords')
+    ?.default as string | undefined) ??
+  'hey buddy'
 
 export class SherpaOnnxKwsBackend implements KWSBackend {
   readonly id = 'sherpa-onnx-kws' as const
@@ -190,9 +216,9 @@ export class SherpaOnnxKwsBackend implements KWSBackend {
       featConfig: { sampleRate: 16000, featureDim: 80 },
       modelConfig: {
         transducer: {
-          encoder: './encoder-epoch-12-avg-2-chunk-16-left-64.onnx',
-          decoder: './decoder-epoch-12-avg-2-chunk-16-left-64.onnx',
-          joiner: './joiner-epoch-12-avg-2-chunk-16-left-64.onnx',
+          encoder: './encoder-epoch-13-avg-2-chunk-16-left-64.onnx',
+          decoder: './decoder-epoch-13-avg-2-chunk-16-left-64.onnx',
+          joiner: './joiner-epoch-13-avg-2-chunk-16-left-64.onnx',
         },
         tokens: './tokens.txt',
         provider: 'cpu',

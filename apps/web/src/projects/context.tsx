@@ -9,9 +9,9 @@
 import * as React from 'react'
 import type { WakeWordProject, ProjectDraft, ProjectConfigSnapshot } from './types'
 import { DEFAULT_PROJECT_NAME } from './types'
-import { DEFAULT_CONFIG as AFE_DEFAULTS } from '../afe'
-import { DEFAULT_CONFIG as KWS_DEFAULTS } from '../kws'
-import { DEFAULT_CONFIG as FS_DEFAULTS } from '../few-shot'
+import { DEFAULT_CONFIG as AFE_DEFAULTS } from '@wake-studio/module-afe-graph'
+import { DEFAULT_CONFIG as KWS_DEFAULTS } from '@wake-studio/module-kws-engine'
+import { DEFAULT_CONFIG as FS_DEFAULTS } from '@wake-studio/module-few-shot'
 import { listProjects, saveProject } from './store'
 
 const LAST_PROJECT_KEY = 'wake-studio:last-project'

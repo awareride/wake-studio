@@ -60,17 +60,23 @@ const HF_TRANSFORMERS_CDN =
   'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0'
 
 // Type-only imports (erased at build time; do not affect runtime resolution).
-import type {
-  AutoModelStatic,
-  TransformersEnv,
-  TransformersModel,
-  Tensor as OrtTensor,
-} from '@huggingface/transformers'
+// The package's real v4 browser types resolve from its installed `types` entry
+// (it is a transitive dep of the plix module; the browser import is a CDN
+// URL at runtime, so this is type-check-only). We narrow to the small surface
+// this encoder actually uses: the model instance is callable with a named
+// inputs object and exposes `input_names`; the tensor is `Tensor`.
+import type { AutoModel, Tensor as OrtTensor } from '@huggingface/transformers'
+
+/** Minimal model surface the PLiX encoder uses (v4 PreTrainedModel). */
+interface PlixTransformersModel {
+  (inputs: Record<string, OrtTensor>): Promise<Record<string, OrtTensor>>
+  input_names?: string[]
+}
 
 export class PlixTransformersEncoder implements PlixEncoder {
   readonly runtime = 'transformers' as const
-  private _model: TransformersModel | null = null
-  private _TensorCtor: (typeof import('@huggingface/transformers'))['Tensor'] | null = null
+  private _model: PlixTransformersModel | null = null
+  private _TensorCtor: typeof OrtTensor | null = null
   private _modelId: string
 
   constructor(modelId: string) {
@@ -89,9 +95,14 @@ export class PlixTransformersEncoder implements PlixEncoder {
     // browser. The @vite-ignore tells Vite not to rewrite/analyze this remote
     // URL at build time - it is fetched at runtime when this runtime is used.
     const mod = (await import(/* @vite-ignore */ HF_TRANSFORMERS_CDN)) as unknown as {
-      AutoModel: AutoModelStatic
-      env: TransformersEnv
-      Tensor: typeof import('@huggingface/transformers').Tensor
+      AutoModel: typeof AutoModel
+      env: {
+        allowRemoteModels: boolean
+        allowLocalModels?: boolean
+        localModelPath?: string
+        [key: string]: unknown
+      }
+      Tensor: typeof OrtTensor
     }
 
     // When the locator is a local path (starts with '/'), serve the model from
@@ -124,19 +135,24 @@ export class PlixTransformersEncoder implements PlixEncoder {
           data: `${onnxDir}/model.onnx_data`,
         },
       ]
-      this._model = await mod.AutoModel.from_pretrained(id, {
+      this._model = (await mod.AutoModel.from_pretrained(id, {
         dtype: 'fp32',
         use_external_data_format: true,
+        // v4's public PretrainedModelOptions dropped `externalData`, but the
+        // runtime still accepts it for ONNX external-data weights (see the
+        // onnx/model.onnx_data convention above). Narrow the option locally.
         externalData,
-      })
+      } as Parameters<typeof mod.AutoModel.from_pretrained>[1] & {
+        externalData: Array<{ path: string; data: string }>
+      })) as unknown as PlixTransformersModel
       return
     }
 
     this._TensorCtor = mod.Tensor
-    this._model = await mod.AutoModel.from_pretrained(this._modelId, {
+    this._model = (await mod.AutoModel.from_pretrained(this._modelId, {
       // Run on the CPU via WASM (matches the ONNX runtime's pinned EP).
       dtype: 'fp32',
-    })
+    })) as unknown as PlixTransformersModel
   }
 
   async embed(audio: Float32Array, sampleRate: number): Promise<Float32Array> {
@@ -166,11 +182,8 @@ export class PlixTransformersEncoder implements PlixEncoder {
       mel,
       [1, 1, PLIX_N_MELS, PLIX_TARGET_FRAMES],
     )
-    const inputName = (this._model as { input_names?: string[] }).input_names?.[0] ?? 'input'
-    // AutoModel is typed for a positional Tensor call; the actual runtime
-    // (Transformers.js) requires a named inputs object, so cast here.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const out = await (this._model as any)({ [inputName]: input })
+    const inputName = this._model.input_names?.[0] ?? 'input'
+    const out = await this._model({ [inputName]: input })
     const outTensor: OrtTensor | undefined =
       (out as { last_hidden_state?: OrtTensor }).last_hidden_state ??
       (Object.values(out)[0] as OrtTensor)

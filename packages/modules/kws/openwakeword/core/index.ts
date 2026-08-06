@@ -7,6 +7,8 @@
 
 import { registerKwsBackend } from '@wake-studio/module-kws-engine'
 import { OpenWakeWordBackend } from './backend'
+import type { ModuleSpec } from '@wake-studio/contracts'
+import openWakeWordSpec from '../spec/module.spec.json'
 
 export { OpenWakeWordBackend } from './backend'
 
@@ -16,4 +18,7 @@ registerKwsBackend({
   create: () => new OpenWakeWordBackend(),
   browserFeasible: true,
   availabilityNote: 'Available',
+  // The driver's own spec (ADR-025): hosts render its params (threshold)
+  // from the registry instead of hard-coding per-backend cases.
+  spec: openWakeWordSpec as unknown as ModuleSpec,
 })

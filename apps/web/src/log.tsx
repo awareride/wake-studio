@@ -9,7 +9,7 @@
  */
 
 import * as React from 'react'
-import type { KWSTriggerEvent } from './kws'
+import type { KWSTriggerEvent } from '@wake-studio/module-kws-engine'
 
 export type LogLevel = 'info' | 'warn' | 'error'
 

@@ -10,10 +10,10 @@
  */
 
 import * as React from 'react'
-import type { ModelRegistry, RegistryModel, ModelTier } from '../data/registry'
-import { loadRegistry, isCommerciallyUsable } from '../data/registry'
-import { probeModelUrl, type ProbeResult } from '../data/probe'
-import { getBackendRegistry } from '../kws'
+import type { ModelRegistry, RegistryModel, ModelTier } from '@wake-studio/platform'
+import { loadRegistry, isCommerciallyUsable } from '@wake-studio/platform'
+import { probeModelUrl, type ProbeResult } from '@wake-studio/platform'
+import { getBackendRegistry } from '@wake-studio/module-kws-engine'
 import { IconSpinner } from '../components/icons'
 import { useToast } from '../components/toast'
 import { cn } from '../components/cn'

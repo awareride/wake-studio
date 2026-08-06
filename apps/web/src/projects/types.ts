@@ -10,9 +10,9 @@
  * `store.ts` (generalizing the Few-Shot storage).
  */
 
-import type { AFEConfig } from '../afe'
-import type { KWSConfig } from '../kws'
-import type { FewShotConfig } from '../few-shot'
+import type { AFEConfig } from '@wake-studio/module-afe-graph'
+import type { KWSConfig } from '@wake-studio/module-kws-engine'
+import type { FewShotConfig } from '@wake-studio/module-few-shot'
 
 /** Target domain (mirrors the two-domain split in README / Domains). */
 export type ProjectDomain = 'low-power-mcu' | 'high-performance'

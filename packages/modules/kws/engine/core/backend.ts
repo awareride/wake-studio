@@ -9,6 +9,7 @@
  */
 
 import type { KWSBackend, KWSBackendId } from './types'
+import type { ModuleSpec } from '@wake-studio/contracts'
 
 /** A registry entry for a KWS backend. */
 export interface KWSBackendRegistration {
@@ -23,6 +24,12 @@ export interface KWSBackendRegistration {
   browserFeasible: boolean
   /** One-line note shown in the config panel for non-feasible backends. */
   availabilityNote: string
+  /**
+   * The driver module's own spec (ADR-025). Carried so hosts (web panel,
+   * console) can render the driver's params/actions automatically from the
+   * registry - no hard-coded per-backend cases in the host.
+   */
+  spec?: ModuleSpec
   /**
    * Optional: a main-thread-only backend factory (e.g. sherpa-onnx-kws runs
    * on the main thread - its classic emscripten wasm needs DOM, ADR-018).

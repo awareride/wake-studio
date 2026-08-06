@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, memo } from 'react'
-import type { RecordedClip } from '../afe'
-import type { AFEPipeline } from '../afe'
+import type { RecordedClip } from '@wake-studio/module-afe-graph'
+import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 
 interface Props {
   pipeline: AFEPipeline | null

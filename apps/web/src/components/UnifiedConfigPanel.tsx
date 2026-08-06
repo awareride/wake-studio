@@ -13,7 +13,7 @@
 
 import type { ModuleParam } from '@wake-studio/contracts'
 import { renderParamRow, UiCollapsible } from '@wake-studio/module-kit'
-import type { ParameterDescriptor } from '../afe'
+import type { ParameterDescriptor } from '@wake-studio/module-afe-graph'
 import { cn } from '../components/cn'
 
 export type ParamValue = string | number | boolean

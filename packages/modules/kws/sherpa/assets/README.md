@@ -7,6 +7,14 @@ The wasm glue + `.wasm` + `.data` are produced by the generic build workflow
 (`.github/workflows/build.yaml` + `scripts/build-module.mjs kws-sherpa`,
 ADR-027 §6.7) and published as the `sherpa-onnx-kws-wasm` artifact.
 
+The build pins sherpa-onnx **master** (default `sherpa_version` input) - NOT
+a release tag - because upstream commit `dcf56735` (#3836, 2026-08-04)
+removed WebAssembly pthread support, producing a single-threaded wasm that
+boots without COEP/SAB (the v1.13.4 release still ships a pthread build that
+hangs in browsers without cross-origin isolation). The bundled model is the
+latest bilingual one, `sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20`
+(default `kws_model` input), with ppinyin `tokens @label` keywords.
+
 ## Fetch locally (dev / preview)
 
 ```bash

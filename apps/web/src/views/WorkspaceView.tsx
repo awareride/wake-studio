@@ -25,7 +25,7 @@ import { Domains } from '../components/Domains'
 import { ProjectBar } from '../components/ProjectBar'
 import { PipelineCanvas } from '../components/PipelineCanvas'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui'
-import type { AFEPipeline } from '../afe'
+import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import { useConsoleStatus } from '../status'
 import { useProjects } from '../projects'
 

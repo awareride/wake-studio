@@ -1,50 +1,93 @@
+/**
+ * KWS detection panel (live DSP orchestration, not spec-driven).
+ *
+ * The KWS stage's params/actions/status surface is declared in the module
+ * specs (kws-engine `describeParameters()`, per-driver specs carried on the
+ * backend registration); this panel is the LIVE orchestration layer on top
+ * of the engine: boot/load/start/stop, AFE stream wiring, score curve and
+ * trigger flash. Model locations come from the platform model registry
+ * (ADR-011/027), never hard-coded here.
+ *
+ * The driver-specific config panel is rendered from the selected backend's
+ * registration spec (ADR-025) - adding a driver never edits this file.
+ */
+
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import type { AFEPipeline } from '../afe'
+import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import {
   KWSEngine,
   DEFAULT_CONFIG,
   describeParameters,
   getBackendRegistry,
-} from '../kws'
+} from '@wake-studio/module-kws-engine'
 import type {
   BackendModelUrls,
   KWSConfig,
   KWSScoreSample,
   KWSTriggerEvent,
   KWSStatus,
-} from '../kws'
-import { MEL_WINDOW_SIZE } from '../kws'
-import type { SherpaOnnxKwsConfig } from '../kws'
+} from '@wake-studio/module-kws-engine'
+import { MEL_WINDOW_SIZE } from '@wake-studio/module-kws-engine'
+import type { ParameterDescriptor } from '@wake-studio/module-afe-graph'
+import { loadRegistry, type ModelRegistry } from '@wake-studio/platform'
+import type { ModuleSpec, ModuleParam } from '@wake-studio/contracts'
 import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
 import { useProjectStageConfig } from '../projects'
 import { logTrigger, logInfo, logError } from '../log'
-
-// Default keyword list for the sherpa-onnx KWS backend (matches the model
-// prebuilt into the wasm .data bundle). For the wenetspeech-3.3M-2024-01-01
-// model these use the ppinyin tokenization (per sherpa-onnx text2token).
-const KWS_KEYWORDS = [
-  'n ǐ h ǎo j ūn g ē :1.5 #0.35 @你好军哥',
-  'n ǐ h ǎo w èn w èn :1.5 #0.35 @你好问问',
-  'x iǎo ài t óng x ué :1.5 #0.35 @小爱同学',
-].join('\n')
-
-// Model URLs (ADR-011). The feature models (melspectrogram, speech-embedding)
-// are served from the openwakeword module's own assets dir (ADR-025) -
-// byte-identical to the hey-buddy re-hosts and Apache-2.0. The classifier
-// stays on the remote hey-buddy model (CC-BY-4.0, commercially clean) - see
-// ADR-018 Q-KWS-1.
-const MODEL_URLS: BackendModelUrls = {
-  melspectrogram: '/modules/kws/openwakeword/assets/openWakeWord/melspectrogram.onnx',
-  embedding: '/modules/kws/openwakeword/assets/openWakeWord/embedding_model.onnx',
-  classifier:
-    'https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/models/hey-buddy.onnx',
-}
 
 const HISTORY_MAX = 300 // ~3 s at ~100 fps
 
 interface Props {
   afePipeline: AFEPipeline | null
   afeRunning: boolean
+}
+
+/**
+ * Resolve the model URLs for the openWakeWord backend from the platform
+ * registry (ADR-011/027). Keyed by registry id; the URL is the module-owned
+ * assets path (ADR-025) for local models, remote for the classifier.
+ */
+export function modelUrlsFromRegistry(registry: ModelRegistry): BackendModelUrls {
+  const byId = new Map(registry.models.map((m) => [m.id, m.url]))
+  return {
+    melspectrogram: byId.get('melspectrogram'),
+    embedding: byId.get('speech_embedding'),
+    classifier: byId.get('hey-buddy'),
+  }
+}
+
+/** Build a ParameterDescriptor from a ModuleSpec param (spec -> panel).
+ *  ModuleParam.type has extra kinds (enum/secret/slider); map to the panel's
+ *  ParameterDescriptor union (number/boolean/select/string). */
+function descriptorFromParam(param: ModuleParam): ParameterDescriptor {
+  const type: ParameterDescriptor['type'] =
+    param.type === 'slider'
+      ? 'number'
+      : param.type === 'enum'
+        ? 'select'
+        : param.type === 'secret'
+          ? 'string'
+          : param.type
+  return {
+    id: param.id,
+    label: param.label,
+    type,
+    default: param.default,
+    min: param.min,
+    max: param.max,
+    step: param.step,
+    unit: param.unit,
+    description: param.description,
+    options: param.options as ParameterDescriptor['options'],
+  }
+}
+
+/** The selected backend's own tunable params, from its registration spec
+ *  (ADR-025) - empty when the backend carries no spec. */
+export function driverParamsFor(backendId: string): ReadonlyArray<ParameterDescriptor> {
+  const reg = getBackendRegistry().find((r) => r.id === backendId)
+  const spec = reg?.spec as ModuleSpec | undefined
+  return (spec?.params ?? []).map(descriptorFromParam)
 }
 
 export const KWSPanel = memo(function KWSPanel({
@@ -66,12 +109,23 @@ export const KWSPanel = memo(function KWSPanel({
   const [executionProvider, setExecutionProvider] = useState<'webgpu' | 'wasm'>(
     'wasm',
   )
-  const [logExport, setLogExport] = useState(false)
-
   const [lastKeyword, setLastKeyword] = useState('')
 
   const historyRef = useRef<KWSScoreSample[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  // Registry-loaded model URLs (lazy; resolved at load time, ADR-011).
+  const urlsRef = useRef<BackendModelUrls>({})
+  // The selected backend's own params, from its registration spec (ADR-025).
+  // Empty when the backend carries no spec (no driver config panel).
+  const driverParams = driverParamsFor(config.backend)
+  // Editable driver param values, seeded from the spec defaults; edited via
+  // the config panel, then passed to engine.load on the next Load.
+  const [driverValues, setDriverValues] = useState<Record<string, ParamValue>>(
+    () =>
+      Object.fromEntries(
+        driverParamsFor(config.backend).map((p) => [p.id, p.default]),
+      ),
+  )
 
   const params = describeParameters()
 
@@ -83,16 +137,17 @@ export const KWSPanel = memo(function KWSPanel({
       setStatus('loading')
       // Ensure the engine has the latest backend selection before loading.
       engine.setConfig({ backend: config.backend, threshold: config.threshold })
-      const sherpaKwsConfig: Partial<SherpaOnnxKwsConfig> =
-        config.backend === 'sherpa-onnx-kws'
-          ? {
-              // Q-K2: wasm lives in the sherpa driver module's assets dir
-              // (served at /modules/kws/sherpa/assets/... in dev).
-              wasmBaseUrl: '/modules/kws/sherpa/assets/sherpa-onnx-kws/',
-              keywords: KWS_KEYWORDS,
-            }
-          : {}
-      await engine.load(MODEL_URLS, undefined, sherpaKwsConfig)
+      // Resolve model URLs from the platform registry (ADR-011) - never
+      // hard-coded here; the UI shows the exact fetch command if absent.
+      const registry = await loadRegistry()
+      urlsRef.current = modelUrlsFromRegistry(registry)
+      // Pass the driver's edited params as its backend config (unknown to the
+      // engine; the driver's configure() interprets them, e.g. sherpa
+      // keywords).
+      const backendConfig = Object.keys(driverValues).length
+        ? (driverValues as Record<string, unknown>)
+        : undefined
+      await engine.load(urlsRef.current, undefined, backendConfig)
       setStatus(engine.status)
       setExecutionProvider(engine.executionProvider)
       logInfo('kws', `Models loaded (backend: ${config.backend})`)
@@ -101,7 +156,7 @@ export const KWSPanel = memo(function KWSPanel({
       setStatus('error')
       logError('kws', err instanceof Error ? err.message : String(err))
     }
-  }, [config.backend, config.threshold])
+  }, [config.backend, config.threshold, driverValues])
 
   const handleStart = useCallback(() => {
     if (!engineRef.current || !afePipeline || !afeRunning) return
@@ -151,9 +206,7 @@ export const KWSPanel = memo(function KWSPanel({
 
   // Create the engine on mount (so backend/config changes made via the panel
   // before the first Load actually reach it), wire subscriptions, and push the
-  // current config in. Previously the engine was only instantiated inside
-  // handleLoad, which meant an early backend selection was silently ignored
-  // and the default (openwakeword) was loaded instead.
+  // current config in.
   useEffect(() => {
     if (!engineRef.current) {
       engineRef.current = new KWSEngine()
@@ -168,7 +221,7 @@ export const KWSPanel = memo(function KWSPanel({
     engine.onTrigger((e: KWSTriggerEvent) => {
       setTriggerFlash(true)
       setTimeout(() => setTriggerFlash(false), 500)
-      // Publish to the session console (Phase 4) - replaces console.log.
+      // Publish to the session console (Phase 4).
       logTrigger('kws', e)
     })
     engine.onPartial((text: string) => {
@@ -178,9 +231,6 @@ export const KWSPanel = memo(function KWSPanel({
       }
     })
     engine.setConfig({ backend: config.backend, threshold: config.threshold })
-    // The engine is created once; backend/threshold changes are pushed via
-    // updateConfig -> engine.setConfig, so only config.backend/threshold are
-    // re-applied here when the user changes them before loading.
     return () => engine.dispose()
   }, [config.backend, config.threshold])
 
@@ -305,62 +355,27 @@ export const KWSPanel = memo(function KWSPanel({
           <h3 className="mb-4 text-sm font-semibold text-ink-1">
             Configuration{' '}
             <span className="text-xs font-normal text-ink-3">
-              (Traditional KWS · Primary)
+              (backend · Primary)
             </span>
           </h3>
 
-          {/* Read-only surface flags (not tunable params; reserved). */}
-          <div className="mb-4 grid gap-4 sm:grid-cols-2">
-            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-ink-2">Inference mode</span>
-              <select
-                value="realtime"
-                disabled
-                className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
-                title="Real-time mic detection (offline-file import is reserved)."
-              >
-                <option value="realtime">Real-time mic</option>
-                <option value="offline">Offline file</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-ink-2">Output mode</span>
-              <select
-                value="trigger"
-                disabled
-                className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
-                title="Emit a trigger event + score (reserved: score-only / CSV)."
-              >
-                <option value="trigger">Trigger + score</option>
-                <option value="score">Score only</option>
-                <option value="csv">CSV log</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-ink-2">Acceleration</span>
-              <select
-                value={config.executionProvider}
-                disabled
-                className="flex-1 rounded bg-surface-3 px-2 py-1 text-ink-2"
-                title="WebGPU when available, else WASM (ADR-018)."
-              >
-                <option value="webgpu">WebGPU</option>
-                <option value="wasm">WASM</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="w-32 shrink-0 text-ink-2">Log export</span>
-              <input
-                type="checkbox"
-                checked={logExport}
-                onChange={(e) => setLogExport(e.target.checked)}
-                className="accent-brand-400"
+          {/* Driver params from the selected backend's registration spec
+              (ADR-025) - rendered automatically; no per-backend cases here. */}
+          {driverParams.length > 0 && (
+            <div className="mb-4">
+              <UnifiedConfigPanel
+                title={`${config.backend} driver`}
+                subtitle="Params from the driver module spec (ADR-025). Apply by clicking Load again."
+                params={driverParams}
+                values={driverValues}
+                onParamChange={(id, v) =>
+                  setDriverValues((prev) => ({ ...prev, [id]: v }))
+                }
+                advancedIds={[]}
+                disabled={running}
               />
-              <span className="text-xs text-ink-3">
-                Stream scores to console
-              </span>
-            </label>
-          </div>
+            </div>
+          )}
 
           {/* Tunable params rendered from the spec descriptors (module-kit). */}
           <UnifiedConfigPanel

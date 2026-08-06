@@ -99,22 +99,12 @@ importers:
       '@wake-studio/platform':
         specifier: workspace:^
         version: link:../../packages/platform
-      onnxruntime-web:
-        specifier: ^1.27.0
-        version: 1.27.0
       react:
         specifier: ^18.3.1
         version: 18.3.1
       react-dom:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
-      sherpa-onnx:
-        specifier: ^1.13.4
-        version: 1.13.4
-    optionalDependencies:
-      '@huggingface/transformers':
-        specifier: ^4.2.0
-        version: 4.2.0
     devDependencies:
       '@eslint/js':
         specifier: ^9.16.0
@@ -3715,9 +3705,6 @@ packages:
   shebang-regex@3.0.0:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
-
-  sherpa-onnx@1.13.4:
-    resolution: {integrity: sha512-KnfQkA+LxbptrWX1gd7upGDyFkLslJVlOudUWPkwveHwYIXo5Qq97Tx02NF5aE0G3cgKpHBh2z+CR+s6ywZPPQ==}
 
   side-channel-list@1.0.1:
     resolution: {integrity: sha512-mjn/0bi/oUURjc5Xl7IaWi/OJJJumuoJFQJfDDyO46+hBWsfaVM65TBHq2eoZBhzl9EchxOijpkbRC8SVBQU0w==}
@@ -7388,8 +7375,6 @@ snapshots:
       shebang-regex: 3.0.0
 
   shebang-regex@3.0.0: {}
-
-  sherpa-onnx@1.13.4: {}
 
   side-channel-list@1.0.1:
     dependencies:

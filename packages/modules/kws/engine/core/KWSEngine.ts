@@ -19,7 +19,7 @@ import type {
   KWSWorkerMessage,
   ParameterDescriptor,
 } from './types'
-import type { SherpaOnnxKwsConfig, KWSBackend } from './types'
+import type { KWSBackend } from './types'
 import { DEFAULT_CONFIG } from './defaults'
 import { describeParameters } from './defaults'
 import { KWSLoadError } from './types'
@@ -86,35 +86,35 @@ export class KWSEngine {
    * `plixkws` backend, pass the enrolled prototype vector. Resolves
    * when ready to detect.
    */
-  async load(models: BackendModelUrls, prototype?: Float32Array, sherpaKwsConfig?: Partial<SherpaOnnxKwsConfig>): Promise<void> {
+  async load(
+    models: BackendModelUrls,
+    prototype?: Float32Array,
+    backendConfig?: unknown,
+  ): Promise<void> {
     if (this._status === 'loading' || this._status === 'ready') return
 
     this._status = 'loading'
 
-    // The sherpa-onnx-kws backend uses a classic emscripten sherpa-onnx wasm
-    // build that requires a DOM (document + script injection), so it cannot boot
-    // inside the DOM-less Web Worker. It is therefore loaded and driven on the
-    // MAIN THREAD via the driver's mainThreadFactory (ADR-024 decoupling); all
-    // other backends run in the worker. When set, AFE frames are processed via
-    // _processMainThread.
-    if (this._config.backend === 'sherpa-onnx-kws') {
+    // Some backends need the DOM (e.g. sherpa-onnx-kws's classic emscripten
+    // wasm injects <script> tags), so they cannot boot inside the DOM-less Web
+    // Worker. The engine dispatches on capability, not id: if the selected
+    // backend registered a mainThreadFactory (ADR-024 decoupling), drive it on
+    // the main thread; otherwise run it in the worker.
+    const mainThreadBackend = createMainThreadBackend(this._config.backend)
+    if (mainThreadBackend) {
       try {
-        const backend = createMainThreadBackend('sherpa-onnx-kws')
-        if (!backend) {
-          throw new KWSLoadError(
-            'sherpa-onnx-kws main-thread backend is not registered. Load the kws-sherpa driver module.',
-          )
-        }
-        // The sherpa driver's main-thread backend exposes configure().
-        ;(backend as KWSBackend & { configure?: (c: unknown) => void }).configure?.(sherpaKwsConfig ?? {})
-        await backend.load(undefined as never, 'wasm')
-        this._mainThreadBackend = backend
+        // The main-thread backend exposes configure(config) for its own params
+        // (e.g. sherpa keywords + wasm base URL). Driver-specific; passed
+        // through as-is from the host.
+        ;(mainThreadBackend as KWSBackend & { configure?: (c: unknown) => void }).configure?.(backendConfig ?? {})
+        await mainThreadBackend.load(undefined as never, 'wasm')
+        this._mainThreadBackend = mainThreadBackend
         this._smoother = new ScoreSmoother(this._config.smoothingWindowFrames)
         this._trigger = new TriggerDetector(
           this._config.threshold,
           this._config.minDurationMs,
           this._config.cooldownMs,
-          'sherpa-onnx-kws',
+          this._config.backend,
         )
         this._executionProvider = 'wasm'
         this._status = 'ready'
@@ -151,7 +151,6 @@ export class KWSEngine {
         backend: this._config.backend,
         models,
         prototype: prototype ? Array.from(prototype) : undefined,
-        sherpaKwsConfig,
       })
     })
   }

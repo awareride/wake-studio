@@ -1,5 +1,5 @@
 import { useEffect, useRef, memo } from 'react'
-import type { StageFrameData } from '../afe'
+import type { StageFrameData } from '@wake-studio/module-afe-graph'
 
 interface Props {
   frameData: Record<string, StageFrameData>

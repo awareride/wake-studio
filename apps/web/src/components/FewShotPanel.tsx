@@ -1,19 +1,19 @@
 import { memo, useCallback, useRef, useState, useEffect } from 'react'
-import type { AFEPipeline } from '../afe'
-import { KWSEngine, DEFAULT_CONFIG as KWS_DEFAULTS } from '../kws'
-import type { KWSScoreSample, KWSStatus } from '../kws'
-import { FewShotEngine, DEFAULT_CONFIG as FS_DEFAULTS, describeParameters } from '../few-shot'
-import type { EnrolledSample, FewShotConfig, WakeWordPrototype } from '../few-shot'
+import type { AFEPipeline } from '@wake-studio/module-afe-graph'
+import { KWSEngine, DEFAULT_CONFIG as KWS_DEFAULTS } from '@wake-studio/module-kws-engine'
+import type { KWSScoreSample, KWSStatus } from '@wake-studio/module-kws-engine'
+import { FewShotEngine, DEFAULT_CONFIG as FS_DEFAULTS, describeParameters } from '@wake-studio/module-few-shot'
+import type { EnrolledSample, FewShotConfig, WakeWordPrototype } from '@wake-studio/module-few-shot'
 import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
 import { useProjectStageConfig } from '../projects'
 import { recorderWorkletUrl as recorderUrl } from '@wake-studio/module-few-shot/web'
-import type { ModelRuntime } from '../runtime'
+import type { ModelRuntime } from '@wake-studio/platform'
+import { RUNTIME_LABELS } from '@wake-studio/platform'
 import {
   PLIX_ENCODER_VARIANTS,
   getPlixEncoderVariant,
   type PlixEncoderVariant,
 } from '@wake-studio/module-kws-plix/encoders/plix-encoder'
-import { RUNTIME_LABELS } from '../runtime'
 
 // PLiX Few-Shot encoder (aaqibsaeed/plixkws, Apache-2.0) - compact CNN
 // (EfficientNet-v2 'base' / TinyNet-E 'small') trained as a Prototypical
@@ -28,13 +28,14 @@ import { RUNTIME_LABELS } from '../runtime'
 // install) - it fetches the ONNX weights itself (from a HF repo id or a
 // locally-served HF-style directory). Both produce the same embedding. ONNX
 // stays the default; switch to 'transformers' for a zero-Python deployment.
-// The type is the global ModelRuntime (see src/runtime.ts) so the same
+// The type is the global ModelRuntime (see @wake-studio/platform) so the same
 // selector can drive other modules' AFE/KWS models and future runtimes.
 //
 // The encoder VARIANT ('base' / 'small') is now selectable in the UI (ADR-002):
 // the chosen variant selects which exported ONNX graph (or HF repo) the
 // embedder loads. Both emit a 1280-dim embedding, so scoring is identical.
-const PLIX_VARIANTS: ReadonlyArray<PlixEncoderVariant> = PLIX_ENCODER_VARIANTS
+// PLiX encoder variants are owned by the plix driver module (ADR-025) - web
+// just consumes them; the default matches the module's spec param default.
 const DEFAULT_VARIANT: PlixEncoderVariant['id'] = 'base'
 
 const RECORD_MS = 1500
@@ -321,7 +322,7 @@ export const FewShotPanel = memo(function FewShotPanel({
                 className="rounded bg-surface-3 px-2 py-1 text-ink-1"
                 title="Select the PLiX encoder variant (ADR-002). 'base' = EfficientNet-v2-M; 'small' = TinyNet-E (lighter). Both emit a 1280-dim embedding."
               >
-                {PLIX_VARIANTS.map((v) => (
+                {PLIX_ENCODER_VARIANTS.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.label}
                   </option>

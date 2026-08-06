@@ -85,7 +85,7 @@ export interface AudioSource { start(): Promise<void>; stop(): void }
 | Constant | Default | Notes |
 |---|---|---|
 | `APP_BASE` | `import.meta.env.BASE_URL ?? '/'` | set by Vite from `VITE_BASE_PATH` (ADR-012) |
-| registry URL | `model-registry.json` (base-resolved) | lazy fetch, integrity-checked (ADR-027) |
+| registry URL | `model-registry.json` (base-resolved) | lazy fetch, integrity-checked (ADR-027); shape validated by `apps/web/public/model-registry.schema.json` (JSON Schema 2020-12) |
 
 ## 7. Error model & failure modes
 
