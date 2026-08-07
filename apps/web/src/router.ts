@@ -15,7 +15,14 @@ export type ConsoleRoute =
   | 'console'
   | 'playground-rnnoise'
   | 'settings'
+  | 'settings-general'
+  | 'settings-security'
+  | 'settings-data'
+  | 'settings-modules'
   | 'device-sdk'
+
+/** Settings sub-views (driven from the sidebar sub-menu). */
+export type SettingsSection = 'general' | 'security' | 'data' | 'modules'
 
 export const DEFAULT_ROUTE: ConsoleRoute = 'workspace'
 
@@ -26,9 +33,35 @@ const ROUTE_BY_HASH: Record<string, ConsoleRoute> = {
   '/console': 'console',
   '/playground/rnnoise': 'playground-rnnoise',
   '/settings': 'settings',
+  '/settings/general': 'settings-general',
+  '/settings/security': 'settings-security',
+  '/settings/data': 'settings-data',
+  '/settings/modules': 'settings-modules',
   '/device-sdk': 'device-sdk',
   '': 'workspace',
   '/': 'workspace',
+}
+
+/**
+ * Parse the settings backend anchor from the hash, e.g.
+ * `#/settings/modules/plixkws` -> 'plixkws'. Used to keep focus on the
+ * driver the user clicked in the sidebar (Settings -> driver).
+ */
+export function settingsBackendFromHash(hash: string): string | undefined {
+  const raw = hash.replace(/^#/, '')
+  const prefix = '/settings/modules/'
+  if (!raw.startsWith(prefix)) return undefined
+  const id = raw.slice(prefix.length).split('/')[0]
+  return id || undefined
+}
+
+/**
+ * Build the settings hash for a section, optionally anchored to a driver
+ * (e.g. `/settings/modules/plixkws`).
+ */
+export function settingsHash(section: SettingsSection, backendId?: string): string {
+  const base = routeToHash(settingsRoute(section))
+  return backendId ? `${base}/${backendId}` : base
 }
 
 /** Map a route to its canonical hash (without the leading '#'). */
@@ -45,14 +78,54 @@ export function routeToHash(route: ConsoleRoute): string {
     case 'playground-rnnoise':
       return '/playground/rnnoise'
     case 'settings':
-      return '/settings'
+      return '/settings/general'
+    case 'settings-general':
+      return '/settings/general'
+    case 'settings-security':
+      return '/settings/security'
+    case 'settings-data':
+      return '/settings/data'
+    case 'settings-modules':
+      return '/settings/modules'
     case 'device-sdk':
       return '/device-sdk'
   }
 }
 
+/** Map a SettingsSection to its ConsoleRoute. */
+export function settingsRoute(section: SettingsSection): ConsoleRoute {
+  switch (section) {
+    case 'general':
+      return 'settings-general'
+    case 'security':
+      return 'settings-security'
+    case 'data':
+      return 'settings-data'
+    case 'modules':
+      return 'settings-modules'
+  }
+}
+
+/** Map a ConsoleRoute back to its SettingsSection (or undefined). */
+export function settingsSectionOf(route: ConsoleRoute): SettingsSection | undefined {
+  switch (route) {
+    case 'settings-general':
+      return 'general'
+    case 'settings-security':
+      return 'security'
+    case 'settings-data':
+      return 'data'
+    case 'settings-modules':
+      return 'modules'
+    default:
+      return undefined
+  }
+}
+
 function parseHash(): ConsoleRoute {
   const raw = window.location.hash.replace(/^#/, '')
+  // /settings/modules/<backendId> also maps to settings-modules.
+  if (raw.startsWith('/settings/modules/')) return 'settings-modules'
   return ROUTE_BY_HASH[raw] ?? DEFAULT_ROUTE
 }
 

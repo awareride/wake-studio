@@ -22,6 +22,10 @@ const VIEW_TITLES: Record<ConsoleRoute, string> = {
   console: 'Session Console',
   'playground-rnnoise': 'RNNoise Playground',
   settings: 'Settings',
+  'settings-general': 'Settings · General',
+  'settings-security': 'Settings · Security',
+  'settings-data': 'Settings · Data',
+  'settings-modules': 'Settings · Modules',
   'device-sdk': 'Device SDK',
 }
 
@@ -51,14 +55,23 @@ export function ConsoleShell({
             <Sidebar route={route} onNavigate={navigate} />
           </aside>
 
-          {/* Mobile drawer */}
+          {/* Mobile drawer: left-edge slide-in panel (GitHub-style), not a
+              centered dialog. Left edge flush (no rounding), right edge
+              rounded (rounded-r-xl). */}
           <Dialog open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-            <DialogContent className="left-4 top-4 -translate-x-0 -translate-y-0 w-[min(80vw,17rem)] p-0">
+            <DialogContent
+              centered={false}
+              className="drawer-content left-0 top-0 h-screen w-[min(80vw,17rem)] max-w-[calc(100vw-2rem)] rounded-r-xl border-l border-t-0 border-r-0 border-b-0 p-0 data-[state=open]:animate-[drawer-in_180ms_ease-out] data-[state=closed]:animate-[drawer-out_160ms_ease-in]"
+            >
               <DialogTitle className="sr-only">Navigation</DialogTitle>
               <DialogDescription className="sr-only">
                 Primary navigation
               </DialogDescription>
-              <Sidebar route={route} onNavigate={navigate} />
+              <Sidebar
+                route={route}
+                onNavigate={navigate}
+                onClose={() => setMobileNavOpen(false)}
+              />
             </DialogContent>
           </Dialog>
 

@@ -38,10 +38,22 @@ test('hash routing navigates between views', async ({ page }) => {
   await expect(page).toHaveURL(/#\/projects/)
   await expect(page.getByRole('main').getByRole('heading', { name: 'Projects' })).toBeVisible()
 
-  // Settings placeholder.
-  await sidebarNav(page, 'Settings')
-  await expect(page).toHaveURL(/#\/settings/)
-  await expect(page.getByText('Coming soon')).toBeVisible()
+  // Settings parent toggles the sub-menu (no navigation itself); click a
+  // sub-item to reach a section.
+  await page
+    .locator('aside')
+    .getByRole('button', { name: /Settings menu/ })
+    .click()
+  await expect(
+    page.locator('aside').getByRole('button', { name: 'General' }),
+  ).toBeVisible()
+  await page.locator('aside').getByRole('button', { name: 'General' }).click()
+  await expect(page).toHaveURL(/#\/settings\/general/)
+  await expect(
+    page.getByRole('main').getByRole('heading', { name: 'General' }),
+  ).toBeVisible()
+  // The sub-menu shows the other sections.
+  await expect(page.locator('aside').getByRole('button', { name: 'Security' })).toBeVisible()
 
   // Device SDK placeholder.
   await sidebarNav(page, 'Device SDK')
@@ -149,6 +161,10 @@ test('workspace: create a project and it persists across reload', async ({ page 
 async function sidebarNav(
   page: import('@playwright/test').Page,
   name: string,
+  exact = false,
 ): Promise<void> {
-  await page.locator('aside').getByRole('button', { name }).click()
+  await page
+    .locator('aside')
+    .getByRole('button', { name, exact })
+    .click()
 }

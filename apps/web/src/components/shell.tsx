@@ -9,11 +9,18 @@
  * hand-rolled nav state.
  */
 
+import * as React from 'react'
 import type { ConsoleRoute } from '../router'
+import {
+  settingsSectionOf,
+  settingsHash,
+  settingsBackendFromHash,
+} from '../router'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui'
-import { PRIMARY_NAV, SECONDARY_NAV, type NavItem } from './shell-nav'
+import { PRIMARY_NAV, SECONDARY_NAV, isSettingsRoute, type NavItem } from './shell-nav'
 import type { ConsoleStatus } from '../status'
 import { cn } from './cn'
+import { getBackendRegistry } from '@wake-studio/module-kws-engine'
 
 function Logo() {
   return (
@@ -67,6 +74,115 @@ function NavButton({
   )
 }
 
+/**
+ * Render the Settings parent + its expanded sub-menu. The parent is a single
+ * full-width button (icon + label + chevron) that only toggles open/closed -
+ * no navigation. Clicking a sub-item navigates. Hover covers the whole row.
+ */
+function SettingsNav({
+  item,
+  route,
+  onNavigate,
+  drivers,
+  settingsBackend,
+}: {
+  item: NavItem
+  route: ConsoleRoute
+  onNavigate: (r: ConsoleRoute) => void
+  drivers: ReadonlyArray<{ backendId: string; label: string }>
+  settingsBackend?: string
+}) {
+  const isOpen = isSettingsRoute(route)
+  const activeSection = settingsSectionOf(route)
+  const [open, setOpen] = React.useState(isOpen)
+  // Keep the sub-menu open when navigating within settings.
+  React.useEffect(() => {
+    if (isOpen) setOpen(true)
+  }, [isOpen])
+
+  const Icon = item.icon
+  const driversActive = activeSection === 'modules'
+
+  // Settings -> xxx: sections first, then drivers directly (no Modules layer).
+  const sections = (item.children ?? []).filter(
+    (c) => c.route !== 'settings-modules',
+  )
+
+  return (
+    <div>
+      {/* Parent: toggles open/closed only, no navigation. */}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-label={`Settings menu ${open ? 'collapsed' : 'expanded'}`}
+        className={cn(
+          'group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
+          'text-ink-2 hover:bg-surface-3 hover:text-ink-1',
+        )}
+      >
+        <Icon className="h-[18px] w-[18px] shrink-0" />
+        <span className="flex-1 truncate text-left">{item.label}</span>
+        <svg
+          viewBox="0 0 16 16"
+          className={cn(
+            'h-3.5 w-3.5 shrink-0 text-ink-3 transition-transform group-hover:text-ink-1',
+            open && 'rotate-90',
+          )}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        >
+          <path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="ml-3 mt-0.5 space-y-0.5 border-l border-line pl-2">          {sections.map((child) => {
+            const childActive = activeSection === settingsSectionOf(child.route)
+            return (
+              <button
+                key={child.route}
+                onClick={() => onNavigate(child.route)}
+                aria-current={childActive ? 'page' : undefined}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors',
+                  childActive
+                    ? 'bg-brand-500/10 text-brand-700'
+                    : 'text-ink-3 hover:bg-surface-3 hover:text-ink-1',
+                )}
+              >
+                <span className="flex-1 truncate text-left">{child.label}</span>
+              </button>
+            )
+          })}
+
+          {/* Drivers: Settings -> driver (keeps focus on the clicked one). */}
+          {drivers.map((d) => {
+            const active = driversActive && d.backendId === settingsBackend
+            return (
+              <button
+                key={d.backendId}
+                onClick={() => {
+                  window.location.hash = settingsHash('modules', d.backendId)
+                }}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-[13px] transition-colors',
+                  active
+                    ? 'bg-brand-500/10 text-brand-700'
+                    : 'text-ink-3 hover:bg-surface-3 hover:text-ink-1',
+                )}
+              >
+                <span className="flex-1 truncate text-left">{d.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function NavSection({ title, items, route, onNavigate }: {
   title: string
   items: NavItem[]
@@ -93,24 +209,78 @@ function NavSection({ title, items, route, onNavigate }: {
 export function Sidebar({
   route,
   onNavigate,
+  onClose,
 }: {
   route: ConsoleRoute
   onNavigate: (r: ConsoleRoute) => void
+  /** When set (mobile drawer), renders a Close button beside the logo. */
+  onClose?: () => void
 }) {
+  const drivers = useSettingsDrivers()
+  // Current driver anchor (Settings -> driver focus).
+  const [settingsBackend, setSettingsBackend] = React.useState<string | undefined>(
+    () => settingsBackendFromHash(window.location.hash),
+  )
+  React.useEffect(() => {
+    const onHash = () =>
+      setSettingsBackend(settingsBackendFromHash(window.location.hash))
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
   return (
     <div className="flex h-full w-full flex-col gap-1 overflow-y-auto p-3">
       <div className="mb-2 flex items-center gap-2 px-1.5">
         <Logo />
-        <div className="flex flex-col leading-tight">
+        <div className="flex min-w-0 flex-1 flex-col leading-tight">
           <span className="text-sm font-semibold tracking-tight text-ink-1">
             WakeStudio
           </span>
           <span className="text-[11px] text-ink-3">on-device KWS studio</span>
         </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            aria-label="Close navigation"
+            className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <NavSection title="Studio" items={PRIMARY_NAV} route={route} onNavigate={onNavigate} />
-      <NavSection title="Platform" items={SECONDARY_NAV} route={route} onNavigate={onNavigate} />
+      <div className="space-y-0.5">
+        <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-ink-3">
+          Platform
+        </div>
+        {SECONDARY_NAV.map((item) =>
+          item.route === 'settings' ? (
+            <SettingsNav
+              key={item.route}
+              item={item}
+              route={route}
+              onNavigate={onNavigate}
+              drivers={drivers}
+              settingsBackend={settingsBackend}
+            />
+          ) : (
+            <NavButton
+              key={item.route}
+              item={item}
+              active={route === item.route}
+              onClick={() => onNavigate(item.route)}
+            />
+          ),
+        )}
+      </div>
 
       <div className="mt-auto px-2.5 pt-2 text-[11px] leading-relaxed text-ink-3">
         <div className="rounded-lg border border-line bg-surface-2 px-2.5 py-2">
@@ -119,6 +289,19 @@ export function Sidebar({
         </div>
       </div>
     </div>
+  )
+}
+
+/** Drivers with a spec, for the Modules sub-menu (registry-driven, ADR-024). */
+function useSettingsDrivers(): ReadonlyArray<{ backendId: string; label: string }> {
+  // The KWS backend registry is populated at import time by driver modules;
+  // a new driver with a spec automatically appears in the sub-menu.
+  return React.useMemo(
+    () =>
+      getBackendRegistry()
+        .filter((r) => r.spec?.params?.length)
+        .map((r) => ({ backendId: r.id, label: r.label })),
+    [],
   )
 }
 

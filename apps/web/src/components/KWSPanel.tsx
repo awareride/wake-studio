@@ -12,7 +12,7 @@
  * registration spec (ADR-025) - adding a driver never edits this file.
  */
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import {
   KWSEngine,
@@ -33,6 +33,8 @@ import { loadRegistry, type ModelRegistry } from '@wake-studio/platform'
 import type { ModuleSpec, ModuleParam } from '@wake-studio/contracts'
 import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
 import { useProjectStageConfig } from '../projects'
+import { useAppSettings } from '../settings/context'
+import { loadModuleSettings, saveModuleSettings } from '../settings/storage'
 import { logTrigger, logInfo, logError } from '../log'
 // Few-Shot enrollment (plixkws branch): the engine is the headless
 // enrollment/prototype layer (ADR-013 amendment - client-side only); the
@@ -255,6 +257,7 @@ export const KWSPanel = memo(function KWSPanel({
   const [warmup, setWarmup] = useState(false)
   // Seed config from the active project's KWS snapshot (falls back to defaults).
   const { projectConfig: projCfg, persist } = useProjectStageConfig('kws')
+  const { kwsSources, setKwsSources } = useAppSettings()
   const [config, setConfig] = useState<KWSConfig>({
     ...DEFAULT_CONFIG,
     ...(projCfg as Partial<KWSConfig> | undefined),
@@ -300,8 +303,25 @@ export const KWSPanel = memo(function KWSPanel({
   // User-selectable model sources per role (ModelSourceEditor). Keyed by
   // role; value is the selected registry id or 'custom' (URL follows).
   // Defaults to undefined -> the built-in registry URL is used.
-  const [modelSources, setModelSources] = useState<Record<string, string | undefined>>({})
-  const [customUrls, setCustomUrls] = useState<Record<string, string>>({})
+  // Persistence (#52/#53): seeded from the app-level kwsSources defaults
+  // (localStorage); the #53 WorkspaceConfig project snapshot will override
+  // per project when it lands. Writes persist to app defaults.
+  const [modelSources, setModelSources] = useState<Record<string, string | undefined>>(
+    () => ({ ...(kwsSources.modelSources ?? {}) }),
+  )
+  const [customUrls, setCustomUrls] = useState<Record<string, string>>(
+    () => ({ ...(kwsSources.customUrls ?? {}) }),
+  )
+  // Persist edits to app-level defaults on change (#52/#53). Skipped on
+  // first mount (initial values already come from kwsSources).
+  const firstRenderRef = useRef(true)
+  useEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false
+      return
+    }
+    setKwsSources({ modelSources, customUrls })
+  }, [modelSources, customUrls, setKwsSources])
   // The loaded registry (for the selector options); loaded lazily on demand.
   const [registryModels, setRegistryModels] = useState<ModelRegistry | null>(null)
   // User model library (IndexedDB): local-file imports and future training
@@ -379,13 +399,26 @@ export const KWSPanel = memo(function KWSPanel({
   // The selected backend's own params, from its registration spec (ADR-025).
   // Empty when the backend carries no spec (no driver config panel).
   const driverParams = driverParamsFor(config.backend)
-  // Editable driver param values, seeded from the spec defaults; edited via
-  // the config panel, then passed to engine.load on the next Load.
+  // Editable driver param values, seeded from the app-level module defaults
+  // (#52) + the active project's snapshot override (#53 P1 layered
+  // persistence), falling back to the spec defaults. Edited via the config
+  // panel, then passed to engine.load on the next Load.
+  const appDriverDefaults = useMemo(() => {
+    const all = loadModuleSettings()
+    return (all[config.backend] as Record<string, unknown>) ?? {}
+  }, [config.backend])
   const [driverValues, setDriverValues] = useState<Record<string, ParamValue>>(
-    () =>
-      Object.fromEntries(
+    () => {
+      const specDefaults = Object.fromEntries(
         driverParamsFor(config.backend).map((p) => [p.id, p.default]),
-      ),
+      )
+      // Layer order: spec defaults < app module defaults (#52). The #53
+      // WorkspaceConfig project-snapshot override lands with that epic.
+      return {
+        ...specDefaults,
+        ...appDriverDefaults,
+      } as Record<string, ParamValue>
+    },
   )
 
   // Reset driver param values when the backend changes (each driver's spec
@@ -395,12 +428,30 @@ export const KWSPanel = memo(function KWSPanel({
     const prev = driverBackendRef.current
     driverBackendRef.current = config.backend
     if (prev === config.backend) return
-    setDriverValues(
-      Object.fromEntries(
-        driverParamsFor(config.backend).map((p) => [p.id, p.default]),
-      ),
+    const specDefaults = Object.fromEntries(
+      driverParamsFor(config.backend).map((p) => [p.id, p.default]),
     )
+    const appDefaults = (loadModuleSettings()[config.backend] as
+      | Record<string, unknown>
+      | undefined) ?? {}
+    setDriverValues({
+      ...specDefaults,
+      ...appDefaults,
+    } as Record<string, ParamValue>)
   }, [config.backend])
+
+  // Persist driver param edits to app-level module defaults on change (#52).
+  // Skipped on first render + backend-switch resets (those set spec defaults).
+  const driverFirstRef = useRef(true)
+  useEffect(() => {
+    if (driverFirstRef.current) {
+      driverFirstRef.current = false
+      return
+    }
+    if (Object.keys(driverValues).length > 0) {
+      saveModuleSettings(config.backend, { ...driverValues })
+    }
+  }, [driverValues, config.backend])
 
   const params = describeParameters()
 
