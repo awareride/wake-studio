@@ -83,6 +83,14 @@ test('KWS panel renders with the pluggable-backend UI (ADR-020)', async ({ page 
 
   await expect(page.getByText(/pluggable KWS backend/i)).toBeVisible()
 
+  // Model sources editor renders the per-role model selector (built-in
+  // registry entries + custom URL option) - the user can pick which
+  // pretrained model each role uses, or supply their own artifact URL.
+  await expect(page.getByText('Model sources')).toBeVisible()
+  const melSelect = page
+    .getByRole('combobox', { name: /Mel front-end/ })
+  await expect(melSelect).toBeVisible()
+
   const loadButton = page.getByRole('button', { name: /Load models/i })
   await expect(loadButton).toBeVisible()
 

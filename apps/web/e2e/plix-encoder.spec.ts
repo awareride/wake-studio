@@ -30,10 +30,8 @@ const SKIP_REASON = existsSync(plixSmallOnnx)
  * inside the worker bundle. Before the fix, the encoder load failed with
  * "Unknown KWS backend" / "PLiX encoder not loaded".
  *
- * Uses the 'small' variant whose ONNX + external-data assets are committed
- * under packages/modules/kws/plix/assets/ (served at
- * /modules/kws/plix/assets/...). The default 'base' variant's onnx asset is
- * not committed (issue #48), so this spec selects 'small' first.
+ * Uses the 'small' variant (the spec default since only the small ONNX
+ * export is vendored under packages/modules/kws/plix/assets/, issue #48).
  */
 
 test('plixkws encoder loads in the browser (worker registration works)', async ({
@@ -51,17 +49,9 @@ test('plixkws encoder loads in the browser (worker registration works)', async (
   await backendSelect.selectOption('plixkws')
 
   // The plix driver config panel renders the encoder variant + runtime
-  // (Radix selects, exposed as comboboxes). Pick the 'small' variant whose
-  // assets are committed.
-  const encoderSelect = page
-    .getByRole('combobox')
-    .filter({ hasText: /PLiX base/ })
-    .first()
-  await expect(encoderSelect).toBeVisible()
-  await encoderSelect.click()
-  await page.getByRole('option', { name: /PLiX small/ }).click()
-
-  // Load the encoder (embed-only path).
+  // (Radix selects, exposed as comboboxes). The default variant is now
+  // 'small' (spec default, since only the small ONNX export is vendored -
+  // issue #48), so no variant switch is needed; load directly.
   const loadButton = page.getByRole('button', { name: /Load PLiX encoder/i })
   await expect(loadButton).toBeVisible()
   await loadButton.click()
