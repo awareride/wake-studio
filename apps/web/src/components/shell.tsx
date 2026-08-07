@@ -340,10 +340,12 @@ export function TopBar({
 }
 
 /**
- * Mini pipeline bar (epic #53 UX): shows only while the pipeline is running;
- * a compact Source → … → KWS chain, a wake-word indicator (light + live
- * score, colored against the detection threshold) and a Stop button. The
- * user can collapse it (✕) and reopen it via the small pipeline button.
+ * Mini pipeline bar (epic #53 UX): shows only while the pipeline is running.
+ * A pill containing the Source → … → KWS chain, a wake indicator (light +
+ * 'Wake!' badge when the score clears the threshold — no numeric readout),
+ * a Stop button and a minimize control. Minimizing collapses the pill to a
+ * small circle (animating toward the right) whose color mirrors the wake
+ * indicator; clicking the circle expands it back leftward.
  */
 function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { running, bypass, stopPipeline } = useLiveAfe()
@@ -359,82 +361,73 @@ function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => vo
     { label: 'KWS', active: kwsRunning },
   ]
 
-  // Wake indicator: the light is green when the latest score clears the
-  // threshold (obvious pulse alert), gray otherwise; the score is colored
-  // by how close it is to the threshold.
   const woken = kwsRunning && lastScore >= threshold
-  const scoreColor = woken
-    ? 'text-emerald-300 font-bold'
-    : lastScore >= threshold * 0.8
-      ? 'text-amber-300'
-      : 'text-ink-3'
+  const dotClass = woken
+    ? 'animate-pulse bg-emerald-400'
+    : 'bg-slate-500'
 
   return (
-    <div className="flex items-center gap-1.5">
-      {open ? (
-        <>
-          <div className="flex items-center gap-2 rounded-full border border-line bg-surface-2 px-3 py-1.5">
-            <span className="flex items-center gap-1.5">
-              <span
-                className={cn(
-                  'h-2 w-2 rounded-full transition-colors',
-                  woken ? 'animate-pulse bg-emerald-400' : 'bg-slate-500',
-                )}
-              />
-              <span
-                className={cn('font-mono text-[11px] tabular-nums', scoreColor)}
-                title={`detection score (threshold ${threshold.toFixed(2)})`}
-              >
-                {lastScore.toFixed(3)}
-              </span>
+    <div
+      className={cn(
+        'relative flex h-8 items-center overflow-hidden rounded-full border border-line bg-surface-2 transition-all duration-300',
+        open ? 'max-w-96' : 'max-w-8',
+      )}
+    >
+      {/* Expanded content — fades + clips while the pill collapses. */}
+      <div
+        className={cn(
+          'flex min-w-0 items-center gap-2 whitespace-nowrap pl-3 pr-1 transition-opacity duration-200',
+          open ? 'visible opacity-100' : 'pointer-events-none invisible opacity-0',
+        )}
+      >
+        <span className={cn('h-2 w-2 shrink-0 rounded-full', dotClass)} />
+        {woken && (
+          <span className="animate-pulse rounded bg-emerald-500/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-300">
+            Wake!
+          </span>
+        )}
+        {stages.map((s, i) => (
+          <React.Fragment key={s.label}>
+            {i > 0 && <span className="text-[9px] text-ink-3">→</span>}
+            <span
+              className={cn(
+                'text-[10px] font-medium uppercase tracking-wide',
+                s.active ? 'text-emerald-300' : 'text-ink-3',
+              )}
+            >
+              {s.label}
             </span>
-            {woken && (
-              <span className="animate-pulse rounded bg-emerald-500/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-300">
-                Wake!
-              </span>
-            )}
-            {stages.map((s, i) => (
-              <React.Fragment key={s.label}>
-                {i > 0 && <span className="text-[9px] text-ink-3">→</span>}
-                <span
-                  className={cn(
-                    'text-[10px] font-medium uppercase tracking-wide',
-                    s.active ? 'text-emerald-300' : 'text-ink-3',
-                  )}
-                >
-                  {s.label}
-                </span>
-              </React.Fragment>
-            ))}
-          </div>
-          <button
-            onClick={stopPipeline}
-            aria-label="Stop pipeline"
-            className="rounded-md p-1.5 text-danger hover:bg-danger/10"
-          >
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
-              <rect x="6" y="6" width="12" height="12" rx="1.5" />
-            </svg>
-          </button>
-          <button
-            onClick={onToggle}
-            aria-label="Hide pipeline status"
-            className="rounded-md p-1.5 text-ink-3 hover:bg-surface-3 hover:text-ink-1"
-          >
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </>
-      ) : (
+          </React.Fragment>
+        ))}
+        <span className="mx-1 h-4 w-px shrink-0 bg-line-2" />
+        <button
+          onClick={stopPipeline}
+          aria-label="Stop pipeline"
+          className="shrink-0 rounded p-1 text-danger hover:bg-danger/10"
+        >
+          <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor">
+            <rect x="6" y="6" width="12" height="12" rx="1.5" />
+          </svg>
+        </button>
+        <button
+          onClick={onToggle}
+          aria-label="Minimize pipeline status"
+          className="shrink-0 rounded p-1 text-ink-3 hover:bg-surface-3 hover:text-ink-1"
+        >
+          <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Minimized: a small circle colored by the wake indicator. */}
+      {!open && (
         <button
           onClick={onToggle}
           aria-label="Show pipeline status"
-          className="rounded-md p-1.5 text-emerald-300 hover:bg-surface-3"
+          className="mx-auto flex h-full w-8 items-center justify-center"
         >
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 7h18M7 12h14M3 17h10" />
-          </svg>
+          <span className={cn('h-2.5 w-2.5 rounded-full', dotClass)} />
         </button>
       )}
     </div>
