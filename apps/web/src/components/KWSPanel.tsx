@@ -40,6 +40,7 @@ import {
 import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
 import { drawScoreCurve } from './viz/ScoreCurve'
 import { useProjectStageConfig } from '../projects'
+import { useLiveKws } from '../workspace/live'
 import { useAppSettings } from '../settings/context'
 import { loadModuleSettings, saveModuleSettings } from '../settings/storage'
 import { logTrigger, logInfo, logError } from '../log'
@@ -170,8 +171,7 @@ export const KWSPanel = memo(function KWSPanel({
   const [savedPrototypes, setSavedPrototypes] = useState<WakeWordPrototype[]>([])
   const [savedSampleCount, setSavedSampleCount] = useState(0)
 
-  const historyRef = useRef<KWSScoreSample[]>([])
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const { historyRef, setThreshold } = useLiveKws()
   // Registry-loaded model URLs (lazy; resolved at load time, ADR-011).
   const urlsRef = useRef<BackendModelUrls>({})
   // User-selectable model sources per role (ModelSourceEditor). Keyed by
@@ -694,23 +694,11 @@ export const KWSPanel = memo(function KWSPanel({
     persist(patch)
   }, [persist])
 
-  // Render the score curve via requestAnimationFrame.
+  // Keep the shared Phase 2 score curve in sync with the detection
+  // threshold (epic #53 P7).
   useEffect(() => {
-    if (!running) return
-    let rafId: number
-    const render = () => {
-      const canvas = canvasRef.current
-      if (canvas) {
-        const ctx = canvas.getContext('2d')
-        if (ctx) {
-          drawScoreCurve(ctx, canvas, historyRef.current, config.threshold)
-        }
-      }
-      rafId = requestAnimationFrame(render)
-    }
-    rafId = requestAnimationFrame(render)
-    return () => cancelAnimationFrame(rafId)
-  }, [running, config.threshold])
+    setThreshold(config.threshold)
+  }, [config.threshold, setThreshold])
 
   // plixkws detection: render the prototype-distance score curve.
   useEffect(() => {
@@ -1316,33 +1304,6 @@ export const KWSPanel = memo(function KWSPanel({
             )}
           </p>
         </div>
-      )}
-      {/* Phase 2 — Preview (epic #53 P7): the score curve is an effect, so it
-          sits after the config sections (plan §8.2). */}
-      {running && (
-        <>
-          <div className="flex items-center gap-2 pt-2">
-            <span className="rounded bg-surface-4 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
-              Phase 2 · Preview
-            </span>
-          </div>
-          <div className="rounded-xl border border-line bg-surface-2 p-5">
-            <div className="mb-2 flex items-center justify-between text-xs text-ink-3">
-              <span>Score curve (raw + smoothed + threshold)</span>
-              <span className="font-mono">
-                {historyRef.current.length > 0
-                  ? `score: ${historyRef.current[historyRef.current.length - 1].smoothedScore.toFixed(3)}`
-                  : ''}
-              </span>
-            </div>
-            <canvas
-              ref={canvasRef}
-              width={800}
-              height={160}
-              className="h-[160px] w-full rounded bg-surface-3"
-            />
-          </div>
-        </>
       )}
     </section>
   )
