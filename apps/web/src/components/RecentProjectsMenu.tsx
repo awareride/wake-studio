@@ -28,10 +28,11 @@ function formatUpdated(ms: number): string {
 }
 
 export function RecentProjectsMenu() {
-  const { projects, selectProject } = useProjects()
+  const { projects, current, selectProject } = useProjects()
   const [createOpen, setCreateOpen] = React.useState(false)
 
   const recent = projects.slice(0, 5)
+  const label = current?.name ?? 'No project selected'
 
   const openProject = (id: string) => {
     selectProject(id)
@@ -45,14 +46,14 @@ export function RecentProjectsMenu() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-3 px-2.5 py-1.5 text-sm font-medium text-ink-1 hover:bg-surface-4"
-            aria-label="Recent projects"
+            className="flex max-w-48 items-center gap-1.5 rounded-lg border border-line bg-surface-3 px-2.5 py-1.5 text-sm font-medium text-ink-1 hover:bg-surface-4"
+            title="Recent projects"
           >
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-ink-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-ink-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 7h18M7 12h14M3 17h10" />
             </svg>
-            Recent
-            <svg viewBox="0 0 24 24" className="h-3 w-3 text-ink-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <span className="truncate">{label}</span>
+            <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0 text-ink-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="m6 9 6 6 6-6" />
             </svg>
           </button>
@@ -63,12 +64,15 @@ export function RecentProjectsMenu() {
           )}
           {recent.map((p) => (
             <DropdownMenuItem key={p.id} onSelect={() => openProject(p.id)}>
-              <span className="flex flex-col">
+              <span className="flex flex-1 flex-col">
                 <span className="truncate text-sm text-ink-1">{p.name}</span>
                 <span className="text-[10px] text-ink-3">
                   {formatUpdated(p.updatedAtMs)}
                 </span>
               </span>
+              {current?.id === p.id && (
+                <span className="text-brand-600">✓</span>
+              )}
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
