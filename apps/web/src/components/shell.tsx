@@ -9,11 +9,14 @@
  * hand-rolled nav state.
  */
 
+import * as React from 'react'
 import type { ConsoleRoute } from '../router'
+import { settingsSectionOf } from '../router'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui'
-import { PRIMARY_NAV, SECONDARY_NAV, type NavItem } from './shell-nav'
+import { PRIMARY_NAV, SECONDARY_NAV, isSettingsRoute, type NavItem } from './shell-nav'
 import type { ConsoleStatus } from '../status'
 import { cn } from './cn'
+import { getBackendRegistry } from '@wake-studio/module-kws-engine'
 
 function Logo() {
   return (
@@ -67,6 +70,83 @@ function NavButton({
   )
 }
 
+/**
+ * Render the Settings parent + its expanded sub-menu (sections, Modules
+ * expands to drivers). The sub-menu is always visible when the Settings
+ * parent is active or the current route is a settings sub-route.
+ */
+function SettingsNav({
+  item,
+  route,
+  onNavigate,
+  drivers,
+}: {
+  item: NavItem
+  route: ConsoleRoute
+  onNavigate: (r: ConsoleRoute) => void
+  drivers: ReadonlyArray<{ backendId: string; label: string }>
+}) {
+  const open = isSettingsRoute(route)
+  const activeSection = settingsSectionOf(route)
+  return (
+    <div>
+      <NavButton
+        item={item}
+        active={open}
+        onClick={() => onNavigate(settingsRouteOf(route))}
+      />
+      {open && (
+        <div className="ml-3 mt-0.5 space-y-0.5 border-l border-line pl-2">
+          {item.children?.map((child) => {
+            const childActive = activeSection === settingsSectionOf(child.route)
+            const isModules = child.route === 'settings-modules'
+            return (
+              <div key={child.route}>
+                <button
+                  onClick={() => onNavigate(child.route)}
+                  aria-current={childActive ? 'page' : undefined}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors',
+                    childActive
+                      ? 'bg-brand-500/10 text-brand-700'
+                      : 'text-ink-3 hover:bg-surface-3 hover:text-ink-1',
+                  )}
+                >
+                  <span className="flex-1 truncate text-left">{child.label}</span>
+                  {isModules && drivers.length > 0 && (
+                    <span className="rounded bg-surface-4 px-1.5 py-0.5 text-[10px] text-ink-3">
+                      {drivers.length}
+                    </span>
+                  )}
+                </button>
+                {/* Modules expands to per-driver items. */}
+                {isModules && childActive && drivers.length > 0 && (
+                  <div className="ml-2 mt-0.5 space-y-0.5 border-l border-line pl-2">
+                    {drivers.map((d) => (
+                      <button
+                        key={d.backendId}
+                        onClick={() => onNavigate('settings-modules')}
+                        className="flex w-full items-center gap-2 truncate rounded-md px-2 py-1 text-xs text-ink-3 hover:bg-surface-3 hover:text-ink-1"
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** The canonical settings route for the sidebar parent click. */
+function settingsRouteOf(route: ConsoleRoute): ConsoleRoute {
+  return isSettingsRoute(route) ? route : 'settings-general'
+}
+
 function NavSection({ title, items, route, onNavigate }: {
   title: string
   items: NavItem[]
@@ -97,6 +177,7 @@ export function Sidebar({
   route: ConsoleRoute
   onNavigate: (r: ConsoleRoute) => void
 }) {
+  const drivers = useSettingsDrivers()
   return (
     <div className="flex h-full w-full flex-col gap-1 overflow-y-auto p-3">
       <div className="mb-2 flex items-center gap-2 px-1.5">
@@ -110,7 +191,29 @@ export function Sidebar({
       </div>
 
       <NavSection title="Studio" items={PRIMARY_NAV} route={route} onNavigate={onNavigate} />
-      <NavSection title="Platform" items={SECONDARY_NAV} route={route} onNavigate={onNavigate} />
+      <div className="space-y-0.5">
+        <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-ink-3">
+          Platform
+        </div>
+        {SECONDARY_NAV.map((item) =>
+          item.route === 'settings' ? (
+            <SettingsNav
+              key={item.route}
+              item={item}
+              route={route}
+              onNavigate={onNavigate}
+              drivers={drivers}
+            />
+          ) : (
+            <NavButton
+              key={item.route}
+              item={item}
+              active={route === item.route}
+              onClick={() => onNavigate(item.route)}
+            />
+          ),
+        )}
+      </div>
 
       <div className="mt-auto px-2.5 pt-2 text-[11px] leading-relaxed text-ink-3">
         <div className="rounded-lg border border-line bg-surface-2 px-2.5 py-2">
@@ -119,6 +222,19 @@ export function Sidebar({
         </div>
       </div>
     </div>
+  )
+}
+
+/** Drivers with a spec, for the Modules sub-menu (registry-driven, ADR-024). */
+function useSettingsDrivers(): ReadonlyArray<{ backendId: string; label: string }> {
+  // The KWS backend registry is populated at import time by driver modules;
+  // a new driver with a spec automatically appears in the sub-menu.
+  return React.useMemo(
+    () =>
+      getBackendRegistry()
+        .filter((r) => r.spec?.params?.length)
+        .map((r) => ({ backendId: r.id, label: r.label })),
+    [],
   )
 }
 

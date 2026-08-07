@@ -38,12 +38,13 @@ test('hash routing navigates between views', async ({ page }) => {
   await expect(page).toHaveURL(/#\/projects/)
   await expect(page.getByRole('main').getByRole('heading', { name: 'Projects' })).toBeVisible()
 
-  // Settings view (issue #52): real data-driven panel, not a placeholder.
+  // Settings view (issue #52): sub-menu + real section content, not a
+  // placeholder. Clicking Settings opens the default (General) sub-route.
   await sidebarNav(page, 'Settings')
-  await expect(page).toHaveURL(/#\/settings/)
-  await expect(page.getByRole('main').getByRole('heading', { name: 'Settings' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'General' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Security' })).toBeVisible()
+  await expect(page).toHaveURL(/#\/settings\/general/)
+  await expect(page.getByRole('main').getByRole('heading', { name: 'General' })).toBeVisible()
+  // The sub-menu shows the other sections.
+  await expect(page.locator('aside').getByRole('button', { name: 'Security' })).toBeVisible()
 
   // Device SDK placeholder.
   await sidebarNav(page, 'Device SDK')

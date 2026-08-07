@@ -6,7 +6,8 @@
  * — their internals are refactored in Phase 2.
  */
 
-import { useConsoleRoute } from "./router";
+import { useConsoleRoute, settingsSectionOf } from "./router";
+import type { SettingsSection } from "./router";
 import { ConsoleShell } from "./components/ConsoleShell";
 import { ConsoleStatusProvider } from "./status";
 import { AppToastProvider } from "./components/toast";
@@ -35,7 +36,11 @@ export default function App() {
                 {route === "projects" && <ProjectsView />}
                 {route === "console" && <SessionConsoleView />}
                 {route === "playground-rnnoise" && <RnnoisePlayground />}
-                {route === "settings" && <SettingsView />}
+                {settingsSectionOf(route) && (
+                <SettingsView
+                  section={settingsSectionOf(route) as SettingsSection}
+                />
+              )}
                 {route === "device-sdk" && (
                   <ComingSoonView
                     title="Device SDK"

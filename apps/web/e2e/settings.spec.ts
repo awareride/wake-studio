@@ -1,35 +1,47 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * Settings view e2e (issue #52).
+ * Settings view e2e (issue #52, sub-route restructure).
  *
- * Covers: real Settings view renders (not a placeholder), theme switch flips
- * documentElement.dataset.theme, secret fields render as password inputs,
- * driver module settings persist to localStorage, export masks secrets,
- * reset restores defaults.
+ * The settings section menu lives in the shell sidebar (Settings sub-menu);
+ * the view renders section content full-width at #/settings/<section>.
+ * Covers: sub-route rendering, theme flip, secret password inputs, module
+ * settings persistence, export-mask/reset.
  */
 
-test('settings view renders platform + module groups', async ({ page }) => {
-  await page.goto('/#/settings')
-
-  // Real view heading + left rail.
-  await expect(page.getByRole('main').getByRole('heading', { name: 'Settings' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'General' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Security' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Data' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Modules' })).toBeVisible()
-
-  // General group shows theme + locale controls.
+test('settings sub-routes render section content', async ({ page }) => {
+  // General is the default settings landing.
+  await page.goto('/#/settings/general')
+  await expect(
+    page.getByRole('main').getByRole('heading', { name: 'General', exact: true }),
+  ).toBeVisible()
   await expect(page.getByText('Theme', { exact: true })).toBeVisible()
   await expect(page.getByText('Language', { exact: true })).toBeVisible()
+
+  // Sidebar sub-menu shows all sections.
+  await expect(
+    page.locator('aside').getByRole('button', { name: 'General' }),
+  ).toBeVisible()
+  await expect(
+    page.locator('aside').getByRole('button', { name: 'Security' }),
+  ).toBeVisible()
+  await expect(
+    page.locator('aside').getByRole('button', { name: 'Modules' }),
+  ).toBeVisible()
+
+  // Modules section expands to drivers in the sidebar sub-menu.
+  await page.locator('aside').getByRole('button', { name: 'Modules' }).click()
+  await expect(page).toHaveURL(/#\/settings\/modules/)
+  await expect(page.getByRole('heading', { name: 'Module settings' })).toBeVisible()
+  // A driver with a spec appears in the sidebar sub-menu.
+  await expect(
+    page.locator('aside').getByRole('button', { name: /sherpa|PLiX|OpenWakeWord/ }).first(),
+  ).toBeVisible()
 })
 
 test('theme switch flips the document theme', async ({ page }) => {
-  await page.goto('/#/settings')
+  await page.goto('/#/settings/general')
 
-  // The theme control is a Radix select trigger, rendered as a textbox whose
-  // accessible name is the current value ("light"). Click it, then pick Dark
-  // from the portal listbox.
   // The theme control is the first Radix select trigger (role "combobox";
   // three exist: theme/locale/execution-provider). The first is Theme.
   const themeTrigger = page.getByRole('combobox').first()
@@ -51,25 +63,18 @@ test('theme switch flips the document theme', async ({ page }) => {
 })
 
 test('secret fields render as password inputs', async ({ page }) => {
-  await page.goto('/#/settings')
+  await page.goto('/#/settings/security')
 
-  // Security rail.
-  await page.getByRole('button', { name: 'Security' }).click()
   const apiKeyInput = page.locator('input[type="password"]')
   await expect(apiKeyInput.first()).toBeVisible()
 })
 
 test('module settings persist driver params to localStorage', async ({ page }) => {
-  await page.goto('/#/settings')
-
-  await page.getByRole('button', { name: 'Modules' }).click()
-
-  // Drivers with a spec appear (openwakeword/sherpa/plix). The sherpa
-  // keywords param is a string control (module-kit text input).
-  await expect(page.getByText('Wake words (comma-separated)')).toBeVisible()
+  await page.goto('/#/settings/modules')
 
   // The sherpa keywords string control: a textbox whose placeholder is the
   // default keyword list (Chinese chars). Target by placeholder.
+  await expect(page.getByText('Wake words (comma-separated)')).toBeVisible()
   const editable = page.getByPlaceholder(/你好/).first()
   await editable.fill('test keyword @wake')
   await page.waitForTimeout(150)
@@ -82,10 +87,9 @@ test('module settings persist driver params to localStorage', async ({ page }) =
 })
 
 test('export masks secrets and reset restores defaults', async ({ page }) => {
-  await page.goto('/#/settings')
+  await page.goto('/#/settings/security')
 
   // Seed a secret so export has something to mask.
-  await page.getByRole('button', { name: 'Security' }).click()
   const apiKeyInput = page.locator('input[type="password"]').first()
   await apiKeyInput.fill('sk-super-secret')
 

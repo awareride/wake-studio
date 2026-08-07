@@ -15,7 +15,14 @@ export type ConsoleRoute =
   | 'console'
   | 'playground-rnnoise'
   | 'settings'
+  | 'settings-general'
+  | 'settings-security'
+  | 'settings-data'
+  | 'settings-modules'
   | 'device-sdk'
+
+/** Settings sub-views (driven from the sidebar sub-menu). */
+export type SettingsSection = 'general' | 'security' | 'data' | 'modules'
 
 export const DEFAULT_ROUTE: ConsoleRoute = 'workspace'
 
@@ -26,6 +33,10 @@ const ROUTE_BY_HASH: Record<string, ConsoleRoute> = {
   '/console': 'console',
   '/playground/rnnoise': 'playground-rnnoise',
   '/settings': 'settings',
+  '/settings/general': 'settings-general',
+  '/settings/security': 'settings-security',
+  '/settings/data': 'settings-data',
+  '/settings/modules': 'settings-modules',
   '/device-sdk': 'device-sdk',
   '': 'workspace',
   '/': 'workspace',
@@ -45,9 +56,47 @@ export function routeToHash(route: ConsoleRoute): string {
     case 'playground-rnnoise':
       return '/playground/rnnoise'
     case 'settings':
-      return '/settings'
+      return '/settings/general'
+    case 'settings-general':
+      return '/settings/general'
+    case 'settings-security':
+      return '/settings/security'
+    case 'settings-data':
+      return '/settings/data'
+    case 'settings-modules':
+      return '/settings/modules'
     case 'device-sdk':
       return '/device-sdk'
+  }
+}
+
+/** Map a SettingsSection to its ConsoleRoute. */
+export function settingsRoute(section: SettingsSection): ConsoleRoute {
+  switch (section) {
+    case 'general':
+      return 'settings-general'
+    case 'security':
+      return 'settings-security'
+    case 'data':
+      return 'settings-data'
+    case 'modules':
+      return 'settings-modules'
+  }
+}
+
+/** Map a ConsoleRoute back to its SettingsSection (or undefined). */
+export function settingsSectionOf(route: ConsoleRoute): SettingsSection | undefined {
+  switch (route) {
+    case 'settings-general':
+      return 'general'
+    case 'settings-security':
+      return 'security'
+    case 'settings-data':
+      return 'data'
+    case 'settings-modules':
+      return 'modules'
+    default:
+      return undefined
   }
 }
 

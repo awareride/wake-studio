@@ -22,6 +22,10 @@ const VIEW_TITLES: Record<ConsoleRoute, string> = {
   console: 'Session Console',
   'playground-rnnoise': 'RNNoise Playground',
   settings: 'Settings',
+  'settings-general': 'Settings · General',
+  'settings-security': 'Settings · Security',
+  'settings-data': 'Settings · Data',
+  'settings-modules': 'Settings · Modules',
   'device-sdk': 'Device SDK',
 }
 
