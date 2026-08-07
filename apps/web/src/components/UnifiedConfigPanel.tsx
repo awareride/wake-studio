@@ -19,7 +19,7 @@ import { cn } from '../components/cn'
 export type ParamValue = string | number | boolean
 
 /** Bridge: a module ParameterDescriptor -> a ModuleSpec param shape. */
-function toModuleParam(desc: ParameterDescriptor): ModuleParam {
+export function toModuleParam(desc: ParameterDescriptor): ModuleParam {
   return {
     id: desc.id,
     label: desc.label,
@@ -48,7 +48,7 @@ interface UnifiedConfigPanelProps {
   className?: string
 }
 
-function ParamRows({
+export function ParamRows({
   ids,
   params,
   values,
@@ -123,5 +123,3 @@ export function UnifiedConfigPanel({
     </div>
   )
 }
-
-export { toModuleParam }

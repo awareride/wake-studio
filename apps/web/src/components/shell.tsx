@@ -16,9 +16,13 @@ import {
   settingsHash,
   settingsBackendFromHash,
 } from '../router'
-import { Tooltip, TooltipContent, TooltipTrigger } from './ui'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from './ui'
 import { PRIMARY_NAV, SECONDARY_NAV, isSettingsRoute, type NavItem } from './shell-nav'
-import type { ConsoleStatus } from '../status'
+import { useLiveAfe, useLiveKws } from '../workspace/live'
 import { cn } from './cn'
 import { getBackendRegistry } from '@wake-studio/module-kws-engine'
 
@@ -305,80 +309,15 @@ function useSettingsDrivers(): ReadonlyArray<{ backendId: string; label: string 
   )
 }
 
-/** Global status indicator row (rendered in the top bar). */
-function StatusIndicators({ status }: { status: ConsoleStatus }) {
-  const micLabel =
-    status.mic === 'active'
-      ? 'Mic on'
-      : status.mic === 'requesting'
-        ? 'Requesting mic…'
-        : status.mic === 'error'
-          ? 'Mic error'
-          : 'Mic idle'
-  const modelLabel =
-    status.model === 'ready'
-      ? 'Model ready'
-      : status.model === 'loading'
-        ? 'Loading model…'
-        : status.model === 'error'
-          ? 'Model error'
-          : 'No model'
-  const detectionLabel =
-    status.detection === 'running'
-      ? 'Detecting'
-      : status.detection === 'stopped'
-        ? 'Detection stopped'
-        : 'No detection'
-  const workerLabel = status.worker === 'running' ? 'Worker on' : 'Worker idle'
-
-  const Chip = ({ color, label, pulse }: { color: string; label: string; pulse?: boolean }) => (
-    <span
-      className={cn(
-        'flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-ink-2',
-      )}
-      title={label}
-    >
-      <span className={cn('h-1.5 w-1.5 rounded-full', color, pulse && 'animate-pulse')} />
-      {label}
-    </span>
-  )
-
-  return (
-    <div className="flex items-center gap-2 overflow-x-auto">
-      <Chip
-        color={status.mic === 'active' ? 'bg-success' : status.mic === 'error' ? 'bg-danger' : 'bg-slate-400'}
-        label={micLabel}
-        pulse={status.mic === 'requesting'}
-      />
-      <Chip
-        color={status.model === 'ready' ? 'bg-success' : status.model === 'loading' ? 'bg-amber-400' : status.model === 'error' ? 'bg-danger' : 'bg-slate-400'}
-        label={modelLabel}
-        pulse={status.model === 'loading'}
-      />
-      <Chip
-        color={status.detection === 'running' ? 'bg-emerald-500' : 'bg-slate-400'}
-        label={detectionLabel}
-        pulse={status.detection === 'running'}
-      />
-      {status.worker && (
-        <Chip
-          color={status.worker === 'running' ? 'bg-brand-500' : status.worker === 'error' ? 'bg-danger' : 'bg-slate-400'}
-          label={workerLabel}
-        />
-      )}
-    </div>
-  )
-}
-
 export function TopBar({
   title,
-  status,
   onToggleSidebar,
 }: {
   title: string
-  status: ConsoleStatus
   onToggleSidebar: () => void
 }) {
+  const [barOpen, setBarOpen] = React.useState(true)
+
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface-2/90 px-4 backdrop-blur">
       <button
@@ -393,9 +332,140 @@ export function TopBar({
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <h1 className="truncate text-sm font-semibold text-ink-1">{title}</h1>
       </div>
-      <div className="hidden items-center gap-2 sm:flex">
-        <StatusIndicators status={status} />
+      <div className="flex items-center gap-2">
+        <MiniPipelineBar open={barOpen} onToggle={() => setBarOpen((v) => !v)} />
       </div>
     </header>
+  )
+}
+
+/**
+ * Mini pipeline bar (epic #53 UX): shows only while the pipeline is running.
+ * A pill containing the Source → … → KWS chain, a wake indicator (light +
+ * 'Wake!' badge when the score clears the threshold — no numeric readout),
+ * a Stop button and a minimize control. Minimizing collapses the pill to a
+ * small circle (animating toward the right) whose color mirrors the wake
+ * indicator; clicking the circle expands it back leftward.
+ */
+function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const { running, bypass, stopPipeline } = useLiveAfe()
+  const { kwsRunning, lastScore, threshold } = useLiveKws()
+
+  // Edge-triggered wake flash: the indicator lights for ~1.5 s when the
+  // score first crosses the threshold, then returns to gray. The timer lives
+  // in a ref so score oscillation around the threshold can't clear it (which
+  // previously left the indicator stuck green); a cooldown ignores re-crosses
+  // within 2 s of the last flash.
+  const woken = running && kwsRunning && lastScore >= threshold
+  const [wakeFlash, setWakeFlash] = React.useState(false)
+  const prevWokenRef = React.useRef(false)
+  const lastFlashAtRef = React.useRef(0)
+  const flashTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  React.useEffect(() => {
+    const crossed = woken && !prevWokenRef.current
+    prevWokenRef.current = woken
+    if (!crossed) return
+    const now = Date.now()
+    if (now - lastFlashAtRef.current < 2000) return
+    lastFlashAtRef.current = now
+    setWakeFlash(true)
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
+    flashTimerRef.current = setTimeout(() => {
+      setWakeFlash(false)
+      flashTimerRef.current = null
+    }, 1500)
+  }, [woken])
+
+  // Clear a pending flash timer on unmount.
+  React.useEffect(() => {
+    return () => {
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
+    }
+  }, [])
+
+  if (!running) return null
+
+  const stages = [
+    { label: 'Source', active: true },
+    { label: 'AEC', active: !bypass.aec },
+    { label: 'BSS', active: !bypass.bss },
+    { label: 'NS', active: !bypass.ns },
+    { label: 'KWS', active: kwsRunning },
+  ]
+
+  // The wake color applies to both the expanded dot and the minimized circle
+  // — brief green pulse on a wake event, gray otherwise.
+  const dotClass = wakeFlash
+    ? 'animate-pulse bg-emerald-400'
+    : 'bg-slate-500'
+
+  return (
+    <div
+      className={cn(
+        'relative flex h-8 items-center overflow-hidden rounded-full border border-line bg-surface-2 transition-all duration-300',
+        open ? 'max-w-96' : 'max-w-8',
+      )}
+    >
+      {/* Expanded content — fades + clips while the pill collapses. */}
+      <div
+        className={cn(
+          'flex min-w-0 items-center gap-2 whitespace-nowrap pl-3 pr-1 transition-opacity duration-200',
+          open ? 'visible opacity-100' : 'pointer-events-none invisible opacity-0',
+        )}
+      >
+        <span className={cn('h-2 w-2 shrink-0 rounded-full', dotClass)} />
+        {wakeFlash && (
+          <span className="animate-pulse rounded bg-emerald-500/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-300">
+            Wake!
+          </span>
+        )}
+        {stages.map((s, i) => (
+          <React.Fragment key={s.label}>
+            {i > 0 && <span className="text-[9px] text-ink-3">→</span>}
+            <span
+              className={cn(
+                'text-[10px] font-medium uppercase tracking-wide',
+                s.active ? 'text-emerald-300' : 'text-ink-3',
+              )}
+            >
+              {s.label}
+            </span>
+          </React.Fragment>
+        ))}
+        <span className="mx-1 h-4 w-px shrink-0 bg-line-2" />
+        <button
+          onClick={stopPipeline}
+          aria-label="Stop pipeline"
+          className="shrink-0 rounded p-1 text-danger hover:bg-danger/10"
+        >
+          <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor">
+            <rect x="6" y="6" width="12" height="12" rx="1.5" />
+          </svg>
+        </button>
+        <button
+          onClick={onToggle}
+          aria-label="Minimize pipeline status"
+          className="shrink-0 rounded p-1 text-ink-3 hover:bg-surface-3 hover:text-ink-1"
+        >
+          <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Minimized: the circle itself is colored by the wake indicator.
+          Absolutely centered so the (layout-keeping, width-driving) invisible
+          expanded content can't push it out of the 32px pill. */}
+      {!open && (
+        <button
+          onClick={onToggle}
+          aria-label="Show pipeline status"
+          className={cn(
+            'absolute inset-0 m-auto h-7 w-7 rounded-full transition-colors',
+            dotClass,
+          )}
+        />
+      )}
+    </div>
   )
 }

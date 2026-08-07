@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { enableKws } from './helpers'
 
 /**
  * Model-source editor - L3 browser test (issue: model selection).
@@ -14,6 +15,7 @@ test('Model source editor renders registry candidates and custom URL input', asy
   page,
 }) => {
   await page.goto('/#/workspace')
+  await enableKws(page)
 
   // The block and the per-role selector render.
   await expect(page.getByText('Model sources')).toBeVisible()
@@ -46,6 +48,8 @@ test('local file import stores a saved model and it appears in the editor', asyn
   page,
 }) => {
   await page.goto('/#/workspace')
+
+  await enableKws(page)
 
   const classifierSelect = page.getByRole('combobox', {
     name: /Wake-word classifier/,

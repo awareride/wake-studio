@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { enableKws } from './helpers'
 
 // The ~53 MB wasm is gitignored (ADR-011) and fetched in CI; skip the spec
 // when it is absent (e.g. a fetch failure) rather than fail the suite.
@@ -42,6 +43,7 @@ test('sherpa-onnx-kws backend loads (wasm boots + spotter created)', async ({
   // would fire before the 'ready' assertion. Extend per-test.
   test.setTimeout(240_000)
   await page.goto('/')
+  await enableKws(page)
 
   // Pick the sherpa-onnx-kws backend before loading (now in the top controls).
   const backendSelect = page.locator('select').filter({

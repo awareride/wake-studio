@@ -30,12 +30,17 @@ import type {
   KWSStatus,
 } from '@wake-studio/module-kws-engine'
 import { MEL_WINDOW_SIZE } from '@wake-studio/module-kws-engine'
-import type { ParameterDescriptor } from '@wake-studio/module-afe-graph'
 import { loadRegistry, type ModelRegistry } from '@wake-studio/platform'
-import type { ModuleSpec, ModuleParam } from '@wake-studio/contracts'
-import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
+import {
+  TRADITIONAL_MODEL_ROLES,
+  FEWSHOT_MODEL_ROLES,
+  driverParamsFor,
+  modelSourcesForRole,
+} from '../workspace/kws-config'
+import { ParamRows, type ParamValue } from './UnifiedConfigPanel'
 import { drawScoreCurve } from './viz/ScoreCurve'
 import { useProjectStageConfig } from '../projects'
+import { useLiveKws } from '../workspace/live'
 import { useAppSettings } from '../settings/context'
 import { loadModuleSettings, saveModuleSettings } from '../settings/storage'
 import { logTrigger, logInfo, logError } from '../log'
@@ -106,165 +111,40 @@ const ENGINE_RESOURCES: Record<string, EngineResource[]> = {
 interface Props {
   afePipeline: AFEPipeline | null
   afeRunning: boolean
+  /** Always-current pipeline ref — the run handlers read this instead of the
+   *  (state-timing-sensitive) afeRunning prop so the unified runner's
+   *  auto-start works (epic #53 KWS fix). */
+  afeRef?: React.RefObject<AFEPipeline | null>
   /**
    * Optional: external control (workspace pipeline runner) to load / start /
    * stop detection (epic #53 P4). getState lets the runner read the current
    * KWS status without owning the state.
    */
   commandRef?: MutableRefObject<PanelCommands | null>
+  /**
+   * Optional: report a compact config summary (e.g. "openwakeword · ready")
+   * for the KWS tab node's core preview (epic #53 UX overhaul).
+   */
+  onPreview?: (preview: string) => void
+  /**
+   * Optional: when true, skip the panel's own heading + description (the
+   * workspace renders it inside the KWS stage shell).
+   */
+  embedded?: boolean
 }
-
-/**
- * Resolve the model URLs for the openWakeWord backend from the platform
- * registry (ADR-011/027). Keyed by registry id; the URL is the module-owned
- * assets path (ADR-025) for local models, remote for the classifier.
- */
-export function modelUrlsFromRegistry(registry: ModelRegistry): BackendModelUrls {
-  const byId = new Map(registry.models.map((m) => [m.id, m.url]))
-  return {
-    melspectrogram: byId.get('melspectrogram'),
-    embedding: byId.get('speech_embedding'),
-    classifier: byId.get('hey-buddy'),
-  }
-}
-
-/**
- * A selectable model source for one KWS model role: a registry entry (the
- * built-in pretrained model) or a user-supplied URL (e.g. a model trained
- * with this platform, or a custom artifact URL).
- */
-export interface ModelSourceOption {
-  /** Registry id, or 'custom' for a user-supplied URL. */
-  id: string
-  /** Label shown in the selector. */
-  label: string
-  /** Resolved URL (undefined only for the 'custom' placeholder). */
-  url?: string
-  /** License / commercial note (from the registry) for the built-ins. */
-  note?: string
-}
-
-/**
- * Build the candidate model sources for one KWS model role.
- *
- * @param registry the loaded model registry
- * @param role     which model the backend needs:
- *   - 'melspectrogram'  openwakeword log-Mel front-end
- *   - 'embedding'       openwakeword speech-embedding backbone
- *   - 'classifier'      openwakeword wake-word classifier (any classifier
- *                       onnx that consumes the 96-dim embedding)
- *   - 'plix-encoder'    PLiX few-shot encoder (base / small variants)
- * @param current  the currently selected URL (to mark it selected)
- */
-export function modelSourcesForRole(
-  registry: ModelRegistry,
-  role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder',
-  current?: string,
-): ModelSourceOption[] {
-  const builtIns = registry.models
-    .filter((m) => {
-      switch (role) {
-        case 'melspectrogram':
-          return m.id === 'melspectrogram'
-        case 'embedding':
-          return m.id === 'speech_embedding'
-        case 'classifier':
-          // Any classifier the openwakeword pipeline can consume: the
-          // hey-buddy model (commercially clean) plus the openwakeword demo
-          // classifiers (CC BY-NC-SA, demo-only, flagged in the option note).
-          return (
-            m.id === 'hey-buddy' ||
-            m.id === 'buddy' ||
-            m.id.startsWith('openwakeword-') ||
-            /^(hey|hi|yo|sup|okay|hello|alexa|timer|weather)_?/i.test(m.id) ||
-            /classifier/i.test(m.id)
-          )
-        case 'plix-encoder':
-          return m.id === 'plixkws' || m.id === 'plixkws-small'
-      }
-    })
-    .map((m) => ({
-      id: m.id,
-      label: `${m.name} (${m.id})`,
-      url: m.url,
-      note: `${m.license} · ${m.commercial ? 'commercial' : 'non-commercial'} · ${m.sizeBytes ? (m.sizeBytes / 1024 / 1024).toFixed(1) + ' MB' : 'size n/a'}`,
-    }))
-
-  // Custom-URL option: use the current URL as its value when one is set and
-  // does not match a built-in (i.e. the user previously chose a custom URL).
-  const custom: ModelSourceOption = {
-    id: 'custom',
-    label: 'Custom URL…',
-    url: current && !builtIns.some((b) => b.url === current) ? current : undefined,
-    note: 'Provide your own model URL (e.g. a model trained with this platform).',
-  }
-
-  return [...builtIns, custom]
-}
-
-/** Build a ParameterDescriptor from a ModuleSpec param (spec -> panel).
- *  ModuleParam.type has extra kinds (enum/secret/slider); map to the panel's
- *  ParameterDescriptor union (number/boolean/select/string). */
-function descriptorFromParam(param: ModuleParam): ParameterDescriptor {
-  const type: ParameterDescriptor['type'] =
-    param.type === 'slider'
-      ? 'number'
-      : param.type === 'enum'
-        ? 'select'
-        : param.type === 'secret'
-          ? 'string'
-          : param.type
-  return {
-    id: param.id,
-    label: param.label,
-    type,
-    default: param.default,
-    min: param.min,
-    max: param.max,
-    step: param.step,
-    unit: param.unit,
-    description: param.description,
-    options: param.options as ParameterDescriptor['options'],
-  }
-}
-
-/** The selected backend's own tunable params, from its registration spec
- *  (ADR-025) - empty when the backend carries no spec. */
-export function driverParamsFor(backendId: string): ReadonlyArray<ParameterDescriptor> {
-  const reg = getBackendRegistry().find((r) => r.id === backendId)
-  const spec = reg?.spec as ModuleSpec | undefined
-  return (spec?.params ?? []).map(descriptorFromParam)
-}
-
-/** One model role the Model-source editor offers for a backend. */
-interface ModelSourceRole {
-  role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder'
-  label: string
-  fallbackId: string
-}
-
-/** Model roles for the traditional (openwakeword) backend. */
-const TRADITIONAL_MODEL_ROLES: ModelSourceRole[] = [
-  { role: 'melspectrogram', label: 'Mel front-end', fallbackId: 'melspectrogram' },
-  { role: 'embedding', label: 'Embedding backbone', fallbackId: 'speech_embedding' },
-  { role: 'classifier', label: 'Wake-word classifier', fallbackId: 'hey-buddy' },
-]
-
-/** Model roles for the few-shot (plixkws) backend. */
-const FEWSHOT_MODEL_ROLES: ModelSourceRole[] = [
-  { role: 'plix-encoder', label: 'PLiX encoder', fallbackId: 'plixkws' },
-]
 
 export const KWSPanel = memo(function KWSPanel({
   afePipeline,
   afeRunning,
+  afeRef,
   commandRef,
+  onPreview,
+  embedded,
 }: Props) {
   const engineRef = useRef<KWSEngine | null>(null)
   const [status, setStatus] = useState<KWSStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
-  const [triggerFlash, setTriggerFlash] = useState(false)
   const [warmup, setWarmup] = useState(false)
   // Seed config from the active project's KWS snapshot (falls back to defaults).
   const { projectConfig: projCfg, persist } = useProjectStageConfig('kws')
@@ -307,8 +187,13 @@ export const KWSPanel = memo(function KWSPanel({
   const [savedPrototypes, setSavedPrototypes] = useState<WakeWordPrototype[]>([])
   const [savedSampleCount, setSavedSampleCount] = useState(0)
 
-  const historyRef = useRef<KWSScoreSample[]>([])
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const { historyRef, setThreshold, setLastScore } = useLiveKws()
+
+  // Report a compact config summary for the tab node's core preview (the
+  // few-shot flag is resolved below; backend + status are enough here).
+  useEffect(() => {
+    onPreview?.(`${config.backend} · ${status === 'idle' ? 'idle' : status}`)
+  }, [config.backend, status, onPreview])
   // Registry-loaded model URLs (lazy; resolved at load time, ADR-011).
   const urlsRef = useRef<BackendModelUrls>({})
   // User-selectable model sources per role (ModelSourceEditor). Keyed by
@@ -615,12 +500,11 @@ export const KWSPanel = memo(function KWSPanel({
     if (!engineRef.current) {
       engineRef.current = new KWSEngine()
       engineRef.current.onScore((s) => {
+        setLastScore(s.smoothedScore)
         fsHistoryRef.current.push(s)
         if (fsHistoryRef.current.length > HISTORY_MAX) fsHistoryRef.current.shift()
       })
       engineRef.current.onTrigger(() => {
-        setTriggerFlash(true)
-        setTimeout(() => setTriggerFlash(false), 500)
       })
     }
     if (!fsEngineRef.current) {
@@ -745,7 +629,8 @@ export const KWSPanel = memo(function KWSPanel({
       setError('Build a prototype first.')
       return
     }
-    if (!afePipeline || !afeRunning) {
+    const afe = afeRef?.current ?? afePipeline
+    if (!afe?.running) {
       setError('Start the AFE microphone first.')
       return
     }
@@ -755,12 +640,11 @@ export const KWSPanel = memo(function KWSPanel({
       engine.dispose()
       const fresh = new KWSEngine()
       fresh.onScore((s) => {
+        setLastScore(s.smoothedScore)
         fsHistoryRef.current.push(s)
         if (fsHistoryRef.current.length > HISTORY_MAX) fsHistoryRef.current.shift()
       })
       fresh.onTrigger(() => {
-        setTriggerFlash(true)
-        setTimeout(() => setTriggerFlash(false), 500)
       })
       engineRef.current = fresh
       fresh.setConfig({ ...DEFAULT_CONFIG, backend: 'plixkws' })
@@ -773,7 +657,13 @@ export const KWSPanel = memo(function KWSPanel({
         // worker load message -> initWithPrototype opts.
         { windowMs: fsConfig.windowMs, useNegative: fsConfig.useNegativePrototype },
       )
-      fresh.start({ onOutput: (cb) => afePipeline.onOutput(cb) })
+      const afe2 = afeRef?.current ?? afePipeline
+      fresh.start({
+        onOutput: (cb) => {
+          if (!afe2) return () => {}
+          return afe2.onOutput(cb)
+        },
+      })
       setDetecting(true)
       setStatus('running')
     } catch (err) {
@@ -790,16 +680,17 @@ export const KWSPanel = memo(function KWSPanel({
 
 
   const handleStart = useCallback(() => {
-    if (!engineRef.current || !afePipeline || !afeRunning) return
+    const afe = afeRef?.current ?? afePipeline
+    if (!engineRef.current || !afe?.running) return
     engineRef.current.start({
-      onOutput: (cb) => afePipeline.onOutput(cb),
+      onOutput: (cb) => afe.onOutput(cb),
     })
     setRunning(true)
     setWarmup(true)
     // Warmup: the backend needs ~76 mel frames + 16 embeddings (~2 s) before
     // producing real scores. Clear the badge after 3 s.
     setTimeout(() => setWarmup(false), 3000)
-  }, [afePipeline, afeRunning])
+  }, [afePipeline, afeRef])
 
   const handleStop = useCallback(() => {
     engineRef.current?.stop()
@@ -831,23 +722,11 @@ export const KWSPanel = memo(function KWSPanel({
     persist(patch)
   }, [persist])
 
-  // Render the score curve via requestAnimationFrame.
+  // Keep the shared Phase 2 score curve in sync with the detection
+  // threshold (epic #53 P7).
   useEffect(() => {
-    if (!running) return
-    let rafId: number
-    const render = () => {
-      const canvas = canvasRef.current
-      if (canvas) {
-        const ctx = canvas.getContext('2d')
-        if (ctx) {
-          drawScoreCurve(ctx, canvas, historyRef.current, config.threshold)
-        }
-      }
-      rafId = requestAnimationFrame(render)
-    }
-    rafId = requestAnimationFrame(render)
-    return () => cancelAnimationFrame(rafId)
-  }, [running, config.threshold])
+    setThreshold(config.threshold)
+  }, [config.threshold, setThreshold])
 
   // plixkws detection: render the prototype-distance score curve.
   useEffect(() => {
@@ -876,14 +755,13 @@ export const KWSPanel = memo(function KWSPanel({
     }
     const engine = engineRef.current
     engine.onScore((s) => {
+      setLastScore(s.smoothedScore)
       historyRef.current.push(s)
       if (historyRef.current.length > HISTORY_MAX) {
         historyRef.current.shift()
       }
     })
     engine.onTrigger((e: KWSTriggerEvent) => {
-      setTriggerFlash(true)
-      setTimeout(() => setTriggerFlash(false), 500)
       // Publish to the session console (Phase 4).
       logTrigger('kws', e)
     })
@@ -900,21 +778,23 @@ export const KWSPanel = memo(function KWSPanel({
   const canStart = status === 'ready' && afeRunning && !running
 
   return (
-    <section className="space-y-8">
-      <div>
-        <h2 className="text-lg font-semibold text-ink-1">KWS detection</h2>
-        <p className="text-sm text-ink-2">
-          Pluggable KWS backend (ADR-020) running in a Web Worker (ADR-018).
-          Pick a backend below; models load from the platform registry
-          (ADR-011/027). openWakeWord (hey-buddy, mel-spectrogram -&gt;
-          speech-embedding -&gt; classifier) is the default; PLiX Few-Shot adds
-          custom wake-word enrollment. VAD gating via AFE RNNoise VAD.
-        </p>
-      </div>
+    <section className="space-y-6">
+      {!embedded && (
+        <div>
+          <h2 className="text-lg font-semibold text-ink-1">KWS detection</h2>
+          <p className="text-sm text-ink-2">
+            Pluggable KWS backend (ADR-020) running in a Web Worker (ADR-018).
+            Pick a backend below; models load from the platform registry
+            (ADR-011/027). openWakeWord (hey-buddy, mel-spectrogram -&gt;
+            speech-embedding -&gt; classifier) is the default; PLiX Few-Shot adds
+            custom wake-word enrollment. VAD gating via AFE RNNoise VAD.
+          </p>
+        </div>
+      )}
 
       {/* Backend selection - pure choice, no loading/action. Loading and
           detection live in the Engine card below. */}
-      <div className="flex flex-wrap items-center gap-4 whitespace-nowrap rounded-xl border border-line bg-surface-2 p-5">
+      <div className="flex flex-wrap items-center gap-4 whitespace-nowrap">
         <label className="flex items-center gap-2 text-sm">
           <span className="text-ink-2">Backend</span>
           <select
@@ -933,24 +813,13 @@ export const KWSPanel = memo(function KWSPanel({
           </select>
         </label>
 
-        {/* Trigger flash */}
-        <div
-          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
-            triggerFlash
-              ? 'scale-125 bg-amber-400 text-ink-1'
-              : 'bg-surface-4 text-ink-3'
-          }`}
-        >
-          {triggerFlash ? '!' : '·'}
-        </div>
-
         {error && <span className="text-sm text-danger">{error}</span>}
       </div>
 
       {/* Engine card - the primary action area: resource loading (per-backend)
           + detection start/stop. Kept separate from backend selection so
           switching backends is instant and the heavy actions are grouped. */}
-      <div className="space-y-4 rounded-xl border border-line bg-surface-2 p-5">
+      <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-ink-1">Engine</h3>
@@ -1104,14 +973,16 @@ export const KWSPanel = memo(function KWSPanel({
             })}
         </div>
 
-        {/* Model sources - the user can pick which pretrained model each role
-            uses (built-in registry entries) or supply a custom URL (e.g. a
-            model trained with this platform). The selection overrides the
-            registry defaults on the next Load. */}
-        <div className="space-y-3 border-t border-line pt-3">
-          <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
-            Model sources
-          </div>
+      </div>
+
+      {/* Model sources - the user can pick which pretrained model each role
+          uses (built-in registry entries) or supply a custom URL (e.g. a
+          model trained with this platform). The selection overrides the
+          registry defaults on the next Load. */}
+      <div className="space-y-3">
+        <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
+          Model sources
+        </div>
           <p className="text-xs text-ink-3">
             Pick the pretrained model per role (built-in registry), a saved
             model from your library, a local file, or a custom URL. Saved
@@ -1242,14 +1113,13 @@ export const KWSPanel = memo(function KWSPanel({
                   </div>
                 )
               })}
-        </div>
       </div>
 
       {/* plixkws enrollment + detection (Few-Shot, Phase 3) - inline in the KWS
           panel; the standalone Few-Shot panel was merged here. The encoder
           variant + runtime are the plix driver's spec params (ADR-025). */}
       {isFewShot && (
-        <div className="space-y-6 rounded-xl border border-line bg-surface-2 p-5">
+        <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-4">
             <h3 className="text-sm font-semibold text-ink-1">
               PLiX Few-Shot enrollment{' '}
@@ -1270,17 +1140,22 @@ export const KWSPanel = memo(function KWSPanel({
               plix driver spec, rendered via module-kit controls. The enrollment
               flow below consumes these values via driverValues. */}
           {driverParams.length > 0 && !detecting && (
-            <UnifiedConfigPanel
-              title={`${config.backend} driver`}
-              subtitle="Params from the driver module spec (ADR-025). Applied on Load."
-              params={driverParams}
-              values={driverValues}
-              onParamChange={(id, v) =>
-                setDriverValues((prev) => ({ ...prev, [id]: v }))
-              }
-              advancedIds={[]}
-              disabled={recording || status === 'loading'}
-            />
+            <div className="space-y-1 border-t border-line pt-3">
+              <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
+                {config.backend} driver
+              </div>
+              <div className="divide-y divide-line">
+                <ParamRows
+                  ids={driverParams.map((p) => p.id)}
+                  params={driverParams}
+                  values={driverValues}
+                  onParamChange={(id, v) =>
+                    setDriverValues((prev) => ({ ...prev, [id]: v }))
+                  }
+                  disabled={recording || status === 'loading'}
+                />
+              </div>
+            </div>
           )}
 
           {status === 'ready' && !detecting && (
@@ -1342,74 +1217,50 @@ export const KWSPanel = memo(function KWSPanel({
           )}
 
           {detecting && (
-            <div className="space-y-2">
-              <div className="rounded-xl border border-line bg-surface-2 p-5">
-                <div className="mb-2 flex items-center justify-between text-xs text-ink-3">
-                  <span>Few-Shot score curve (prototype-distance similarity)</span>
-                  <span className="font-mono">
-                    {fsHistoryRef.current.length > 0
-                      ? `score: ${fsHistoryRef.current[fsHistoryRef.current.length - 1].smoothedScore.toFixed(3)}`
-                      : ''}
-                  </span>
-                </div>
-                <canvas
-                  ref={fsCanvasRef}
-                  width={800}
-                  height={160}
-                  className="h-[160px] w-full rounded bg-surface-3"
-                />
+            <div className="space-y-2 border-t border-line pt-3">
+              <div className="mb-2 flex items-center justify-between text-xs text-ink-3">
+                <span>Few-Shot score curve (prototype-distance similarity)</span>
+                <span className="font-mono">
+                  {fsHistoryRef.current.length > 0
+                    ? `score: ${fsHistoryRef.current[fsHistoryRef.current.length - 1].smoothedScore.toFixed(3)}`
+                    : ''}
+                </span>
               </div>
+              <canvas
+                ref={fsCanvasRef}
+                width={800}
+                height={160}
+                className="h-[160px] w-full rounded bg-surface-3"
+              />
             </div>
           )}
 
           {/* Few-Shot detection params (from the few-shot module's spec) - shown
               once a prototype exists so the user can tune before/while running. */}
           {prototype && (
-            <UnifiedConfigPanel
-              title="Few-Shot detection parameters"
-              subtitle="Rendered from the few-shot module's describeParameters() via module-kit controls."
-              params={fewShotDescribeParameters()}
-              values={fsConfig as unknown as Record<string, ParamValue>}
-              onParamChange={(id, v) => {
-                setFsConfig((prev) => {
-                  const next = { ...prev, [id]: v }
-                  // Persist the few-shot detection params to the project
-                  // snapshot (#53 P1) so a project switch does not lose them.
-                  persistFs(next as Partial<typeof FS_DEFAULTS>)
-                  return next
-                })
-              }}
-              advancedIds={[
-                'smoothingWindowFrames',
-                'windowMs',
-                'vadGateEnabled',
-                'vadThreshold',
-                'hopMs',
-                'useNegativePrototype',
-              ]}
-              disabled={detecting}
-            />
+            <div className="space-y-1 border-t border-line pt-3">
+              <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
+                Few-Shot detection parameters
+              </div>
+              <div className="divide-y divide-line">
+                <ParamRows
+                  ids={fewShotDescribeParameters().map((p) => p.id)}
+                  params={fewShotDescribeParameters()}
+                  values={fsConfig as unknown as Record<string, ParamValue>}
+                  onParamChange={(id, v) => {
+                    setFsConfig((prev) => {
+                      const next = { ...prev, [id]: v }
+                      // Persist the few-shot detection params to the project
+                      // snapshot (#53 P1) so a project switch does not lose them.
+                      persistFs(next as Partial<typeof FS_DEFAULTS>)
+                      return next
+                    })
+                  }}
+                  disabled={detecting}
+                />
+              </div>
+            </div>
           )}
-        </div>
-      )}
-
-      {/* Score curve */}
-      {running && (
-        <div className="rounded-xl border border-line bg-surface-2 p-5">
-          <div className="mb-2 flex items-center justify-between text-xs text-ink-3">
-            <span>Score curve (raw + smoothed + threshold)</span>
-            <span className="font-mono">
-              {historyRef.current.length > 0
-                ? `score: ${historyRef.current[historyRef.current.length - 1].smoothedScore.toFixed(3)}`
-                : ''}
-            </span>
-          </div>
-          <canvas
-            ref={canvasRef}
-            width={800}
-            height={160}
-            className="h-[160px] w-full rounded bg-surface-3"
-          />
         </div>
       )}
 
@@ -1418,7 +1269,7 @@ export const KWSPanel = memo(function KWSPanel({
           params come from the specs, not from the engine state, so they are
           editable up front and applied on the next Load. */}
       {!isFewShot && (
-        <div className="rounded-xl border border-line bg-surface-2 p-5">
+        <div className="space-y-3">
           <h3 className="mb-4 text-sm font-semibold text-ink-1">
             Configuration{' '}
             <span className="text-xs font-normal text-ink-3">
@@ -1427,40 +1278,43 @@ export const KWSPanel = memo(function KWSPanel({
           </h3>
 
           {/* Driver params from the selected backend's registration spec
-              (ADR-025) - rendered automatically; no per-backend cases here. */}
+              (ADR-025) - flat rows, no nested panel (epic #53 UX). */}
           {driverParams.length > 0 && (
-            <div className="mb-4">
-              <UnifiedConfigPanel
-                title={`${config.backend} driver`}
-                subtitle="Params from the driver module spec (ADR-025). Apply by clicking Reload."
-                params={driverParams}
-                values={driverValues}
-                onParamChange={(id, v) =>
-                  setDriverValues((prev) => ({ ...prev, [id]: v }))
-                }
-                advancedIds={[]}
-                disabled={running || status === 'loading'}
-              />
+            <div className="mt-3 border-t border-line pt-3">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-ink-3">
+                {config.backend} driver
+              </div>
+              <div className="divide-y divide-line">
+                <ParamRows
+                  ids={driverParams.map((p) => p.id)}
+                  params={driverParams}
+                  values={driverValues}
+                  onParamChange={(id, v) =>
+                    setDriverValues((prev) => ({ ...prev, [id]: v }))
+                  }
+                  disabled={running || status === 'loading'}
+                />
+              </div>
             </div>
           )}
 
-          {/* Tunable params rendered from the spec descriptors (module-kit).
-              The 'backend' param is excluded - it is already selectable in the
-              controls row above (ADR-020); showing it here would duplicate it. */}
-          <UnifiedConfigPanel
-            title="Tunable parameters"
-            subtitle="Rendered from describeParameters() via module-kit controls. Applied on the next Load/Reload."
-            params={params.filter((p) => p.id !== 'backend')}
-            values={config as unknown as Record<string, ParamValue>}
-            onParamChange={(id, v) => updateConfig({ [id]: v })}
-            advancedIds={[
-              'minDurationMs',
-              'smoothingWindowFrames',
-              'cooldownMs',
-              'vadThreshold',
-            ]}
-            disabled={running || status === 'loading'}
-          />
+          {/* Tunable params rendered from the spec descriptors (module-kit) —
+              flat rows. The 'backend' param is excluded (already selectable
+              in the controls row above, ADR-020). */}
+          <div className="mt-3 border-t border-line pt-3">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-ink-3">
+              Tunable parameters
+            </div>
+            <div className="divide-y divide-line">
+              <ParamRows
+                ids={params.filter((p) => p.id !== 'backend').map((p) => p.id)}
+                params={params}
+                values={config as unknown as Record<string, ParamValue>}
+                onParamChange={(id, v) => updateConfig({ [id]: v })}
+                disabled={running || status === 'loading'}
+              />
+            </div>
+          </div>
           <p className="mt-3 text-xs text-ink-3">
             {params.length} parameters exposed via{' '}
             <code className="text-ink-2">describeParameters()</code>. Mel

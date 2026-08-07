@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { enableKws } from './helpers'
 
 /**
  * Console shell + workspace smoke tests (Phase 1).
@@ -77,9 +78,13 @@ test('model library renders registry entries', async ({ page }) => {
 test('live workspace panels still render (AFE/KWS)', async ({ page }) => {
   await page.goto('/#/workspace')
 
-  // AFE live pipeline.
-  await expect(page.getByText('Live AFE pipeline')).toBeVisible()
+  // Phase 1 configure flow with the pipeline-shaped module tabs.
+  await expect(page.getByText('Setup')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Source & AFE config' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'NS config' })).toBeVisible()
+
   // KWS detection.
+  await enableKws(page)
   await expect(page.getByText('KWS detection')).toBeVisible()
   // KWS config is visible up front (spec-driven, ADR-017) - not gated behind
   // a successful model load (the former "Modules" tab and the Training
@@ -92,6 +97,8 @@ test('live workspace panels still render (AFE/KWS)', async ({ page }) => {
 
 test('KWS panel renders with the pluggable-backend UI (ADR-020)', async ({ page }) => {
   await page.goto('/#/workspace')
+
+  await enableKws(page)
 
   await expect(page.getByText(/pluggable KWS backend/i)).toBeVisible()
 
@@ -114,6 +121,8 @@ test('KWS panel renders with the pluggable-backend UI (ADR-020)', async ({ page 
 
 test('Few-Shot enrollment lives in the KWS panel plixkws branch (Phase 3)', async ({ page }) => {
   await page.goto('/#/workspace')
+
+  await enableKws(page)
 
   // Select the plixkws backend; the KWS panel shows the enrollment controls
   // (encoder variant + runtime + Load PLiX encoder) instead of a dead button.
@@ -146,9 +155,10 @@ test('workspace: create a project and it persists across reload', async ({ page 
   await page.getByRole('textbox', { name: 'Wake word' }).fill('hey e2e')
   await page.getByRole('button', { name: 'Create' }).click()
 
-  // Project bar shows the new project; pipeline canvas is present.
+  // Project bar shows the new project; the configure flow is present.
   await expect(page.getByText('E2E Word').first()).toBeVisible()
-  await expect(page.getByText('AEC → BSS → NS → KWS')).toBeVisible()
+  await expect(page.getByText('Setup')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Start pipeline/ })).toBeVisible()
 
   // Reload: the project (and selection) persists via IndexedDB + localStorage.
   // refresh() is async (IndexedDB), so wait for the project bar to settle.

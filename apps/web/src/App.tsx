@@ -1,9 +1,10 @@
 /**
  * WakeStudio console app.
  *
- * Phase 1 shell: left sidebar + top bar + hash-routed views, built on Radix
- * primitives. The Workspace hosts the existing live panels (AFE/KWS/Few-Shot)
- * — their internals are refactored in Phase 2.
+ * Shell: left sidebar + top bar + hash-routed views, built on Radix
+ * primitives. The Workspace hosts the live panels. Live pipeline state
+ * (LiveAfeProvider / LiveKwsProvider) lives at app level so the top-bar mini
+ * pipeline bar can show the running pipeline's status on every view.
  */
 
 import * as React from "react";
@@ -21,9 +22,30 @@ import { SessionConsoleView } from "./views/SessionConsoleView";
 import { SettingsView } from "./views/SettingsView";
 import { ComingSoonView, ProjectsView } from "./views/placeholders";
 import { RnnoisePlayground } from "@wake-studio/module-rnnoise/web";
+import { useProjects } from "./projects";
+import { LiveAfeProvider, LiveKwsProvider } from "./workspace/live";
 
 export default function App() {
+  return (
+    <ConsoleStatusProvider>
+      <AppToastProvider>
+        <ProjectProvider>
+          <SettingsProvider>
+            <LogProvider>
+              <AppShell />
+            </LogProvider>
+          </SettingsProvider>
+        </ProjectProvider>
+      </AppToastProvider>
+    </ConsoleStatusProvider>
+  );
+}
+
+/** App-level shell: live pipeline state providers + routed views. */
+function AppShell() {
   const [route, navigate] = useConsoleRoute();
+  const { current } = useProjects();
+
   // Driver anchor for the Modules section (Settings -> driver focus).
   const [settingsBackend, setSettingsBackend] = React.useState<
     string | undefined
@@ -40,35 +62,44 @@ export default function App() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
+  // AFE stage bypass seeds from the active project's workspace snapshot
+  // (providers remount per project so switching projects re-seeds live state).
+  const wsCfg = current?.config?.workspace;
+  const projectKey = current?.id ?? "none";
+  const initialBypass = {
+    aec: wsCfg?.enabled?.afeStages?.aec ?? true,
+    bss: wsCfg?.enabled?.afeStages?.bss ?? true,
+    ns: wsCfg?.enabled?.afeStages?.ns ?? false,
+  };
+
   return (
-    <ConsoleStatusProvider>
-      <AppToastProvider>
-        <ProjectProvider>
-          <SettingsProvider>
-            <LogProvider>
-              <ConsoleShell route={route} onNavigate={navigate}>
-                {route === "workspace" && <WorkspaceView />}
-                {route === "library" && <ModelLibraryView />}
-                {route === "projects" && <ProjectsView />}
-                {route === "console" && <SessionConsoleView />}
-                {route === "playground-rnnoise" && <RnnoisePlayground />}
-                {settingsSectionOf(route) && (
-                  <SettingsView
-                    section={settingsSectionOf(route) as SettingsSection}
-                    backendId={settingsBackend}
-                  />
-                )}
-                {route === "device-sdk" && (
-                  <ComingSoonView
-                    title="Device SDK"
-                    description="Export kits and device-side SDK tooling for your target chips arrive in Phase 4."
-                  />
-                )}
-              </ConsoleShell>
-            </LogProvider>
-          </SettingsProvider>
-        </ProjectProvider>
-      </AppToastProvider>
-    </ConsoleStatusProvider>
+    <LiveAfeProvider key={`afe-live-${projectKey}`} initialBypass={initialBypass}>
+      <LiveKwsProvider key={`kws-live-${projectKey}`}>
+        <ConsoleShell route={route} onNavigate={navigate}>
+          {/* The workspace stays mounted across route changes (hidden when not
+              active) so a running pipeline keeps running while the user
+              browses other menus. */}
+          <div className={route === "workspace" ? "contents" : "hidden"}>
+            <WorkspaceView />
+          </div>
+          {route === "library" && <ModelLibraryView />}
+          {route === "projects" && <ProjectsView />}
+          {route === "console" && <SessionConsoleView />}
+          {route === "playground-rnnoise" && <RnnoisePlayground />}
+          {settingsSectionOf(route) && (
+            <SettingsView
+              section={settingsSectionOf(route) as SettingsSection}
+              backendId={settingsBackend}
+            />
+          )}
+          {route === "device-sdk" && (
+            <ComingSoonView
+              title="Device SDK"
+              description="Export kits and device-side SDK tooling for your target chips arrive in Phase 4."
+            />
+          )}
+        </ConsoleShell>
+      </LiveKwsProvider>
+    </LiveAfeProvider>
   );
 }
