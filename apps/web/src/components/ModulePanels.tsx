@@ -95,6 +95,15 @@ export function StageSection({ children }: { children: React.ReactNode }) {
   return <div className="p-4">{children}</div>
 }
 
+/** Small uppercase label for a group inside a stage section. */
+export function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-3">
+      {children}
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Source tab
 // ---------------------------------------------------------------------------
@@ -149,25 +158,27 @@ export function SourcePanel({
     <StageModuleShell
       color="#64748b"
       number="1"
-      title="Source"
-      note="input feed — microphone or files"
+      title="Source & AFE"
+      note="input feed, raw persistence and AFE-wide settings"
       enabled
     >
       <StageSection>
+        <SectionLabel>Source</SectionLabel>
         <SourceConfigSection source={source} actions={actions} disabled={running} />
-      </StageSection>
-      <StageSection>
-        <PersistenceStageToggle
-          stageId="raw"
-          label="Persist raw input (captures the mic/file stream)"
-          config={persistence}
-          onChange={setPersistence}
-        />
-      </StageSection>
-      <StageSection>
-        <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-3">
-          Pipeline settings
+        <div className="mt-3 border-t border-line pt-3">
+          <PersistenceStageToggle
+            stageId="raw"
+            label="Persist raw input (captures the mic/file stream)"
+            config={persistence}
+            onChange={setPersistence}
+          />
         </div>
+      </StageSection>
+      <StageSection>
+        <SectionLabel>AFE</SectionLabel>
+        <p className="mb-2 text-xs text-ink-3">
+          Pipeline-wide settings for the whole AEC → BSS → NS chain.
+        </p>
         <div className="divide-y divide-line">
           {params.map((desc) => (
             <div key={desc.id} className="py-1">

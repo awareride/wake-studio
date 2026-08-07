@@ -248,7 +248,7 @@ function WorkspaceInner({
     source.kind === 'file' ? `Files (${source.files.length})` : 'Mic · default'
 
   const stageCards = [
-    { id: 'source' as const, label: 'Source', preview: sourcePreview, color: '#64748b', enabled: true },
+    { id: 'source' as const, label: 'Source & AFE', preview: sourcePreview, color: '#64748b', enabled: true },
     {
       id: 'aec' as const,
       label: 'AEC',
