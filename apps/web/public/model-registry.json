@@ -45,14 +45,14 @@
         "high-performance"
       ],
       "source": "benjamin-paine/hey-buddy",
-      "url": "https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/models/hey-buddy.onnx",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/hey-buddy.onnx",
       "format": "onnx",
       "license": "CC-BY-4.0",
       "commercial": true,
       "class": "redistributable",
       "sha256": "TODO-phase2",
       "sizeBytes": 1186048,
-      "notes": "Browser-first wake-word model. Commercially clean (CC-BY-4.0). Replaces the CC BY-NC-SA openWakeWord alexa demo model."
+      "notes": "Browser-first wake-word model. Commercially clean (CC-BY-4.0). Replaces the CC BY-NC-SA openWakeWord alexa demo model. Now vendored locally under the module assets (user-provided 2026-08-07); no remote fetch."
     },
     {
       "id": "plixkws",

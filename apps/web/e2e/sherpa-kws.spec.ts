@@ -50,7 +50,7 @@ test('sherpa-onnx-kws backend loads (wasm boots + spotter created)', async ({
   await expect(backendSelect).toBeVisible()
   await backendSelect.selectOption('sherpa-onnx-kws')
 
-  const loadButton = page.getByRole('button', { name: /Load KWS models/i })
+  const loadButton = page.getByRole('button', { name: /Load models/i })
   await expect(loadButton).toBeVisible()
 
   await loadButton.click()

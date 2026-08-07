@@ -71,8 +71,11 @@ test('live workspace panels still render (AFE/KWS)', async ({ page }) => {
   await expect(page.getByText('KWS detection')).toBeVisible()
   // KWS config is visible up front (spec-driven, ADR-017) - not gated behind
   // a successful model load (the former "Modules" tab and the Training
-  // placeholder were removed).
-  await expect(page.getByText(/Configuration/)).toBeVisible()
+  // placeholder were removed). The KWS stage has its own "Configuration
+  // (backend · Primary)" heading (ADR-025 driver spec panel).
+  await expect(
+    page.getByRole('heading', { name: /Configuration \(backend/ }),
+  ).toBeVisible()
 })
 
 test('KWS panel renders with the pluggable-backend UI (ADR-020)', async ({ page }) => {
@@ -80,7 +83,7 @@ test('KWS panel renders with the pluggable-backend UI (ADR-020)', async ({ page 
 
   await expect(page.getByText(/pluggable KWS backend/i)).toBeVisible()
 
-  const loadButton = page.getByRole('button', { name: /Load KWS models/i })
+  const loadButton = page.getByRole('button', { name: /Load models/i })
   await expect(loadButton).toBeVisible()
 
   // Clicking load transitions away from idle. Actual model loading is too
