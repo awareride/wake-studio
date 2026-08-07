@@ -13,7 +13,6 @@ import {
   DialogTitle,
   TooltipProvider,
 } from './ui'
-import { useConsoleStatus } from '../status'
 
 const VIEW_TITLES: Record<ConsoleRoute, string> = {
   workspace: 'Workspace',
@@ -38,7 +37,6 @@ export function ConsoleShell({
   onNavigate: (r: ConsoleRoute) => void
   children: React.ReactNode
 }) {
-  const { status } = useConsoleStatus()
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false)
 
   const navigate = (r: ConsoleRoute) => {
@@ -79,10 +77,7 @@ export function ConsoleShell({
           <div className="flex min-w-0 flex-1 flex-col">
             <TopBar
               title={VIEW_TITLES[route]}
-              route={route}
-              status={status}
               onToggleSidebar={() => setMobileNavOpen(true)}
-              onNavigate={onNavigate}
             />
             <main className="flex-1 overflow-y-auto">
               <div className="mx-auto max-w-6xl px-6 py-8">{children}</div>

@@ -17,19 +17,12 @@ import {
   settingsBackendFromHash,
 } from '../router'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from './ui'
 import { PRIMARY_NAV, SECONDARY_NAV, isSettingsRoute, type NavItem } from './shell-nav'
-import type { ConsoleStatus } from '../status'
-import { useProjects } from '../projects'
-import { NewProjectDialog } from './NewProjectDialog'
+import { useLiveAfe, useLiveKws } from '../workspace/live'
 import { cn } from './cn'
 import { getBackendRegistry } from '@wake-studio/module-kws-engine'
 
@@ -316,102 +309,14 @@ function useSettingsDrivers(): ReadonlyArray<{ backendId: string; label: string 
   )
 }
 
-/** Global status indicator row (rendered in the top bar). */
-function StatusIndicators({ status }: { status: ConsoleStatus }) {
-  const micLabel =
-    status.mic === 'active'
-      ? 'Mic on'
-      : status.mic === 'requesting'
-        ? 'Requesting mic…'
-        : status.mic === 'error'
-          ? 'Mic error'
-          : 'Mic idle'
-  const modelLabel =
-    status.model === 'ready'
-      ? 'Model ready'
-      : status.model === 'loading'
-        ? 'Loading model…'
-        : status.model === 'error'
-          ? 'Model error'
-          : 'No model'
-  const detectionLabel =
-    status.detection === 'running'
-      ? 'Detecting'
-      : status.detection === 'stopped'
-        ? 'Detection stopped'
-        : 'No detection'
-  const workerLabel = status.worker === 'running' ? 'Worker on' : 'Worker idle'
-
-  const Chip = ({ color, label, pulse }: { color: string; label: string; pulse?: boolean }) => (
-    <span
-      className={cn(
-        'flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-ink-2',
-      )}
-      title={label}
-    >
-      <span className={cn('h-1.5 w-1.5 rounded-full', color, pulse && 'animate-pulse')} />
-      {label}
-    </span>
-  )
-
-  return (
-    <div className="flex items-center gap-2 overflow-x-auto">
-      <Chip
-        color={status.mic === 'active' ? 'bg-success' : status.mic === 'error' ? 'bg-danger' : 'bg-slate-400'}
-        label={micLabel}
-        pulse={status.mic === 'requesting'}
-      />
-      <Chip
-        color={status.model === 'ready' ? 'bg-success' : status.model === 'loading' ? 'bg-amber-400' : status.model === 'error' ? 'bg-danger' : 'bg-slate-400'}
-        label={modelLabel}
-        pulse={status.model === 'loading'}
-      />
-      <Chip
-        color={status.detection === 'running' ? 'bg-emerald-500' : 'bg-slate-400'}
-        label={detectionLabel}
-        pulse={status.detection === 'running'}
-      />
-      {status.worker && (
-        <Chip
-          color={status.worker === 'running' ? 'bg-brand-500' : status.worker === 'error' ? 'bg-danger' : 'bg-slate-400'}
-          label={workerLabel}
-        />
-      )}
-    </div>
-  )
-}
-
-/** Relative "updated …" caption for the recent-projects menu. */
-function formatUpdated(ms: number): string {
-  const diff = Date.now() - ms
-  if (diff < 60_000) return 'updated just now'
-  if (diff < 3_600_000) return `updated ${Math.floor(diff / 60_000)}m ago`
-  if (diff < 86_400_000) return `updated ${Math.floor(diff / 3_600_000)}h ago`
-  return `updated ${new Date(ms).toLocaleDateString()}`
-}
-
 export function TopBar({
   title,
-  route,
-  status,
   onToggleSidebar,
-  onNavigate,
 }: {
   title: string
-  route: ConsoleRoute
-  status: ConsoleStatus
   onToggleSidebar: () => void
-  onNavigate: (r: ConsoleRoute) => void
 }) {
-  const { projects, selectProject } = useProjects()
-  const [createOpen, setCreateOpen] = React.useState(false)
-
-  const recent = projects.slice(0, 5)
-
-  const openProject = (id: string) => {
-    selectProject(id)
-    if (route !== 'workspace') onNavigate('workspace')
-  }
+  const [barOpen, setBarOpen] = React.useState(true)
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface-2/90 px-4 backdrop-blur">
@@ -427,46 +332,76 @@ export function TopBar({
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <h1 className="truncate text-sm font-semibold text-ink-1">{title}</h1>
       </div>
-      <div className="hidden items-center gap-2 sm:flex">
-        {/* Recent projects (epic #53 P6, plan §7) — MRU, top 5. */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-3 px-2.5 py-1.5 text-sm font-medium text-ink-1 hover:bg-surface-4"
-              aria-label="Recent projects"
-            >
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-ink-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 7h18M7 12h14M3 17h10" />
-              </svg>
-              Recent
-              <svg viewBox="0 0 24 24" className="h-3 w-3 text-ink-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m6 9 6 6 6-6" />
-              </svg>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-60">
-            {recent.length === 0 && (
-              <div className="px-2.5 py-2 text-xs text-ink-3">No projects yet</div>
-            )}
-            {recent.map((p) => (
-              <DropdownMenuItem key={p.id} onSelect={() => openProject(p.id)}>
-                <span className="flex flex-col">
-                  <span className="truncate text-sm text-ink-1">{p.name}</span>
-                  <span className="text-[10px] text-ink-3">
-                    {formatUpdated(p.updatedAtMs)}
-                  </span>
-                </span>
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => setCreateOpen(true)}>
-              <span className="text-brand-600">+ New project…</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <StatusIndicators status={status} />
+      <div className="flex items-center gap-2">
+        <MiniPipelineBar open={barOpen} onToggle={() => setBarOpen((v) => !v)} />
       </div>
-      <NewProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
     </header>
+  )
+}
+
+/**
+ * Mini pipeline bar (epic #53 UX): shows only while the pipeline is running;
+ * a compact Source → … → KWS chain with live stage status + latency. The
+ * user can collapse it (✕) and reopen it via the small pipeline button.
+ */
+function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const { running, latencyMs, bypass } = useLiveAfe()
+  const { kwsRunning } = useLiveKws()
+
+  if (!running) return null
+
+  const stages = [
+    { label: 'Source', active: true },
+    { label: 'AEC', active: !bypass.aec },
+    { label: 'BSS', active: !bypass.bss },
+    { label: 'NS', active: !bypass.ns },
+    { label: 'KWS', active: kwsRunning },
+  ]
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {open ? (
+        <>
+          <div className="flex items-center gap-1 rounded-full border border-line bg-surface-2 px-3 py-1.5">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
+            {stages.map((s, i) => (
+              <React.Fragment key={s.label}>
+                {i > 0 && <span className="text-[9px] text-ink-3">→</span>}
+                <span
+                  className={cn(
+                    'text-[10px] font-medium uppercase tracking-wide',
+                    s.active ? 'text-emerald-300' : 'text-ink-3',
+                  )}
+                >
+                  {s.label}
+                </span>
+              </React.Fragment>
+            ))}
+            <span className="ml-1 font-mono text-[10px] text-ink-3">
+              {latencyMs.toFixed(0)} ms
+            </span>
+          </div>
+          <button
+            onClick={onToggle}
+            aria-label="Hide pipeline status"
+            className="rounded-md p-1.5 text-ink-3 hover:bg-surface-3 hover:text-ink-1"
+          >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={onToggle}
+          aria-label="Show pipeline status"
+          className="rounded-md p-1.5 text-emerald-300 hover:bg-surface-3"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 7h18M7 12h14M3 17h10" />
+          </svg>
+        </button>
+      )}
+    </div>
   )
 }

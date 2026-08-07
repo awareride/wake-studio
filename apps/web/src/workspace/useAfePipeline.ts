@@ -57,9 +57,8 @@ export function useAfePipeline(opts: {
 } {
   const afeRef = useRef<AFEPipeline | null>(null)
   const commandRef = useRef<PanelCommands | null>(null)
-  const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { pushFrame, setLatency } = useLiveAfe()
+  const { pushFrame, setLatency, setRunning, running } = useLiveAfe()
 
   const start = useCallback(async () => {
     setError(null)

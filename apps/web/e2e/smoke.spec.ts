@@ -155,9 +155,10 @@ test('workspace: create a project and it persists across reload', async ({ page 
   await page.getByRole('textbox', { name: 'Wake word' }).fill('hey e2e')
   await page.getByRole('button', { name: 'Create' }).click()
 
-  // Project bar shows the new project; pipeline canvas is present.
+  // Project bar shows the new project; the configure flow is present.
   await expect(page.getByText('E2E Word').first()).toBeVisible()
-  await expect(page.getByText('AEC → BSS → NS → KWS')).toBeVisible()
+  await expect(page.getByText('Phase 1 · Configure')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Start pipeline/ })).toBeVisible()
 
   // Reload: the project (and selection) persists via IndexedDB + localStorage.
   // refresh() is async (IndexedDB), so wait for the project bar to settle.
