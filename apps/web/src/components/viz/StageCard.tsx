@@ -8,8 +8,8 @@
  */
 
 import { memo, useEffect, useRef } from 'react'
-import { cn } from '../cn'
 import type { StageFrameData } from '@wake-studio/module-afe-graph'
+import { WebGLSpectrogram } from '../spectrogram/WebGLSpectrogram'
 
 /** A stage node id that carries per-stage metrics (AEC/BSS/NS today). */
 export type VizStageId = 'aec' | 'bss' | 'ns'
@@ -36,76 +36,85 @@ export const StagePanel = memo(function StagePanel({
   onToggleBypass,
 }: StagePanelProps) {
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-line bg-surface-2">
-      {/* Color accent strip — same look as the Setup stage cards. */}
-      <div className="h-1 w-full" style={{ background: STAGE_COLORS[id] }} />
-      <div className="flex flex-1 flex-col p-2.5">
-        {/* Label top-left + enable/disable pill top-right (matches Setup). */}
-        <div className="flex items-start justify-between gap-1.5">
-          <span
-            className="text-sm font-bold uppercase tracking-tight"
-            style={{ color: STAGE_COLORS[id] }}
-          >
-            {id}
-          </span>
-          <button
-            onClick={() => onToggleBypass(id)}
-            aria-label={`${id} toggle`}
-            aria-pressed={!isBypassed}
-            className={cn(
-              'shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest transition-colors',
-              !isBypassed
-                ? 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
-                : 'bg-surface-4 text-ink-3 hover:bg-surface-3',
-            )}
-          >
-            {!isBypassed ? 'On' : 'Off'}
-          </button>
-        </div>
+    <div className="flex h-full flex-col rounded-xl border border-line bg-surface-2 p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <span
+          className="text-sm font-bold uppercase tracking-wide"
+          style={{ color: STAGE_COLORS[id] }}
+        >
+          {id}
+        </span>
+        <button
+          onClick={() => onToggleBypass(id)}
+          className={`rounded px-2 py-0.5 text-[10px] font-medium uppercase ${
+            isBypassed
+              ? 'bg-surface-4 text-ink-2'
+              : 'bg-emerald-500/20 text-emerald-300'
+          }`}
+        >
+          {isBypassed ? 'Bypassed' : 'Active'}
+        </button>
+      </div>
 
-        {/* Wave line (the live preview). */}
-        <div className="mt-auto pt-1.5">
-          <WaveformCanvas data={data?.waveform} />
-        </div>
+      {/* Waveform - flex-1 absorbs the height difference between stages so
+          the three cards (AEC/BSS/NS) stay equal height. With scheme 1 (info
+          completion) each stage also carries a metric row below, so the extra
+          space is filled with information, not whitespace. */}
+      <div className="mb-3 flex-1">
+        <WaveformCanvas data={data?.waveform} />
+      </div>
 
-        {/* Thin footer: level + per-stage metric. */}
-        <div className="mt-1.5 flex items-center gap-2 whitespace-nowrap text-[10px]">
-          <span className="w-7 shrink-0 text-ink-3">Lvl</span>
-          <div className="flex-1">
-            <LevelBar db={data?.levelDb ?? -60} />
-          </div>
-          <span className="w-12 shrink-0 text-right font-mono text-ink-2">
-            {data?.levelDb != null ? `${data.levelDb.toFixed(0)}dB` : '—'}
-          </span>
+      {/* Level - always rendered for stable card height */}
+      <div className="flex items-center gap-2 text-xs whitespace-nowrap">
+        <span className="w-12 shrink-0 text-ink-3">Level</span>
+        <div className="flex-1">
+          <LevelBar db={data?.levelDb ?? -60} />
         </div>
-        {id === 'aec' && (
-          <StageMetricRow
-            label="Echo"
-            value={data?.metrics?.erleDb}
-            unit="dB"
-            placeholder={isBypassed ? 'off' : '—'}
-          />
-        )}
-        {id === 'bss' && (
-          <StageMetricRow
-            label="Sep"
-            value={data?.metrics?.siSdrDb}
-            unit="dB"
-            placeholder={isBypassed ? 'off' : '—'}
-          />
-        )}
-        {id === 'ns' && (
-          <StageMetricRow
-            label="VAD"
-            value={
-              data?.vadProbability != null
-                ? data.vadProbability * 100
-                : undefined
-            }
-            unit="%"
-            placeholder="—"
-          />
-        )}
+        <span className="w-20 shrink-0 text-right font-mono text-ink-2">
+          {data?.levelDb != null ? `${data.levelDb.toFixed(1)} dB` : '-'}
+        </span>
+      </div>
+
+      {/* Stage-specific metric row - one per stage so all three cards share
+          the same information depth (scheme 1). AEC/BSS report placeholder
+          values from the worklet's metrics (passthrough); the real algorithm
+          fills them later without touching this UI. */}
+      {id === 'aec' && (
+        <StageMetricRow
+          label="Echo red."
+          value={data?.metrics?.erleDb}
+          unit="dB"
+          placeholder={isBypassed ? 'passthrough' : '—'}
+        />
+      )}
+      {id === 'bss' && (
+        <StageMetricRow
+          label="Separ."
+          value={data?.metrics?.siSdrDb}
+          unit="dB"
+          placeholder={isBypassed ? 'passthrough' : '—'}
+        />
+      )}
+      {id === 'ns' && (
+        <StageMetricRow
+          label="VAD"
+          value={
+            data?.vadProbability != null
+              ? data.vadProbability * 100
+              : undefined
+          }
+          unit="%"
+          placeholder="—"
+        />
+      )}
+
+      {/* Spectrum - all three stages show their own magnitude spectrum (AEC =
+          raw input, BSS = passthrough, NS = denoised). Same card structure so
+          the three cards stay information-aligned. Rendered with the WebGL
+          Spectro-style renderer (ADR-032). */}
+      <div className="mt-2">
+        <div className="mb-1 text-xs text-ink-3">Spectrum</div>
+        <WebGLSpectrogram data={data?.spectrogram} />
       </div>
     </div>
   )

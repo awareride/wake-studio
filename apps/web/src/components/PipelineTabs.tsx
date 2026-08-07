@@ -126,8 +126,9 @@ export function StageCard({
           )}
         </div>
 
-        {/* Bottom-aligned preview (config text in Setup, waveform in Live). */}
-        <div className="mt-auto pt-1.5 text-[11px] leading-snug text-ink-3">
+        {/* Bottom-aligned preview — fixed height so Setup and Live cards are
+            identical in height; the waveform fills the area. */}
+        <div className="mt-auto flex h-16 items-end overflow-hidden text-[11px] leading-snug text-ink-3">
           {preview}
         </div>
       </div>

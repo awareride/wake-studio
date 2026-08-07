@@ -22,7 +22,7 @@ import { RecentProjectsMenu } from '../components/RecentProjectsMenu'
 import { RunControl, type PipelineRunState } from '../components/RunControl'
 import { PipelineTabs, StageCard, type PipelineTabId } from '../components/PipelineTabs'
 import { PipelineLevelCurve } from '../components/PipelineOverview'
-import { WaveformCanvas } from '../components/viz/StageCard'
+import { WaveformCanvas, StagePanel } from '../components/viz/StageCard'
 import { MiniScoreCurve } from '../components/MiniScoreCurve'
 import { ClipsPanel } from '../components/ClipsPanel'
 import { SourcePanel, StageModulePanel, NsPanel, StageModuleShell, StageSection } from '../components/ModulePanels'
@@ -491,6 +491,18 @@ function WorkspaceInner({
 
           <div className="mt-4 space-y-4">
             <PipelineLevelCurve frameData={frameData} running={runState.afeRunning} />
+            {/* Detailed per-stage cards (waveform + level + metric + spectrum). */}
+            <div className="mx-auto grid max-w-5xl gap-5 sm:grid-cols-3 items-stretch">
+              {(['aec', 'bss', 'ns'] as const).map((id) => (
+                <StagePanel
+                  key={id}
+                  id={id}
+                  data={frameData[id]}
+                  isBypassed={bypass[id]}
+                  onToggleBypass={handleToggleBypass}
+                />
+              ))}
+            </div>
             <ClipsPanel
               pipeline={afeRef.current}
               running={running}
