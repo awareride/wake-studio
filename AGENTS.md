@@ -26,13 +26,37 @@ Treat every change as if a teammate will review it on Monday morning.
   `README.zh.md`, `getting-started.zh.md`. If a file is not clearly scoped to a
   non-English locale, write English.
 
-## Issue & project discipline
+## Planning docs & GitHub work tracking
+
+Three layers, each with its own reader and role. Do not blur them:
+
+| Layer | Where | Reader | Role | Nature |
+|---|---|---|---|---|
+| **Agent guidance** | `.agents/plan/*.plan` (gitignored) | agent | vision, constraints, ADR index, working agreements, issue index | static (low churn) |
+| **Work state** | GitHub Issues + `WakeStudio Delivery` project (org `awareride`) | human + cross-session | who/what/when/blocked | dynamic (live) |
+| **Durable knowledge** | `docs/`, `DECISIONS.md`, `docs/modules/*.md` | human + agent | ADRs, architecture, module specs | versioned with code |
+
+### Plan files (`.agents/plan/`) — read, don't maintain state
+
+Plan files are **agent-only context**: vision, phase history, ADR index, and
+pointers to issues. They are gitignored on purpose — they are not for GitHub
+readers and never enter PR diffs. Rules:
+
+- Read plan files for **static guidance** at session start (alongside the
+  board). They are the fastest way to load the project's shape.
+- Plan files do **not** hold live state. Do not edit P0/phase/question status
+  tables in them — state lives in GitHub.
+- The only plan-file edits allowed are **static-pointer fixes** (e.g. an issue
+  index line whose number went stale).
+
+### GitHub Issues + Projects — the live state source
 
 Task and planning state lives in **GitHub Issues + the `WakeStudio Delivery`
-project** (org `awareride`), driven through the `gh` CLI. Docs keep the
-durable knowledge (ADRs, module specs, architecture); issues keep the work
-state. See `CONTRIBUTING.md` (Issues & Projects section) for the full model.
+project** (org `awareride`), driven through the `gh` CLI. See
+`CONTRIBUTING.md` (Issues & Projects section) for the full model.
 
+- **Session start:** load live state with `gh project item-list 2 --owner
+  awareride` (or `gh issue list`). Prefer this over reading plan state.
 - Before starting any non-trivial task, confirm the corresponding issue exists
   (create it with `gh issue create` using the task/bug template if not) and
   move it to `In progress` in the project.
@@ -43,6 +67,8 @@ state. See `CONTRIBUTING.md` (Issues & Projects section) for the full model.
   priority `p0`/`p1`, scope `sdk`/`kws`/`training`/`web`/`device`/`ci/deploy`/
   `platform`/`export`/`few-shot`/`afe`).
 - Questions (`question` label) close with a decision that lands as an ADR.
+- **State changes go to GitHub only** — never write status back into plan
+  files.
 
 ## Git & deployment boundaries
 
