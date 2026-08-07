@@ -24,6 +24,7 @@ import { PipelineTabs, StageCard, type PipelineTabId } from '../components/Pipel
 import { PipelineLevelCurve } from '../components/PipelineOverview'
 import { WaveformCanvas, StagePanel } from '../components/viz/StageCard'
 import { MiniScoreCurve } from '../components/MiniScoreCurve'
+import { ScoreCurvePanel } from '../components/ScoreCurvePanel'
 import { ClipsPanel } from '../components/ClipsPanel'
 import { SourcePanel, StageModulePanel, NsPanel, StageModuleShell, StageSection } from '../components/ModulePanels'
 import { PersistenceStageToggle } from '../components/PersistenceStageToggle'
@@ -503,6 +504,7 @@ function WorkspaceInner({
                 />
               ))}
             </div>
+            {runState.kwsRunning && <ScoreCurvePanel running={runState.kwsRunning} />}
             <ClipsPanel
               pipeline={afeRef.current}
               running={running}
