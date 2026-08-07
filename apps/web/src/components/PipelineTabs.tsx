@@ -63,7 +63,7 @@ export function PipelineTabs({ active, onSelect, cards }: Props) {
               }
             }}
             className={cn(
-              'min-w-0 flex-1 cursor-pointer overflow-hidden rounded-xl border transition-all',
+              'flex min-w-0 flex-1 cursor-pointer flex-col overflow-hidden rounded-xl border transition-all',
               selected
                 ? 'border-brand-400/60 bg-surface-2 shadow-lg shadow-brand-500/5'
                 : 'border-line bg-surface-2 hover:border-line-2 hover:bg-surface-3',
@@ -78,50 +78,49 @@ export function PipelineTabs({ active, onSelect, cards }: Props) {
                 opacity: card.enabled ? 1 : 0.3,
               }}
             />
-            <div className="p-3">
-              <div className="flex items-start justify-between gap-2">
-                {/* Big label top-left, blended with the stage color. */}
+            <div className="flex flex-1 flex-col p-2.5">
+              {/* Label row: big text top-left, enable/disable pill top-right. */}
+              <div className="flex items-start justify-between gap-1.5">
                 <div className="flex min-w-0 items-baseline gap-1.5">
                   <span
-                    className="text-lg font-bold leading-none"
+                    className="text-base font-bold leading-none"
                     style={{ color: card.color }}
                   >
                     {GLYPHS[card.id]}
                   </span>
-                  <span className="truncate text-base font-bold tracking-tight text-ink-1">
+                  <span className="truncate text-sm font-bold tracking-tight text-ink-1">
                     {card.label}
                   </span>
+                  {card.badge && (
+                    <span className="shrink-0 rounded bg-emerald-500/15 px-1 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-emerald-300">
+                      {card.badge}
+                    </span>
+                  )}
                 </div>
-                {card.badge && (
-                  <span className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-300">
-                    {card.badge}
-                  </span>
+                {card.onToggleEnabled && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      card.onToggleEnabled?.()
+                    }}
+                    aria-label={`${card.label} toggle`}
+                    aria-pressed={card.enabled}
+                    className={cn(
+                      'shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest transition-colors',
+                      card.enabled
+                        ? 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
+                        : 'bg-surface-4 text-ink-3 hover:bg-surface-3',
+                    )}
+                  >
+                    {card.enabled ? 'On' : 'Off'}
+                  </button>
                 )}
               </div>
 
-              <div className="mt-1.5 min-h-8 text-[11px] leading-snug text-ink-3">
+              {/* Core config preview — bottom-aligned across equal-height cards. */}
+              <div className="mt-auto pt-1.5 text-[11px] leading-snug text-ink-3">
                 {card.preview}
               </div>
-
-              {/* Enable/disable pill. */}
-              {card.onToggleEnabled && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    card.onToggleEnabled?.()
-                  }}
-                  aria-label={`${card.label} toggle`}
-                  aria-pressed={card.enabled}
-                  className={cn(
-                    'mt-2 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest transition-colors',
-                    card.enabled
-                      ? 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
-                      : 'bg-surface-4 text-ink-3 hover:bg-surface-3',
-                  )}
-                >
-                  {card.enabled ? 'On' : 'Off'}
-                </button>
-              )}
             </div>
           </div>
         )
