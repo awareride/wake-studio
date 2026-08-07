@@ -44,6 +44,14 @@ import {
 import type { EnrolledSample, WakeWordPrototype } from '@wake-studio/module-few-shot'
 import { recorderWorkletUrl as recorderUrl } from '@wake-studio/module-few-shot/web'
 import { getPlixEncoderVariant } from '@wake-studio/module-kws-plix/encoders/plix-encoder'
+import {
+  importModelFile,
+  listUserModels,
+  deleteUserModel,
+  exportUserModel,
+  blobUrlForModel,
+} from '../model-library'
+import type { UserModel } from '../model-library'
 
 const HISTORY_MAX = 300 // ~3 s at ~100 fps
 
@@ -150,9 +158,11 @@ export function modelSourcesForRole(
           return m.id === 'speech_embedding'
         case 'classifier':
           // Any classifier the openwakeword pipeline can consume: the
-          // hey-buddy model plus the openwakeword demo classifiers.
+          // hey-buddy model (commercially clean) plus the openwakeword demo
+          // classifiers (CC BY-NC-SA, demo-only, flagged in the option note).
           return (
             m.id === 'hey-buddy' ||
+            m.id.startsWith('openwakeword-') ||
             /^(hey|alexa|timer|weather|okay|sup|yo|hi|hello)_?/i.test(m.id) ||
             /classifier/i.test(m.id)
           )
@@ -293,6 +303,13 @@ export const KWSPanel = memo(function KWSPanel({
   const [customUrls, setCustomUrls] = useState<Record<string, string>>({})
   // The loaded registry (for the selector options); loaded lazily on demand.
   const [registryModels, setRegistryModels] = useState<ModelRegistry | null>(null)
+  // User model library (IndexedDB): local-file imports and future training
+  // artifacts. Listed in the Model-source editor; exportable back to disk.
+  const [userModels, setUserModels] = useState<UserModel[]>([])
+  // Object URLs for selected user models (role -> blob URL). Created when a
+  // saved model is chosen, so the backend can fetch() it.
+  const userBlobUrlRef = useRef<Record<string, string>>({})
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // Preload the model registry on mount so the Model-source editor shows the
   // built-in candidates immediately (the registry JSON is local, ADR-011).
@@ -310,6 +327,54 @@ export const KWSPanel = memo(function KWSPanel({
       cancelled = true
     }
   }, [])
+
+  // Load the user model library (IndexedDB) on mount.
+  useEffect(() => {
+    let cancelled = false
+    void listUserModels()
+      .then((models) => {
+        if (!cancelled) setUserModels(models)
+      })
+      .catch(() => {
+        // IndexedDB unavailable - the editor just shows no saved models.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  /** Import a local model file into the user model library for a role. */
+  const handleImportModelFile = useCallback(
+    async (file: File | undefined, role: UserModel['role']) => {
+      if (!file) return
+      try {
+        const model = await importModelFile(file, role, `Imported from ${file.name}`)
+        setUserModels((prev) => [model, ...prev])
+        // Auto-select the freshly imported model for this role.
+        setModelSources((prev) => ({ ...prev, [role]: `user:${model.id}` }))
+        const url = await blobUrlForModel(model.id)
+        if (url) userBlobUrlRef.current[role] = url
+        setError(null)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      }
+    },
+    [],
+  )
+
+  /** Select a saved user model for a role; resolves its blob URL. */
+  const handleSelectUserModel = useCallback(
+    async (role: UserModel['role'], modelId: string) => {
+      setModelSources((prev) => ({ ...prev, [role]: `user:${modelId}` }))
+      const url = await blobUrlForModel(modelId)
+      if (url) {
+        userBlobUrlRef.current[role] = url
+      } else {
+        setError(`Saved model ${modelId} not found in the library.`)
+      }
+    },
+    [],
+  )
   // The selected backend's own params, from its registration spec (ADR-025).
   // Empty when the backend carries no spec (no driver config panel).
   const driverParams = driverParamsFor(config.backend)
@@ -359,6 +424,10 @@ export const KWSPanel = memo(function KWSPanel({
     ): string | undefined => {
       const selected = modelSources[role]
       const byId = new Map(registry.models.map((m) => [m.id, m.url]))
+      // User-library model: use the pre-resolved blob URL.
+      if (selected?.startsWith('user:')) {
+        return userBlobUrlRef.current[role]
+      }
       if (selected && selected !== 'custom') {
         return byId.get(selected)
       }
@@ -461,6 +530,11 @@ export const KWSPanel = memo(function KWSPanel({
     let url: string
     if (rt === 'transformers') {
       url = variant.transformersLocalDir
+    } else if (modelSources['plix-encoder']?.startsWith('user:')) {
+      // User-library encoder (imported file / training artifact).
+      const blobUrl = userBlobUrlRef.current['plix-encoder']
+      if (!blobUrl) throw new Error('Selected PLiX encoder is not in the model library.')
+      url = blobUrl
     } else if (customUrl) {
       // User-supplied encoder URL overrides the built-in variant asset.
       url = customUrl
@@ -951,9 +1025,10 @@ export const KWSPanel = memo(function KWSPanel({
             Model sources
           </div>
           <p className="text-xs text-ink-3">
-            Pick the pretrained model per role, or choose "Custom URL…" to use
-            your own artifact (e.g. a model trained with this platform). Applied
-            on the next Load/Reload.
+            Pick the pretrained model per role (built-in registry), a saved
+            model from your library, a local file, or a custom URL. Saved
+            models are stored in your browser (IndexedDB) and can be exported
+            back to disk. Applied on the next Load/Reload.
           </p>
           {(isFewShot ? FEWSHOT_MODEL_ROLES : TRADITIONAL_MODEL_ROLES).map(({ role, label, fallbackId }) => {
                 const options = registryModels
@@ -961,6 +1036,10 @@ export const KWSPanel = memo(function KWSPanel({
                   : []
                 const selected = modelSources[role]
                 const isCustom = selected === 'custom'
+                const isUserModel = selected?.startsWith('user:') ?? false
+                const roleUserModels = userModels.filter((m) => m.role === role)
+                const selectedModelId = isUserModel && selected ? selected.slice(5) : undefined
+                const selectedModel = roleUserModels.find((m) => m.id === selectedModelId)
                 const currentUrl = isCustom
                   ? customUrls[role] ?? ''
                   : registryModels
@@ -974,12 +1053,14 @@ export const KWSPanel = memo(function KWSPanel({
                       <span className="w-36 shrink-0 text-ink-2">{label}</span>
                       <select
                         value={selected ?? fallbackId}
-                        onChange={(e) =>
-                          setModelSources((prev) => ({
-                            ...prev,
-                            [role]: e.target.value,
-                          }))
-                        }
+                        onChange={(e) => {
+                          const v = e.target.value
+                          if (v.startsWith('user:')) {
+                            void handleSelectUserModel(role, v.slice(5))
+                          } else {
+                            setModelSources((prev) => ({ ...prev, [role]: v }))
+                          }
+                        }}
                         disabled={status === 'loading' || running}
                         className="truncate rounded bg-surface-3 px-2 py-1 text-ink-2"
                       >
@@ -987,10 +1068,21 @@ export const KWSPanel = memo(function KWSPanel({
                           <option value={fallbackId}>Built-in ({fallbackId})</option>
                         )}
                         {options.map((o) => (
-                          <option key={o.id} value={o.id}>
+                          <option key={o.id} value={o.id} title={o.note}>
                             {o.label}
                           </option>
                         ))}
+                        {roleUserModels.length > 0 && (
+                          <optgroup label="Saved models">
+                            {roleUserModels.map((m) => (
+                              <option key={m.id} value={`user:${m.id}`}>
+                                {m.name} ({m.sizeBytes / 1024 / 1024 > 1
+                                  ? (m.sizeBytes / 1024 / 1024).toFixed(1) + ' MB'
+                                  : Math.round(m.sizeBytes / 1024) + ' KB'})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                     </label>
                     {isCustom && (
@@ -1008,10 +1100,56 @@ export const KWSPanel = memo(function KWSPanel({
                         className="w-full rounded bg-surface-3 px-2 py-1 text-xs font-mono text-ink-2"
                       />
                     )}
+                    {isUserModel && selectedModel && (
+                      <div className="flex items-center gap-2 text-[10px] text-ink-3">
+                        <span>
+                          Saved: {selectedModel.name} · {Math.round(selectedModel.sizeBytes / 1024)} KB ·{' '}
+                          {new Date(selectedModel.createdAtMs).toLocaleDateString()}
+                        </span>
+                        <button
+                          onClick={() => void exportUserModel(selectedModel)}
+                          className="text-brand-400 underline hover:text-brand-300"
+                        >
+                          Export
+                        </button>
+                        <button
+                          onClick={() => {
+                            void deleteUserModel(selectedModel.id)
+                            setUserModels((prev) => prev.filter((m) => m.id !== selectedModel.id))
+                            setModelSources((prev) => ({ ...prev, [role]: fallbackId }))
+                          }}
+                          className="text-danger underline hover:text-red-400"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={status === 'loading' || running}
+                        className="rounded bg-surface-3 px-2 py-0.5 text-[10px] text-ink-2 hover:bg-surface-4"
+                      >
+                        Import local file…
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".onnx,.tflite"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          void handleImportModelFile(f, role)
+                          e.target.value = ''
+                        }}
+                      />
+                    </div>
                     <p className="text-[10px] text-ink-3">
                       {isCustom
                         ? 'Custom URL — will be fetched as-is on Load.'
-                        : `URL: ${currentUrl || 'not loaded yet'}`}
+                        : isUserModel
+                          ? 'Saved model — loaded from your browser library on Load.'
+                          : `URL: ${currentUrl || 'not loaded yet'}`}
                     </p>
                   </div>
                 )
