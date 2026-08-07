@@ -420,13 +420,15 @@ function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => vo
         </button>
       </div>
 
-      {/* Minimized: the circle itself is colored by the wake indicator. */}
+      {/* Minimized: the circle itself is colored by the wake indicator.
+          Absolutely centered so the (layout-keeping, width-driving) invisible
+          expanded content can't push it out of the 32px pill. */}
       {!open && (
         <button
           onClick={onToggle}
           aria-label="Show pipeline status"
           className={cn(
-            'mx-auto h-7 w-7 rounded-full transition-colors',
+            'absolute inset-0 m-auto h-7 w-7 rounded-full transition-colors',
             dotClass,
           )}
         />
