@@ -40,6 +40,9 @@ jobs:
       - name: Type-check
         run: pnpm typecheck
 
+      - name: Unit tests (L1 + L2 wasm/onnx boot, ADR-026)
+        run: pnpm test:unit
+
       - name: Build PWA
         run: pnpm build
 
