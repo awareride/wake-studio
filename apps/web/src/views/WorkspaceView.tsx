@@ -23,7 +23,7 @@ import { RunControl, type PipelineRunState } from '../components/RunControl'
 import { PipelineTabs, StageCard, type PipelineTabId } from '../components/PipelineTabs'
 import { PipelineLevelCurve } from '../components/PipelineOverview'
 import { WaveformCanvas } from '../components/viz/StageCard'
-import { ScoreCurvePanel } from '../components/ScoreCurvePanel'
+import { MiniScoreCurve } from '../components/MiniScoreCurve'
 import { ClipsPanel } from '../components/ClipsPanel'
 import { SourcePanel, StageModulePanel, NsPanel, StageModuleShell, StageSection } from '../components/ModulePanels'
 import { PersistenceStageToggle } from '../components/PersistenceStageToggle'
@@ -454,9 +454,17 @@ function WorkspaceInner({
                 <RunControl runState={runState} onStart={onStart} onStop={onStop} />
               </div>
             </div>
-            {/* Live stage cards — identical to the Setup cards, flush (no
-                gap), waveform as the preview. */}
-            <div className="flex">
+            {/* Live stage cards — identical to the Setup cards: same count,
+                same layout (gap-2), waveform/curve as the preview. */}
+            <div className="flex flex-wrap gap-2">
+              <StageCard
+                id="source"
+                label="Source & AFE"
+                glyph="⌗"
+                color="#64748b"
+                enabled
+                preview={<WaveformCanvas data={frameData['aec']?.waveform} />}
+              />
               {(['aec', 'bss', 'ns'] as const).map((id) => (
                 <StageCard
                   key={id}
@@ -469,12 +477,20 @@ function WorkspaceInner({
                   preview={<WaveformCanvas data={frameData[id]?.waveform} />}
                 />
               ))}
+              <StageCard
+                id="kws"
+                label="KWS"
+                glyph="♪"
+                color="#34d399"
+                enabled={kwsEnabled}
+                onToggleEnabled={() => toggleKws(!kwsEnabled)}
+                preview={<MiniScoreCurve />}
+              />
             </div>
           </div>
 
           <div className="mt-4 space-y-4">
             <PipelineLevelCurve frameData={frameData} running={runState.afeRunning} />
-            {runState.kwsRunning && <ScoreCurvePanel running={runState.kwsRunning} />}
             <ClipsPanel
               pipeline={afeRef.current}
               running={running}
