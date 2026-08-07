@@ -38,10 +38,12 @@ test('hash routing navigates between views', async ({ page }) => {
   await expect(page).toHaveURL(/#\/projects/)
   await expect(page.getByRole('main').getByRole('heading', { name: 'Projects' })).toBeVisible()
 
-  // Settings placeholder.
+  // Settings view (issue #52): real data-driven panel, not a placeholder.
   await sidebarNav(page, 'Settings')
   await expect(page).toHaveURL(/#\/settings/)
-  await expect(page.getByText('Coming soon')).toBeVisible()
+  await expect(page.getByRole('main').getByRole('heading', { name: 'Settings' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'General' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Security' })).toBeVisible()
 
   // Device SDK placeholder.
   await sidebarNav(page, 'Device SDK')
