@@ -20,9 +20,9 @@ import { KWSPanel } from '../components/KWSPanel'
 import { ProjectBar } from '../components/ProjectBar'
 import { RecentProjectsMenu } from '../components/RecentProjectsMenu'
 import { RunControl, type PipelineRunState } from '../components/RunControl'
-import { PipelineTabs, type PipelineTabId } from '../components/PipelineTabs'
-import { PipelineFlow, PipelineLevelCurve } from '../components/PipelineOverview'
-import { StagePanel } from '../components/viz/StageCard'
+import { PipelineTabs, StageCard, type PipelineTabId } from '../components/PipelineTabs'
+import { PipelineLevelCurve } from '../components/PipelineOverview'
+import { WaveformCanvas } from '../components/viz/StageCard'
 import { ScoreCurvePanel } from '../components/ScoreCurvePanel'
 import { ClipsPanel } from '../components/ClipsPanel'
 import { SourcePanel, StageModulePanel, NsPanel, StageModuleShell, StageSection } from '../components/ModulePanels'
@@ -35,6 +35,14 @@ import { useSourceConfig } from '../workspace/useSourceConfig'
 import { useAfePipeline } from '../workspace/useAfePipeline'
 import { useLiveAfe, useLiveKws, type AfeStageId } from '../workspace/live'
 import { useToast } from '../components/toast'
+
+/** Live stage-card glyphs + colors (identical layout to the Setup cards). */
+const GLYPHS_LIVE: Record<'aec' | 'bss' | 'ns', string> = { aec: '≈', bss: '⇄', ns: '∿' }
+const STAGE_COLORS_LIVE: Record<'aec' | 'bss' | 'ns', string> = {
+  aec: '#818cf8',
+  bss: '#a78bfa',
+  ns: '#38bdf8',
+}
 
 /** All-off persistence record (used before a project snapshot exists). */
 const EMPTY_PERSISTENCE: import('../workspace/types').WorkspaceConfig['persistence'] = {
@@ -173,7 +181,7 @@ function WorkspaceInner({
   wsCfg: import('../workspace/types').WorkspaceConfig | undefined
   current: { id: string; name: string } | null
 }) {
-  const { frameData, latencyMs, bypass, toggleBypass } = useLiveAfe()
+  const { frameData, bypass, toggleBypass } = useLiveAfe()
   const { setKwsRunning } = useLiveKws()
   const [afePipeline, setAfePipeline] = React.useState<AFEPipeline | null>(null)
 
@@ -446,28 +454,26 @@ function WorkspaceInner({
                 <RunControl runState={runState} onStart={onStart} onStop={onStop} />
               </div>
             </div>
-            {/* Pipeline overview pins with the section; everything below scrolls. */}
-            <PipelineFlow
-              frameData={frameData}
-              running={runState.afeRunning}
-              latencyMs={latencyMs}
-              sourceLabel={source.kind === 'file' ? 'FILE' : 'MIC'}
-            />
+            {/* Live stage cards — identical to the Setup cards, flush (no
+                gap), waveform as the preview. */}
+            <div className="flex">
+              {(['aec', 'bss', 'ns'] as const).map((id) => (
+                <StageCard
+                  key={id}
+                  id={id}
+                  label={id.toUpperCase()}
+                  glyph={GLYPHS_LIVE[id]}
+                  color={STAGE_COLORS_LIVE[id]}
+                  enabled={!bypass[id]}
+                  onToggleEnabled={() => handleToggleBypass(id)}
+                  preview={<WaveformCanvas data={frameData[id]?.waveform} />}
+                />
+              ))}
+            </div>
           </div>
 
           <div className="mt-4 space-y-4">
             <PipelineLevelCurve frameData={frameData} running={runState.afeRunning} />
-            <div className="mx-auto grid max-w-5xl gap-5 sm:grid-cols-3 items-stretch">
-              {(['aec', 'bss', 'ns'] as const).map((id) => (
-                <StagePanel
-                  key={id}
-                  id={id}
-                  data={frameData[id]}
-                  isBypassed={bypass[id]}
-                  onToggleBypass={handleToggleBypass}
-                />
-              ))}
-            </div>
             {runState.kwsRunning && <ScoreCurvePanel running={runState.kwsRunning} />}
             <ClipsPanel
               pipeline={afeRef.current}
