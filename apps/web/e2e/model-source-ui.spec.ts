@@ -41,3 +41,39 @@ test('Model source editor renders registry candidates and custom URL input', asy
   const loadButton = page.getByRole('button', { name: /Load models/i })
   await expect(loadButton).toBeVisible()
 })
+
+test('local file import stores a saved model and it appears in the editor', async ({
+  page,
+}) => {
+  await page.goto('/#/workspace')
+
+  const classifierSelect = page.getByRole('combobox', {
+    name: /Wake-word classifier/,
+  })
+  await expect(classifierSelect).toBeVisible()
+
+  // The demo classifiers vendored in the module assets are now registry
+  // entries too (issue: classifier must list all pretrained models in
+  // packages/modules/kws/openwakeword/assets).
+  await expect(
+    classifierSelect.locator('option[value="openwakeword-alexa"]'),
+  ).toHaveCount(1)
+  await expect(
+    classifierSelect.locator('option[value="openwakeword-hey-jarvis"]'),
+  ).toHaveCount(1)
+
+  // Import a local .onnx file via the hidden file input. The browser allows
+  // setInputFiles on a hidden input.
+  const fileInput = classifierSelect.locator('xpath=ancestor::div[contains(@class,"space-y-1")]//input[@type="file"]')
+  await fileInput.setInputFiles({
+    name: 'my-wakeword.onnx',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from([0x01, 0x02, 0x03, 0x04]),
+  })
+
+  // The freshly imported model is auto-selected and shows in "Saved models".
+  await expect(
+    classifierSelect.locator('option', { hasText: 'my-wakeword.onnx' }),
+  ).toHaveCount(1)
+  await expect(page.getByText(/Saved: my-wakeword\.onnx/)).toBeVisible()
+})
