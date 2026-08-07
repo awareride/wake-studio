@@ -298,7 +298,7 @@ function WorkspaceInner({
         <section className="rounded-2xl border border-line bg-surface-1 p-4">
           <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-line pb-3">
             <span className="rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
-              Phase 1 · Configure
+              Setup
             </span>
             <span className="text-xs text-ink-3">configure each module, then Start — Stop returns here</span>
             <div className="ml-auto">
@@ -419,9 +419,9 @@ function WorkspaceInner({
         <section className="rounded-2xl border border-line bg-surface-1 p-4">
           <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-line pb-3">
             <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-emerald-300">
-              Phase 2 · Preview
+              Live
             </span>
-            <span className="text-xs text-ink-3">live effects — Stop to reconfigure</span>
+            <span className="text-xs text-ink-3">running effects — Stop to reconfigure</span>
             <div className="ml-auto">
               <RunControl runState={runState} onStart={onStart} onStop={onStop} />
             </div>

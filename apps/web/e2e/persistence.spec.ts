@@ -19,8 +19,8 @@ test('persistence: config tab gates capture, clip appears after a short run', as
   await page.getByRole('button', { name: /Start pipeline/ }).click()
 
   // Config tabs are replaced by the run dashboard.
-  await expect(page.getByText('Phase 2 · Preview')).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByText('Phase 1 · Configure')).toBeHidden()
+  await expect(page.getByText('Live')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('Setup')).toBeHidden()
 
   // Capture becomes enabled once the pipeline is running.
   const captureBtn = page.getByRole('button', { name: 'Capture' })

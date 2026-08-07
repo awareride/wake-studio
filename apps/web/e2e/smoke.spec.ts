@@ -79,7 +79,7 @@ test('live workspace panels still render (AFE/KWS)', async ({ page }) => {
   await page.goto('/#/workspace')
 
   // Phase 1 configure flow with the pipeline-shaped module tabs.
-  await expect(page.getByText('Phase 1 · Configure')).toBeVisible()
+  await expect(page.getByText('Setup')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Source & AFE config' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'NS config' })).toBeVisible()
 
@@ -157,7 +157,7 @@ test('workspace: create a project and it persists across reload', async ({ page 
 
   // Project bar shows the new project; the configure flow is present.
   await expect(page.getByText('E2E Word').first()).toBeVisible()
-  await expect(page.getByText('Phase 1 · Configure')).toBeVisible()
+  await expect(page.getByText('Setup')).toBeVisible()
   await expect(page.getByRole('button', { name: /Start pipeline/ })).toBeVisible()
 
   // Reload: the project (and selection) persists via IndexedDB + localStorage.

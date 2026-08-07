@@ -163,16 +163,17 @@ export function SourcePanel({
       enabled
     >
       <StageSection>
+        <SectionLabel>Persistence</SectionLabel>
+        <PersistenceStageToggle
+          stageId="raw"
+          label="Persist raw input (captures the mic/file stream)"
+          config={persistence}
+          onChange={setPersistence}
+        />
+      </StageSection>
+      <StageSection>
         <SectionLabel>Source</SectionLabel>
         <SourceConfigSection source={source} actions={actions} disabled={running} />
-        <div className="mt-3 border-t border-line pt-3">
-          <PersistenceStageToggle
-            stageId="raw"
-            label="Persist raw input (captures the mic/file stream)"
-            config={persistence}
-            onChange={setPersistence}
-          />
-        </div>
       </StageSection>
       <StageSection>
         <SectionLabel>AFE</SectionLabel>

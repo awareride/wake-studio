@@ -12,7 +12,7 @@ test('stage cards render; KWS toggle gates the KWS stage', async ({ page }) => {
   await page.goto('/#/workspace')
 
   // Phase 1 configure flow with all five stage cards.
-  await expect(page.getByText('Phase 1 · Configure')).toBeVisible()
+  await expect(page.getByText('Setup')).toBeVisible()
   for (const name of ['Source & AFE', 'AEC', 'BSS', 'NS', 'KWS']) {
     await expect(page.getByRole('button', { name: `${name} config` })).toBeVisible()
   }

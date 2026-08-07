@@ -37,7 +37,7 @@ import {
   driverParamsFor,
   modelSourcesForRole,
 } from '../workspace/kws-config'
-import { UnifiedConfigPanel, ParamRows, type ParamValue } from './UnifiedConfigPanel'
+import { ParamRows, type ParamValue } from './UnifiedConfigPanel'
 import { drawScoreCurve } from './viz/ScoreCurve'
 import { useProjectStageConfig } from '../projects'
 import { useLiveKws } from '../workspace/live'
@@ -772,7 +772,7 @@ export const KWSPanel = memo(function KWSPanel({
   const canStart = status === 'ready' && afeRunning && !running
 
   return (
-    <section className="space-y-8">
+    <section className="space-y-6">
       {!embedded && (
         <div>
           <h2 className="text-lg font-semibold text-ink-1">KWS detection</h2>
@@ -788,7 +788,7 @@ export const KWSPanel = memo(function KWSPanel({
 
       {/* Backend selection - pure choice, no loading/action. Loading and
           detection live in the Engine card below. */}
-      <div className="flex flex-wrap items-center gap-4 whitespace-nowrap rounded-xl border border-line bg-surface-2 p-5">
+      <div className="flex flex-wrap items-center gap-4 whitespace-nowrap">
         <label className="flex items-center gap-2 text-sm">
           <span className="text-ink-2">Backend</span>
           <select
@@ -824,7 +824,7 @@ export const KWSPanel = memo(function KWSPanel({
       {/* Engine card - the primary action area: resource loading (per-backend)
           + detection start/stop. Kept separate from backend selection so
           switching backends is instant and the heavy actions are grouped. */}
-      <div className="space-y-4 rounded-xl border border-line bg-surface-2 p-5">
+      <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-ink-1">Engine</h3>
@@ -978,14 +978,16 @@ export const KWSPanel = memo(function KWSPanel({
             })}
         </div>
 
-        {/* Model sources - the user can pick which pretrained model each role
-            uses (built-in registry entries) or supply a custom URL (e.g. a
-            model trained with this platform). The selection overrides the
-            registry defaults on the next Load. */}
-        <div className="space-y-3 border-t border-line pt-3">
-          <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
-            Model sources
-          </div>
+      </div>
+
+      {/* Model sources - the user can pick which pretrained model each role
+          uses (built-in registry entries) or supply a custom URL (e.g. a
+          model trained with this platform). The selection overrides the
+          registry defaults on the next Load. */}
+      <div className="space-y-3">
+        <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
+          Model sources
+        </div>
           <p className="text-xs text-ink-3">
             Pick the pretrained model per role (built-in registry), a saved
             model from your library, a local file, or a custom URL. Saved
@@ -1116,14 +1118,13 @@ export const KWSPanel = memo(function KWSPanel({
                   </div>
                 )
               })}
-        </div>
       </div>
 
       {/* plixkws enrollment + detection (Few-Shot, Phase 3) - inline in the KWS
           panel; the standalone Few-Shot panel was merged here. The encoder
           variant + runtime are the plix driver's spec params (ADR-025). */}
       {isFewShot && (
-        <div className="space-y-6 rounded-xl border border-line bg-surface-2 p-5">
+        <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-4">
             <h3 className="text-sm font-semibold text-ink-1">
               PLiX Few-Shot enrollment{' '}
@@ -1144,17 +1145,22 @@ export const KWSPanel = memo(function KWSPanel({
               plix driver spec, rendered via module-kit controls. The enrollment
               flow below consumes these values via driverValues. */}
           {driverParams.length > 0 && !detecting && (
-            <UnifiedConfigPanel
-              title={`${config.backend} driver`}
-              subtitle="Params from the driver module spec (ADR-025). Applied on Load."
-              params={driverParams}
-              values={driverValues}
-              onParamChange={(id, v) =>
-                setDriverValues((prev) => ({ ...prev, [id]: v }))
-              }
-              advancedIds={[]}
-              disabled={recording || status === 'loading'}
-            />
+            <div className="space-y-1 border-t border-line pt-3">
+              <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
+                {config.backend} driver
+              </div>
+              <div className="divide-y divide-line">
+                <ParamRows
+                  ids={driverParams.map((p) => p.id)}
+                  params={driverParams}
+                  values={driverValues}
+                  onParamChange={(id, v) =>
+                    setDriverValues((prev) => ({ ...prev, [id]: v }))
+                  }
+                  disabled={recording || status === 'loading'}
+                />
+              </div>
+            </div>
           )}
 
           {status === 'ready' && !detecting && (
@@ -1216,53 +1222,49 @@ export const KWSPanel = memo(function KWSPanel({
           )}
 
           {detecting && (
-            <div className="space-y-2">
-              <div className="rounded-xl border border-line bg-surface-2 p-5">
-                <div className="mb-2 flex items-center justify-between text-xs text-ink-3">
-                  <span>Few-Shot score curve (prototype-distance similarity)</span>
-                  <span className="font-mono">
-                    {fsHistoryRef.current.length > 0
-                      ? `score: ${fsHistoryRef.current[fsHistoryRef.current.length - 1].smoothedScore.toFixed(3)}`
-                      : ''}
-                  </span>
-                </div>
-                <canvas
-                  ref={fsCanvasRef}
-                  width={800}
-                  height={160}
-                  className="h-[160px] w-full rounded bg-surface-3"
-                />
+            <div className="space-y-2 border-t border-line pt-3">
+              <div className="mb-2 flex items-center justify-between text-xs text-ink-3">
+                <span>Few-Shot score curve (prototype-distance similarity)</span>
+                <span className="font-mono">
+                  {fsHistoryRef.current.length > 0
+                    ? `score: ${fsHistoryRef.current[fsHistoryRef.current.length - 1].smoothedScore.toFixed(3)}`
+                    : ''}
+                </span>
               </div>
+              <canvas
+                ref={fsCanvasRef}
+                width={800}
+                height={160}
+                className="h-[160px] w-full rounded bg-surface-3"
+              />
             </div>
           )}
 
           {/* Few-Shot detection params (from the few-shot module's spec) - shown
               once a prototype exists so the user can tune before/while running. */}
           {prototype && (
-            <UnifiedConfigPanel
-              title="Few-Shot detection parameters"
-              subtitle="Rendered from the few-shot module's describeParameters() via module-kit controls."
-              params={fewShotDescribeParameters()}
-              values={fsConfig as unknown as Record<string, ParamValue>}
-              onParamChange={(id, v) => {
-                setFsConfig((prev) => {
-                  const next = { ...prev, [id]: v }
-                  // Persist the few-shot detection params to the project
-                  // snapshot (#53 P1) so a project switch does not lose them.
-                  persistFs(next as Partial<typeof FS_DEFAULTS>)
-                  return next
-                })
-              }}
-              advancedIds={[
-                'smoothingWindowFrames',
-                'windowMs',
-                'vadGateEnabled',
-                'vadThreshold',
-                'hopMs',
-                'useNegativePrototype',
-              ]}
-              disabled={detecting}
-            />
+            <div className="space-y-1 border-t border-line pt-3">
+              <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
+                Few-Shot detection parameters
+              </div>
+              <div className="divide-y divide-line">
+                <ParamRows
+                  ids={fewShotDescribeParameters().map((p) => p.id)}
+                  params={fewShotDescribeParameters()}
+                  values={fsConfig as unknown as Record<string, ParamValue>}
+                  onParamChange={(id, v) => {
+                    setFsConfig((prev) => {
+                      const next = { ...prev, [id]: v }
+                      // Persist the few-shot detection params to the project
+                      // snapshot (#53 P1) so a project switch does not lose them.
+                      persistFs(next as Partial<typeof FS_DEFAULTS>)
+                      return next
+                    })
+                  }}
+                  disabled={detecting}
+                />
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -1272,7 +1274,7 @@ export const KWSPanel = memo(function KWSPanel({
           params come from the specs, not from the engine state, so they are
           editable up front and applied on the next Load. */}
       {!isFewShot && (
-        <div className="rounded-xl border border-line bg-surface-2 p-5">
+        <div className="space-y-3">
           <h3 className="mb-4 text-sm font-semibold text-ink-1">
             Configuration{' '}
             <span className="text-xs font-normal text-ink-3">
