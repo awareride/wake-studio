@@ -37,7 +37,7 @@ import {
   driverParamsFor,
   modelSourcesForRole,
 } from '../workspace/kws-config'
-import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
+import { UnifiedConfigPanel, ParamRows, type ParamValue } from './UnifiedConfigPanel'
 import { drawScoreCurve } from './viz/ScoreCurve'
 import { useProjectStageConfig } from '../projects'
 import { useLiveKws } from '../workspace/live'
@@ -1281,40 +1281,43 @@ export const KWSPanel = memo(function KWSPanel({
           </h3>
 
           {/* Driver params from the selected backend's registration spec
-              (ADR-025) - rendered automatically; no per-backend cases here. */}
+              (ADR-025) - flat rows, no nested panel (epic #53 UX). */}
           {driverParams.length > 0 && (
-            <div className="mb-4">
-              <UnifiedConfigPanel
-                title={`${config.backend} driver`}
-                subtitle="Params from the driver module spec (ADR-025). Apply by clicking Reload."
-                params={driverParams}
-                values={driverValues}
-                onParamChange={(id, v) =>
-                  setDriverValues((prev) => ({ ...prev, [id]: v }))
-                }
-                advancedIds={[]}
-                disabled={running || status === 'loading'}
-              />
+            <div className="mt-3 border-t border-line pt-3">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-ink-3">
+                {config.backend} driver
+              </div>
+              <div className="divide-y divide-line">
+                <ParamRows
+                  ids={driverParams.map((p) => p.id)}
+                  params={driverParams}
+                  values={driverValues}
+                  onParamChange={(id, v) =>
+                    setDriverValues((prev) => ({ ...prev, [id]: v }))
+                  }
+                  disabled={running || status === 'loading'}
+                />
+              </div>
             </div>
           )}
 
-          {/* Tunable params rendered from the spec descriptors (module-kit).
-              The 'backend' param is excluded - it is already selectable in the
-              controls row above (ADR-020); showing it here would duplicate it. */}
-          <UnifiedConfigPanel
-            title="Tunable parameters"
-            subtitle="Rendered from describeParameters() via module-kit controls. Applied on the next Load/Reload."
-            params={params.filter((p) => p.id !== 'backend')}
-            values={config as unknown as Record<string, ParamValue>}
-            onParamChange={(id, v) => updateConfig({ [id]: v })}
-            advancedIds={[
-              'minDurationMs',
-              'smoothingWindowFrames',
-              'cooldownMs',
-              'vadThreshold',
-            ]}
-            disabled={running || status === 'loading'}
-          />
+          {/* Tunable params rendered from the spec descriptors (module-kit) —
+              flat rows. The 'backend' param is excluded (already selectable
+              in the controls row above, ADR-020). */}
+          <div className="mt-3 border-t border-line pt-3">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-ink-3">
+              Tunable parameters
+            </div>
+            <div className="divide-y divide-line">
+              <ParamRows
+                ids={params.filter((p) => p.id !== 'backend').map((p) => p.id)}
+                params={params}
+                values={config as unknown as Record<string, ParamValue>}
+                onParamChange={(id, v) => updateConfig({ [id]: v })}
+                disabled={running || status === 'loading'}
+              />
+            </div>
+          </div>
           <p className="mt-3 text-xs text-ink-3">
             {params.length} parameters exposed via{' '}
             <code className="text-ink-2">describeParameters()</code>. Mel
