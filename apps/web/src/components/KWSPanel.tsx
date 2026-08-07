@@ -162,8 +162,9 @@ export function modelSourcesForRole(
           // classifiers (CC BY-NC-SA, demo-only, flagged in the option note).
           return (
             m.id === 'hey-buddy' ||
+            m.id === 'buddy' ||
             m.id.startsWith('openwakeword-') ||
-            /^(hey|alexa|timer|weather|okay|sup|yo|hi|hello)_?/i.test(m.id) ||
+            /^(hey|hi|yo|sup|okay|hello|alexa|timer|weather)_?/i.test(m.id) ||
             /classifier/i.test(m.id)
           )
         case 'plix-encoder':

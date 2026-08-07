@@ -225,6 +225,102 @@
       "sha256": "TODO-phase2",
       "sizeBytes": 1149158,
       "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "hi-buddy",
+      "name": "Hi Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/hi-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'hi-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'hi buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "yo-buddy",
+      "name": "Yo Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/yo-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'yo-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'yo buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "sup-buddy",
+      "name": "Sup Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/sup-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'sup-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'sup buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "okay-buddy",
+      "name": "Okay Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/okay-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1031918,
+      "notes": "benjamin-paine/hey-buddy 'okay-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'okay buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "hello-buddy",
+      "name": "Hello Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/hello-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'hello-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'hello buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "buddy",
+      "name": "Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'buddy' phrase with the openwakeword mel->embedding pipeline."
     }
   ]
 }
