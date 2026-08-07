@@ -21,7 +21,7 @@ import { ProjectBar } from '../components/ProjectBar'
 import { RecentProjectsMenu } from '../components/RecentProjectsMenu'
 import { RunControl, type PipelineRunState } from '../components/RunControl'
 import { PipelineTabs, type PipelineTabId } from '../components/PipelineTabs'
-import { PipelineOverview } from '../components/PipelineOverview'
+import { PipelineFlow, PipelineLevelCurve } from '../components/PipelineOverview'
 import { StagePanel } from '../components/viz/StageCard'
 import { ScoreCurvePanel } from '../components/ScoreCurvePanel'
 import { ClipsPanel } from '../components/ClipsPanel'
@@ -305,34 +305,24 @@ function WorkspaceInner({
         </div>
       )}
 
-      {/* Main action — sticks to the top of the viewport while the config /
-          live content scrolls underneath (epic #53 UX). */}
-      <div className="sticky top-3 z-20 flex justify-end">
-        <div className="flex items-center gap-2 rounded-full border border-line bg-surface-2/90 p-1.5 pr-3 shadow-lg shadow-black/10 backdrop-blur">
-          <span
-            className={
-              previewVisible
-                ? 'rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-emerald-300'
-                : 'rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300'
-            }
-          >
-            {previewVisible ? 'Live' : 'Setup'}
-          </span>
-          <RunControl runState={runState} onStart={onStart} onStop={onStop} />
-        </div>
-      </div>
-
       {/* ============ SETUP (before Start) ============
           Kept mounted (hidden) while running so the KWS engine and per-stage
           form state survive the switch to Live — unmounting would dispose
           the engine mid load (epic #53 KWS fix). */}
       <div className={previewVisible ? 'hidden' : ''}>
         <section className="rounded-2xl border border-line bg-surface-1 p-4">
-          <div className="mb-3 border-b border-line pb-3">
+          <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-line pb-3">
+            <span className="rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
+              Setup
+            </span>
             <span className="text-xs text-ink-3">configure each module, then Start — Stop returns here</span>
+            <div className="ml-auto">
+              <RunControl runState={runState} onStart={onStart} onStop={onStop} />
+            </div>
           </div>
 
-          <div className="mb-4">
+          {/* Stage cards stick to the top while the module panel scrolls. */}
+          <div className="sticky top-2 z-20 -mx-1 mb-4 rounded-xl bg-surface-1/95 px-1 py-1 backdrop-blur">
             <PipelineTabs
               active={activeTab}
               onSelect={setActiveTab}
@@ -444,28 +434,39 @@ function WorkspaceInner({
       {/* ============ LIVE dashboard (after Start) ============ */}
       {previewVisible && (
         <section className="rounded-2xl border border-line bg-surface-1 p-4">
-          <div className="mb-3 border-b border-line pb-3">
+          <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-line pb-3">
+            <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-emerald-300">
+              Live
+            </span>
             <span className="text-xs text-ink-3">running effects — Stop to reconfigure</span>
+            <div className="ml-auto">
+              <RunControl runState={runState} onStart={onStart} onStop={onStop} />
+            </div>
           </div>
 
           <div className="space-y-4">
-            <PipelineOverview
+            {/* Live stage cards stick to the top (above the overview). */}
+            <div className="sticky top-2 z-20 -mx-1 rounded-xl bg-surface-1/95 px-1 py-1 backdrop-blur">
+              <div className="mx-auto grid max-w-5xl gap-5 sm:grid-cols-3 items-stretch">
+                {(['aec', 'bss', 'ns'] as const).map((id) => (
+                  <StagePanel
+                    key={id}
+                    id={id}
+                    data={frameData[id]}
+                    isBypassed={bypass[id]}
+                    onToggleBypass={handleToggleBypass}
+                  />
+                ))}
+              </div>
+            </div>
+            {/* Overview laid out sequentially: flow, then Level+VAD curve. */}
+            <PipelineFlow
               frameData={frameData}
               running={runState.afeRunning}
               latencyMs={latencyMs}
               sourceLabel={source.kind === 'file' ? 'FILE' : 'MIC'}
             />
-            <div className="mx-auto grid max-w-5xl gap-5 sm:grid-cols-3 items-stretch">
-              {(['aec', 'bss', 'ns'] as const).map((id) => (
-                <StagePanel
-                  key={id}
-                  id={id}
-                  data={frameData[id]}
-                  isBypassed={bypass[id]}
-                  onToggleBypass={handleToggleBypass}
-                />
-              ))}
-            </div>
+            <PipelineLevelCurve frameData={frameData} running={runState.afeRunning} />
             {runState.kwsRunning && <ScoreCurvePanel running={runState.kwsRunning} />}
             <ClipsPanel
               pipeline={afeRef.current}

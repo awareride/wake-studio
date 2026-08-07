@@ -4,7 +4,7 @@ import type { StageFrameData } from '@wake-studio/module-afe-graph'
 interface Props {
   frameData: Record<string, StageFrameData>
   running: boolean
-  latencyMs: number
+  latencyMs?: number
   /** Source label for the flow's input node (e.g. 'MIC' / 'FILE'). */
   sourceLabel?: string
 }
@@ -26,7 +26,54 @@ const STAGE_COLORS: Record<string, string> = {
   kws: '#34d399', // emerald-400
 }
 
-export const PipelineOverview = memo(function PipelineOverview({ frameData, running, latencyMs, sourceLabel }: Props) {
+/**
+ * Pipeline flow diagram (epic #53 UX): source -> AEC -> BSS -> NS -> KWS ->
+ * output, kept as its own card so it can sit at the top (sticky stage area)
+ * with the Level/VAD curve laid out separately below.
+ */
+export const PipelineFlow = memo(function PipelineFlow({ frameData, running, latencyMs, sourceLabel }: Props) {
+  return (
+    <div className="rounded-xl border border-line bg-surface-2 p-5 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-ink-1">Pipeline overview</h3>
+        {running && (
+          <span
+            className={`font-mono text-xs ${
+              (latencyMs ?? 0) > 150
+                ? 'text-danger'
+                : (latencyMs ?? 0) > 100
+                  ? 'text-warning'
+                  : 'text-success'
+            }`}
+          >
+            {(latencyMs ?? 0).toFixed(0)} ms
+          </span>
+        )}
+      </div>
+
+      <div className="mx-auto flex w-fit items-center justify-center gap-2">
+        <FlowNode label={sourceLabel ?? 'INPUT'} color="#64748b" />
+        {STAGES.map((id) => (
+          <div key={id} className="flex items-center gap-1">
+            <FlowArrow active={running} />
+            <FlowNode
+              label={id.toUpperCase()}
+              color={STAGE_COLORS[id]}
+              waveform={frameData[id]?.waveform}
+            />
+          </div>
+        ))}
+        <FlowArrow active={running} />
+        <FlowNode label="KWS" color={STAGE_COLORS.kws} />
+        <FlowArrow active={running} />
+        <FlowNode label="OUTPUT" color="#64748b" />
+      </div>
+    </div>
+  )
+})
+
+/** Scrolling Level (dBFS) + VAD curve — its own sequential block. */
+export const PipelineLevelCurve = memo(function PipelineLevelCurve({ frameData, running }: Props) {
   const historyRef = useRef<HistoryPoint[]>([])
   const scrollCanvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -57,64 +104,25 @@ export const PipelineOverview = memo(function PipelineOverview({ frameData, runn
 
   return (
     <div className="rounded-xl border border-line bg-surface-2 p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-ink-1">Pipeline overview</h3>
-        {running && (
-          <span
-            className={`font-mono text-xs ${
-              latencyMs > 150
-                ? 'text-danger'
-                : latencyMs > 100
-                  ? 'text-warning'
-                  : 'text-success'
-            }`}
-          >
-            {latencyMs.toFixed(0)} ms
-          </span>
-        )}
-      </div>
-
-      {/* Flow diagram: source -> AEC -> BSS -> NS -> KWS -> output. */}
-      <div className="mx-auto mb-6 flex w-fit items-center justify-center gap-2">
-        <FlowNode label={sourceLabel ?? 'INPUT'} color="#64748b" />
-        {STAGES.map((id) => (
-          <div key={id} className="flex items-center gap-1">
-            <FlowArrow active={running} />
-            <FlowNode
-              label={id.toUpperCase()}
-              color={STAGE_COLORS[id]}
-              waveform={frameData[id]?.waveform}
-            />
-          </div>
-        ))}
-        <FlowArrow active={running} />
-        <FlowNode label="KWS" color={STAGE_COLORS.kws} />
-        <FlowArrow active={running} />
-        <FlowNode label="OUTPUT" color="#64748b" />
-      </div>
-
-      {/* Scrolling level + VAD curve */}
-      <div className="relative">
-        <div className="mb-1 flex items-center justify-between text-xs text-ink-3">
-          <span>Level (dBFS) + VAD · last ~10 s</span>
-          <div className="flex gap-3">
-            {STAGES.map((id) => (
-              <span key={id} className="flex items-center gap-1">
-                <span
-                  className="inline-block h-2 w-2 rounded-full"
-                  style={{ backgroundColor: STAGE_COLORS[id] }}
-                />
-                {id.toUpperCase()}
-              </span>
-            ))}
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2 w-2 rounded-full bg-success" />
-              VAD
+      <div className="mb-1 flex items-center justify-between text-xs text-ink-3">
+        <span>Level (dBFS) + VAD · last ~10 s</span>
+        <div className="flex gap-3">
+          {STAGES.map((id) => (
+            <span key={id} className="flex items-center gap-1">
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ backgroundColor: STAGE_COLORS[id] }}
+              />
+              {id.toUpperCase()}
             </span>
-          </div>
+          ))}
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full bg-success" />
+            VAD
+          </span>
         </div>
-        <ScrollingCurve canvasRef={scrollCanvasRef} historyRef={historyRef} running={running} />
       </div>
+      <ScrollingCurve canvasRef={scrollCanvasRef} historyRef={historyRef} running={running} />
     </div>
   )
 })
