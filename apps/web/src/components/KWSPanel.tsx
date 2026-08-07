@@ -108,6 +108,77 @@ export function modelUrlsFromRegistry(registry: ModelRegistry): BackendModelUrls
   }
 }
 
+/**
+ * A selectable model source for one KWS model role: a registry entry (the
+ * built-in pretrained model) or a user-supplied URL (e.g. a model trained
+ * with this platform, or a custom artifact URL).
+ */
+export interface ModelSourceOption {
+  /** Registry id, or 'custom' for a user-supplied URL. */
+  id: string
+  /** Label shown in the selector. */
+  label: string
+  /** Resolved URL (undefined only for the 'custom' placeholder). */
+  url?: string
+  /** License / commercial note (from the registry) for the built-ins. */
+  note?: string
+}
+
+/**
+ * Build the candidate model sources for one KWS model role.
+ *
+ * @param registry the loaded model registry
+ * @param role     which model the backend needs:
+ *   - 'melspectrogram'  openwakeword log-Mel front-end
+ *   - 'embedding'       openwakeword speech-embedding backbone
+ *   - 'classifier'      openwakeword wake-word classifier (any classifier
+ *                       onnx that consumes the 96-dim embedding)
+ *   - 'plix-encoder'    PLiX few-shot encoder (base / small variants)
+ * @param current  the currently selected URL (to mark it selected)
+ */
+export function modelSourcesForRole(
+  registry: ModelRegistry,
+  role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder',
+  current?: string,
+): ModelSourceOption[] {
+  const builtIns = registry.models
+    .filter((m) => {
+      switch (role) {
+        case 'melspectrogram':
+          return m.id === 'melspectrogram'
+        case 'embedding':
+          return m.id === 'speech_embedding'
+        case 'classifier':
+          // Any classifier the openwakeword pipeline can consume: the
+          // hey-buddy model plus the openwakeword demo classifiers.
+          return (
+            m.id === 'hey-buddy' ||
+            /^(hey|alexa|timer|weather|okay|sup|yo|hi|hello)_?/i.test(m.id) ||
+            /classifier/i.test(m.id)
+          )
+        case 'plix-encoder':
+          return m.id === 'plixkws' || m.id === 'plixkws-small'
+      }
+    })
+    .map((m) => ({
+      id: m.id,
+      label: `${m.name} (${m.id})`,
+      url: m.url,
+      note: `${m.license} · ${m.commercial ? 'commercial' : 'non-commercial'} · ${m.sizeBytes ? (m.sizeBytes / 1024 / 1024).toFixed(1) + ' MB' : 'size n/a'}`,
+    }))
+
+  // Custom-URL option: use the current URL as its value when one is set and
+  // does not match a built-in (i.e. the user previously chose a custom URL).
+  const custom: ModelSourceOption = {
+    id: 'custom',
+    label: 'Custom URL…',
+    url: current && !builtIns.some((b) => b.url === current) ? current : undefined,
+    note: 'Provide your own model URL (e.g. a model trained with this platform).',
+  }
+
+  return [...builtIns, custom]
+}
+
 /** Build a ParameterDescriptor from a ModuleSpec param (spec -> panel).
  *  ModuleParam.type has extra kinds (enum/secret/slider); map to the panel's
  *  ParameterDescriptor union (number/boolean/select/string). */
@@ -141,6 +212,25 @@ export function driverParamsFor(backendId: string): ReadonlyArray<ParameterDescr
   const spec = reg?.spec as ModuleSpec | undefined
   return (spec?.params ?? []).map(descriptorFromParam)
 }
+
+/** One model role the Model-source editor offers for a backend. */
+interface ModelSourceRole {
+  role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder'
+  label: string
+  fallbackId: string
+}
+
+/** Model roles for the traditional (openwakeword) backend. */
+const TRADITIONAL_MODEL_ROLES: ModelSourceRole[] = [
+  { role: 'melspectrogram', label: 'Mel front-end', fallbackId: 'melspectrogram' },
+  { role: 'embedding', label: 'Embedding backbone', fallbackId: 'speech_embedding' },
+  { role: 'classifier', label: 'Wake-word classifier', fallbackId: 'hey-buddy' },
+]
+
+/** Model roles for the few-shot (plixkws) backend. */
+const FEWSHOT_MODEL_ROLES: ModelSourceRole[] = [
+  { role: 'plix-encoder', label: 'PLiX encoder', fallbackId: 'plixkws' },
+]
 
 export const KWSPanel = memo(function KWSPanel({
   afePipeline,
@@ -196,6 +286,30 @@ export const KWSPanel = memo(function KWSPanel({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   // Registry-loaded model URLs (lazy; resolved at load time, ADR-011).
   const urlsRef = useRef<BackendModelUrls>({})
+  // User-selectable model sources per role (ModelSourceEditor). Keyed by
+  // role; value is the selected registry id or 'custom' (URL follows).
+  // Defaults to undefined -> the built-in registry URL is used.
+  const [modelSources, setModelSources] = useState<Record<string, string | undefined>>({})
+  const [customUrls, setCustomUrls] = useState<Record<string, string>>({})
+  // The loaded registry (for the selector options); loaded lazily on demand.
+  const [registryModels, setRegistryModels] = useState<ModelRegistry | null>(null)
+
+  // Preload the model registry on mount so the Model-source editor shows the
+  // built-in candidates immediately (the registry JSON is local, ADR-011).
+  useEffect(() => {
+    let cancelled = false
+    void loadRegistry()
+      .then((r) => {
+        if (!cancelled) setRegistryModels(r)
+      })
+      .catch(() => {
+        // Registry unreachable - the editor shows the built-in placeholder;
+        // Load will surface the real error.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   // The selected backend's own params, from its registration spec (ADR-025).
   // Empty when the backend carries no spec (no driver config panel).
   const driverParams = driverParamsFor(config.backend)
@@ -228,9 +342,34 @@ export const KWSPanel = memo(function KWSPanel({
   // params (ADR-025). Seeded from driverValues (spec defaults) so a future
   // few-shot driver with different options works unchanged.
   const plixVariant =
-    (driverValues.encoder as 'base' | 'small' | undefined) ?? 'base'
+    (driverValues.encoder as 'base' | 'small' | undefined) ?? 'small'
   const plixRuntime =
     (driverValues.runtime as 'onnx' | 'transformers' | undefined) ?? 'onnx'
+
+  /**
+   * Resolve the effective model URL for one role, honoring the user's
+   * selection: a registry built-in id or a custom URL. Falls back to the
+   * registry default when nothing is selected.
+   */
+  const resolveModelUrl = useCallback(
+    (
+      registry: ModelRegistry,
+      role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder',
+      fallbackId: string,
+    ): string | undefined => {
+      const selected = modelSources[role]
+      const byId = new Map(registry.models.map((m) => [m.id, m.url]))
+      if (selected && selected !== 'custom') {
+        return byId.get(selected)
+      }
+      if (selected === 'custom') {
+        return customUrls[role]?.trim() || undefined
+      }
+      // Default: the built-in registry entry for this role.
+      return byId.get(fallbackId)
+    },
+    [modelSources, customUrls],
+  )
 
   const handleLoad = useCallback(async () => {
     setError(null)
@@ -242,8 +381,20 @@ export const KWSPanel = memo(function KWSPanel({
       engine.setConfig({ backend: config.backend, threshold: config.threshold })
       // Resolve model URLs from the platform registry (ADR-011) - never
       // hard-coded here; the UI shows the exact fetch command if absent.
+      // User-selected model sources (ModelSourceEditor) override the
+      // registry defaults: built-in pretrained models or a custom URL (e.g. a
+      // model trained with this platform).
       const registry = await loadRegistry()
-      urlsRef.current = modelUrlsFromRegistry(registry)
+      setRegistryModels(registry)
+      const urls: BackendModelUrls =
+        config.backend === 'plixkws'
+          ? { plixkws: resolveModelUrl(registry, 'plix-encoder', 'plixkws') }
+          : {
+              melspectrogram: resolveModelUrl(registry, 'melspectrogram', 'melspectrogram'),
+              embedding: resolveModelUrl(registry, 'embedding', 'speech_embedding'),
+              classifier: resolveModelUrl(registry, 'classifier', 'hey-buddy'),
+            }
+      urlsRef.current = urls
       // Pass the driver's edited params as its backend config (unknown to the
       // engine; the driver's configure() interprets them, e.g. sherpa
       // keywords).
@@ -259,7 +410,7 @@ export const KWSPanel = memo(function KWSPanel({
       setStatus('error')
       logError('kws', err instanceof Error ? err.message : String(err))
     }
-  }, [config.backend, config.threshold, driverValues])
+  }, [config.backend, config.threshold, driverValues, resolveModelUrl])
 
   // Auto-load: switching the backend selection loads that backend's models
   // automatically (registry is a local JSON, ADR-011). Initial mount keeps the
@@ -291,17 +442,33 @@ export const KWSPanel = memo(function KWSPanel({
 
   // --- plixkws enrollment + detection ---
 
-  /** Resolve the PLiX model locator for the selected variant + runtime. */
+  /**
+   * Resolve the PLiX model locator for the selected variant + runtime.
+   * Honors the user's ModelSource selection: a custom encoder URL (e.g. a
+   * model trained with this platform) takes precedence over the variant's
+   * built-in ONNX URL. The transformers runtime always uses the locally
+   * served HF-style dir (variant.transformersLocalDir).
+   */
   const resolvePlixLocator = useCallback((): { url: string; runtime: 'onnx' | 'transformers' } => {
     const variant = getPlixEncoderVariant(plixVariant)
     if (!variant) {
       throw new Error(`Unknown PLiX variant: ${plixVariant}`)
     }
     const rt = plixRuntime
-    const url =
-      rt === 'transformers' ? variant.transformersLocalDir : variant.onnxUrl
+    const customUrl = modelSources['plix-encoder'] === 'custom'
+      ? customUrls['plix-encoder']?.trim()
+      : undefined
+    let url: string
+    if (rt === 'transformers') {
+      url = variant.transformersLocalDir
+    } else if (customUrl) {
+      // User-supplied encoder URL overrides the built-in variant asset.
+      url = customUrl
+    } else {
+      url = variant.onnxUrl
+    }
     return { url, runtime: rt }
-  }, [plixVariant, plixRuntime])
+  }, [plixVariant, plixRuntime, modelSources, customUrls])
 
   const ensureFsEngines = useCallback(() => {
     if (!engineRef.current) {
@@ -773,6 +940,82 @@ export const KWSPanel = memo(function KWSPanel({
                 </div>
               )
             })}
+        </div>
+
+        {/* Model sources - the user can pick which pretrained model each role
+            uses (built-in registry entries) or supply a custom URL (e.g. a
+            model trained with this platform). The selection overrides the
+            registry defaults on the next Load. */}
+        <div className="space-y-3 border-t border-line pt-3">
+          <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
+            Model sources
+          </div>
+          <p className="text-xs text-ink-3">
+            Pick the pretrained model per role, or choose "Custom URL…" to use
+            your own artifact (e.g. a model trained with this platform). Applied
+            on the next Load/Reload.
+          </p>
+          {(isFewShot ? FEWSHOT_MODEL_ROLES : TRADITIONAL_MODEL_ROLES).map(({ role, label, fallbackId }) => {
+                const options = registryModels
+                  ? modelSourcesForRole(registryModels, role, customUrls[role])
+                  : []
+                const selected = modelSources[role]
+                const isCustom = selected === 'custom'
+                const currentUrl = isCustom
+                  ? customUrls[role] ?? ''
+                  : registryModels
+                    ? modelSourcesForRole(registryModels, role, customUrls[role])
+                        .find((o) => o.id === (selected ?? fallbackId))
+                        ?.url ?? ''
+                    : ''
+                return (
+                  <div key={role} className="space-y-1">
+                    <label className="flex items-center gap-2 text-xs">
+                      <span className="w-36 shrink-0 text-ink-2">{label}</span>
+                      <select
+                        value={selected ?? fallbackId}
+                        onChange={(e) =>
+                          setModelSources((prev) => ({
+                            ...prev,
+                            [role]: e.target.value,
+                          }))
+                        }
+                        disabled={status === 'loading' || running}
+                        className="truncate rounded bg-surface-3 px-2 py-1 text-ink-2"
+                      >
+                        {options.length === 0 && (
+                          <option value={fallbackId}>Built-in ({fallbackId})</option>
+                        )}
+                        {options.map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {isCustom && (
+                      <input
+                        type="text"
+                        value={customUrls[role] ?? ''}
+                        onChange={(e) =>
+                          setCustomUrls((prev) => ({
+                            ...prev,
+                            [role]: e.target.value,
+                          }))
+                        }
+                        placeholder="https://… or /modules/…/model.onnx"
+                        disabled={status === 'loading' || running}
+                        className="w-full rounded bg-surface-3 px-2 py-1 text-xs font-mono text-ink-2"
+                      />
+                    )}
+                    <p className="text-[10px] text-ink-3">
+                      {isCustom
+                        ? 'Custom URL — will be fetched as-is on Load.'
+                        : `URL: ${currentUrl || 'not loaded yet'}`}
+                    </p>
+                  </div>
+                )
+              })}
         </div>
       </div>
 

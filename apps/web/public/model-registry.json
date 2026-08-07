@@ -61,10 +61,10 @@
         "high-performance"
       ],
       "source": "aaqibsaeed/plixkws (ONNX export of FewshotML/plix)",
-      "url": "/modules/kws/plix/assets/plixkws-base.onnx",
+      "url": "/modules/kws/plix/assets/plixkws-small.onnx",
       "format": "onnx",
       "runtime": "onnx",
-      "encoderVariant": "base",
+      "encoderVariant": "small",
       "transformersModel": "aaqibsaeed/plixkws",
       "embeddingDim": 1280,
       "license": "Apache-2.0",
@@ -72,7 +72,8 @@
       "class": "redistributable",
       "sha256": "TODO-phase3",
       "sizeBytes": null,
-      "notes": "PLiX 'base' encoder variant (EfficientNet-v2-M). Compact CNN trained as a Prototypical Network; outputs a 1280-dim embedding for prototype-distance matching. Replaces WavLM-base-plus as the Few-Shot encoder (WavLM was too heavy for end-side devices). Apache-2.0 (FewshotML/plix). Two runtimes: 'onnx' (default) loads the exported plixkws-base.onnx via onnxruntime-web; 'transformers' loads the encoder browser-native via @huggingface/transformers v4 (CDN, no .pt / no npm install) and fetches the ONNX weights itself from the Hugging Face 'transformersModel' id (or a locally-served HF-style dir). ONNX stays the default; switch runtime to 'transformers' for a zero-Python deployment. The .pt weights are on Dropbox; export to ONNX via packages/modules/kws/plix/scripts/export-plixkws-onnx.py."
+      "notes": "PLiX 'base' encoder variant (EfficientNet-v2-M). Compact CNN trained as a Prototypical Network; outputs a 1280-dim embedding for prototype-distance matching. Replaces WavLM-base-plus as the Few-Shot encoder (WavLM was too heavy for end-side devices). Apache-2.0 (FewshotML/plix). Two runtimes: 'onnx' (default) loads the exported plixkws-base.onnx via onnxruntime-web; 'transformers' loads the encoder browser-native via @huggingface/transformers v4 (CDN, no .pt / no npm install) and fetches the ONNX weights itself from the Hugging Face 'transformersModel' id (or a locally-served HF-style dir). ONNX stays the default; switch runtime to 'transformers' for a zero-Python deployment. The .pt weights are on Dropbox; export to ONNX via packages/modules/kws/plix/scripts/export-plixkws-onnx.py. NOTE (2026-08-07): only the small ONNX export is vendored in assets/; the base export (plixkws-base.onnx) is not present, so this entry resolves to the small asset. Set a custom encoder URL or export base via scripts/export-plixkws-onnx.py to use base.",
+      "externalData": "plixkws-small.onnx.data"
     },
     {
       "id": "plixkws-small",
