@@ -1,14 +1,12 @@
 /**
- * Settings view (issue #52) - section content only.
+ * Settings view (issue #52) - section content only, save-to-apply.
  *
  * The section menu lives in the shell sidebar (Settings sub-menu); this view
  * renders the selected section's content full-width, driven by the route
  * (settings-general / settings-security / settings-data / settings-modules).
  *
- * Data-driven: platform settings render from `PLATFORM_SETTING_DESCRIPTORS`
- * via module-kit controls; module settings render from each driver's spec
- * (ADR-025). Export/import JSON (secrets masked on export) + reset live in
- * a footer bar shared across sections.
+ * Edits go into a local draft; a single Save button persists them
+ * (localStorage + immediate theme effect). No export/import, no reset.
  */
 
 import * as React from 'react'
@@ -17,13 +15,12 @@ import { useToast } from '../components/toast'
 import { ModuleSettingsSection } from '../settings/ModuleSettings'
 import {
   PLATFORM_SETTING_DESCRIPTORS,
-  buildExportPayload,
   descriptorToModuleParam,
-  parseImportPayload,
   settingGroupOf,
 } from '../settings'
 import { useAppSettings } from '../settings/context'
 import type { SettingsSection } from '../router'
+import type { PlatformSettingId } from '../settings'
 
 const GROUP_TITLES: Record<SettingsSection, string> = {
   general: 'General',
@@ -33,21 +30,13 @@ const GROUP_TITLES: Record<SettingsSection, string> = {
 }
 
 const GROUP_DESCRIPTIONS: Record<SettingsSection, string> = {
-  general: 'Console-wide appearance and runtime defaults.',
+  general: 'Console-wide appearance and runtime defaults. Changes apply on Save.',
   security:
-    'Backend connection + credentials. Stored locally only; secrets are masked on export and never sent.',
-  data: 'Local data preferences and future data-source gates.',
+    'Backend connection + credentials. Stored locally only; never sent. Changes apply on Save.',
+  data: 'Local data preferences and future data-source gates. Changes apply on Save.',
   modules:
-    'Per-driver defaults from the module specs (ADR-025). The active project can override these per project.',
+    'Per-driver defaults from the module specs (ADR-025). The active project can override these per project. Changes apply on Save.',
 }
-
-/** The settings sections this view can render (order = sidebar order). */
-export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
-  'general',
-  'security',
-  'data',
-  'modules',
-]
 
 export function SettingsView({
   section,
@@ -57,59 +46,44 @@ export function SettingsView({
   /** Driver anchor for the Modules section (Settings -> driver focus). */
   backendId?: string
 }) {
-  const { platform, set, module, setModuleBackend, reset } = useAppSettings()
+  const { platform, set } = useAppSettings()
   const { toast } = useToast()
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
-  const handleExport = () => {
-    const payload = buildExportPayload(platform, module, true)
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: 'application/json',
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'wake-studio-settings.json'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-    toast({
-      title: 'Settings exported',
-      description: 'Secrets are masked (••••••••).',
-    })
-  }
-
-  const handleImport = (file: File | undefined) => {
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const parsed = parseImportPayload(String(reader.result))
-        for (const [id, value] of Object.entries(parsed.platform)) {
-          if (id !== 'schemaVersion') set(id as never, value)
-        }
-        for (const [backendId, values] of Object.entries(parsed.module)) {
-          setModuleBackend(backendId, values as Record<string, unknown>)
-        }
-        toast({ title: 'Settings imported', variant: 'success' })
-      } catch (err) {
-        toast({
-          title: 'Import failed',
-          description: err instanceof Error ? err.message : String(err),
-          variant: 'error',
-        })
-      }
+  // Local draft: edits accumulate here; Save persists them.
+  const [draft, setDraft] = React.useState<
+    Record<PlatformSettingId, unknown>
+  >(() => {
+    const out = {} as Record<PlatformSettingId, unknown>
+    for (const d of PLATFORM_SETTING_DESCRIPTORS) {
+      out[d.id] = platform[d.id] ?? d.default
     }
-    reader.readAsText(file)
+    return out
+  })
+  const [dirty, setDirty] = React.useState(false)
+
+  // Re-seed the draft when the section changes (avoid stale values).
+  React.useEffect(() => {
+    const out = {} as Record<PlatformSettingId, unknown>
+    for (const d of PLATFORM_SETTING_DESCRIPTORS) {
+      out[d.id] = platform[d.id] ?? d.default
+    }
+    setDraft(out)
+    setDirty(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section])
+
+  const handleDraftChange = (id: PlatformSettingId, value: unknown) => {
+    setDraft((prev) => ({ ...prev, [id]: value }))
+    setDirty(true)
   }
 
-  const handleReset = () => {
-    reset()
-    toast({
-      title: 'Settings reset',
-      description: 'All app settings restored to defaults.',
-    })
+  const handleSave = () => {
+    // Persist all draft fields (platform).
+    for (const [id, value] of Object.entries(draft)) {
+      set(id as PlatformSettingId, value)
+    }
+    setDirty(false)
+    toast({ title: 'Settings saved', variant: 'success' })
   }
 
   const platformIds = PLATFORM_SETTING_DESCRIPTORS.filter(
@@ -118,11 +92,20 @@ export function SettingsView({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-ink-1">
-          {GROUP_TITLES[section]}
-        </h2>
-        <p className="mt-1 text-sm text-ink-2">{GROUP_DESCRIPTIONS[section]}</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-ink-1">
+            {GROUP_TITLES[section]}
+          </h2>
+          <p className="mt-1 text-sm text-ink-2">{GROUP_DESCRIPTIONS[section]}</p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={!dirty}
+          className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-400 disabled:opacity-40"
+        >
+          Save
+        </button>
       </div>
 
       <div className="space-y-4">
@@ -135,8 +118,8 @@ export function SettingsView({
                 <div key={d.id} className="py-1">
                   {renderParamRow(
                     descriptorToModuleParam(d),
-                    platform[d.id] ?? d.default,
-                    (v: unknown) => set(d.id, v),
+                    draft[d.id],
+                    (v: unknown) => handleDraftChange(d.id, v),
                   )}
                 </div>
               ))}
@@ -146,42 +129,9 @@ export function SettingsView({
 
         {section === 'security' && (
           <p className="rounded-lg border border-line bg-surface-3 px-3 py-2 text-xs text-ink-3">
-            Credentials never leave this browser. Export masks secrets with
-            ••••••••; imports overwrite them.
+            Credentials never leave this browser. Changes apply on Save.
           </p>
         )}
-
-        {/* Shared actions bar (all sections). */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleExport}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:bg-surface-3"
-          >
-            Export settings (JSON)
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:bg-surface-3"
-          >
-            Import settings…
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={(e) => {
-              handleImport(e.target.files?.[0])
-              e.target.value = ''
-            }}
-          />
-          <button
-            onClick={handleReset}
-            className="rounded-lg border border-danger/40 px-3 py-1.5 text-sm text-danger hover:bg-danger/10"
-          >
-            Reset to defaults
-          </button>
-        </div>
       </div>
     </div>
   )

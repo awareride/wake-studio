@@ -117,7 +117,9 @@ function SettingsNav({
       <div className="flex w-full items-center gap-2.5">
         <NavButton
           item={item}
-          active={isOpen}
+          // Keep the focus on the clicked sub-item: the Settings parent is
+          // not highlighted when a sub-menu item is active.
+          active={false}
           onClick={() => onNavigate(settingsRouteOf(route))}
         />
         <button
