@@ -246,9 +246,21 @@ function WorkspaceInner({
   const previewVisible = runState.afeRunning || runState.kwsRunning
   const sourcePreview =
     source.kind === 'file' ? `Files (${source.files.length})` : 'Mic · default'
+  const afeInfo = `AFE · ${afeCfg?.topology ?? 'single-worklet'} · ${afeCfg?.latencyBudgetMs ?? 150} ms`
 
   const stageCards = [
-    { id: 'source' as const, label: 'Source & AFE', preview: sourcePreview, color: '#64748b', enabled: true },
+    {
+      id: 'source' as const,
+      label: 'Source & AFE',
+      preview: (
+        <>
+          <div>{sourcePreview}</div>
+          <div className="mt-0.5 text-ink-3/70">{afeInfo}</div>
+        </>
+      ),
+      color: '#64748b',
+      enabled: true,
+    },
     {
       id: 'aec' as const,
       label: 'AEC',
@@ -293,8 +305,11 @@ function WorkspaceInner({
         </div>
       )}
 
-      {/* ============ CONFIGURE (before Start) ============ */}
-      {!previewVisible && (
+      {/* ============ SETUP (before Start) ============
+          Kept mounted (hidden) while running so the KWS engine and per-stage
+          form state survive the switch to Live — unmounting would dispose
+          the engine mid load (epic #53 KWS fix). */}
+      <div className={previewVisible ? 'hidden' : ''}>
         <section className="rounded-2xl border border-line bg-surface-1 p-4">
           <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-line pb-3">
             <span className="rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
@@ -398,6 +413,7 @@ function WorkspaceInner({
                     key={`kws-${current?.id ?? 'none'}`}
                     afePipeline={afePipeline}
                     afeRunning={runState.afeRunning}
+                    afeRef={afeRef}
                     commandRef={kwsCommandRef}
                     onPreview={setKwsPreview}
                     embedded
@@ -412,9 +428,9 @@ function WorkspaceInner({
             </StageModuleShell>
           </div>
         </section>
-      )}
+      </div>
 
-      {/* ============ RUN dashboard (after Start) ============ */}
+      {/* ============ LIVE dashboard (after Start) ============ */}
       {previewVisible && (
         <section className="rounded-2xl border border-line bg-surface-1 p-4">
           <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-line pb-3">
@@ -434,7 +450,7 @@ function WorkspaceInner({
               latencyMs={latencyMs}
               sourceLabel={source.kind === 'file' ? 'FILE' : 'MIC'}
             />
-            <div className="grid gap-4 sm:grid-cols-3 items-stretch">
+            <div className="mx-auto grid max-w-5xl gap-5 sm:grid-cols-3 items-stretch">
               {(['aec', 'bss', 'ns'] as const).map((id) => (
                 <StagePanel
                   key={id}

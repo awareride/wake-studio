@@ -23,6 +23,12 @@ interface StagePanelProps {
 
 /** Memoized per-stage card. Only re-renders when this stage's data or bypass
  *  changes, not when other stages update (avoids 30fps re-renders of all 3). */
+const STAGE_COLORS: Record<VizStageId, string> = {
+  aec: '#818cf8',
+  bss: '#a78bfa',
+  ns: '#38bdf8',
+}
+
 export const StagePanel = memo(function StagePanel({
   id,
   data,
@@ -32,7 +38,10 @@ export const StagePanel = memo(function StagePanel({
   return (
     <div className="flex h-full flex-col rounded-xl border border-line bg-surface-2 p-5">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-semibold uppercase text-brand-300">
+        <span
+          className="text-sm font-bold uppercase tracking-wide"
+          style={{ color: STAGE_COLORS[id] }}
+        >
           {id}
         </span>
         <button

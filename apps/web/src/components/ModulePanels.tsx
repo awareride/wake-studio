@@ -52,18 +52,18 @@ export function StageModuleShell({
   return (
     <div className="overflow-hidden rounded-xl border border-line bg-surface-2">
       <div
-        className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+        className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
         style={{ background: `linear-gradient(90deg, ${color}1f, transparent 65%)` }}
       >
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-3">
           <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg font-bold"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xl font-bold"
             style={{ background: `${color}26`, color }}
           >
             {number}
           </span>
           <div className="min-w-0">
-            <h4 className="text-sm font-semibold text-ink-1">{title}</h4>
+            <h4 className="text-[15px] font-semibold text-ink-1">{title}</h4>
             {note && <p className="text-xs text-ink-3">{note}</p>}
           </div>
         </div>
@@ -92,13 +92,13 @@ export function StageModuleShell({
 
 /** A flat section block inside a stage shell. */
 export function StageSection({ children }: { children: React.ReactNode }) {
-  return <div className="p-4">{children}</div>
+  return <div className="px-5 py-4">{children}</div>
 }
 
 /** Small uppercase label for a group inside a stage section. */
 export function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-3">
+    <div className="mb-2.5 text-[13px] font-semibold uppercase tracking-widest text-ink-3">
       {children}
     </div>
   )

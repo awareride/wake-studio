@@ -21,29 +21,37 @@ interface Props {
 export function SourceConfigSection({ source, actions, disabled }: Props) {
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-1 rounded-lg border border-line bg-surface-3 p-1">
+      <div className="inline-flex items-center gap-1 rounded-xl border border-line bg-surface-3 p-1">
         <button
           onClick={() => actions.updateKind('mic')}
           disabled={disabled}
           className={cn(
-            'rounded-md px-3 py-1 text-sm font-medium transition-colors disabled:opacity-50',
+            'flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-50',
             source.kind === 'mic'
-              ? 'bg-brand-500 text-ink-1'
+              ? 'bg-brand-500 text-ink-1 shadow-sm'
               : 'text-ink-2 hover:bg-surface-4',
           )}
         >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8" />
+          </svg>
           Microphone
         </button>
         <button
           onClick={() => actions.updateKind('file')}
           disabled={disabled}
           className={cn(
-            'rounded-md px-3 py-1 text-sm font-medium transition-colors disabled:opacity-50',
+            'flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-50',
             source.kind === 'file'
-              ? 'bg-brand-500 text-ink-1'
+              ? 'bg-brand-500 text-ink-1 shadow-sm'
               : 'text-ink-2 hover:bg-surface-4',
           )}
         >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2Z" />
+            <path d="M14 2v6h6" />
+          </svg>
           Audio files
         </button>
       </div>

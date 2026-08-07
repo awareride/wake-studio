@@ -111,6 +111,10 @@ const ENGINE_RESOURCES: Record<string, EngineResource[]> = {
 interface Props {
   afePipeline: AFEPipeline | null
   afeRunning: boolean
+  /** Always-current pipeline ref — the run handlers read this instead of the
+   *  (state-timing-sensitive) afeRunning prop so the unified runner's
+   *  auto-start works (epic #53 KWS fix). */
+  afeRef?: React.RefObject<AFEPipeline | null>
   /**
    * Optional: external control (workspace pipeline runner) to load / start /
    * stop detection (epic #53 P4). getState lets the runner read the current
@@ -132,6 +136,7 @@ interface Props {
 export const KWSPanel = memo(function KWSPanel({
   afePipeline,
   afeRunning,
+  afeRef,
   commandRef,
   onPreview,
   embedded,
@@ -140,7 +145,6 @@ export const KWSPanel = memo(function KWSPanel({
   const [status, setStatus] = useState<KWSStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
-  const [triggerFlash, setTriggerFlash] = useState(false)
   const [warmup, setWarmup] = useState(false)
   // Seed config from the active project's KWS snapshot (falls back to defaults).
   const { projectConfig: projCfg, persist } = useProjectStageConfig('kws')
@@ -501,8 +505,6 @@ export const KWSPanel = memo(function KWSPanel({
         if (fsHistoryRef.current.length > HISTORY_MAX) fsHistoryRef.current.shift()
       })
       engineRef.current.onTrigger(() => {
-        setTriggerFlash(true)
-        setTimeout(() => setTriggerFlash(false), 500)
       })
     }
     if (!fsEngineRef.current) {
@@ -627,7 +629,8 @@ export const KWSPanel = memo(function KWSPanel({
       setError('Build a prototype first.')
       return
     }
-    if (!afePipeline || !afeRunning) {
+    const afe = afeRef?.current ?? afePipeline
+    if (!afe?.running) {
       setError('Start the AFE microphone first.')
       return
     }
@@ -642,8 +645,6 @@ export const KWSPanel = memo(function KWSPanel({
         if (fsHistoryRef.current.length > HISTORY_MAX) fsHistoryRef.current.shift()
       })
       fresh.onTrigger(() => {
-        setTriggerFlash(true)
-        setTimeout(() => setTriggerFlash(false), 500)
       })
       engineRef.current = fresh
       fresh.setConfig({ ...DEFAULT_CONFIG, backend: 'plixkws' })
@@ -656,7 +657,13 @@ export const KWSPanel = memo(function KWSPanel({
         // worker load message -> initWithPrototype opts.
         { windowMs: fsConfig.windowMs, useNegative: fsConfig.useNegativePrototype },
       )
-      fresh.start({ onOutput: (cb) => afePipeline.onOutput(cb) })
+      const afe2 = afeRef?.current ?? afePipeline
+      fresh.start({
+        onOutput: (cb) => {
+          if (!afe2) return () => {}
+          return afe2.onOutput(cb)
+        },
+      })
       setDetecting(true)
       setStatus('running')
     } catch (err) {
@@ -673,16 +680,17 @@ export const KWSPanel = memo(function KWSPanel({
 
 
   const handleStart = useCallback(() => {
-    if (!engineRef.current || !afePipeline || !afeRunning) return
+    const afe = afeRef?.current ?? afePipeline
+    if (!engineRef.current || !afe?.running) return
     engineRef.current.start({
-      onOutput: (cb) => afePipeline.onOutput(cb),
+      onOutput: (cb) => afe.onOutput(cb),
     })
     setRunning(true)
     setWarmup(true)
     // Warmup: the backend needs ~76 mel frames + 16 embeddings (~2 s) before
     // producing real scores. Clear the badge after 3 s.
     setTimeout(() => setWarmup(false), 3000)
-  }, [afePipeline, afeRunning])
+  }, [afePipeline, afeRef])
 
   const handleStop = useCallback(() => {
     engineRef.current?.stop()
@@ -754,8 +762,6 @@ export const KWSPanel = memo(function KWSPanel({
       }
     })
     engine.onTrigger((e: KWSTriggerEvent) => {
-      setTriggerFlash(true)
-      setTimeout(() => setTriggerFlash(false), 500)
       // Publish to the session console (Phase 4).
       logTrigger('kws', e)
     })
@@ -806,17 +812,6 @@ export const KWSPanel = memo(function KWSPanel({
             ))}
           </select>
         </label>
-
-        {/* Trigger flash */}
-        <div
-          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
-            triggerFlash
-              ? 'scale-125 bg-amber-400 text-ink-1'
-              : 'bg-surface-4 text-ink-3'
-          }`}
-        >
-          {triggerFlash ? '!' : '·'}
-        </div>
 
         {error && <span className="text-sm text-danger">{error}</span>}
       </div>

@@ -75,7 +75,7 @@ export const PipelineOverview = memo(function PipelineOverview({ frameData, runn
       </div>
 
       {/* Flow diagram: source -> AEC -> BSS -> NS -> KWS -> output. */}
-      <div className="mb-6 flex items-center justify-center gap-1">
+      <div className="mx-auto mb-6 flex w-fit items-center justify-center gap-2">
         <FlowNode label={sourceLabel ?? 'INPUT'} color="#64748b" />
         {STAGES.map((id) => (
           <div key={id} className="flex items-center gap-1">
@@ -178,7 +178,7 @@ function FlowNode({
 function FlowArrow({ active }: { active: boolean }) {
   return (
     <div
-      className={`h-0.5 w-6 rounded ${
+      className={`h-0.5 w-8 rounded ${
         active
           ? 'animate-pulse bg-gradient-to-r from-transparent via-brand-400 to-transparent'
           : 'bg-slate-700'
