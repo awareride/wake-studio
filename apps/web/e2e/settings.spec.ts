@@ -115,8 +115,7 @@ test('module settings persist only after Save', async ({ page }) => {
   )
   expect(stored || '').not.toContain('test keyword @wake')
 
-  // Save persists all drivers (the modules section's own Save button - the
-  // header Save is for platform settings and stays disabled here).
+  // Save persists everything (the single bottom Save bar).
   await page.getByRole('button', { name: 'Save' }).last().click()
   await page.waitForTimeout(150)
   stored = await page.evaluate(() =>
