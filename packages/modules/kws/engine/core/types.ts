@@ -160,7 +160,19 @@ export type KWSStatus = 'idle' | 'loading' | 'ready' | 'running' | 'error'
 
 /** Messages sent from the main thread to the worker. */
 export type KWSWorkerMessage =
-  | { type: 'load'; backend: KWSBackendId; models: BackendModelUrls; prototype?: number[] }
+  | {
+      type: 'load'
+      backend: KWSBackendId
+      models: BackendModelUrls
+      prototype?: number[]
+      /**
+       * Driver-specific backend config (e.g. plixkws windowMs /
+       * useNegativePrototype). Passed through to the backend's init
+       * (epic #53 P1) - currently only main-thread backends (sherpa)
+       * consume backendConfig directly.
+       */
+      backendConfig?: unknown
+    }
   | { type: 'config'; config: KWSConfig }
   | {
       type: 'audio'

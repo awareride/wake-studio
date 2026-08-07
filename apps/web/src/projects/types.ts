@@ -13,6 +13,7 @@
 import type { AFEConfig } from '@wake-studio/module-afe-graph'
 import type { KWSConfig } from '@wake-studio/module-kws-engine'
 import type { FewShotConfig } from '@wake-studio/module-few-shot'
+import type { WorkspaceConfig } from '../workspace/types'
 
 /** Target domain (mirrors the two-domain split in README / Domains). */
 export type ProjectDomain = 'low-power-mcu' | 'high-performance'
@@ -22,6 +23,13 @@ export interface ProjectConfigSnapshot {
   afe: AFEConfig
   kws: KWSConfig
   fewShot: FewShotConfig
+  /**
+   * Workspace-level config (epic #53): component toggles, input source,
+   * KWS preload, per-stage persistence. Optional so existing IndexedDB
+   * projects load unchanged; filled by defaultConfigSnapshot() on new
+   * projects and merged by the workspace view on read.
+   */
+  workspace?: WorkspaceConfig
 }
 
 export interface WakeWordProject {

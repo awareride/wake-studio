@@ -107,6 +107,7 @@ async function handleLoad(
   backendId: KWSBackendId,
   urls: BackendModelUrls,
   prototypeVector?: number[],
+  backendConfig?: unknown,
 ): Promise<void> {
   actualExecutionProvider =
     config.executionProvider === 'webgpu'
@@ -166,9 +167,22 @@ async function handleLoad(
       }
       // The plixkws detection backend is created through the registry so the
       // worker stays decoupled from the plix driver module (ADR-024). It
-      // expects the shared embedProvider + prototype.
+      // expects the shared embedProvider + prototype, plus optional
+      // windowMs / useNegativePrototype from the workspace config (epic #53
+      // P1) threaded via backendConfig.
       backend = createBackend('plixkws')
-      await (backend as KWSBackend & { initWithPrototype?: (p: unknown, e: unknown) => void }).initWithPrototype?.(proto, embedProvider)
+      await (
+        backend as KWSBackend & {
+          initWithPrototype?: (
+            p: unknown,
+            e: unknown,
+            opts?: { windowMs?: number; useNegative?: boolean },
+          ) => void
+        }
+      ).initWithPrototype?.(proto, embedProvider, {
+        windowMs: (backendConfig as { windowMs?: number } | undefined)?.windowMs,
+        useNegative: (backendConfig as { useNegative?: boolean } | undefined)?.useNegative,
+      })
     } else {
       // Detection backend: only load if its required URLs are present. If only
       // plixkws is provided (Few-Shot enrollment / embed-only mode), skip the
@@ -332,7 +346,7 @@ self.onmessage = async (e: MessageEvent<KWSWorkerMessage>) => {
   try {
     switch (msg.type) {
       case 'load':
-        await handleLoad(msg.backend, msg.models, msg.prototype)
+        await handleLoad(msg.backend, msg.models, msg.prototype, msg.backendConfig)
         break
       case 'config':
         handleConfig(msg.config)

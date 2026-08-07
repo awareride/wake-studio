@@ -51,11 +51,19 @@ registerKwsBackend({
       initWithPrototype?: (
         proto: WakeWordPrototype,
         embed: EmbedProvider,
+        opts?: { windowMs?: number; useNegative?: boolean },
       ) => void
     }
-    withInit.initWithPrototype = (proto, embed) => {
-      // Reconstruct the backend with the real provider + prototype.
-      const next = new PlixKwsBackend(embed, proto, 1500, false)
+    withInit.initWithPrototype = (proto, embed, opts) => {
+      // Reconstruct the backend with the real provider + prototype. The
+      // workspace config (epic #53 P1) may override the hard-coded defaults
+      // (1500 ms window / no negative prototype).
+      const next = new PlixKwsBackend(
+        embed,
+        proto,
+        opts?.windowMs ?? 1500,
+        opts?.useNegative ?? false,
+      )
       // Copy state that may already exist (none before load, but stay safe).
       Object.assign(backend, next, {
         _embedProvider: embed,
