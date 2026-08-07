@@ -15,12 +15,13 @@ import { FileSourcePanel } from './FileSourcePanel'
 import type { MicSourceConfig } from '@wake-studio/module-afe-graph'
 import { FileScheduler } from '../workspace/sources/fileSource'
 import type { FileSourceItem } from '../workspace/types'
+import type { PanelCommands } from '../workspace/usePipelineRunner'
 
 interface AFEPanelProps {
   afeRef: MutableRefObject<AFEPipeline | null>
   onRunningChange: (running: boolean) => void
-  /** Optional: external control (workspace pipeline canvas) to start/stop. */
-  commandRef?: MutableRefObject<{ start: () => void; stop: () => void } | null>
+  /** Optional: external control (workspace pipeline runner) to start/stop. */
+  commandRef?: MutableRefObject<PanelCommands | null>
 }
 
 /** Build a FileScheduler from the selected files (epic #53 P3). Returns null
@@ -184,10 +185,10 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
     logInfo('afe', 'Pipeline stopped')
   }, [afeRef, onRunningChange])
 
-  // Expose start/stop to the workspace pipeline canvas via commandRef.
+  // Expose start/stop to the workspace pipeline runner via commandRef.
   useEffect(() => {
     if (commandRef) {
-      commandRef.current = { start: () => void handleStart(), stop: handleStop }
+      commandRef.current = { start: handleStart, stop: handleStop }
     }
   }, [commandRef, handleStart, handleStop])
 

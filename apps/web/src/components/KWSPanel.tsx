@@ -13,7 +13,9 @@
  */
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { MutableRefObject } from 'react'
 import type { AFEPipeline } from '@wake-studio/module-afe-graph'
+import type { PanelCommands } from '../workspace/usePipelineRunner'
 import {
   KWSEngine,
   DEFAULT_CONFIG,
@@ -104,6 +106,12 @@ const ENGINE_RESOURCES: Record<string, EngineResource[]> = {
 interface Props {
   afePipeline: AFEPipeline | null
   afeRunning: boolean
+  /**
+   * Optional: external control (workspace pipeline runner) to load / start /
+   * stop detection (epic #53 P4). getState lets the runner read the current
+   * KWS status without owning the state.
+   */
+  commandRef?: MutableRefObject<PanelCommands | null>
 }
 
 /**
@@ -250,6 +258,7 @@ const FEWSHOT_MODEL_ROLES: ModelSourceRole[] = [
 export const KWSPanel = memo(function KWSPanel({
   afePipeline,
   afeRunning,
+  commandRef,
 }: Props) {
   const engineRef = useRef<KWSEngine | null>(null)
   const [status, setStatus] = useState<KWSStatus>('idle')
@@ -797,6 +806,20 @@ export const KWSPanel = memo(function KWSPanel({
     setRunning(false)
     historyRef.current = []
   }, [])
+
+  // Expose load/start/stop to the workspace pipeline runner via commandRef
+  // (epic #53 P4). The runner drives the unified Start/Stop; the panel keeps
+  // its own Load/Reload buttons.
+  useEffect(() => {
+    if (commandRef) {
+      commandRef.current = {
+        load: handleLoad,
+        start: handleStart,
+        stop: handleStop,
+        getState: () => ({ status, running, isFewShot }),
+      }
+    }
+  }, [commandRef, handleLoad, handleStart, handleStop, status, running, isFewShot])
 
   const updateConfig = useCallback((patch: Partial<KWSConfig>) => {
     setConfig((prev) => {
