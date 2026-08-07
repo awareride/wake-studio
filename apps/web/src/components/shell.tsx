@@ -352,20 +352,36 @@ function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => vo
   const { kwsRunning, lastScore, threshold } = useLiveKws()
 
   // Edge-triggered wake flash: the indicator lights for ~1.5 s when the
-  // score first crosses the threshold, then returns to gray — no continuous
-  // pulsing while the score stays above the threshold.
+  // score first crosses the threshold, then returns to gray. The timer lives
+  // in a ref so score oscillation around the threshold can't clear it (which
+  // previously left the indicator stuck green); a cooldown ignores re-crosses
+  // within 2 s of the last flash.
   const woken = running && kwsRunning && lastScore >= threshold
   const [wakeFlash, setWakeFlash] = React.useState(false)
   const prevWokenRef = React.useRef(false)
+  const lastFlashAtRef = React.useRef(0)
+  const flashTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   React.useEffect(() => {
-    if (woken && !prevWokenRef.current) {
-      setWakeFlash(true)
-      const t = setTimeout(() => setWakeFlash(false), 1500)
-      prevWokenRef.current = true
-      return () => clearTimeout(t)
-    }
+    const crossed = woken && !prevWokenRef.current
     prevWokenRef.current = woken
+    if (!crossed) return
+    const now = Date.now()
+    if (now - lastFlashAtRef.current < 2000) return
+    lastFlashAtRef.current = now
+    setWakeFlash(true)
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
+    flashTimerRef.current = setTimeout(() => {
+      setWakeFlash(false)
+      flashTimerRef.current = null
+    }, 1500)
   }, [woken])
+
+  // Clear a pending flash timer on unmount.
+  React.useEffect(() => {
+    return () => {
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
+    }
+  }, [])
 
   if (!running) return null
 
