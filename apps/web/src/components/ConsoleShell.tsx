@@ -57,7 +57,10 @@ export function ConsoleShell({
 
           {/* Mobile drawer */}
           <Dialog open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-            <DialogContent className="left-4 top-4 -translate-x-0 -translate-y-0 w-[min(80vw,17rem)] p-0">
+            <DialogContent
+              centered={false}
+              className="left-4 top-4 w-[min(80vw,17rem)] max-w-[calc(100vw-2rem)] p-0"
+            >
               <DialogTitle className="sr-only">Navigation</DialogTitle>
               <DialogDescription className="sr-only">
                 Primary navigation

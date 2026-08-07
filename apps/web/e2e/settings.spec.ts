@@ -124,3 +124,36 @@ test('module settings persist only after Save', async ({ page }) => {
   expect(stored).toContain('sherpa-onnx-kws')
   expect(stored).toContain('test keyword @wake')
 })
+
+test('mobile drawer positions correctly and expands Settings sub-menu', async ({
+  page,
+}) => {
+  // Narrow viewport: the sidebar collapses into the mobile drawer.
+  await page.setViewportSize({ width: 500, height: 700 })
+  await page.goto('/#/workspace')
+
+  await page.getByRole('button', { name: 'Toggle navigation' }).click()
+  await expect(page.locator('[role="dialog"]')).toBeVisible()
+
+  // Drawer sits fully inside the viewport (regression: it used to overflow
+  // to negative coordinates when the Settings sub-menu expanded).
+  const geo = await page.evaluate(() => {
+    const d = document.querySelector('[role="dialog"]')
+    if (!d) return null
+    const r = d.getBoundingClientRect()
+    return {
+      inside:
+        r.x >= 0 && r.y >= 0 && r.x + r.width <= window.innerWidth,
+    }
+  })
+  expect(geo?.inside).toBe(true)
+
+  // Settings expands inside the drawer and the sub-items render.
+  await page
+    .locator('[role="dialog"]')
+    .getByRole('button', { name: /Settings menu/ })
+    .click()
+  await expect(
+    page.locator('[role="dialog"]').getByRole('button', { name: 'General' }),
+  ).toBeVisible()
+})

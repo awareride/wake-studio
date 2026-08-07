@@ -40,16 +40,22 @@ export const DialogOverlay = React.forwardRef<
 DialogOverlay.displayName = 'DialogOverlay'
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    /** Center on screen (default). When false, no positioning classes are
+     *  applied so the caller can position it (e.g. a side drawer). */
+    centered?: boolean
+  }
+>(({ className, children, centered = true, ...props }, ref) => (
   <DialogPrimitive.Portal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-1/2 top-1/2 z-50 w-[min(92vw,26rem)] -translate-x-1/2 -translate-y-1/2',
-        'rounded-xl border border-line bg-surface-2 p-6 shadow-2xl',
+        'z-50 rounded-xl border border-line bg-surface-2 shadow-2xl',
         'outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
+        centered
+          ? 'fixed left-1/2 top-1/2 w-[min(92vw,26rem)] -translate-x-1/2 -translate-y-1/2 p-6'
+          : 'fixed',
         className,
       )}
       {...props}
