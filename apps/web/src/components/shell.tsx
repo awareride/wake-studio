@@ -351,6 +351,22 @@ function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => vo
   const { running, bypass, stopPipeline } = useLiveAfe()
   const { kwsRunning, lastScore, threshold } = useLiveKws()
 
+  // Edge-triggered wake flash: the indicator lights for ~1.5 s when the
+  // score first crosses the threshold, then returns to gray — no continuous
+  // pulsing while the score stays above the threshold.
+  const woken = running && kwsRunning && lastScore >= threshold
+  const [wakeFlash, setWakeFlash] = React.useState(false)
+  const prevWokenRef = React.useRef(false)
+  React.useEffect(() => {
+    if (woken && !prevWokenRef.current) {
+      setWakeFlash(true)
+      const t = setTimeout(() => setWakeFlash(false), 1500)
+      prevWokenRef.current = true
+      return () => clearTimeout(t)
+    }
+    prevWokenRef.current = woken
+  }, [woken])
+
   if (!running) return null
 
   const stages = [
@@ -361,8 +377,9 @@ function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => vo
     { label: 'KWS', active: kwsRunning },
   ]
 
-  const woken = kwsRunning && lastScore >= threshold
-  const dotClass = woken
+  // The wake color applies to both the expanded dot and the minimized circle
+  // — brief green pulse on a wake event, gray otherwise.
+  const dotClass = wakeFlash
     ? 'animate-pulse bg-emerald-400'
     : 'bg-slate-500'
 
@@ -381,7 +398,7 @@ function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => vo
         )}
       >
         <span className={cn('h-2 w-2 shrink-0 rounded-full', dotClass)} />
-        {woken && (
+        {wakeFlash && (
           <span className="animate-pulse rounded bg-emerald-500/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-300">
             Wake!
           </span>
