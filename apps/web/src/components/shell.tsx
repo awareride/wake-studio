@@ -16,9 +16,20 @@ import {
   settingsHash,
   settingsBackendFromHash,
 } from '../router'
-import { Tooltip, TooltipContent, TooltipTrigger } from './ui'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from './ui'
 import { PRIMARY_NAV, SECONDARY_NAV, isSettingsRoute, type NavItem } from './shell-nav'
 import type { ConsoleStatus } from '../status'
+import { useProjects } from '../projects'
+import { NewProjectDialog } from './NewProjectDialog'
 import { cn } from './cn'
 import { getBackendRegistry } from '@wake-studio/module-kws-engine'
 
@@ -370,15 +381,38 @@ function StatusIndicators({ status }: { status: ConsoleStatus }) {
   )
 }
 
+/** Relative "updated …" caption for the recent-projects menu. */
+function formatUpdated(ms: number): string {
+  const diff = Date.now() - ms
+  if (diff < 60_000) return 'updated just now'
+  if (diff < 3_600_000) return `updated ${Math.floor(diff / 60_000)}m ago`
+  if (diff < 86_400_000) return `updated ${Math.floor(diff / 3_600_000)}h ago`
+  return `updated ${new Date(ms).toLocaleDateString()}`
+}
+
 export function TopBar({
   title,
+  route,
   status,
   onToggleSidebar,
+  onNavigate,
 }: {
   title: string
+  route: ConsoleRoute
   status: ConsoleStatus
   onToggleSidebar: () => void
+  onNavigate: (r: ConsoleRoute) => void
 }) {
+  const { projects, selectProject } = useProjects()
+  const [createOpen, setCreateOpen] = React.useState(false)
+
+  const recent = projects.slice(0, 5)
+
+  const openProject = (id: string) => {
+    selectProject(id)
+    if (route !== 'workspace') onNavigate('workspace')
+  }
+
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface-2/90 px-4 backdrop-blur">
       <button
@@ -394,8 +428,45 @@ export function TopBar({
         <h1 className="truncate text-sm font-semibold text-ink-1">{title}</h1>
       </div>
       <div className="hidden items-center gap-2 sm:flex">
+        {/* Recent projects (epic #53 P6, plan §7) — MRU, top 5. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-3 px-2.5 py-1.5 text-sm font-medium text-ink-1 hover:bg-surface-4"
+              aria-label="Recent projects"
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-ink-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7h18M7 12h14M3 17h10" />
+              </svg>
+              Recent
+              <svg viewBox="0 0 24 24" className="h-3 w-3 text-ink-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-60">
+            {recent.length === 0 && (
+              <div className="px-2.5 py-2 text-xs text-ink-3">No projects yet</div>
+            )}
+            {recent.map((p) => (
+              <DropdownMenuItem key={p.id} onSelect={() => openProject(p.id)}>
+                <span className="flex flex-col">
+                  <span className="truncate text-sm text-ink-1">{p.name}</span>
+                  <span className="text-[10px] text-ink-3">
+                    {formatUpdated(p.updatedAtMs)}
+                  </span>
+                </span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setCreateOpen(true)}>
+              <span className="text-brand-600">+ New project…</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <StatusIndicators status={status} />
       </div>
+      <NewProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
     </header>
   )
 }
