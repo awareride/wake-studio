@@ -30,7 +30,9 @@ export const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-[2px]',
+      // Light dim, no blur - a subtle scrim so the drawer/dialog stands out
+      // without darkening or blurring the page behind it.
+      'fixed inset-0 z-50 bg-slate-900/20',
       'data-[state=open]:animate-in data-[state=closed]:animate-out',
       className,
     )}
@@ -51,10 +53,10 @@ export const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'z-50 rounded-xl border border-line bg-surface-2 shadow-2xl',
+        'z-50 border border-line bg-surface-2 shadow-2xl',
         'outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
         centered
-          ? 'fixed left-1/2 top-1/2 w-[min(92vw,26rem)] -translate-x-1/2 -translate-y-1/2 p-6'
+          ? 'fixed left-1/2 top-1/2 w-[min(92vw,26rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl p-6'
           : 'fixed',
         className,
       )}

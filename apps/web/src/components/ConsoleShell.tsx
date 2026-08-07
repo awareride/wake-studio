@@ -8,6 +8,7 @@ import type { ConsoleRoute } from '../router'
 import { Sidebar, TopBar } from './shell'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogTitle,
@@ -67,7 +68,28 @@ export function ConsoleShell({
               <DialogDescription className="sr-only">
                 Primary navigation
               </DialogDescription>
-              <Sidebar route={route} onNavigate={navigate} />
+              <div className="flex h-full flex-col">
+                {/* Close button pinned top-right of the drawer. */}
+                <div className="flex justify-end border-b border-line px-3 py-2">
+                  <DialogClose
+                    className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
+                    aria-label="Close navigation"
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    >
+                      <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
+                    </svg>
+                  </DialogClose>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <Sidebar route={route} onNavigate={navigate} />
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
 
