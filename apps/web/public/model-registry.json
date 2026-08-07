@@ -129,6 +129,102 @@
       "sha256": "TODO-phase2",
       "sizeBytes": null,
       "notes": "Used as a browser-demo MCU model until Phase 5 trains a WakeStudio-owned word."
+    },
+    {
+      "id": "openwakeword-alexa",
+      "name": "openWakeWord 'alexa' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/alexa_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 854246,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-hey-jarvis",
+      "name": "openWakeWord 'hey_jarvis' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/hey_jarvis_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 1271370,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-hey-mycroft",
+      "name": "openWakeWord 'hey_mycroft' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/hey_mycroft_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 857691,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-hey-rhasspy",
+      "name": "openWakeWord 'hey_rhasspy' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/hey_rhasspy_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 204081,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-timer",
+      "name": "openWakeWord 'timer' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/timer_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 1742475,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-weather",
+      "name": "openWakeWord 'weather' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/weather_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 1149158,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
     }
   ]
 }
