@@ -122,6 +122,11 @@ interface Props {
    * for the KWS tab node's core preview (epic #53 UX overhaul).
    */
   onPreview?: (preview: string) => void
+  /**
+   * Optional: when true, skip the panel's own heading + description (the
+   * workspace renders it inside the KWS stage shell).
+   */
+  embedded?: boolean
 }
 
 export const KWSPanel = memo(function KWSPanel({
@@ -129,6 +134,7 @@ export const KWSPanel = memo(function KWSPanel({
   afeRunning,
   commandRef,
   onPreview,
+  embedded,
 }: Props) {
   const engineRef = useRef<KWSEngine | null>(null)
   const [status, setStatus] = useState<KWSStatus>('idle')
@@ -767,16 +773,18 @@ export const KWSPanel = memo(function KWSPanel({
 
   return (
     <section className="space-y-8">
-      <div>
-        <h2 className="text-lg font-semibold text-ink-1">KWS detection</h2>
-        <p className="text-sm text-ink-2">
-          Pluggable KWS backend (ADR-020) running in a Web Worker (ADR-018).
-          Pick a backend below; models load from the platform registry
-          (ADR-011/027). openWakeWord (hey-buddy, mel-spectrogram -&gt;
-          speech-embedding -&gt; classifier) is the default; PLiX Few-Shot adds
-          custom wake-word enrollment. VAD gating via AFE RNNoise VAD.
-        </p>
-      </div>
+      {!embedded && (
+        <div>
+          <h2 className="text-lg font-semibold text-ink-1">KWS detection</h2>
+          <p className="text-sm text-ink-2">
+            Pluggable KWS backend (ADR-020) running in a Web Worker (ADR-018).
+            Pick a backend below; models load from the platform registry
+            (ADR-011/027). openWakeWord (hey-buddy, mel-spectrogram -&gt;
+            speech-embedding -&gt; classifier) is the default; PLiX Few-Shot adds
+            custom wake-word enrollment. VAD gating via AFE RNNoise VAD.
+          </p>
+        </div>
+      )}
 
       {/* Backend selection - pure choice, no loading/action. Loading and
           detection live in the Engine card below. */}

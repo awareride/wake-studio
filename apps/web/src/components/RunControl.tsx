@@ -1,10 +1,8 @@
 /**
- * Run control (epic #53 UX overhaul).
+ * Run control (epic #53 UX).
  *
- * The minimal pipeline control row: unified Start/Stop (drives the workspace
- * runner) + the KWS component toggle that gates the KWS config tab. The old
- * PipelineCanvas's flow diagram / component matrix were redundant with the
- * Source → … → KWS config tabs and the per-module bypass controls.
+ * Primary Start/Stop as icon-only circular actions (the single run control).
+ * The KWS enable toggle moved onto the KWS stage card.
  */
 
 import { IconPlay, IconStop, IconSpinner } from './icons'
@@ -22,49 +20,48 @@ export interface PipelineRunState {
 }
 
 interface Props {
-  kwsEnabled: boolean
-  onToggleKws: (v: boolean) => void
   runState: PipelineRunState
   onStart: () => void
   onStop: () => void
 }
 
-export function RunControl({ kwsEnabled, onToggleKws, runState, onStart, onStop }: Props) {
+export function RunControl({ runState, onStart, onStop }: Props) {
   const running = runState.phase === 'running' || runState.afeRunning
   const busy = runState.phase === 'starting' || runState.phase === 'stopping' || runState.kwsLoading
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex items-center gap-2">
       {!running ? (
         <button
           onClick={onStart}
           disabled={busy}
-          className="flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
+          aria-label="Start pipeline"
+          title="Start pipeline"
+          className={cn(
+            'flex h-11 w-11 items-center justify-center rounded-full bg-brand-500 text-ink-1 shadow-lg shadow-brand-500/30 transition hover:bg-brand-400 disabled:opacity-50',
+            busy && 'cursor-not-allowed',
+          )}
         >
-          <IconPlay className="h-3.5 w-3.5" /> Start pipeline
+          <IconPlay className="h-5 w-5" />
         </button>
       ) : (
         <button
           onClick={onStop}
           disabled={busy}
-          className="flex items-center gap-1.5 rounded-lg bg-danger/90 px-3 py-1.5 text-sm font-medium text-ink-1 hover:bg-red-500 disabled:opacity-50"
+          aria-label="Stop pipeline"
+          title="Stop pipeline"
+          className={cn(
+            'flex h-11 w-11 items-center justify-center rounded-full bg-danger/90 text-ink-1 shadow-lg shadow-danger/25 transition hover:bg-red-500 disabled:opacity-50',
+            busy && 'cursor-not-allowed',
+          )}
         >
-          <IconStop className="h-3.5 w-3.5" /> Stop
+          <IconStop className="h-5 w-5" />
         </button>
       )}
-      {busy && <IconSpinner className="h-4 w-4 text-brand-600" />}
-
-      {/* KWS component toggle — gates the KWS config tab. */}
-      <label className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-3 px-2.5 py-1.5 text-sm">
-        <input
-          type="checkbox"
-          checked={kwsEnabled}
-          onChange={(e) => onToggleKws(e.target.checked)}
-          className="h-3.5 w-3.5 rounded accent-brand-500"
-        />
-        <span className={cn(kwsEnabled ? 'text-ink-1' : 'text-ink-3')}>KWS</span>
-      </label>
-      {runState.kwsLoading && <span className="text-xs text-amber-400">loading models…</span>}
+      {busy && <IconSpinner className="h-5 w-5 text-brand-600" />}
+      {runState.kwsLoading && (
+        <span className="text-xs text-amber-400">loading models…</span>
+      )}
     </div>
   )
 }

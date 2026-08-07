@@ -1,11 +1,11 @@
 /**
- * Pipeline-shaped config tabs (epic #53 UX overhaul).
+ * Pipeline-shaped stage cards (epic #53 UX).
  *
- * Not a regular tab bar: Source → AEC → BSS → NS → KWS rendered as a flow of
- * nodes joined by arrows. Each node shows the module's label plus a compact
- * "core preview" of its current config (e.g. "Mic · default", "Bypassed",
- * "openwakeword · idle") so you can see what's configured without opening the
- * module. The active node's config panel renders below.
+ * Source → AEC → BSS → NS → KWS as five evenly-distributed cards. Each card
+ * is a stage node: a colored accent strip + big label top-left (blended with
+ * the card), a compact core-config preview, and an enable/disable pill
+ * (bypass for AEC/BSS/NS, on/off for KWS). Clicking a card selects its
+ * config panel (rendered below by the workspace).
  */
 
 import * as React from 'react'
@@ -13,94 +13,119 @@ import { cn } from './cn'
 
 export type PipelineTabId = 'source' | 'aec' | 'bss' | 'ns' | 'kws'
 
-export interface PipelineTabItem {
+export interface StageCardDef {
   id: PipelineTabId
-  /** Node label, e.g. "Source". */
+  /** Card label, e.g. "Source". */
   label: string
-  /** Compact config preview shown on the node. */
+  /** Compact core-config preview shown under the label. */
   preview: React.ReactNode
-  /** Optional badge (e.g. "persist" when the stage persistence is on). */
+  /** Accent color (hex) — strip, big label and glyph. */
+  color: string
+  /** Whether the stage is enabled (On). */
+  enabled: boolean
+  /** Enable/disable handler (undefined = no toggle, e.g. Source). */
+  onToggleEnabled?: () => void
+  /** Extra badge text on the card (e.g. "persist"). */
   badge?: string
-  disabled?: boolean
 }
 
 interface Props {
   active: PipelineTabId
   onSelect: (id: PipelineTabId) => void
-  tabs: PipelineTabItem[]
+  cards: StageCardDef[]
 }
 
-const ORDER: PipelineTabId[] = ['source', 'aec', 'bss', 'ns', 'kws']
+const GLYPHS: Record<PipelineTabId, string> = {
+  source: '⌗',
+  aec: '≈',
+  bss: '⇄',
+  ns: '∿',
+  kws: '♪',
+}
 
-export function PipelineTabs({ active, onSelect, tabs }: Props) {
-  const byId = new Map(tabs.map((t) => [t.id, t]))
-  const ordered = ORDER.map((id) => byId.get(id)).filter(
-    (t): t is PipelineTabItem => Boolean(t),
-  )
-
+export function PipelineTabs({ active, onSelect, cards }: Props) {
   return (
-    <div>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {ordered.map((tab, i) => (
-          <React.Fragment key={tab.id}>
-            {i > 0 && (
-              <svg
-                viewBox="0 0 24 24"
-                className="h-3.5 w-3.5 shrink-0 text-ink-3/50"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m9 18 6-6-6-6" />
-              </svg>
+    <div className="flex flex-wrap gap-2">
+      {cards.map((card) => {
+        const selected = active === card.id
+        return (
+          <div
+            key={card.id}
+            role="button"
+            tabIndex={0}
+            aria-label={`${card.label} config`}
+            aria-pressed={selected}
+            onClick={() => onSelect(card.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onSelect(card.id)
+              }
+            }}
+            className={cn(
+              'min-w-0 flex-1 cursor-pointer overflow-hidden rounded-xl border transition-all',
+              selected
+                ? 'border-brand-400/60 bg-surface-2 shadow-lg shadow-brand-500/5'
+                : 'border-line bg-surface-2 hover:border-line-2 hover:bg-surface-3',
+              !card.enabled && 'opacity-60',
             )}
-            <button
-              type="button"
-              onClick={() => !tab.disabled && onSelect(tab.id)}
-              disabled={tab.disabled}
-              aria-pressed={active === tab.id}
-              aria-label={`${tab.label} config`}
-              className={cn(
-                'group flex min-w-0 flex-col items-start gap-0.5 rounded-xl border px-3 py-2 text-left transition-colors disabled:opacity-40',
-                active === tab.id
-                  ? 'border-brand-400/60 bg-brand-500/10'
-                  : 'border-line bg-surface-2 hover:bg-surface-3',
-              )}
-            >
-              <span className="flex w-full items-center gap-1.5">
-                <span
-                  className={cn(
-                    'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
-                    active === tab.id
-                      ? 'bg-brand-500 text-ink-1'
-                      : 'bg-surface-4 text-ink-3',
-                  )}
-                >
-                  {i + 1}
-                </span>
-                <span
-                  className={cn(
-                    'text-sm font-semibold',
-                    active === tab.id ? 'text-brand-200' : 'text-ink-1',
-                  )}
-                >
-                  {tab.label}
-                </span>
-                {tab.badge && (
-                  <span className="rounded bg-emerald-500/15 px-1 py-0.5 text-[9px] font-medium uppercase tracking-wider text-emerald-300">
-                    {tab.badge}
+          >
+            {/* Color accent strip (top edge, blends into the card). */}
+            <div
+              className="h-1.5"
+              style={{
+                background: `linear-gradient(90deg, ${card.color}, ${card.color}33)`,
+                opacity: card.enabled ? 1 : 0.3,
+              }}
+            />
+            <div className="p-3">
+              <div className="flex items-start justify-between gap-2">
+                {/* Big label top-left, blended with the stage color. */}
+                <div className="flex min-w-0 items-baseline gap-1.5">
+                  <span
+                    className="text-lg font-bold leading-none"
+                    style={{ color: card.color }}
+                  >
+                    {GLYPHS[card.id]}
+                  </span>
+                  <span className="truncate text-base font-bold tracking-tight text-ink-1">
+                    {card.label}
+                  </span>
+                </div>
+                {card.badge && (
+                  <span className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-300">
+                    {card.badge}
                   </span>
                 )}
-              </span>
-              <span className="ml-6.5 max-w-40 truncate text-[11px] text-ink-3">
-                {tab.preview}
-              </span>
-            </button>
-          </React.Fragment>
-        ))}
-      </div>
+              </div>
+
+              <div className="mt-1.5 min-h-8 text-[11px] leading-snug text-ink-3">
+                {card.preview}
+              </div>
+
+              {/* Enable/disable pill. */}
+              {card.onToggleEnabled && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    card.onToggleEnabled?.()
+                  }}
+                  aria-label={`${card.label} toggle`}
+                  aria-pressed={card.enabled}
+                  className={cn(
+                    'mt-2 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest transition-colors',
+                    card.enabled
+                      ? 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
+                      : 'bg-surface-4 text-ink-3 hover:bg-surface-3',
+                  )}
+                >
+                  {card.enabled ? 'On' : 'Off'}
+                </button>
+              )}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

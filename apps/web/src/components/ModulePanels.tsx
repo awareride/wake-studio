@@ -1,39 +1,103 @@
 /**
- * Per-module config panels (epic #53 UX overhaul).
+ * Per-module config panels (epic #53 UX).
  *
- * The old monolithic AFE panel is split into one panel per pipeline module:
- * Source (input + raw persistence + pipeline-global params), AEC, BSS, NS
- * (bypass + persistence where applicable). Each panel is pure config — the
- * engine lifecycle lives in useAfePipeline, live state in the shared context.
+ * One unified, flat skeleton for every stage panel — the same order across
+ * panels (plan: settings every stage shares sit at the top, never scattered):
+ *
+ *   1. Colored title row (big glyph + name, blended with the stage color)
+ *      with the enable/disable pill on the right — same position everywhere
+ *   2. Flat sections below, separated by dividers (no nested cards):
+ *      persistence toggle first (where a stage has one), then the stage's
+ *      own settings.
+ *
+ * The old Source panel's nested cards (source card / persist card / settings
+ * card) are flattened into this shell.
  */
 
 import * as React from 'react'
 import type { MutableRefObject } from 'react'
 import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import { describeParameters } from '@wake-studio/module-afe-graph'
-import { UnifiedConfigPanel } from './UnifiedConfigPanel'
+import { ParamRows } from './UnifiedConfigPanel'
 import { SourceConfigSection } from './SourceConfigSection'
 import { PersistenceStageToggle } from './PersistenceStageToggle'
 import type { SourceState, SourceActions } from '../workspace/useSourceConfig'
 import type { WorkspaceConfig } from '../workspace/types'
-import type { PersistStageId } from '../workspace/types'
+import type { ParamValue } from './UnifiedConfigPanel'
 import { cn } from './cn'
 
 // ---------------------------------------------------------------------------
-// Source tab: input source + raw persistence + pipeline-global params
+// Shared flat shell
 // ---------------------------------------------------------------------------
 
-interface SourcePanelProps {
-  source: SourceState
-  actions: SourceActions
-  afeRef: MutableRefObject<AFEPipeline | null>
-  running: boolean
-  /** afe snapshot (topology / latencyBudgetMs / vizFps seed + persist). */
-  projCfg: { topology?: 'single-worklet' | 'node-per-stage'; latencyBudgetMs?: number; vizFps?: number } | undefined
-  persistAfe: (patch: Record<string, unknown>) => void
-  persistence: WorkspaceConfig['persistence'] | undefined
-  setPersistence: (next: WorkspaceConfig['persistence']) => void
+export function StageModuleShell({
+  color,
+  number,
+  title,
+  note,
+  enabled,
+  onToggle,
+  children,
+}: {
+  color: string
+  number: string
+  title: string
+  note?: string
+  enabled: boolean
+  /** Enable/disable handler (undefined = no toggle, e.g. Source). */
+  onToggle?: () => void
+  /** Flat sections, each rendered as a divider-separated block. */
+  children?: React.ReactNode
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-line bg-surface-2">
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+        style={{ background: `linear-gradient(90deg, ${color}1f, transparent 65%)` }}
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg font-bold"
+            style={{ background: `${color}26`, color }}
+          >
+            {number}
+          </span>
+          <div className="min-w-0">
+            <h4 className="text-sm font-semibold text-ink-1">{title}</h4>
+            {note && <p className="text-xs text-ink-3">{note}</p>}
+          </div>
+        </div>
+        {onToggle && (
+          <button
+            onClick={onToggle}
+            aria-label={`${title} toggle`}
+            aria-pressed={enabled}
+            className={cn(
+              'rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-colors',
+              enabled
+                ? 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
+                : 'bg-surface-4 text-ink-3 hover:bg-surface-3',
+            )}
+          >
+            {enabled ? 'On' : 'Off'}
+          </button>
+        )}
+      </div>
+      {children && (
+        <div className="divide-y divide-line border-t border-line">{children}</div>
+      )}
+    </div>
+  )
 }
+
+/** A flat section block inside a stage shell. */
+export function StageSection({ children }: { children: React.ReactNode }) {
+  return <div className="p-4">{children}</div>
+}
+
+// ---------------------------------------------------------------------------
+// Source tab
+// ---------------------------------------------------------------------------
 
 const GLOBAL_PARAM_IDS = ['topology', 'vizFps', 'latencyBudgetMs']
 
@@ -46,57 +110,79 @@ export function SourcePanel({
   persistAfe,
   persistence,
   setPersistence,
-}: SourcePanelProps) {
+}: {
+  source: SourceState
+  actions: SourceActions
+  afeRef: MutableRefObject<AFEPipeline | null>
+  running: boolean
+  projCfg: { topology?: 'single-worklet' | 'node-per-stage'; latencyBudgetMs?: number; vizFps?: number } | undefined
+  persistAfe: (patch: Record<string, unknown>) => void
+  persistence: WorkspaceConfig['persistence']
+  setPersistence: (next: WorkspaceConfig['persistence']) => void
+}) {
   const params = describeParameters().filter((p) => GLOBAL_PARAM_IDS.includes(p.id))
   const [vizFps, setVizFps] = React.useState(projCfg?.vizFps ?? 30)
+  const values: Record<string, ParamValue> = {
+    vizFps,
+    topology: projCfg?.topology ?? 'single-worklet',
+    latencyBudgetMs: projCfg?.latencyBudgetMs ?? 150,
+  }
+
+  const onParamChange = (id: string, v: ParamValue) => {
+    if (id === 'vizFps') {
+      const n = Number(v)
+      setVizFps(n)
+      afeRef.current?.setConfig({ vizFps: n })
+      persistAfe({ vizFps: n })
+    } else if (id === 'topology') {
+      const t = v as 'single-worklet' | 'node-per-stage'
+      afeRef.current?.setConfig({ topology: t })
+      persistAfe({ topology: t })
+    } else if (id === 'latencyBudgetMs') {
+      const n = Number(v)
+      afeRef.current?.setConfig({ latencyBudgetMs: n })
+      persistAfe({ latencyBudgetMs: n })
+    }
+  }
 
   return (
-    <div className="space-y-4">
-      <SourceConfigSection source={source} actions={actions} disabled={running} />
-
-      <div className="rounded-xl border border-line bg-surface-3 p-4">
+    <StageModuleShell
+      color="#64748b"
+      number="1"
+      title="Source"
+      note="input feed — microphone or files"
+      enabled
+    >
+      <StageSection>
+        <SourceConfigSection source={source} actions={actions} disabled={running} />
+      </StageSection>
+      <StageSection>
         <PersistenceStageToggle
           stageId="raw"
           label="Persist raw input (captures the mic/file stream)"
           config={persistence}
           onChange={setPersistence}
         />
-      </div>
-
-      <div className="rounded-xl border border-line bg-surface-3 p-4">
-        <h4 className="mb-3 text-xs font-semibold uppercase tracking-widest text-ink-3">
+      </StageSection>
+      <StageSection>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-3">
           Pipeline settings
-        </h4>
-        <UnifiedConfigPanel
-          title="Global AFE parameters"
-          subtitle="Topology, visualization and latency budget."
-          params={params}
-          values={{
-            vizFps,
-            topology: projCfg?.topology ?? 'single-worklet',
-            latencyBudgetMs: projCfg?.latencyBudgetMs ?? 150,
-          }}
-          onParamChange={(id, v) => {
-            if (id === 'vizFps') {
-              const n = Number(v)
-              setVizFps(n)
-              afeRef.current?.setConfig({ vizFps: n })
-              persistAfe({ vizFps: n })
-            } else if (id === 'topology') {
-              const t = v as 'single-worklet' | 'node-per-stage'
-              afeRef.current?.setConfig({ topology: t })
-              persistAfe({ topology: t })
-            } else if (id === 'latencyBudgetMs') {
-              const n = Number(v)
-              afeRef.current?.setConfig({ latencyBudgetMs: n })
-              persistAfe({ latencyBudgetMs: n })
-            }
-          }}
-          advancedIds={[]}
-          disabled={running}
-        />
-      </div>
-    </div>
+        </div>
+        <div className="divide-y divide-line">
+          {params.map((desc) => (
+            <div key={desc.id} className="py-1">
+              {ParamRows({
+                ids: [desc.id],
+                params,
+                values,
+                onParamChange,
+                disabled: running,
+              })}
+            </div>
+          ))}
+        </div>
+      </StageSection>
+    </StageModuleShell>
   )
 }
 
@@ -106,6 +192,8 @@ export function SourcePanel({
 
 export function StageModulePanel({
   id,
+  color,
+  number,
   title,
   note,
   bypassed,
@@ -113,35 +201,26 @@ export function StageModulePanel({
   persistence,
 }: {
   id: 'aec' | 'bss' | 'ns'
+  color: string
+  number: string
   title: string
   note: string
   bypassed: boolean
   onToggleBypass: (id: 'aec' | 'bss' | 'ns') => void
+  /** Persistence toggle section (NS only in v1). */
   persistence?: React.ReactNode
 }) {
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface-3 p-4">
-        <div className="min-w-0">
-          <h4 className="text-sm font-semibold text-ink-1">{title}</h4>
-          <p className="mt-0.5 text-xs text-ink-3">{note}</p>
-        </div>
-        <button
-          onClick={() => onToggleBypass(id)}
-          className={cn(
-            'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-            bypassed
-              ? 'bg-surface-4 text-ink-2 hover:bg-surface-3'
-              : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30',
-          )}
-        >
-          {bypassed ? 'Bypassed' : 'Active'}
-        </button>
-      </div>
-      {persistence && (
-        <div className="rounded-xl border border-line bg-surface-3 p-4">{persistence}</div>
-      )}
-    </div>
+    <StageModuleShell
+      color={color}
+      number={number}
+      title={title}
+      note={note}
+      enabled={!bypassed}
+      onToggle={() => onToggleBypass(id)}
+    >
+      {persistence && <StageSection>{persistence}</StageSection>}
+    </StageModuleShell>
   )
 }
 
@@ -153,14 +232,16 @@ export function NsPanel({
 }: {
   bypassed: boolean
   onToggleBypass: (id: 'aec' | 'bss' | 'ns') => void
-  persistence: WorkspaceConfig['persistence'] | undefined
+  persistence: WorkspaceConfig['persistence']
   setPersistence: (next: WorkspaceConfig['persistence']) => void
 }) {
   return (
     <StageModulePanel
       id="ns"
+      color="#38bdf8"
+      number="4"
       title="NS · RNNoise noise suppression"
-      note="RNNoise WASM (ADR-016). The only real DSP core in v1 — AEC/BSS are passthrough until the real engines land."
+      note="The only real DSP core in v1 — AEC/BSS are passthrough until the real engines land (ADR-016)."
       bypassed={bypassed}
       onToggleBypass={onToggleBypass}
       persistence={
@@ -174,5 +255,3 @@ export function NsPanel({
     />
   )
 }
-
-export type { PersistStageId }

@@ -25,7 +25,7 @@ import { PipelineOverview } from '../components/PipelineOverview'
 import { StagePanel } from '../components/viz/StageCard'
 import { ScoreCurvePanel } from '../components/ScoreCurvePanel'
 import { ClipsPanel } from '../components/ClipsPanel'
-import { SourcePanel, StageModulePanel, NsPanel } from '../components/ModulePanels'
+import { SourcePanel, StageModulePanel, NsPanel, StageModuleShell, StageSection } from '../components/ModulePanels'
 import { PersistenceStageToggle } from '../components/PersistenceStageToggle'
 import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import { useConsoleStatus } from '../status'
@@ -247,14 +247,42 @@ function WorkspaceInner({
   const sourcePreview =
     source.kind === 'file' ? `Files (${source.files.length})` : 'Mic · default'
 
-  const tabItems = [
-    { id: 'source' as const, label: 'Source', preview: sourcePreview },
-    { id: 'aec' as const, label: 'AEC', preview: bypass.aec ? 'Bypassed' : 'Active', badge: bypass.aec ? undefined : 'on' },
-    { id: 'bss' as const, label: 'BSS', preview: bypass.bss ? 'Bypassed' : 'Active', badge: bypass.bss ? undefined : 'on' },
-    { id: 'ns' as const, label: 'NS', preview: bypass.ns ? 'Bypassed' : 'Active', badge: persistence.ns.enabled ? 'persist' : undefined },
-    ...(kwsEnabled
-      ? [{ id: 'kws' as const, label: 'KWS', preview: kwsPreview, badge: persistence.kws.enabled ? 'persist' : undefined }]
-      : []),
+  const stageCards = [
+    { id: 'source' as const, label: 'Source', preview: sourcePreview, color: '#64748b', enabled: true },
+    {
+      id: 'aec' as const,
+      label: 'AEC',
+      preview: bypass.aec ? 'Bypassed — passthrough' : 'Active',
+      color: '#818cf8',
+      enabled: !bypass.aec,
+      onToggleEnabled: () => handleToggleBypass('aec'),
+    },
+    {
+      id: 'bss' as const,
+      label: 'BSS',
+      preview: bypass.bss ? 'Bypassed — passthrough' : 'Active',
+      color: '#a78bfa',
+      enabled: !bypass.bss,
+      onToggleEnabled: () => handleToggleBypass('bss'),
+    },
+    {
+      id: 'ns' as const,
+      label: 'NS',
+      preview: bypass.ns ? 'Bypassed' : 'Active',
+      color: '#38bdf8',
+      enabled: !bypass.ns,
+      onToggleEnabled: () => handleToggleBypass('ns'),
+      badge: persistence.ns.enabled ? 'persist' : undefined,
+    },
+    {
+      id: 'kws' as const,
+      label: 'KWS',
+      preview: kwsPreview,
+      color: '#34d399',
+      enabled: kwsEnabled,
+      onToggleEnabled: () => toggleKws(!kwsEnabled),
+      badge: persistence.kws.enabled ? 'persist' : undefined,
+    },
   ]
 
   return (
@@ -274,13 +302,7 @@ function WorkspaceInner({
             </span>
             <span className="text-xs text-ink-3">configure each module, then Start — Stop returns here</span>
             <div className="ml-auto">
-              <RunControl
-                kwsEnabled={kwsEnabled}
-                onToggleKws={toggleKws}
-                runState={runState}
-                onStart={onStart}
-                onStop={onStop}
-              />
+              <RunControl runState={runState} onStart={onStart} onStop={onStop} />
             </div>
           </div>
 
@@ -288,7 +310,7 @@ function WorkspaceInner({
             <PipelineTabs
               active={activeTab}
               onSelect={setActiveTab}
-              tabs={tabItems}
+              cards={stageCards}
             />
           </div>
 
@@ -309,6 +331,8 @@ function WorkspaceInner({
           <div className={activeTab === 'aec' ? '' : 'hidden'}>
             <StageModulePanel
               id="aec"
+              color="#818cf8"
+              number="2"
               title="AEC · Acoustic echo cancellation"
               note="Passthrough for v1 (ADR-016); the real engine + persistence wiring lands with it."
               bypassed={bypass.aec}
@@ -318,6 +342,8 @@ function WorkspaceInner({
           <div className={activeTab === 'bss' ? '' : 'hidden'}>
             <StageModulePanel
               id="bss"
+              color="#a78bfa"
+              number="3"
               title="BSS · Blind source separation"
               note="Passthrough for v1 (ADR-016); single-mic pipeline. Persistence lands with the real engine."
               bypassed={bypass.bss}
@@ -332,40 +358,59 @@ function WorkspaceInner({
               setPersistence={setPersistence}
             />
           </div>
-          {kwsEnabled && (
-            <div className={activeTab === 'kws' ? '' : 'hidden'}>
-              <label className="mb-4 flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={kwsPreloadOnStart}
-                  onChange={(e) => {
-                    setKwsPreloadOnStart(e.target.checked)
-                    persistWs({ kwsPreloadOnStart: e.target.checked })
-                  }}
-                  className="h-3.5 w-3.5 rounded accent-brand-500"
-                />
-                <span className="text-ink-2">Preload KWS models on Start</span>
-                <span className="text-xs text-ink-3">
-                  (off = Start runs AFE only until you load models manually)
-                </span>
-              </label>
-              <KWSPanel
-                key={`kws-${current?.id ?? 'none'}`}
-                afePipeline={afePipeline}
-                afeRunning={runState.afeRunning}
-                commandRef={kwsCommandRef}
-                onPreview={setKwsPreview}
-              />
-              <div className="mt-4 rounded-xl border border-line bg-surface-3 p-4">
-                <PersistenceStageToggle
-                  stageId="kws"
-                  label="Persist KWS output (16 kHz stream)"
-                  config={persistence}
-                  onChange={setPersistence}
-                />
-              </div>
-            </div>
-          )}
+          <div className={activeTab === 'kws' ? '' : 'hidden'}>
+            <StageModuleShell
+              color="#34d399"
+              number="5"
+              title="KWS detection"
+              note="Pluggable KWS backend (ADR-020) running in a Web Worker (ADR-018)"
+              enabled={kwsEnabled}
+              onToggle={() => toggleKws(!kwsEnabled)}
+            >
+              <StageSection>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={kwsPreloadOnStart}
+                      onChange={(e) => {
+                        setKwsPreloadOnStart(e.target.checked)
+                        persistWs({ kwsPreloadOnStart: e.target.checked })
+                      }}
+                      className="h-3.5 w-3.5 rounded accent-brand-500"
+                    />
+                    <span className="text-ink-2">Preload KWS models on Start</span>
+                    <span className="text-xs text-ink-3">
+                      (off = Start runs AFE only until you load models manually)
+                    </span>
+                  </label>
+                  <PersistenceStageToggle
+                    stageId="kws"
+                    label="Persist KWS output (16 kHz stream)"
+                    config={persistence}
+                    onChange={setPersistence}
+                  />
+                </div>
+              </StageSection>
+              <StageSection>
+                {kwsEnabled ? (
+                  <KWSPanel
+                    key={`kws-${current?.id ?? 'none'}`}
+                    afePipeline={afePipeline}
+                    afeRunning={runState.afeRunning}
+                    commandRef={kwsCommandRef}
+                    onPreview={setKwsPreview}
+                    embedded
+                  />
+                ) : (
+                  <p className="text-xs text-ink-3">
+                    KWS is off — toggle it on above to configure the backend,
+                    models and enrollment.
+                  </p>
+                )}
+              </StageSection>
+            </StageModuleShell>
+          </div>
         </section>
       )}
 
@@ -378,13 +423,7 @@ function WorkspaceInner({
             </span>
             <span className="text-xs text-ink-3">live effects — Stop to reconfigure</span>
             <div className="ml-auto">
-              <RunControl
-                kwsEnabled={kwsEnabled}
-                onToggleKws={toggleKws}
-                runState={runState}
-                onStart={onStart}
-                onStop={onStop}
-              />
+              <RunControl runState={runState} onStart={onStart} onStop={onStop} />
             </div>
           </div>
 

@@ -1,37 +1,34 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * Pipeline-shaped config tabs (epic #53 UX overhaul, plan §8.1).
+ * Pipeline-shaped stage cards (epic #53 UX).
  *
- * The workspace config is a Source → AEC → BSS → NS → KWS tab flow inside
- * Phase 1 · Configure; the run dashboard (Phase 2 · Preview) replaces it
- * after Start. The KWS tab only exists when the KWS component toggle is on.
+ * Source → AEC → BSS → NS → KWS render as five evenly-distributed cards,
+ * each with its own enable/disable pill (bypass for the AFE stages, on/off
+ * for KWS). Selecting a card shows its config panel.
  */
 
-test('config tabs render; KWS tab gated on the KWS component toggle', async ({ page }) => {
+test('stage cards render; KWS toggle gates the KWS stage', async ({ page }) => {
   await page.goto('/#/workspace')
 
-  // Phase 1 configure flow is present up front with the module tabs.
+  // Phase 1 configure flow with all five stage cards.
   await expect(page.getByText('Phase 1 · Configure')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Source config' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'AEC config' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'BSS config' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'NS config' })).toBeVisible()
+  for (const name of ['Source', 'AEC', 'BSS', 'NS', 'KWS']) {
+    await expect(page.getByRole('button', { name: `${name} config` })).toBeVisible()
+  }
 
-  // KWS off by default -> no KWS tab, no KWS panel.
-  await expect(page.getByRole('button', { name: 'KWS config' })).toBeHidden()
+  // KWS starts disabled (card pill Off); its panel is hidden.
+  const kwsToggle = page.getByRole('button', { name: 'KWS toggle' })
+  await expect(kwsToggle).toHaveAttribute('aria-pressed', 'false')
   await expect(page.getByText('KWS detection')).toBeHidden()
 
-  // Toggling KWS on gates the tab in.
-  await page.getByRole('checkbox', { name: 'KWS', exact: true }).check()
-  await expect(page.getByRole('button', { name: 'KWS config' })).toBeVisible()
-
-  // Selecting the KWS tab renders the KWS panel.
+  // Selecting the KWS card reveals the panel.
   await page.getByRole('button', { name: 'KWS config' }).click()
   await expect(page.getByText('KWS detection')).toBeVisible()
 
-  // Toggling KWS off removes the tab again.
-  await page.getByRole('checkbox', { name: 'KWS', exact: true }).uncheck()
-  await expect(page.getByRole('button', { name: 'KWS config' })).toBeHidden()
-  await expect(page.getByText('KWS detection')).toBeHidden()
+  // The pill toggles on/off.
+  await kwsToggle.click()
+  await expect(kwsToggle).toHaveAttribute('aria-pressed', 'true')
+  await kwsToggle.click()
+  await expect(kwsToggle).toHaveAttribute('aria-pressed', 'false')
 })

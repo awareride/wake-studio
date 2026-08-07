@@ -1,17 +1,16 @@
 import { expect, type Page } from '@playwright/test'
 
 /**
- * Enable the KWS component in the workspace pipeline canvas (epic #53 P7).
+ * Enable the KWS stage (epic #53 UX).
  *
- * The workspace config is a pipeline-shaped tab flow (Source → … → KWS);
- * the KWS tab only exists when the KWS component toggle is on, and the KWS
- * panel renders inside that tab. KWS specs must enable the toggle and select
- * the tab first.
+ * KWS enable/disable lives on the KWS stage card (a toggle pill); the KWS
+ * config panel is reached by selecting the card. KWS specs must enable the
+ * stage and open the card first.
  */
 export async function enableKws(page: Page): Promise<void> {
-  const toggle = page.getByRole('checkbox', { name: 'KWS', exact: true })
-  if (!(await toggle.isChecked())) {
-    await toggle.check()
+  const toggle = page.getByRole('button', { name: 'KWS toggle' })
+  if ((await toggle.getAttribute('aria-pressed')) !== 'true') {
+    await toggle.click()
   }
   await page.getByRole('button', { name: 'KWS config' }).click()
   await expect(page.getByText('KWS detection')).toBeVisible()
