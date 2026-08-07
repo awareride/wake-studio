@@ -311,24 +311,25 @@ function WorkspaceInner({
           the engine mid load (epic #53 KWS fix). */}
       <div className={previewVisible ? 'hidden' : ''}>
         <section className="rounded-2xl border border-line bg-surface-1 p-4">
-          <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-line pb-3">
-            <span className="rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
-              Setup
-            </span>
-            <span className="text-xs text-ink-3">configure each module, then Start — Stop returns here</span>
-            <div className="ml-auto">
-              <RunControl runState={runState} onStart={onStart} onStop={onStop} />
+          {/* Sticky unit: section header + stage cards pin to the workspace top
+              while the active module panel scrolls underneath (blurred). */}
+          <div className="sticky top-0 z-20 -mx-2 rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
+            <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-line pb-2">
+              <span className="rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
+                Setup
+              </span>
+              <span className="text-xs text-ink-3">configure each module, then Start — Stop returns here</span>
+              <div className="ml-auto">
+                <RunControl runState={runState} onStart={onStart} onStop={onStop} />
+              </div>
             </div>
-          </div>
-
-          {/* Stage cards stick to the top while the module panel scrolls. */}
-          <div className="sticky top-2 z-20 -mx-1 mb-4 rounded-xl bg-surface-1/95 px-1 py-1 backdrop-blur">
             <PipelineTabs
               active={activeTab}
               onSelect={setActiveTab}
               cards={stageCards}
             />
           </div>
+          <div className="mt-4">
 
           {/* Active module panel. Panels stay mounted (hidden) so engines and
               form state survive tab switches. */}
@@ -428,45 +429,45 @@ function WorkspaceInner({
               </StageSection>
             </StageModuleShell>
           </div>
+          </div>
         </section>
       </div>
 
       {/* ============ LIVE dashboard (after Start) ============ */}
       {previewVisible && (
         <section className="rounded-2xl border border-line bg-surface-1 p-4">
-          <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-line pb-3">
-            <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-emerald-300">
-              Live
-            </span>
-            <span className="text-xs text-ink-3">running effects — Stop to reconfigure</span>
-            <div className="ml-auto">
-              <RunControl runState={runState} onStart={onStart} onStop={onStop} />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {/* Live stage cards stick to the top (above the overview). */}
-            <div className="sticky top-2 z-20 -mx-1 rounded-xl bg-surface-1/95 px-1 py-1 backdrop-blur">
-              <div className="mx-auto grid max-w-5xl gap-5 sm:grid-cols-3 items-stretch">
-                {(['aec', 'bss', 'ns'] as const).map((id) => (
-                  <StagePanel
-                    key={id}
-                    id={id}
-                    data={frameData[id]}
-                    isBypassed={bypass[id]}
-                    onToggleBypass={handleToggleBypass}
-                  />
-                ))}
+          <div className="sticky top-0 z-20 -mx-2 rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
+            <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-line pb-2">
+              <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-emerald-300">
+                Live
+              </span>
+              <span className="text-xs text-ink-3">running effects — Stop to reconfigure</span>
+              <div className="ml-auto">
+                <RunControl runState={runState} onStart={onStart} onStop={onStop} />
               </div>
             </div>
-            {/* Overview laid out sequentially: flow, then Level+VAD curve. */}
+            {/* Pipeline overview pins with the section; everything below scrolls. */}
             <PipelineFlow
               frameData={frameData}
               running={runState.afeRunning}
               latencyMs={latencyMs}
               sourceLabel={source.kind === 'file' ? 'FILE' : 'MIC'}
             />
+          </div>
+
+          <div className="mt-4 space-y-4">
             <PipelineLevelCurve frameData={frameData} running={runState.afeRunning} />
+            <div className="mx-auto grid max-w-5xl gap-5 sm:grid-cols-3 items-stretch">
+              {(['aec', 'bss', 'ns'] as const).map((id) => (
+                <StagePanel
+                  key={id}
+                  id={id}
+                  data={frameData[id]}
+                  isBypassed={bypass[id]}
+                  onToggleBypass={handleToggleBypass}
+                />
+              ))}
+            </div>
             {runState.kwsRunning && <ScoreCurvePanel running={runState.kwsRunning} />}
             <ClipsPanel
               pipeline={afeRef.current}

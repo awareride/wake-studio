@@ -51,7 +51,7 @@ export const PipelineFlow = memo(function PipelineFlow({ frameData, running, lat
         )}
       </div>
 
-      <div className="mx-auto flex w-fit items-center justify-center gap-2">
+      <div className="mx-auto flex w-fit items-center justify-center gap-3">
         <FlowNode label={sourceLabel ?? 'INPUT'} color="#64748b" />
         {STAGES.map((id) => (
           <div key={id} className="flex items-center gap-1">
@@ -165,19 +165,20 @@ function FlowNode({
   }, [waveform, color])
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <canvas
-        ref={canvasRef}
-        width={80}
-        height={40}
-        className="rounded bg-surface-3"
-      />
-      <span
-        className="text-[10px] font-medium uppercase"
-        style={{ color }}
-      >
-        {label}
-      </span>
+    <div className="flex w-20 flex-col overflow-hidden rounded-lg border border-line bg-surface-3">
+      {/* Color strip — same accent as the setup stage cards. */}
+      <div className="h-1 w-full" style={{ background: color }} />
+      <div className="flex h-8 items-center justify-center">
+        <canvas ref={canvasRef} width={72} height={30} className="rounded-sm" />
+      </div>
+      <div className="border-t border-line bg-surface-2 pb-1 pt-0.5 text-center">
+        <span
+          className="text-[10px] font-bold uppercase tracking-wide"
+          style={{ color }}
+        >
+          {label}
+        </span>
+      </div>
     </div>
   )
 }
