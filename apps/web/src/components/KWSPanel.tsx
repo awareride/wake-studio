@@ -496,17 +496,21 @@ export const KWSPanel = memo(function KWSPanel({
   // explicitly clicks Load (or Reload) when ready. The few-shot branch never
   // auto-loads either - it runs enrollment first.
   useEffect(() => {
-    if (isFewShot) {
-      // plixkws needs an enrolled prototype; loading the detection backend
-      // without one always fails (worker requires prototypeVector). The plix
-      // branch runs enrollment first, then loads with the prototype.
-      return
-    }
-    // Backend changed: reset to idle so the user sees the Load button for the
-    // newly selected backend (models for the old backend are discarded).
+    // Backend changed: reset to idle so the UI shows the load/start controls
+    // for the newly selected backend (models for the old backend are
+    // discarded). This applies to the few-shot branch too - previously it
+    // early-returned, leaving the UI stuck at the old backend's 'ready' state
+    // and hiding the plixkws encoder-load button (the switch appeared to do
+    // nothing and detection silently failed).
     if (prevBackendRef.current !== config.backend) {
       prevBackendRef.current = config.backend
       setStatus('idle')
+      setError(null)
+      setRunning(false)
+      setDetecting(false)
+      // Tear down the old backend session so the stale worker (old backend)
+      // does not keep running detection for the previous model.
+      engineRef.current?.dispose()
     }
   }, [config.backend, isFewShot])
 
