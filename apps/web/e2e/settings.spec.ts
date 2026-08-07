@@ -59,7 +59,7 @@ test('clicking a sub-item highlights only that item, not the Settings parent', a
   await expect(
     page
       .locator('aside')
-      .getByRole('button', { name: 'Settings', exact: true }),
+      .getByRole('button', { name: /Settings menu/ }),
   ).not.toHaveAttribute('aria-current', 'page')
 })
 

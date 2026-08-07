@@ -38,11 +38,20 @@ test('hash routing navigates between views', async ({ page }) => {
   await expect(page).toHaveURL(/#\/projects/)
   await expect(page.getByRole('main').getByRole('heading', { name: 'Projects' })).toBeVisible()
 
-  // Settings view (issue #52): sub-menu + real section content, not a
-  // placeholder. Clicking Settings opens the default (General) sub-route.
-  await sidebarNav(page, 'Settings', true)
+  // Settings parent toggles the sub-menu (no navigation itself); click a
+  // sub-item to reach a section.
+  await page
+    .locator('aside')
+    .getByRole('button', { name: /Settings menu/ })
+    .click()
+  await expect(
+    page.locator('aside').getByRole('button', { name: 'General' }),
+  ).toBeVisible()
+  await page.locator('aside').getByRole('button', { name: 'General' }).click()
   await expect(page).toHaveURL(/#\/settings\/general/)
-  await expect(page.getByRole('main').getByRole('heading', { name: 'General' })).toBeVisible()
+  await expect(
+    page.getByRole('main').getByRole('heading', { name: 'General' }),
+  ).toBeVisible()
   // The sub-menu shows the other sections.
   await expect(page.locator('aside').getByRole('button', { name: 'Security' })).toBeVisible()
 

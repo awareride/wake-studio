@@ -75,9 +75,9 @@ function NavButton({
 }
 
 /**
- * Render the Settings parent + its expanded sub-menu (sections, Modules
- * expands to drivers). The sub-menu is always visible when the Settings
- * parent is active or the current route is a settings sub-route.
+ * Render the Settings parent + its expanded sub-menu. The parent is a single
+ * full-width button (icon + label + chevron) that only toggles open/closed -
+ * no navigation. Clicking a sub-item navigates. Hover covers the whole row.
  */
 function SettingsNav({
   item,
@@ -100,11 +100,7 @@ function SettingsNav({
     if (isOpen) setOpen(true)
   }, [isOpen])
 
-  const toggle = () => {
-    setOpen((o) => !o)
-    if (!open) onNavigate('settings-general')
-  }
-
+  const Icon = item.icon
   const driversActive = activeSection === 'modules'
 
   // Settings -> xxx: sections first, then drivers directly (no Modules layer).
@@ -114,35 +110,34 @@ function SettingsNav({
 
   return (
     <div>
-      <div className="flex w-full items-center gap-2.5">
-        <NavButton
-          item={item}
-          // Keep the focus on the clicked sub-item: the Settings parent is
-          // not highlighted when a sub-menu item is active.
-          active={false}
-          onClick={() => onNavigate(settingsRouteOf(route))}
-        />
-        <button
-          onClick={toggle}
-          aria-label={open ? 'Collapse Settings menu' : 'Expand Settings menu'}
-          aria-expanded={open}
-          className="rounded p-0.5 text-ink-3 hover:bg-surface-3 hover:text-ink-1"
+      {/* Parent: toggles open/closed only, no navigation. */}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-label={`Settings menu ${open ? 'collapsed' : 'expanded'}`}
+        className={cn(
+          'group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
+          'text-ink-2 hover:bg-surface-3 hover:text-ink-1',
+        )}
+      >
+        <Icon className="h-[18px] w-[18px] shrink-0" />
+        <span className="flex-1 truncate text-left">{item.label}</span>
+        <svg
+          viewBox="0 0 16 16"
+          className={cn(
+            'h-3.5 w-3.5 shrink-0 text-ink-3 transition-transform group-hover:text-ink-1',
+            open && 'rotate-90',
+          )}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
         >
-          <svg
-            viewBox="0 0 16 16"
-            className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-90')}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-          >
-            <path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-      </div>
+          <path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
 
       {open && (
-        <div className="ml-3 mt-0.5 space-y-0.5 border-l border-line pl-2">
-          {sections.map((child) => {
+        <div className="ml-3 mt-0.5 space-y-0.5 border-l border-line pl-2">          {sections.map((child) => {
             const childActive = activeSection === settingsSectionOf(child.route)
             return (
               <button
@@ -186,11 +181,6 @@ function SettingsNav({
       )}
     </div>
   )
-}
-
-/** The canonical settings route for the sidebar parent click. */
-function settingsRouteOf(route: ConsoleRoute): ConsoleRoute {
-  return isSettingsRoute(route) ? route : 'settings-general'
 }
 
 function NavSection({ title, items, route, onNavigate }: {
