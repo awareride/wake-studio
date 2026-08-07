@@ -18,24 +18,30 @@ test('settings sub-routes render section content', async ({ page }) => {
   await expect(page.getByText('Theme', { exact: true })).toBeVisible()
   await expect(page.getByText('Language', { exact: true })).toBeVisible()
 
-  // Sidebar sub-menu shows all sections.
+  // Sidebar sub-menu shows sections + drivers directly under Settings.
   await expect(
     page.locator('aside').getByRole('button', { name: 'General' }),
   ).toBeVisible()
   await expect(
     page.locator('aside').getByRole('button', { name: 'Security' }),
   ).toBeVisible()
+  // Drivers appear as Settings children (no intermediate Modules layer).
   await expect(
-    page.locator('aside').getByRole('button', { name: 'Modules' }),
+    page
+      .locator('aside')
+      .getByRole('button', { name: /sherpa-onnx KWS/ })
+      .first(),
   ).toBeVisible()
 
-  // Modules section expands to drivers in the sidebar sub-menu.
-  await page.locator('aside').getByRole('button', { name: 'Modules' }).click()
-  await expect(page).toHaveURL(/#\/settings\/modules/)
-  await expect(page.getByRole('heading', { name: 'Module settings' })).toBeVisible()
-  // A driver with a spec appears in the sidebar sub-menu.
+  // Click a driver: lands on the modules section with the driver focused.
+  await page
+    .locator('aside')
+    .getByRole('button', { name: /sherpa-onnx KWS/ })
+    .first()
+    .click()
+  await expect(page).toHaveURL(/#\/settings\/modules\/sherpa-onnx-kws/)
   await expect(
-    page.locator('aside').getByRole('button', { name: /sherpa|PLiX|OpenWakeWord/ }).first(),
+    page.getByRole('heading', { name: 'Module settings' }),
   ).toBeVisible()
 })
 

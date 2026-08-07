@@ -42,6 +42,28 @@ const ROUTE_BY_HASH: Record<string, ConsoleRoute> = {
   '/': 'workspace',
 }
 
+/**
+ * Parse the settings backend anchor from the hash, e.g.
+ * `#/settings/modules/plixkws` -> 'plixkws'. Used to keep focus on the
+ * driver the user clicked in the sidebar (Settings -> driver).
+ */
+export function settingsBackendFromHash(hash: string): string | undefined {
+  const raw = hash.replace(/^#/, '')
+  const prefix = '/settings/modules/'
+  if (!raw.startsWith(prefix)) return undefined
+  const id = raw.slice(prefix.length).split('/')[0]
+  return id || undefined
+}
+
+/**
+ * Build the settings hash for a section, optionally anchored to a driver
+ * (e.g. `/settings/modules/plixkws`).
+ */
+export function settingsHash(section: SettingsSection, backendId?: string): string {
+  const base = routeToHash(settingsRoute(section))
+  return backendId ? `${base}/${backendId}` : base
+}
+
 /** Map a route to its canonical hash (without the leading '#'). */
 export function routeToHash(route: ConsoleRoute): string {
   switch (route) {
@@ -102,6 +124,8 @@ export function settingsSectionOf(route: ConsoleRoute): SettingsSection | undefi
 
 function parseHash(): ConsoleRoute {
   const raw = window.location.hash.replace(/^#/, '')
+  // /settings/modules/<backendId> also maps to settings-modules.
+  if (raw.startsWith('/settings/modules/')) return 'settings-modules'
   return ROUTE_BY_HASH[raw] ?? DEFAULT_ROUTE
 }
 

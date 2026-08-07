@@ -11,7 +11,11 @@
 
 import * as React from 'react'
 import type { ConsoleRoute } from '../router'
-import { settingsSectionOf } from '../router'
+import {
+  settingsSectionOf,
+  settingsHash,
+  settingsBackendFromHash,
+} from '../router'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui'
 import { PRIMARY_NAV, SECONDARY_NAV, isSettingsRoute, type NavItem } from './shell-nav'
 import type { ConsoleStatus } from '../status'
@@ -80,60 +84,100 @@ function SettingsNav({
   route,
   onNavigate,
   drivers,
+  settingsBackend,
 }: {
   item: NavItem
   route: ConsoleRoute
   onNavigate: (r: ConsoleRoute) => void
   drivers: ReadonlyArray<{ backendId: string; label: string }>
+  settingsBackend?: string
 }) {
-  const open = isSettingsRoute(route)
+  const isOpen = isSettingsRoute(route)
   const activeSection = settingsSectionOf(route)
+  const [open, setOpen] = React.useState(isOpen)
+  // Keep the sub-menu open when navigating within settings.
+  React.useEffect(() => {
+    if (isOpen) setOpen(true)
+  }, [isOpen])
+
+  const toggle = () => {
+    setOpen((o) => !o)
+    if (!open) onNavigate('settings-general')
+  }
+
+  const driversActive = activeSection === 'modules'
+
+  // Settings -> xxx: sections first, then drivers directly (no Modules layer).
+  const sections = (item.children ?? []).filter(
+    (c) => c.route !== 'settings-modules',
+  )
+
   return (
     <div>
-      <NavButton
-        item={item}
-        active={open}
-        onClick={() => onNavigate(settingsRouteOf(route))}
-      />
+      <div className="flex w-full items-center gap-2.5">
+        <NavButton
+          item={item}
+          active={isOpen}
+          onClick={() => onNavigate(settingsRouteOf(route))}
+        />
+        <button
+          onClick={toggle}
+          aria-label={open ? 'Collapse Settings menu' : 'Expand Settings menu'}
+          aria-expanded={open}
+          className="rounded p-0.5 text-ink-3 hover:bg-surface-3 hover:text-ink-1"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-90')}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
+
       {open && (
         <div className="ml-3 mt-0.5 space-y-0.5 border-l border-line pl-2">
-          {item.children?.map((child) => {
+          {sections.map((child) => {
             const childActive = activeSection === settingsSectionOf(child.route)
-            const isModules = child.route === 'settings-modules'
             return (
-              <div key={child.route}>
-                <button
-                  onClick={() => onNavigate(child.route)}
-                  aria-current={childActive ? 'page' : undefined}
-                  className={cn(
-                    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors',
-                    childActive
-                      ? 'bg-brand-500/10 text-brand-700'
-                      : 'text-ink-3 hover:bg-surface-3 hover:text-ink-1',
-                  )}
-                >
-                  <span className="flex-1 truncate text-left">{child.label}</span>
-                  {isModules && drivers.length > 0 && (
-                    <span className="rounded bg-surface-4 px-1.5 py-0.5 text-[10px] text-ink-3">
-                      {drivers.length}
-                    </span>
-                  )}
-                </button>
-                {/* Modules expands to per-driver items. */}
-                {isModules && childActive && drivers.length > 0 && (
-                  <div className="ml-2 mt-0.5 space-y-0.5 border-l border-line pl-2">
-                    {drivers.map((d) => (
-                      <button
-                        key={d.backendId}
-                        onClick={() => onNavigate('settings-modules')}
-                        className="flex w-full items-center gap-2 truncate rounded-md px-2 py-1 text-xs text-ink-3 hover:bg-surface-3 hover:text-ink-1"
-                      >
-                        {d.label}
-                      </button>
-                    ))}
-                  </div>
+              <button
+                key={child.route}
+                onClick={() => onNavigate(child.route)}
+                aria-current={childActive ? 'page' : undefined}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors',
+                  childActive
+                    ? 'bg-brand-500/10 text-brand-700'
+                    : 'text-ink-3 hover:bg-surface-3 hover:text-ink-1',
                 )}
-              </div>
+              >
+                <span className="flex-1 truncate text-left">{child.label}</span>
+              </button>
+            )
+          })}
+
+          {/* Drivers: Settings -> driver (keeps focus on the clicked one). */}
+          {drivers.map((d) => {
+            const active = driversActive && d.backendId === settingsBackend
+            return (
+              <button
+                key={d.backendId}
+                onClick={() => {
+                  window.location.hash = settingsHash('modules', d.backendId)
+                }}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-[13px] transition-colors',
+                  active
+                    ? 'bg-brand-500/10 text-brand-700'
+                    : 'text-ink-3 hover:bg-surface-3 hover:text-ink-1',
+                )}
+              >
+                <span className="flex-1 truncate text-left">{d.label}</span>
+              </button>
             )
           })}
         </div>
@@ -178,6 +222,16 @@ export function Sidebar({
   onNavigate: (r: ConsoleRoute) => void
 }) {
   const drivers = useSettingsDrivers()
+  // Current driver anchor (Settings -> driver focus).
+  const [settingsBackend, setSettingsBackend] = React.useState<string | undefined>(
+    () => settingsBackendFromHash(window.location.hash),
+  )
+  React.useEffect(() => {
+    const onHash = () =>
+      setSettingsBackend(settingsBackendFromHash(window.location.hash))
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
   return (
     <div className="flex h-full w-full flex-col gap-1 overflow-y-auto p-3">
       <div className="mb-2 flex items-center gap-2 px-1.5">
@@ -203,6 +257,7 @@ export function Sidebar({
               route={route}
               onNavigate={onNavigate}
               drivers={drivers}
+              settingsBackend={settingsBackend}
             />
           ) : (
             <NavButton

@@ -29,14 +29,6 @@ export interface SettingsNavItem {
   /** Settings sub-route (settings-general etc). */
   route: ConsoleRoute
   label: string
-  /** Optional nested driver items (Modules section expands to drivers). */
-  children?: DriverNavItem[]
-}
-
-export interface DriverNavItem {
-  /** Backend id (module settings key). */
-  backendId: string
-  label: string
 }
 
 export const PRIMARY_NAV: NavItem[] = [
@@ -51,7 +43,6 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
   { route: settingsRoute('general'), label: 'General' },
   { route: settingsRoute('security'), label: 'Security' },
   { route: settingsRoute('data'), label: 'Data' },
-  { route: settingsRoute('modules'), label: 'Modules' },
 ]
 
 export const SECONDARY_NAV: NavItem[] = [

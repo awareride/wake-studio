@@ -6,7 +6,8 @@
  * — their internals are refactored in Phase 2.
  */
 
-import { useConsoleRoute, settingsSectionOf } from "./router";
+import * as React from "react";
+import { useConsoleRoute, settingsSectionOf, settingsBackendFromHash } from "./router";
 import type { SettingsSection } from "./router";
 import { ConsoleShell } from "./components/ConsoleShell";
 import { ConsoleStatusProvider } from "./status";
@@ -23,6 +24,21 @@ import { RnnoisePlayground } from "@wake-studio/module-rnnoise/web";
 
 export default function App() {
   const [route, navigate] = useConsoleRoute();
+  // Driver anchor for the Modules section (Settings -> driver focus).
+  const [settingsBackend, setSettingsBackend] = React.useState<
+    string | undefined
+  >(() =>
+    typeof window === "undefined"
+      ? undefined
+      : settingsBackendFromHash(window.location.hash),
+  );
+
+  React.useEffect(() => {
+    const onHash = () =>
+      setSettingsBackend(settingsBackendFromHash(window.location.hash));
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   return (
     <ConsoleStatusProvider>
@@ -37,10 +53,11 @@ export default function App() {
                 {route === "console" && <SessionConsoleView />}
                 {route === "playground-rnnoise" && <RnnoisePlayground />}
                 {settingsSectionOf(route) && (
-                <SettingsView
-                  section={settingsSectionOf(route) as SettingsSection}
-                />
-              )}
+                  <SettingsView
+                    section={settingsSectionOf(route) as SettingsSection}
+                    backendId={settingsBackend}
+                  />
+                )}
                 {route === "device-sdk" && (
                   <ComingSoonView
                     title="Device SDK"

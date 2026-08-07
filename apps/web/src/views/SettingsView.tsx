@@ -49,7 +49,14 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   'modules',
 ]
 
-export function SettingsView({ section }: { section: SettingsSection }) {
+export function SettingsView({
+  section,
+  backendId,
+}: {
+  section: SettingsSection
+  /** Driver anchor for the Modules section (Settings -> driver focus). */
+  backendId?: string
+}) {
   const { platform, set, module, setModuleBackend, reset } = useAppSettings()
   const { toast } = useToast()
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
@@ -111,16 +118,16 @@ export function SettingsView({ section }: { section: SettingsSection }) {
 
   return (
     <div className="space-y-6">
-      <div className="max-w-3xl">
+      <div>
         <h2 className="text-lg font-semibold text-ink-1">
           {GROUP_TITLES[section]}
         </h2>
         <p className="mt-1 text-sm text-ink-2">{GROUP_DESCRIPTIONS[section]}</p>
       </div>
 
-      <div className="max-w-3xl space-y-4">
+      <div className="space-y-4">
         {section === 'modules' ? (
-          <ModuleSettingsSection />
+          <ModuleSettingsSection focusBackendId={backendId} />
         ) : (
           <div className="rounded-xl border border-line bg-surface-2 p-5">
             <div className="divide-y divide-line">

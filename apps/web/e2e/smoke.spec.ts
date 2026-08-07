@@ -40,7 +40,7 @@ test('hash routing navigates between views', async ({ page }) => {
 
   // Settings view (issue #52): sub-menu + real section content, not a
   // placeholder. Clicking Settings opens the default (General) sub-route.
-  await sidebarNav(page, 'Settings')
+  await sidebarNav(page, 'Settings', true)
   await expect(page).toHaveURL(/#\/settings\/general/)
   await expect(page.getByRole('main').getByRole('heading', { name: 'General' })).toBeVisible()
   // The sub-menu shows the other sections.
@@ -152,6 +152,10 @@ test('workspace: create a project and it persists across reload', async ({ page 
 async function sidebarNav(
   page: import('@playwright/test').Page,
   name: string,
+  exact = false,
 ): Promise<void> {
-  await page.locator('aside').getByRole('button', { name }).click()
+  await page
+    .locator('aside')
+    .getByRole('button', { name, exact })
+    .click()
 }
