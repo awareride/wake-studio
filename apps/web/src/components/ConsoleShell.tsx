@@ -55,11 +55,13 @@ export function ConsoleShell({
             <Sidebar route={route} onNavigate={navigate} />
           </aside>
 
-          {/* Mobile drawer */}
+          {/* Mobile drawer: left-edge slide-in panel (GitHub-style), not a
+              centered dialog. Full-height, no rounding, animates from off-
+              screen left. */}
           <Dialog open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
             <DialogContent
               centered={false}
-              className="left-4 top-4 w-[min(80vw,17rem)] max-w-[calc(100vw-2rem)] p-0"
+              className="drawer-content left-0 top-0 h-screen w-[min(80vw,17rem)] max-w-[calc(100vw-2rem)] rounded-none border-l border-t-0 border-r-0 border-b-0 p-0 data-[state=open]:animate-[drawer-in_180ms_ease-out] data-[state=closed]:animate-[drawer-out_160ms_ease-in]"
             >
               <DialogTitle className="sr-only">Navigation</DialogTitle>
               <DialogDescription className="sr-only">

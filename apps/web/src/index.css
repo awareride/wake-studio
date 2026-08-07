@@ -3,6 +3,19 @@
 @tailwind utilities;
 
 /*
+ * Mobile drawer slide-in (GitHub-style left-edge panel, paired with
+ * data-state data-[state=open]/closed in ConsoleShell).
+ */
+@keyframes drawer-in {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes drawer-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+
+/*
  * WakeStudio semantic design tokens (light theme, v1).
  *
  * Components use semantic utilities (bg-surface, text-ink-2, border-line...)

@@ -133,27 +133,37 @@ test('mobile drawer positions correctly and expands Settings sub-menu', async ({
   await page.goto('/#/workspace')
 
   await page.getByRole('button', { name: 'Toggle navigation' }).click()
-  await expect(page.locator('[role="dialog"]')).toBeVisible()
+  const drawer = page.locator('[role="dialog"]')
+  await expect(drawer).toBeVisible()
 
-  // Drawer sits fully inside the viewport (regression: it used to overflow
-  // to negative coordinates when the Settings sub-menu expanded).
+  // Drawer sits at the left edge, full height (GitHub-style side panel, not a
+  // centered dialog). Wait for the slide-in animation to settle before
+  // measuring.
+  await page.waitForTimeout(400)
   const geo = await page.evaluate(() => {
     const d = document.querySelector('[role="dialog"]')
     if (!d) return null
     const r = d.getBoundingClientRect()
     return {
-      inside:
-        r.x >= 0 && r.y >= 0 && r.x + r.width <= window.innerWidth,
+      x: r.x,
+      y: r.y,
+      w: r.width,
+      h: r.height,
+      vh: window.innerHeight,
+      vw: window.innerWidth,
     }
   })
-  expect(geo?.inside).toBe(true)
+  expect(geo).toMatchObject({
+    x: 0,
+    y: 0,
+    w: expect.any(Number),
+    h: expect.any(Number),
+  })
+  expect(geo!.h).toBe(geo!.vh)
 
   // Settings expands inside the drawer and the sub-items render.
-  await page
-    .locator('[role="dialog"]')
-    .getByRole('button', { name: /Settings menu/ })
-    .click()
+  await drawer.getByRole('button', { name: /Settings menu/ }).click()
   await expect(
-    page.locator('[role="dialog"]').getByRole('button', { name: 'General' }),
+    drawer.getByRole('button', { name: 'General' }),
   ).toBeVisible()
 })
