@@ -25,6 +25,11 @@ Treat every change as if a teammate will review it on Monday morning.
 - The only exception is files explicitly marked for another locale, e.g.
   `README.zh.md`, `getting-started.zh.md`. If a file is not clearly scoped to a
   non-English locale, write English.
+- **GitHub work products must also be in English**: issue titles and bodies,
+  project item names/fields/statuses, labels, pull request titles and bodies,
+  and any commit messages or release notes. Chinese (or any other language)
+  is allowed only in human conversation, never in anything the agent writes
+  to GitHub, a commit, or a PR.
 
 ## Planning docs & GitHub work tracking
 
