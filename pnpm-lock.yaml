@@ -440,6 +440,15 @@ importers:
       '@wake-studio/module-afe-graph':
         specifier: workspace:^
         version: link:../../afe/graph
+      '@wake-studio/module-kws-openwakeword':
+        specifier: workspace:^
+        version: link:../openwakeword
+      '@wake-studio/module-kws-plix':
+        specifier: workspace:^
+        version: link:../plix
+      '@wake-studio/module-kws-sherpa':
+        specifier: workspace:^
+        version: link:../sherpa
       '@wake-studio/platform':
         specifier: workspace:^
         version: link:../../../platform

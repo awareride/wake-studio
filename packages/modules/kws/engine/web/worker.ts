@@ -8,7 +8,25 @@
  * (Phase 3), independent of the detection backend.
  *
  * Pure logic (ScoreSmoother, TriggerDetector, VAD gate) is in ./logic.
+ *
+ * Driver registration (issue #23): this worker runs in a SEPARATE bundle
+ * (Vite `?worker`), so driver modules must be imported HERE for their
+ * registration side-effects (`registerKwsBackend` / `registerEmbedProviderFactory`)
+ * to run inside the worker. The engine core (core/) still never imports a
+ * driver module (ADR-024); this file is in the web target, not core. New
+ * drivers only need to be added to the import list below (or by the host via
+ * the worker-assembly seam).
  */
+
+// Driver registration side-effects (must run once, before any load message).
+// Imported as namespaces and referenced via `void` so Vite cannot tree-shake
+// the side-effect imports out of the worker bundle.
+import * as openWakeWordDriver from '@wake-studio/module-kws-openwakeword'
+import * as sherpaDriver from '@wake-studio/module-kws-sherpa'
+import * as plixDriver from '@wake-studio/module-kws-plix'
+void openWakeWordDriver.OpenWakeWordBackend
+void sherpaDriver.SherpaOnnxKwsBackend
+void plixDriver.PlixKwsBackend
 
 import type {
   BackendModelUrls,

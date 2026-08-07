@@ -26,8 +26,15 @@ import { KWSLoadError } from './types'
 import { ScoreSmoother, TriggerDetector, shouldGateByVad } from './logic'
 import { createMainThreadBackend } from './backend'
 
-// Vite bundles the worker into a separate file.
-import KWSWorker from '../web/worker?worker'
+// The KWS Web Worker is created through the worker-assembly seam (ADR-024,
+// issue #23): importing the assembly wires the driver registration
+// side-effects into the worker bundle. It is imported DYNAMICALLY at
+// worker-creation time (not statically): a static import would create an
+// import cycle (engine core -> assembly -> driver -> engine core) whose
+// evaluation order leaves the engine's backend registry uninitialized when a
+// driver calls registerKwsBackend (TDZ ReferenceError). By the time load()
+// runs, every module is fully evaluated, so the cycle is resolved safely.
+// The engine core still never imports a driver module (ADR-024).
 
 type ScoreCallback = (sample: KWSScoreSample) => void
 type TriggerCallback = (event: KWSTriggerEvent) => void
@@ -127,7 +134,7 @@ export class KWSEngine {
       }
     }
 
-    this._ensureWorker()
+    await this._ensureWorker()
 
     return new Promise<void>((resolve, reject) => {
       const onMessage = (e: MessageEvent<KWSMainMessage>) => {
@@ -252,9 +259,12 @@ export class KWSEngine {
 
   // ---- internals ----
 
-  private _ensureWorker(): void {
+  private async _ensureWorker(): Promise<void> {
     if (this._worker) return
-    this._worker = new KWSWorker()
+    // Dynamic import: resolves the engine<->driver import cycle at runtime
+    // (see comment above). Vite/Rollup splits this into a separate chunk.
+    const { createKwsWorker } = await import('../web/worker-assembly')
+    this._worker = createKwsWorker()
     this._worker!.onmessage = (e: MessageEvent<KWSMainMessage>) => {
       this._handleMessage(e.data)
     }
