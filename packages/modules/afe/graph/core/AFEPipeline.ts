@@ -51,6 +51,12 @@ export class AFEPipeline {
   private _recordResolver: ((clip: RecordedClip) => void) | null = null
   private _recordSeconds = 0
 
+  // Persistent per-stage capture (epic #53 P5).
+  private _chunkCallbacks = new Set<
+    (stage: 'raw' | 'processed', samples: Float32Array, sampleRate: number) => void
+  >()
+  private _persistEndCallbacks = new Set<() => void>()
+
   // ---- public readonly state ----
 
   get running(): boolean {
@@ -207,6 +213,24 @@ export class AFEPipeline {
     return () => this._outputCallbacks.delete(cb)
   }
 
+  /**
+   * Subscribe to persistent per-stage capture chunks (epic #53 P5). The
+   * worklet streams `raw` (input) and `processed` (NS output) slices while
+   * recordPersistent is active.
+   */
+  onRecordChunk(
+    cb: (stage: 'raw' | 'processed', samples: Float32Array, sampleRate: number) => void,
+  ): () => void {
+    this._chunkCallbacks.add(cb)
+    return () => this._chunkCallbacks.delete(cb)
+  }
+
+  /** Subscribe to the end of a persistent capture window. */
+  onRecordEnd(cb: () => void): () => void {
+    this._persistEndCallbacks.add(cb)
+    return () => this._persistEndCallbacks.delete(cb)
+  }
+
   // ---- A/B + record ----
 
   setABSource(source: 'raw' | 'processed'): void {
@@ -222,6 +246,19 @@ export class AFEPipeline {
     return new Promise<RecordedClip>((resolve) => {
       this._recordResolver = resolve
     })
+  }
+
+  /**
+   * Start persistent per-stage capture (epic #53 P5): the worklet streams
+   * raw/processed chunks until `seconds` elapses or stop() is called. Use
+   * onRecordChunk / onRecordEnd to consume the stream.
+   */
+  recordPersistent(seconds: number): void {
+    if (!this._running || !this._node) {
+      throw new Error('Pipeline is not running.')
+    }
+    this._recordSeconds = seconds
+    this._send({ type: 'record', seconds, persist: true })
   }
 
   // ---- config panel (ADR-017) ----
@@ -293,6 +330,16 @@ export class AFEPipeline {
           })
           this._recordResolver = null
         }
+        break
+
+      case 'record-chunk':
+        this._chunkCallbacks.forEach((cb) =>
+          cb(msg.stage, msg.samples, msg.sampleRate),
+        )
+        break
+
+      case 'record-end':
+        this._persistEndCallbacks.forEach((cb) => cb())
         break
     }
   }

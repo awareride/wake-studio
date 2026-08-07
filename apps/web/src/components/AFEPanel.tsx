@@ -8,7 +8,7 @@ import { UnifiedConfigPanel } from './UnifiedConfigPanel'
 import { useProjectStageConfig } from '../projects'
 import { logInfo, logError } from '../log'
 import { PipelineOverview } from './PipelineOverview'
-import { RecordReplay } from './RecordReplay'
+import { PersistencePanel } from './PersistencePanel'
 import { StagePanel } from './viz/StageCard'
 import { SourceSelector } from './SourceSelector'
 import { FileSourcePanel } from './FileSourcePanel'
@@ -221,13 +221,19 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
     return () => clearInterval(id)
   }, [running, afeRef])
 
-  // Cleanup on unmount.
+  // Cleanup on unmount. The callback identity is tracked via a ref so the
+  // teardown only runs on a real unmount (project switch remounts the panel
+  // via key), not on every WorkspaceView re-render (onRunningChange is an
+  // inline arrow there — depending on it would stop a freshly started
+  // pipeline on any parent re-render).
+  const onRunningChangeRef = useRef(onRunningChange)
+  onRunningChangeRef.current = onRunningChange
   useEffect(() => {
     return () => {
       afeRef.current?.stop()
-      onRunningChange(false)
+      onRunningChangeRef.current(false)
     }
-  }, [afeRef, onRunningChange])
+  }, [afeRef])
 
   const latencyColor =
     latencyMs > 150
@@ -342,12 +348,16 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
         </div>
       )}
 
-      {/* Record & replay */}
-      {running && (
-        <div className="mt-4">
-          <RecordReplay pipeline={afeRef.current} running={running} />
-        </div>
-      )}
+      {/* Per-stage persistence (epic #53 P5) - replaces the old 10 s
+          RecordReplay card. Config (Step D) + capture + replay list. */}
+      <div className="mt-4">
+        <PersistencePanel
+          pipeline={afeRef.current}
+          running={running}
+          config={wsCfg?.persistence}
+          onChange={(persistence) => persistWs({ persistence })}
+        />
+      </div>
 
       {/* Config panel (ADR-017) - unified spec-driven rendering. */}
       <div className="mt-6 rounded-xl border border-line bg-surface-2 p-5">

@@ -14,3 +14,4 @@ export {
 } from './StageCard'
 export type { VizStageId } from './StageCard'
 export { drawScoreCurve, HISTORY_MAX } from './ScoreCurve'
+export { useWavPlayback, type WavPlayback } from './playback'

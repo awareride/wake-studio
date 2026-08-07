@@ -148,6 +148,19 @@ export type WorkletMessage =
   | { type: 'frame'; frames: StageFrameData[] }
   | { type: 'output'; samples: Float32Array; capturedAtMs: number; vad: number }
   | { type: 'recorded'; raw: Float32Array; processed: Float32Array; sampleRate: number }
+  | {
+      /**
+       * A chunk of the persistent per-stage capture (epic #53 P5). Sent
+       * repeatedly while `persist` recording is active; the main thread
+       * appends it to the clip buffer. `stage` identifies raw / processed
+       * (NS), matching the workspace persistence stages.
+       */
+      type: 'record-chunk'
+      stage: 'raw' | 'processed'
+      samples: Float32Array
+      sampleRate: number
+    }
+  | { type: 'record-end' }
   | { type: 'error'; message: string }
 
 /** Messages sent from the main thread to the worklet. */
@@ -158,7 +171,15 @@ export type MainMessage =
       vizFps: number
     }
   | { type: 'absource'; source: 'raw' | 'processed' }
-  | { type: 'record'; seconds: number }
+  | {
+      type: 'record'
+      seconds: number
+      /**
+       * When true, stream chunks via `record-chunk` instead of the one-shot
+       * `recorded` promise (epic #53 P5 persistent capture).
+       */
+      persist?: boolean
+    }
   | { type: 'stop' }
 
 // ---------------------------------------------------------------------------
