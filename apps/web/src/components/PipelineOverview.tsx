@@ -5,6 +5,8 @@ interface Props {
   frameData: Record<string, StageFrameData>
   running: boolean
   latencyMs: number
+  /** Source label for the flow's input node (e.g. 'MIC' / 'FILE'). */
+  sourceLabel?: string
 }
 
 const HISTORY_MAX = 300 // ~10 s at 30 fps
@@ -21,9 +23,10 @@ const STAGE_COLORS: Record<string, string> = {
   aec: '#818cf8', // indigo-400
   bss: '#a78bfa', // violet-400
   ns: '#38bdf8', // sky-400
+  kws: '#34d399', // emerald-400
 }
 
-export const PipelineOverview = memo(function PipelineOverview({ frameData, running, latencyMs }: Props) {
+export const PipelineOverview = memo(function PipelineOverview({ frameData, running, latencyMs, sourceLabel }: Props) {
   const historyRef = useRef<HistoryPoint[]>([])
   const scrollCanvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -71,9 +74,9 @@ export const PipelineOverview = memo(function PipelineOverview({ frameData, runn
         )}
       </div>
 
-      {/* Flow diagram */}
+      {/* Flow diagram: source -> AEC -> BSS -> NS -> KWS -> output. */}
       <div className="mb-6 flex items-center justify-center gap-1">
-        <FlowNode label="INPUT" color="#64748b" />
+        <FlowNode label={sourceLabel ?? 'INPUT'} color="#64748b" />
         {STAGES.map((id) => (
           <div key={id} className="flex items-center gap-1">
             <FlowArrow active={running} />
@@ -84,6 +87,8 @@ export const PipelineOverview = memo(function PipelineOverview({ frameData, runn
             />
           </div>
         ))}
+        <FlowArrow active={running} />
+        <FlowNode label="KWS" color={STAGE_COLORS.kws} />
         <FlowArrow active={running} />
         <FlowNode label="OUTPUT" color="#64748b" />
       </div>

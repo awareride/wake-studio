@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { enableKws } from './helpers'
 
 // The openwakeword onnx assets are gitignored (ADR-011) and copied into the
 // module assets dir by hand from the upstream release; in CI they are absent
@@ -49,6 +50,7 @@ test('openwakeword backend loads in the browser (worker registration works)', as
   // wasm; allow generous time for cold load.
   test.setTimeout(180_000)
   await page.goto('/')
+  await enableKws(page)
 
   // The default backend is openwakeword; make sure the select shows it.
   const backendSelect = page.locator('select').filter({
@@ -78,6 +80,8 @@ test('reload after stop re-boots the backend (worker recreate)', async ({ page }
   test.skip(Boolean(SKIP_REASON), SKIP_REASON ?? '')
   test.setTimeout(180_000)
   await page.goto('/')
+
+  await enableKws(page)
 
   const backendSelect = page.locator('select').filter({
     has: page.locator('option[value="openwakeword"]'),

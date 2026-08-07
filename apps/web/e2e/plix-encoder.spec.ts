@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { enableKws } from './helpers'
 
 // The plix onnx assets are gitignored (ADR-011); skip when absent (like the
 // sherpa/openwakeword specs) so CI does not fail on a bare checkout.
@@ -40,6 +41,7 @@ test('plixkws encoder loads in the browser (worker registration works)', async (
   test.skip(Boolean(SKIP_REASON), SKIP_REASON ?? '')
   test.setTimeout(180_000)
   await page.goto('/')
+  await enableKws(page)
 
   // Switch to the plixkws backend.
   const backendSelect = page.locator('select').filter({
@@ -70,6 +72,8 @@ test('switching backend after a load re-boots with the new backend', async ({ pa
   test.skip(Boolean(SKIP_REASON), SKIP_REASON ?? '')
   test.setTimeout(180_000)
   await page.goto('/')
+
+  await enableKws(page)
 
   // Load openwakeword first (default backend) -> ready.
   await page.getByRole('button', { name: /Load models/i }).click()

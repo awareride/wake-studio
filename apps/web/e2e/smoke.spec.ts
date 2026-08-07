@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { enableKws } from './helpers'
 
 /**
  * Console shell + workspace smoke tests (Phase 1).
@@ -78,6 +79,7 @@ test('live workspace panels still render (AFE/KWS)', async ({ page }) => {
   await page.goto('/#/workspace')
 
   // AFE live pipeline.
+  await enableKws(page)
   await expect(page.getByText('Live AFE pipeline')).toBeVisible()
   // KWS detection.
   await expect(page.getByText('KWS detection')).toBeVisible()
@@ -92,6 +94,8 @@ test('live workspace panels still render (AFE/KWS)', async ({ page }) => {
 
 test('KWS panel renders with the pluggable-backend UI (ADR-020)', async ({ page }) => {
   await page.goto('/#/workspace')
+
+  await enableKws(page)
 
   await expect(page.getByText(/pluggable KWS backend/i)).toBeVisible()
 
@@ -114,6 +118,8 @@ test('KWS panel renders with the pluggable-backend UI (ADR-020)', async ({ page 
 
 test('Few-Shot enrollment lives in the KWS panel plixkws branch (Phase 3)', async ({ page }) => {
   await page.goto('/#/workspace')
+
+  await enableKws(page)
 
   // Select the plixkws backend; the KWS panel shows the enrollment controls
   // (encoder variant + runtime + Load PLiX encoder) instead of a dead button.

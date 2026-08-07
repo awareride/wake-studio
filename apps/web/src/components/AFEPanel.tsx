@@ -320,34 +320,6 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
         )}
       </div>
 
-      {/* Pipeline overview (flow + scrolling curve) */}
-      {running && (
-        <div>
-          <PipelineOverview
-            frameData={frameData}
-            running={running}
-            latencyMs={latencyMs}
-          />
-        </div>
-      )}
-
-      {/* Per-stage panels - items-stretch keeps the three cards equal height
-          (NS has extra VAD + Spectrum rows, so without stretching it would
-          exceed AEC/BSS and break the row alignment). */}
-      {running && (
-        <div className="grid gap-4 sm:grid-cols-3 items-stretch">
-          {(['aec', 'bss', 'ns'] as const).map((id) => (
-            <StagePanel
-              key={id}
-              id={id}
-              data={frameData[id]}
-              isBypassed={bypass[id]}
-              onToggleBypass={toggleBypass}
-            />
-          ))}
-        </div>
-      )}
-
       {/* Per-stage persistence (epic #53 P5) - replaces the old 10 s
           RecordReplay card. Config (Step D) + capture + replay list. */}
       <div className="mt-4">
@@ -371,6 +343,8 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
           params={params}
           values={{
             vizFps,
+            topology: projCfg?.topology ?? 'single-worklet',
+            latencyBudgetMs: projCfg?.latencyBudgetMs ?? 150,
             'bypass.aec': bypass.aec,
             'bypass.bss': bypass.bss,
             'bypass.ns': bypass.ns,
@@ -381,6 +355,14 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
               setVizFps(n)
               afeRef.current?.setConfig({ vizFps: n })
               persist({ vizFps: n })
+            } else if (id === 'topology') {
+              const t = v as 'single-worklet' | 'node-per-stage'
+              afeRef.current?.setConfig({ topology: t })
+              persist({ topology: t })
+            } else if (id === 'latencyBudgetMs') {
+              const n = Number(v)
+              afeRef.current?.setConfig({ latencyBudgetMs: n })
+              persist({ latencyBudgetMs: n })
             } else if (id.startsWith('bypass.')) {
               const stageId = id.slice('bypass.'.length) as 'aec' | 'bss' | 'ns'
               toggleBypass(stageId)
@@ -395,6 +377,35 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
           panel is built incrementally per phase.
         </p>
       </div>
+      {/* Phase 2 — Preview (epic #53 P7): effects after Start, grouped after
+          the config sections (plan §8.2). */}
+      {running && (
+        <>
+          <div className="flex items-center gap-2 pt-2">
+            <span className="rounded bg-surface-4 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
+              Phase 2 · Preview
+            </span>
+          </div>
+          <PipelineOverview
+            frameData={frameData}
+            running={running}
+            latencyMs={latencyMs}
+            sourceLabel={sourceKind === 'file' ? 'FILE' : 'MIC'}
+          />
+          <div className="grid gap-4 sm:grid-cols-3 items-stretch">
+            {(['aec', 'bss', 'ns'] as const).map((id) => (
+              <StagePanel
+                key={id}
+                id={id}
+                data={frameData[id]}
+                isBypassed={bypass[id]}
+                onToggleBypass={toggleBypass}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
     </section>
   )
 }
