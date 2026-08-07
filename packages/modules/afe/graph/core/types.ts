@@ -32,6 +32,38 @@ export interface AFEConfig {
   vizFps: number
 }
 
+/**
+ * Microphone source options for {@link AFEPipeline.start} (epic #53 P2).
+ * Browser DSP toggles are surfaced per-device in the input-source selector;
+ * defaults keep the current behavior (browser DSP off — our RNNoise is the
+ * only NS; default device).
+ */
+export interface MicSourceConfig {
+  /** Preferred input device id (default device when omitted). */
+  deviceId?: string
+  echoCancellation?: boolean
+  noiseSuppression?: boolean
+  autoGainControl?: boolean
+  channelCount?: 1 | 2
+}
+
+/**
+ * File source config for {@link AFEPipeline.start} (epic #53 P3). The host
+ * (web app) decodes the files and builds one AudioBufferSourceNode per active
+ * channel, mixing them (mono) before handing the nodes here; the pipeline just
+ * wires them into the worklet. `dispose` stops all sources when the pipeline
+ * stops.
+ */
+export interface FileSourceConfig {
+  /** One source node per active channel (already mixed to mono if > 1). */
+  nodes: AudioNode[]
+  /** Stop / release the file sources (called on AFE stop). */
+  dispose: () => void
+}
+
+/** Union of accepted pipeline input sources (mic or file). */
+export type PipelineSource = MicSourceConfig | FileSourceConfig
+
 /** Descriptor for one tunable parameter, used to build the Studio config panel
  *  (ADR-017). Every module exposes its parameters this way. */
 export interface ParameterDescriptor {
@@ -116,6 +148,19 @@ export type WorkletMessage =
   | { type: 'frame'; frames: StageFrameData[] }
   | { type: 'output'; samples: Float32Array; capturedAtMs: number; vad: number }
   | { type: 'recorded'; raw: Float32Array; processed: Float32Array; sampleRate: number }
+  | {
+      /**
+       * A chunk of the persistent per-stage capture (epic #53 P5). Sent
+       * repeatedly while `persist` recording is active; the main thread
+       * appends it to the clip buffer. `stage` identifies raw / processed
+       * (NS), matching the workspace persistence stages.
+       */
+      type: 'record-chunk'
+      stage: 'raw' | 'processed'
+      samples: Float32Array
+      sampleRate: number
+    }
+  | { type: 'record-end' }
   | { type: 'error'; message: string }
 
 /** Messages sent from the main thread to the worklet. */
@@ -126,7 +171,15 @@ export type MainMessage =
       vizFps: number
     }
   | { type: 'absource'; source: 'raw' | 'processed' }
-  | { type: 'record'; seconds: number }
+  | {
+      type: 'record'
+      seconds: number
+      /**
+       * When true, stream chunks via `record-chunk` instead of the one-shot
+       * `recorded` promise (epic #53 P5 persistent capture).
+       */
+      persist?: boolean
+    }
   | { type: 'stop' }
 
 // ---------------------------------------------------------------------------

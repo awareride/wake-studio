@@ -1,54 +1,100 @@
 /**
- * Workspace view (Phase 2) - project bar + pipeline canvas + panels.
+ * Workspace view (epic #53) - project bar + component-selection pipeline
+ * canvas + unified run control + live panels.
  *
- * Layout:
- *   1. Project bar (select / create active project)
- *   2. Pipeline canvas (AEC -> BSS -> NS -> KWS) with shared run/stop
- *   3. Panels: live DSP (AFE / KWS / Few-Shot). (The former "Modules" tab
- *      was removed with its static PipelineView / Domains explainers, and the
- *      Training placeholder was removed until real backend wiring lands -
- *      see git history.)
- *
- * Config panels are rendered through the unified (module-kit driven) config
- * panel where the descriptors exist (read-side unification); writes still go
- * through the existing setConfig paths.
- *
- * NOTE: AFE/KWS engine internals are out of scope for the console refactor
- * (human decision 2026-08-05) - the live DSP path is untouched here.
+ * P4: the top canvas owns component selection (AFE + stages + KWS) and a
+ * single Start/Stop that drives the whole pipeline through usePipelineRunner
+ * (AFE first, then auto-load + auto-start KWS when enabled + preload ON).
+ * The KWS panel keeps its Load/Reload + EP label + Stop detection (e2e).
  */
 
 import * as React from 'react'
 import { AFEPanel } from '../components/AFEPanel'
 import { KWSPanel } from '../components/KWSPanel'
 import { ProjectBar } from '../components/ProjectBar'
-import { PipelineCanvas } from '../components/PipelineCanvas'
+import {
+  PipelineCanvas,
+  type ComponentSelection,
+} from '../components/PipelineCanvas'
 import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import { useConsoleStatus } from '../status'
-import { useProjects } from '../projects'
+import { useProjects, useProjectStageConfig } from '../projects'
+import { usePipelineRunner, type PanelCommands } from '../workspace/usePipelineRunner'
+import { useToast } from '../components/toast'
 
 export function WorkspaceView() {
   const afeRef = React.useRef<AFEPipeline | null>(null)
-  const afeCommandRef = React.useRef<{ start: () => void; stop: () => void } | null>(null)
-  const [afeRunning, setAfeRunning] = React.useState(false)
+  // Mirrors afeRef.current in state so children (KWSPanel) re-render when the
+  // pipeline instance is created (ref changes alone don't trigger renders).
+  const [afePipeline, setAfePipeline] = React.useState<AFEPipeline | null>(null)
+  const afeCommandRef = React.useRef<PanelCommands | null>(null)
+  const kwsCommandRef = React.useRef<PanelCommands | null>(null)
   const { setStatus } = useConsoleStatus()
   const { current } = useProjects()
+  const { toast } = useToast()
+
+  // Component selection + KWS preload persisted in the workspace snapshot.
+  const { projectConfig: wsCfg, persist: persistWs } = useProjectStageConfig('workspace')
+  const [selection, setSelection] = React.useState<ComponentSelection>(() => ({
+    afe: wsCfg?.enabled?.afe ?? true,
+    afeStages: {
+      aec: wsCfg?.enabled?.afeStages?.aec ?? true,
+      bss: wsCfg?.enabled?.afeStages?.bss ?? true,
+      ns: wsCfg?.enabled?.afeStages?.ns ?? false,
+    },
+    kws: wsCfg?.enabled?.kws ?? false,
+  }))
+  const [kwsPreloadOnStart, setKwsPreloadOnStart] = React.useState(
+    wsCfg?.kwsPreloadOnStart ?? true,
+  )
+
+  const updateSelection = React.useCallback(
+    (next: ComponentSelection) => {
+      setSelection(next)
+      persistWs({ enabled: next })
+    },
+    [persistWs],
+  )
+
+  // Source label for the canvas (from the workspace snapshot source).
+  const sourceLabel = React.useMemo(() => {
+    const s = wsCfg?.source
+    if (s?.kind === 'file') {
+      return `Files (${s.files.length})`
+    }
+    if (s?.kind === 'mic' && s.mic.deviceId) {
+      return 'Mic · selected'
+    }
+    return 'Mic · default'
+  }, [wsCfg])
+
+  const { state, start, stop } = usePipelineRunner(
+    afeCommandRef,
+    kwsCommandRef,
+    { kwsEnabled: selection.kws, kwsPreloadOnStart },
+  )
 
   const handleStart = React.useCallback(() => {
-    afeCommandRef.current?.start()
-  }, [])
+    void start().then(() => {
+      if (state.error) {
+        toast({ title: 'Pipeline start failed', description: state.error, variant: 'error' })
+      }
+    })
+  }, [start, state.error, toast])
 
   const handleStop = React.useCallback(() => {
-    afeCommandRef.current?.stop()
-  }, [])
+    stop()
+  }, [stop])
 
-  // Publish global status when AFE state changes.
-  React.useEffect(() => {
-    setStatus({
-      mic: afeRunning ? 'active' : 'idle',
-      worker: afeRunning ? 'running' : null,
-      detection: afeRunning ? 'running' : 'stopped',
-    })
-  }, [afeRunning, setStatus])
+  const runState = {
+    phase: state.phase,
+    afeRunning: state.afeRunning,
+    kwsRunning: state.kwsRunning,
+    kwsReady: state.kwsReady,
+    kwsLoading: state.kwsLoading,
+    error: state.error,
+    sourceLabel,
+  }
 
   return (
     <div className="space-y-6">
@@ -64,28 +110,49 @@ export function WorkspaceView() {
       <ProjectBar />
 
       <PipelineCanvas
-        afeRunning={afeRunning}
+        selection={selection}
+        onSelectionChange={updateSelection}
+        runState={runState}
         onStart={handleStart}
         onStop={handleStop}
         status={useConsoleStatus().status}
       />
 
-      {/* Live DSP panels. Training lands here when its backend wiring is real
-          (currently a no-op stub - see packages/modules/training). Few-Shot
-          enrollment lives inside the KWS panel's plixkws branch. */}
+      {/* KWS preload toggle (confirmed decision §11.2). */}
+      {selection.kws && (
+        <label className="flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm">
+          <input
+            type="checkbox"
+            checked={kwsPreloadOnStart}
+            onChange={(e) => {
+              setKwsPreloadOnStart(e.target.checked)
+              persistWs({ kwsPreloadOnStart: e.target.checked })
+            }}
+            className="h-3.5 w-3.5 rounded accent-brand-500"
+          />
+          <span className="text-ink-2">Preload KWS models on Start</span>
+          <span className="text-xs text-ink-3">
+            (off = Start runs AFE only until you load models manually)
+          </span>
+        </label>
+      )}
+
+      {/* Live DSP panels */}
       <div className="space-y-8">
-        {/* key={current?.id} remounts the panels when the project changes
-            so their config re-seeds from the new project's snapshot. */}
         <AFEPanel
           key={`afe-${current?.id ?? 'none'}`}
           afeRef={afeRef}
-          onRunningChange={setAfeRunning}
+          onRunningChange={(r) => {
+            setAfePipeline(afeRef.current)
+            setStatus({ mic: r ? 'active' : 'idle' })
+          }}
           commandRef={afeCommandRef}
         />
         <KWSPanel
           key={`kws-${current?.id ?? 'none'}`}
-          afePipeline={afeRef.current}
-          afeRunning={afeRunning}
+          afePipeline={afePipeline}
+          afeRunning={state.afeRunning}
+          commandRef={kwsCommandRef}
         />
       </div>
 

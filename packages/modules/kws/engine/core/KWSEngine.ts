@@ -169,6 +169,9 @@ export class KWSEngine {
         backend: this._config.backend,
         models,
         prototype: prototype ? Array.from(prototype) : undefined,
+        // Pass the driver backend config into the worker (e.g. plixkws
+        // windowMs / useNegativePrototype, epic #53 P1).
+        backendConfig,
       })
     })
   }

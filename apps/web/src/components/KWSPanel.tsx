@@ -13,7 +13,9 @@
  */
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { MutableRefObject } from 'react'
 import type { AFEPipeline } from '@wake-studio/module-afe-graph'
+import type { PanelCommands } from '../workspace/usePipelineRunner'
 import {
   KWSEngine,
   DEFAULT_CONFIG,
@@ -32,6 +34,7 @@ import type { ParameterDescriptor } from '@wake-studio/module-afe-graph'
 import { loadRegistry, type ModelRegistry } from '@wake-studio/platform'
 import type { ModuleSpec, ModuleParam } from '@wake-studio/contracts'
 import { UnifiedConfigPanel, type ParamValue } from './UnifiedConfigPanel'
+import { drawScoreCurve } from './viz/ScoreCurve'
 import { useProjectStageConfig } from '../projects'
 import { useAppSettings } from '../settings/context'
 import { loadModuleSettings, saveModuleSettings } from '../settings/storage'
@@ -42,6 +45,7 @@ import { logTrigger, logInfo, logError } from '../log'
 import {
   FewShotEngine,
   DEFAULT_CONFIG as FS_DEFAULTS,
+  describeParameters as fewShotDescribeParameters,
 } from '@wake-studio/module-few-shot'
 import type { EnrolledSample, WakeWordPrototype } from '@wake-studio/module-few-shot'
 import { recorderWorkletUrl as recorderUrl } from '@wake-studio/module-few-shot/web'
@@ -102,6 +106,12 @@ const ENGINE_RESOURCES: Record<string, EngineResource[]> = {
 interface Props {
   afePipeline: AFEPipeline | null
   afeRunning: boolean
+  /**
+   * Optional: external control (workspace pipeline runner) to load / start /
+   * stop detection (epic #53 P4). getState lets the runner read the current
+   * KWS status without owning the state.
+   */
+  commandRef?: MutableRefObject<PanelCommands | null>
 }
 
 /**
@@ -248,6 +258,7 @@ const FEWSHOT_MODEL_ROLES: ModelSourceRole[] = [
 export const KWSPanel = memo(function KWSPanel({
   afePipeline,
   afeRunning,
+  commandRef,
 }: Props) {
   const engineRef = useRef<KWSEngine | null>(null)
   const [status, setStatus] = useState<KWSStatus>('idle')
@@ -274,7 +285,7 @@ export const KWSPanel = memo(function KWSPanel({
   const [building, setBuilding] = useState(false)
   const [prototype, setPrototype] = useState<WakeWordPrototype | null>(null)
   const [detecting, setDetecting] = useState(false)
-  const { projectConfig: fsProjCfg } = useProjectStageConfig('fewShot')
+  const { projectConfig: fsProjCfg, persist: persistFs } = useProjectStageConfig('fewShot')
   const [fsConfig, setFsConfig] = useState<{
     threshold: number
     minDurationMs: number
@@ -754,7 +765,14 @@ export const KWSPanel = memo(function KWSPanel({
       engineRef.current = fresh
       fresh.setConfig({ ...DEFAULT_CONFIG, backend: 'plixkws' })
       const { url, runtime } = resolvePlixLocator()
-      await fresh.load({ plixkws: url, runtime }, proto.vector)
+      await fresh.load(
+        { plixkws: url, runtime },
+        proto.vector,
+        // Few-Shot detection params from the config panel (epic #53 P1):
+        // windowMs + useNegativePrototype reach the plix backend via the
+        // worker load message -> initWithPrototype opts.
+        { windowMs: fsConfig.windowMs, useNegative: fsConfig.useNegativePrototype },
+      )
       fresh.start({ onOutput: (cb) => afePipeline.onOutput(cb) })
       setDetecting(true)
       setStatus('running')
@@ -762,7 +780,7 @@ export const KWSPanel = memo(function KWSPanel({
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
     }
-  }, [afePipeline, afeRunning, prototype, resolvePlixLocator])
+  }, [afePipeline, afeRunning, prototype, resolvePlixLocator, fsConfig.windowMs, fsConfig.useNegativePrototype])
 
   const handleStopPlix = useCallback(() => {
     engineRef.current?.stop()
@@ -788,6 +806,20 @@ export const KWSPanel = memo(function KWSPanel({
     setRunning(false)
     historyRef.current = []
   }, [])
+
+  // Expose load/start/stop to the workspace pipeline runner via commandRef
+  // (epic #53 P4). The runner drives the unified Start/Stop; the panel keeps
+  // its own Load/Reload buttons.
+  useEffect(() => {
+    if (commandRef) {
+      commandRef.current = {
+        load: handleLoad,
+        start: handleStart,
+        stop: handleStop,
+        getState: () => ({ status, running, isFewShot }),
+      }
+    }
+  }, [commandRef, handleLoad, handleStart, handleStop, status, running, isFewShot])
 
   const updateConfig = useCallback((patch: Partial<KWSConfig>) => {
     setConfig((prev) => {
@@ -1335,17 +1367,24 @@ export const KWSPanel = memo(function KWSPanel({
           {prototype && (
             <UnifiedConfigPanel
               title="Few-Shot detection parameters"
-              subtitle="Rendered from describeParameters() via module-kit controls."
-              params={describeParameters()}
+              subtitle="Rendered from the few-shot module's describeParameters() via module-kit controls."
+              params={fewShotDescribeParameters()}
               values={fsConfig as unknown as Record<string, ParamValue>}
-              onParamChange={(id, v) =>
-                setFsConfig((prev) => ({ ...prev, [id]: v }))
-              }
+              onParamChange={(id, v) => {
+                setFsConfig((prev) => {
+                  const next = { ...prev, [id]: v }
+                  // Persist the few-shot detection params to the project
+                  // snapshot (#53 P1) so a project switch does not lose them.
+                  persistFs(next as Partial<typeof FS_DEFAULTS>)
+                  return next
+                })
+              }}
               advancedIds={[
                 'smoothingWindowFrames',
                 'windowMs',
                 'vadGateEnabled',
                 'vadThreshold',
+                'hopMs',
                 'useNegativePrototype',
               ]}
               disabled={detecting}
@@ -1438,62 +1477,3 @@ export const KWSPanel = memo(function KWSPanel({
     </section>
   )
 })
-
-/** Draw the scrolling score curve with threshold line. */
-function drawScoreCurve(
-  ctx: CanvasRenderingContext2D,
-  canvas: HTMLCanvasElement,
-  history: KWSScoreSample[],
-  threshold: number,
-): void {
-  const w = canvas.width
-  const h = canvas.height
-  ctx.clearRect(0, 0, w, h)
-
-  // Threshold line.
-  ctx.strokeStyle = 'rgba(251,191,36,0.4)'
-  ctx.lineWidth = 1
-  ctx.setLineDash([4, 4])
-  ctx.beginPath()
-  const ty = h - threshold * h
-  ctx.moveTo(0, ty)
-  ctx.lineTo(w, ty)
-  ctx.stroke()
-  ctx.setLineDash([])
-
-  if (history.length < 2) return
-
-  const xStep = w / (HISTORY_MAX - 1)
-
-  // Raw score (faint).
-  ctx.strokeStyle = 'rgba(129,140,248,0.4)'
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  for (let i = 0; i < history.length; i++) {
-    const x = i * xStep
-    const y = h - history[i].rawScore * h
-    if (i === 0) ctx.moveTo(x, y)
-    else ctx.lineTo(x, y)
-  }
-  ctx.stroke()
-
-  // Smoothed score (bright).
-  ctx.strokeStyle = '#38bdf8'
-  ctx.lineWidth = 1.5
-  ctx.beginPath()
-  for (let i = 0; i < history.length; i++) {
-    const x = i * xStep
-    const y = h - history[i].smoothedScore * h
-    if (i === 0) ctx.moveTo(x, y)
-    else ctx.lineTo(x, y)
-  }
-  ctx.stroke()
-
-  // Highlight triggered regions.
-  ctx.fillStyle = 'rgba(52,211,153,0.1)'
-  for (let i = 0; i < history.length; i++) {
-    if (history[i].triggered) {
-      ctx.fillRect(i * xStep, 0, xStep + 1, h)
-    }
-  }
-}

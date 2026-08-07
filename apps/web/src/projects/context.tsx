@@ -12,6 +12,7 @@ import { DEFAULT_PROJECT_NAME } from './types'
 import { DEFAULT_CONFIG as AFE_DEFAULTS } from '@wake-studio/module-afe-graph'
 import { DEFAULT_CONFIG as KWS_DEFAULTS } from '@wake-studio/module-kws-engine'
 import { DEFAULT_CONFIG as FS_DEFAULTS } from '@wake-studio/module-few-shot'
+import { DEFAULT_WORKSPACE_CONFIG } from '../workspace/types'
 import { listProjects, saveProject } from './store'
 
 const LAST_PROJECT_KEY = 'wake-studio:last-project'
@@ -26,6 +27,7 @@ export function defaultConfigSnapshot(): ProjectConfigSnapshot {
     afe: { ...AFE_DEFAULTS },
     kws: { ...KWS_DEFAULTS },
     fewShot: { ...FS_DEFAULTS },
+    workspace: { ...DEFAULT_WORKSPACE_CONFIG },
   }
 }
 

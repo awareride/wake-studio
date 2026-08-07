@@ -9,6 +9,9 @@
 import type {
   AFEConfig,
   AFEOutputFrame,
+  FileSourceConfig,
+  MicSourceConfig,
+  PipelineSource,
   RecordedClip,
   StageFrameData,
   StageState,
@@ -31,6 +34,10 @@ export class AFEPipeline {
   private _node: AudioWorkletNode | null = null
   private _stream: MediaStream | null = null
   private _source: MediaStreamAudioSourceNode | null = null
+  /** File-source nodes wired into the worklet (epic #53 P3). */
+  private _fileNodes: AudioNode[] = []
+  /** File-source dispose callback (stops the scheduler). */
+  private _fileDispose: (() => void) | null = null
 
   private _config: AFEConfig = { ...DEFAULT_CONFIG }
   private _bypass = { aec: true, bss: true, ns: false }
@@ -43,6 +50,12 @@ export class AFEPipeline {
   // Recording promise resolver.
   private _recordResolver: ((clip: RecordedClip) => void) | null = null
   private _recordSeconds = 0
+
+  // Persistent per-stage capture (epic #53 P5).
+  private _chunkCallbacks = new Set<
+    (stage: 'raw' | 'processed', samples: Float32Array, sampleRate: number) => void
+  >()
+  private _persistEndCallbacks = new Set<() => void>()
 
   // ---- public readonly state ----
 
@@ -73,7 +86,7 @@ export class AFEPipeline {
 
   // ---- lifecycle ----
 
-  async start(): Promise<void> {
+  async start(source?: PipelineSource): Promise<void> {
     if (this._running) return
 
     // Feature detection.
@@ -84,18 +97,33 @@ export class AFEPipeline {
       throw new UnsupportedBrowserError()
     }
 
-    // Request microphone (browser DSP disabled so ours is the only processing).
-    try {
-      this._stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          channelCount: this._config.channels,
-        },
-      })
-    } catch {
-      throw new MicPermissionError()
+    const fileSource = (source as FileSourceConfig | undefined)?.nodes
+      ? (source as FileSourceConfig)
+      : null
+
+    if (fileSource) {
+      // File source (epic #53 P3): the host already decoded + scheduled the
+      // files; we just remember the nodes + dispose callback.
+      this._fileNodes = fileSource.nodes
+      this._fileDispose = fileSource.dispose
+    } else {
+      const micSource = source as MicSourceConfig | undefined
+      // Request microphone. Browser DSP toggles + device come from the source
+      // config (epic #53 P2); defaults keep the current behavior (browser DSP
+      // off so ours is the only processing, default device).
+      try {
+        this._stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            deviceId: micSource?.deviceId ? { exact: micSource.deviceId } : undefined,
+            echoCancellation: micSource?.echoCancellation ?? false,
+            noiseSuppression: micSource?.noiseSuppression ?? false,
+            autoGainControl: micSource?.autoGainControl ?? false,
+            channelCount: micSource?.channelCount ?? this._config.channels,
+          },
+        })
+      } catch {
+        throw new MicPermissionError()
+      }
     }
 
     // Create AudioContext at 48 kHz (RNNoise-native, ADR-016).
@@ -108,9 +136,16 @@ export class AFEPipeline {
     await this._ctx.audioWorklet.addModule(workletUrl)
 
     // Wire the audio graph.
-    this._source = this._ctx.createMediaStreamSource(this._stream)
     this._node = new AudioWorkletNode(this._ctx, 'pipeline-processor')
-    this._source.connect(this._node)
+    if (fileSource) {
+      // File source: connect each scheduled node into the worklet.
+      for (const node of this._fileNodes) {
+        node.connect(this._node)
+      }
+    } else {
+      this._source = this._ctx.createMediaStreamSource(this._stream!)
+      this._source.connect(this._node)
+    }
     // Connect to destination so the user can monitor the processed audio.
     this._node.connect(this._ctx.destination)
 
@@ -133,6 +168,17 @@ export class AFEPipeline {
     this._node?.disconnect()
     this._source?.disconnect()
     this._stream?.getTracks().forEach((t) => t.stop())
+    // Stop + release file sources (epic #53 P3).
+    this._fileDispose?.()
+    this._fileDispose = null
+    for (const n of this._fileNodes) {
+      try {
+        n.disconnect()
+      } catch {
+        // Already stopped.
+      }
+    }
+    this._fileNodes = []
     this._ctx?.close()
 
     this._node = null
@@ -167,6 +213,24 @@ export class AFEPipeline {
     return () => this._outputCallbacks.delete(cb)
   }
 
+  /**
+   * Subscribe to persistent per-stage capture chunks (epic #53 P5). The
+   * worklet streams `raw` (input) and `processed` (NS output) slices while
+   * recordPersistent is active.
+   */
+  onRecordChunk(
+    cb: (stage: 'raw' | 'processed', samples: Float32Array, sampleRate: number) => void,
+  ): () => void {
+    this._chunkCallbacks.add(cb)
+    return () => this._chunkCallbacks.delete(cb)
+  }
+
+  /** Subscribe to the end of a persistent capture window. */
+  onRecordEnd(cb: () => void): () => void {
+    this._persistEndCallbacks.add(cb)
+    return () => this._persistEndCallbacks.delete(cb)
+  }
+
   // ---- A/B + record ----
 
   setABSource(source: 'raw' | 'processed'): void {
@@ -182,6 +246,19 @@ export class AFEPipeline {
     return new Promise<RecordedClip>((resolve) => {
       this._recordResolver = resolve
     })
+  }
+
+  /**
+   * Start persistent per-stage capture (epic #53 P5): the worklet streams
+   * raw/processed chunks until `seconds` elapses or stop() is called. Use
+   * onRecordChunk / onRecordEnd to consume the stream.
+   */
+  recordPersistent(seconds: number): void {
+    if (!this._running || !this._node) {
+      throw new Error('Pipeline is not running.')
+    }
+    this._recordSeconds = seconds
+    this._send({ type: 'record', seconds, persist: true })
   }
 
   // ---- config panel (ADR-017) ----
@@ -253,6 +330,16 @@ export class AFEPipeline {
           })
           this._recordResolver = null
         }
+        break
+
+      case 'record-chunk':
+        this._chunkCallbacks.forEach((cb) =>
+          cb(msg.stage, msg.samples, msg.sampleRate),
+        )
+        break
+
+      case 'record-end':
+        this._persistEndCallbacks.forEach((cb) => cb())
         break
     }
   }

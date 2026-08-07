@@ -25,7 +25,12 @@ import { BssStage } from '@wake-studio/module-afe-bss'
 import { loadRnnoiseStage } from '@wake-studio/module-rnnoise/web/loader'
 
 import type { MainMessage, StageFrameData, WorkletMessage } from '../core/types'
-import { CIRCULAR_BUFFER_SIZE, INTERNAL_SAMPLE_RATE, RNNOISE_FRAME_SIZE } from '../core/defaults'
+import {
+  CIRCULAR_BUFFER_SIZE,
+  INTERNAL_SAMPLE_RATE,
+  QUANTUM_SIZE,
+  RNNOISE_FRAME_SIZE,
+} from '../core/defaults'
 import { SpectrogramHistory } from '../core/spectrogram-history'
 import {
   downsample48to16,
@@ -68,6 +73,11 @@ class PipelineProcessor extends AudioWorkletProcessor {
   private _rawRecord: Float32Array | null = null
   private _processedRecord: Float32Array | null = null
   private _recordOffset = 0
+  /** Persistent capture streams chunks (epic #53 P5). */
+  private _persistMode = false
+  /** Chunk accumulators for streaming (flushed every ~10 ms). */
+  private _rawChunkAccum: Float32Array[] = []
+  private _processedChunkAccum: Float32Array[] = []
 
   // Last denoised NS frame (always available for viz, even during buffer wrap-around).
   private _lastNsFrame = new Float32Array(RNNOISE_FRAME_SIZE)
@@ -105,12 +115,21 @@ class PipelineProcessor extends AudioWorkletProcessor {
         this._abSource = msg.source
         break
       case 'record': {
+        const persist = msg.persist === true
         const total = Math.floor(msg.seconds * sampleRate)
-        this._rawRecord = new Float32Array(total)
-        this._processedRecord = new Float32Array(total)
+        this._persistMode = persist
+        // Persist mode streams chunks and never materializes the one-shot
+        // arrays — a long "until stop" capture (e.g. 3600 s) would otherwise
+        // allocate ~1.4 GB for raw + processed (epic #53 P5).
+        if (!persist) {
+          this._rawRecord = new Float32Array(total)
+          this._processedRecord = new Float32Array(total)
+        }
         this._recordRemaining = total
         this._recordOffset = 0
         this._recording = true
+        this._rawChunkAccum = []
+        this._processedChunkAccum = []
         break
       }
       case 'stop':
@@ -121,6 +140,20 @@ class PipelineProcessor extends AudioWorkletProcessor {
 
   private _post(msg: WorkletMessage): void {
     this.port.postMessage(msg)
+  }
+
+  /** Concatenate the accumulated chunk slices and post them (epic #53 P5). */
+  private _flushChunks(): void {
+    if (this._rawChunkAccum.length > 0) {
+      const raw = concatFloat32(this._rawChunkAccum)
+      this._post({ type: 'record-chunk', stage: 'raw', samples: raw, sampleRate })
+      this._rawChunkAccum = []
+    }
+    if (this._processedChunkAccum.length > 0) {
+      const proc = concatFloat32(this._processedChunkAccum)
+      this._post({ type: 'record-chunk', stage: 'processed', samples: proc, sampleRate })
+      this._processedChunkAccum = []
+    }
   }
 
   process(inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
@@ -196,22 +229,44 @@ class PipelineProcessor extends AudioWorkletProcessor {
     }
 
     // --- 3b. Recording: capture raw + processed ---
-    if (this._recording && this._rawRecord && this._processedRecord) {
+    if (this._recording && (this._persistMode || (this._rawRecord && this._processedRecord))) {
       const n = Math.min(inData.length, this._recordRemaining)
-      this._rawRecord.set(inData.subarray(0, n), this._recordOffset)
-      this._processedRecord.set(outData.subarray(0, n), this._recordOffset)
+      if (this._persistMode) {
+        // Stream chunks (epic #53 P5): push raw + processed slices every
+        // ~4 quanta (~10 ms) to keep the main thread warm.
+        this._rawChunkAccum.push(inData.subarray(0, n))
+        this._processedChunkAccum.push(outData.subarray(0, n))
+        if (this._recordOffset % (QUANTUM_SIZE * 4) === 0) {
+          this._flushChunks()
+        }
+      } else {
+        const raw = this._rawRecord!
+        const processed = this._processedRecord!
+        raw.set(inData.subarray(0, n), this._recordOffset)
+        processed.set(outData.subarray(0, n), this._recordOffset)
+      }
       this._recordOffset += n
       this._recordRemaining -= n
+
       if (this._recordRemaining <= 0) {
         this._recording = false
-        this._post({
-          type: 'recorded',
-          raw: this._rawRecord,
-          processed: this._processedRecord,
-          sampleRate,
-        })
+        if (this._persistMode) {
+          this._flushChunks()
+          this._post({ type: 'record-end' })
+        } else {
+          const raw = this._rawRecord!
+          const processed = this._processedRecord!
+          this._post({
+            type: 'recorded',
+            raw,
+            processed,
+            sampleRate,
+          })
+        }
         this._rawRecord = null
         this._processedRecord = null
+        this._rawChunkAccum = []
+        this._processedChunkAccum = []
       }
     }
 
@@ -304,6 +359,19 @@ class PipelineProcessor extends AudioWorkletProcessor {
 
     this._post({ type: 'frame', frames })
   }
+}
+
+/** Concatenate Float32Array chunks into one buffer (epic #53 P5). */
+function concatFloat32(chunks: Float32Array[]): Float32Array {
+  let len = 0
+  for (const c of chunks) len += c.length
+  const out = new Float32Array(len)
+  let off = 0
+  for (const c of chunks) {
+    out.set(c, off)
+    off += c.length
+  }
+  return out
 }
 
 registerProcessor(PROCESSOR_NAME, PipelineProcessor)

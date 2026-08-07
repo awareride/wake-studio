@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
 import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import { AFEPipeline as AFEPipelineClass } from '@wake-studio/module-afe-graph'
@@ -8,25 +8,127 @@ import { UnifiedConfigPanel } from './UnifiedConfigPanel'
 import { useProjectStageConfig } from '../projects'
 import { logInfo, logError } from '../log'
 import { PipelineOverview } from './PipelineOverview'
-import { RecordReplay } from './RecordReplay'
-import { WebGLSpectrogram } from './spectrogram/WebGLSpectrogram'
+import { PersistencePanel } from './PersistencePanel'
+import { StagePanel } from './viz/StageCard'
+import { SourceSelector } from './SourceSelector'
+import { FileSourcePanel } from './FileSourcePanel'
+import type { MicSourceConfig } from '@wake-studio/module-afe-graph'
+import { FileScheduler } from '../workspace/sources/fileSource'
+import type { FileSourceItem } from '../workspace/types'
+import type { PanelCommands } from '../workspace/usePipelineRunner'
 
 interface AFEPanelProps {
   afeRef: MutableRefObject<AFEPipeline | null>
   onRunningChange: (running: boolean) => void
-  /** Optional: external control (workspace pipeline canvas) to start/stop. */
-  commandRef?: MutableRefObject<{ start: () => void; stop: () => void } | null>
+  /** Optional: external control (workspace pipeline runner) to start/stop. */
+  commandRef?: MutableRefObject<PanelCommands | null>
+}
+
+/** Build a FileScheduler from the selected files (epic #53 P3). Returns null
+ *  when there are no files with a decodable buffer. */
+function buildFileScheduler(files: FileSourceItem[]): FileScheduler | null {
+  const decodable = files.filter((f) => f.buffer)
+  if (decodable.length === 0) return null
+  const ctx = new AudioContext({ sampleRate: 48000 })
+  if (ctx.state === 'suspended') void ctx.resume()
+  const scheduler = new FileScheduler(ctx)
+  for (const f of decodable) {
+    scheduler.addFile(
+      {
+        id: f.name,
+        name: f.name,
+        buffer: f.buffer!,
+        sampleRate: f.sampleRate,
+        durationMs: f.durationMs,
+        channelCount: f.channels.length,
+      },
+      f.channels,
+    )
+  }
+  return scheduler
 }
 
 export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps) {
   const { projectConfig: projCfg, persist } = useProjectStageConfig('afe')
+  // Workspace snapshot holds the per-project stage toggles (epic #53); the
+  // AFE bypass flags mirror them. Falls back to module defaults (AEC/BSS
+  // passthrough, NS active) when no workspace snapshot exists yet.
+  const { projectConfig: wsCfg, persist: persistWs } = useProjectStageConfig('workspace')
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [latencyMs, setLatencyMs] = useState(0)
   const [frameData, setFrameData] = useState<Record<string, StageFrameData>>({})
   // Seed vizFps from the active project's AFE snapshot (falls back to 30).
   const [vizFps, setVizFps] = useState(projCfg?.vizFps ?? 30)
-  const [bypass, setBypass] = useState({ aec: true, bss: true, ns: false })
+  // Seed bypass from the workspace snapshot's AFE stage toggles (falls back
+  // to module defaults). Bypass edits are persisted (#53 P1).
+  const [bypass, setBypass] = useState(() => ({
+    aec: wsCfg?.enabled?.afeStages?.aec ?? true,
+    bss: wsCfg?.enabled?.afeStages?.bss ?? true,
+    ns: wsCfg?.enabled?.afeStages?.ns ?? false,
+  }))
+  // Mic source config (epic #53 P2): seeded from the workspace snapshot's
+  // source (falling back to default mic + browser DSP off), persisted on
+  // change, and passed to AFEPipeline.start(source).
+  const [micSource, setMicSource] = useState<MicSourceConfig>(() => {
+    const s = wsCfg?.source
+    if (s?.kind === 'mic') {
+      return {
+        deviceId: s.mic.deviceId,
+        echoCancellation: s.mic.echoCancellation ?? false,
+        noiseSuppression: s.mic.noiseSuppression ?? false,
+        autoGainControl: s.mic.autoGainControl ?? false,
+        channelCount: s.mic.channelCount ?? (projCfg?.channels ?? 1),
+      }
+    }
+    return {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      channelCount: projCfg?.channels ?? 1,
+    }
+  })
+
+  const updateMicSource = useCallback(
+    (next: MicSourceConfig) => {
+      setMicSource(next)
+      // Persist to the workspace snapshot's source (epic #53 P2).
+      persistWs({
+        source: { kind: 'mic', mic: next },
+      })
+    },
+    [persistWs],
+  )
+
+  // File source (epic #53 P3): selected files + source kind toggle.
+  const [sourceKind, setSourceKind] = useState<'mic' | 'file'>(
+    wsCfg?.source?.kind === 'file' ? 'file' : 'mic',
+  )
+  const [files, setFiles] = useState<FileSourceItem[]>(() =>
+    wsCfg?.source?.kind === 'file'
+      ? (wsCfg.source.files ?? []).map((f) => ({ ...f, buffer: undefined }))
+      : [],
+  )
+
+  const updateSourceKind = useCallback(
+    (kind: 'mic' | 'file') => {
+      setSourceKind(kind)
+      if (kind === 'mic') {
+        persistWs({ source: { kind: 'mic', mic: micSource } })
+      } else {
+        persistWs({ source: { kind: 'file', files } })
+      }
+    },
+    [persistWs, micSource, files],
+  )
+
+  const updateFiles = useCallback(
+    (next: FileSourceItem[]) => {
+      setFiles(next)
+      persistWs({ source: { kind: 'file', files: next } })
+    },
+    [persistWs],
+  )
 
   // Keep a ref to bypass so toggleBypass has a stable identity (for memo).
   const bypassRef = useRef(bypass)
@@ -44,15 +146,35 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
       setFrameData((prev) => ({ ...prev, [f.stageId]: f }))
     })
     try {
-      await p.start()
+      if (sourceKind === 'file') {
+        // Build the file scheduler and hand its output to the pipeline.
+        const scheduler = buildFileScheduler(files)
+        if (!scheduler) {
+          setError('Add at least one audio file first.')
+          return
+        }
+        afeRef.current = new AFEPipelineClass()
+        const p = afeRef.current
+        p.onFrame((f) => {
+          setFrameData((prev) => ({ ...prev, [f.stageId]: f }))
+        })
+        await p.start({ nodes: [scheduler.output], dispose: () => scheduler.dispose() })
+      } else {
+        await p.start(micSource)
+      }
       setRunning(true)
       onRunningChange(true)
-      logInfo('afe', 'Pipeline started (microphone live)')
+      logInfo(
+        'afe',
+        sourceKind === 'file'
+          ? `Pipeline started (file source, ${files.length} file(s))`
+          : 'Pipeline started (microphone live)',
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       logError('afe', err instanceof Error ? err.message : String(err))
     }
-  }, [afeRef, onRunningChange])
+  }, [afeRef, onRunningChange, micSource, sourceKind, files])
 
   const handleStop = useCallback(() => {
     afeRef.current?.stop()
@@ -63,10 +185,10 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
     logInfo('afe', 'Pipeline stopped')
   }, [afeRef, onRunningChange])
 
-  // Expose start/stop to the workspace pipeline canvas via commandRef.
+  // Expose start/stop to the workspace pipeline runner via commandRef.
   useEffect(() => {
     if (commandRef) {
-      commandRef.current = { start: () => void handleStart(), stop: handleStop }
+      commandRef.current = { start: handleStart, stop: handleStop }
     }
   }, [commandRef, handleStart, handleStop])
 
@@ -75,8 +197,17 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
       const newVal = !bypassRef.current[stageId]
       setBypass((prev) => ({ ...prev, [stageId]: newVal }))
       afeRef.current?.setBypassed(stageId, newVal)
+      // Persist the toggle to the workspace snapshot's AFE stage toggles
+      // (#53 P1). The `afe` snapshot has no bypass field (AFEConfig), so the
+      // workspace snapshot is the right home.
+      persistWs({
+        enabled: {
+          ...(wsCfg?.enabled ?? { afe: true, afeStages: { aec: true, bss: true, ns: false }, kws: false }),
+          afeStages: { ...bypassRef.current, [stageId]: newVal },
+        },
+      })
     },
-    [afeRef],
+    [afeRef, persistWs, wsCfg],
   )
 
   // Poll latency while running.
@@ -90,13 +221,19 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
     return () => clearInterval(id)
   }, [running, afeRef])
 
-  // Cleanup on unmount.
+  // Cleanup on unmount. The callback identity is tracked via a ref so the
+  // teardown only runs on a real unmount (project switch remounts the panel
+  // via key), not on every WorkspaceView re-render (onRunningChange is an
+  // inline arrow there — depending on it would stop a freshly started
+  // pipeline on any parent re-render).
+  const onRunningChangeRef = useRef(onRunningChange)
+  onRunningChangeRef.current = onRunningChange
   useEffect(() => {
     return () => {
       afeRef.current?.stop()
-      onRunningChange(false)
+      onRunningChangeRef.current(false)
     }
-  }, [afeRef, onRunningChange])
+  }, [afeRef])
 
   const latencyColor =
     latencyMs > 150
@@ -114,6 +251,41 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
           WASM). AEC3 and BSS are deferred (ADR-016); VAD from RNNoise for v1.
         </p>
       </div>
+
+      {/* Input source (epic #53 P2/P3) - mic device picker or file list. */}
+      {!running && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-1 rounded-lg border border-line bg-surface-2 p-1">
+            <button
+              onClick={() => updateSourceKind('mic')}
+              className={`rounded-md px-3 py-1 text-sm font-medium ${
+                sourceKind === 'mic'
+                  ? 'bg-brand-500 text-ink-1'
+                  : 'text-ink-2 hover:bg-surface-3'
+              }`}
+            >
+              Microphone
+            </button>
+            <button
+              onClick={() => updateSourceKind('file')}
+              className={`rounded-md px-3 py-1 text-sm font-medium ${
+                sourceKind === 'file'
+                  ? 'bg-brand-500 text-ink-1'
+                  : 'text-ink-2 hover:bg-surface-3'
+              }`}
+            >
+              Audio files
+            </button>
+          </div>
+          {sourceKind === 'mic' ? (
+            <SourceSelector value={micSource} onChange={updateMicSource} />
+          ) : (
+            <div className="rounded-xl border border-line bg-surface-2 p-4">
+              <FileSourcePanel files={files} onChange={updateFiles} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Controls */}
       <div className="flex flex-nowrap items-center gap-4 overflow-x-auto rounded-xl border border-line bg-surface-2 p-5">
@@ -176,12 +348,16 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
         </div>
       )}
 
-      {/* Record & replay */}
-      {running && (
-        <div className="mt-4">
-          <RecordReplay pipeline={afeRef.current} running={running} />
-        </div>
-      )}
+      {/* Per-stage persistence (epic #53 P5) - replaces the old 10 s
+          RecordReplay card. Config (Step D) + capture + replay list. */}
+      <div className="mt-4">
+        <PersistencePanel
+          pipeline={afeRef.current}
+          running={running}
+          config={wsCfg?.persistence}
+          onChange={(persistence) => persistWs({ persistence })}
+        />
+      </div>
 
       {/* Config panel (ADR-017) - unified spec-driven rendering. */}
       <div className="mt-6 rounded-xl border border-line bg-surface-2 p-5">
@@ -223,184 +399,4 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
   )
 }
 
-/** Memoized per-stage card. Only re-renders when this stage's data or bypass
- *  changes, not when other stages update (avoids 30fps re-renders of all 3). */
-const StagePanel = memo(function StagePanel({
-  id,
-  data,
-  isBypassed,
-  onToggleBypass,
-}: {
-  id: 'aec' | 'bss' | 'ns'
-  data?: StageFrameData
-  isBypassed: boolean
-  onToggleBypass: (id: 'aec' | 'bss' | 'ns') => void
-}) {
-  return (
-    <div className="flex h-full flex-col rounded-xl border border-line bg-surface-2 p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-semibold uppercase text-brand-300">
-          {id}
-        </span>
-        <button
-          onClick={() => onToggleBypass(id)}
-          className={`rounded px-2 py-0.5 text-[10px] font-medium uppercase ${
-            isBypassed
-              ? 'bg-surface-4 text-ink-2'
-              : 'bg-emerald-500/20 text-emerald-300'
-          }`}
-        >
-          {isBypassed ? 'Bypassed' : 'Active'}
-        </button>
-      </div>
 
-      {/* Waveform - flex-1 absorbs the height difference between stages so
-          the three cards (AEC/BSS/NS) stay equal height. With scheme 1 (info
-          completion) each stage also carries a metric row below, so the extra
-          space is filled with information, not whitespace. */}
-      <div className="mb-3 flex-1">
-        <WaveformCanvas data={data?.waveform} />
-      </div>
-
-      {/* Level - always rendered for stable card height */}
-      <div className="flex items-center gap-2 text-xs whitespace-nowrap">
-        <span className="w-12 shrink-0 text-ink-3">Level</span>
-        <div className="flex-1">
-          <LevelBar db={data?.levelDb ?? -60} />
-        </div>
-        <span className="w-20 shrink-0 text-right font-mono text-ink-2">
-          {data?.levelDb != null ? `${data.levelDb.toFixed(1)} dB` : '-'}
-        </span>
-      </div>
-
-      {/* Stage-specific metric row - one per stage so all three cards share
-          the same information depth (scheme 1). AEC/BSS report placeholder
-          values from the worklet's metrics (passthrough); the real algorithm
-          fills them later without touching this UI. */}
-      {id === 'aec' && (
-        <StageMetricRow
-          label="Echo red."
-          value={data?.metrics?.erleDb}
-          unit="dB"
-          placeholder={isBypassed ? 'passthrough' : '—'}
-        />
-      )}
-      {id === 'bss' && (
-        <StageMetricRow
-          label="Separ."
-          value={data?.metrics?.siSdrDb}
-          unit="dB"
-          placeholder={isBypassed ? 'passthrough' : '—'}
-        />
-      )}
-      {id === 'ns' && (
-        <StageMetricRow
-          label="VAD"
-          value={
-            data?.vadProbability != null
-              ? data.vadProbability * 100
-              : undefined
-          }
-          unit="%"
-          placeholder="—"
-        />
-      )}
-
-      {/* Spectrum - all three stages show their own magnitude spectrum (AEC =
-          raw input, BSS = passthrough, NS = denoised). Same card structure so
-          the three cards stay information-aligned. Rendered with the WebGL
-          Spectro-style renderer (ADR-032). */}
-      <div className="mt-2">
-        <div className="mb-1 text-xs text-ink-3">Spectrum</div>
-        <WebGLSpectrogram data={data?.spectrogram} />
-      </div>
-    </div>
-  )
-})
-
-/** One stage-specific metric row (AEC ERLE / BSS separation / NS VAD). */
-function StageMetricRow({
-  label,
-  value,
-  unit,
-  placeholder,
-}: {
-  label: string
-  value?: number
-  unit: string
-  placeholder: string
-}) {
-  const shown = value != null ? `${value.toFixed(1)} ${unit}` : placeholder
-  return (
-    <div className="mt-2 flex items-center gap-2 text-xs whitespace-nowrap">
-      <span className="w-12 shrink-0 text-ink-3">{label}</span>
-      <div className="flex-1">
-        <div className="h-2 overflow-hidden rounded-full bg-surface-4">
-          <div
-            className="h-full rounded-full bg-sky-400"
-            style={{ width: `${Math.min(100, Math.max(0, value ?? 0))}%` }}
-          />
-        </div>
-      </div>
-      <span className="w-20 shrink-0 text-right font-mono text-ink-2">
-        {shown}
-      </span>
-    </div>
-  )
-}
-
-/** Mini Canvas waveform display. */
-function WaveformCanvas({ data }: { data?: Float32Array }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const w = canvas.width
-    const h = canvas.height
-    ctx.clearRect(0, 0, w, h)
-    ctx.strokeStyle = '#38bdf8'
-    ctx.lineWidth = 1.5
-    ctx.beginPath()
-
-    if (data && data.length > 0) {
-      for (let i = 0; i < data.length; i++) {
-        const x = (i / (data.length - 1)) * w
-        const y = h / 2 - data[i] * (h / 2) * 0.9
-        if (i === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
-      }
-    } else {
-      ctx.moveTo(0, h / 2)
-      ctx.lineTo(w, h / 2)
-    }
-    ctx.stroke()
-  }, [data])
-
-  return (
-    <canvas
-      ref={canvasRef}
-      width={256}
-      height={64}
-      className="h-16 w-full rounded bg-surface-3"
-    />
-  )
-}
-
-/** Level meter (dBFS, -60 to 0). No transition: updates 30fps. */
-function LevelBar({ db }: { db: number }) {
-  const pct = Math.max(0, Math.min(100, ((db + 60) / 60) * 100))
-  const color =
-    db > -6 ? 'bg-red-400' : db > -20 ? 'bg-amber-400' : 'bg-success'
-  return (
-    <div className="h-2 overflow-hidden rounded-full bg-surface-4">
-      <div
-        className={`h-full rounded-full ${color}`}
-        style={{ width: `${pct}%` }}
-      />
-    </div>
-  )
-}
