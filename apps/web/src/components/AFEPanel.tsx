@@ -11,13 +11,40 @@ import { PipelineOverview } from './PipelineOverview'
 import { RecordReplay } from './RecordReplay'
 import { StagePanel } from './viz/StageCard'
 import { SourceSelector } from './SourceSelector'
+import { FileSourcePanel } from './FileSourcePanel'
 import type { MicSourceConfig } from '@wake-studio/module-afe-graph'
+import { FileScheduler } from '../workspace/sources/fileSource'
+import type { FileSourceItem } from '../workspace/types'
 
 interface AFEPanelProps {
   afeRef: MutableRefObject<AFEPipeline | null>
   onRunningChange: (running: boolean) => void
   /** Optional: external control (workspace pipeline canvas) to start/stop. */
   commandRef?: MutableRefObject<{ start: () => void; stop: () => void } | null>
+}
+
+/** Build a FileScheduler from the selected files (epic #53 P3). Returns null
+ *  when there are no files with a decodable buffer. */
+function buildFileScheduler(files: FileSourceItem[]): FileScheduler | null {
+  const decodable = files.filter((f) => f.buffer)
+  if (decodable.length === 0) return null
+  const ctx = new AudioContext({ sampleRate: 48000 })
+  if (ctx.state === 'suspended') void ctx.resume()
+  const scheduler = new FileScheduler(ctx)
+  for (const f of decodable) {
+    scheduler.addFile(
+      {
+        id: f.name,
+        name: f.name,
+        buffer: f.buffer!,
+        sampleRate: f.sampleRate,
+        durationMs: f.durationMs,
+        channelCount: f.channels.length,
+      },
+      f.channels,
+    )
+  }
+  return scheduler
 }
 
 export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps) {
@@ -72,6 +99,36 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
     [persistWs],
   )
 
+  // File source (epic #53 P3): selected files + source kind toggle.
+  const [sourceKind, setSourceKind] = useState<'mic' | 'file'>(
+    wsCfg?.source?.kind === 'file' ? 'file' : 'mic',
+  )
+  const [files, setFiles] = useState<FileSourceItem[]>(() =>
+    wsCfg?.source?.kind === 'file'
+      ? (wsCfg.source.files ?? []).map((f) => ({ ...f, buffer: undefined }))
+      : [],
+  )
+
+  const updateSourceKind = useCallback(
+    (kind: 'mic' | 'file') => {
+      setSourceKind(kind)
+      if (kind === 'mic') {
+        persistWs({ source: { kind: 'mic', mic: micSource } })
+      } else {
+        persistWs({ source: { kind: 'file', files } })
+      }
+    },
+    [persistWs, micSource, files],
+  )
+
+  const updateFiles = useCallback(
+    (next: FileSourceItem[]) => {
+      setFiles(next)
+      persistWs({ source: { kind: 'file', files: next } })
+    },
+    [persistWs],
+  )
+
   // Keep a ref to bypass so toggleBypass has a stable identity (for memo).
   const bypassRef = useRef(bypass)
   bypassRef.current = bypass
@@ -88,15 +145,35 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
       setFrameData((prev) => ({ ...prev, [f.stageId]: f }))
     })
     try {
-      await p.start(micSource)
+      if (sourceKind === 'file') {
+        // Build the file scheduler and hand its output to the pipeline.
+        const scheduler = buildFileScheduler(files)
+        if (!scheduler) {
+          setError('Add at least one audio file first.')
+          return
+        }
+        afeRef.current = new AFEPipelineClass()
+        const p = afeRef.current
+        p.onFrame((f) => {
+          setFrameData((prev) => ({ ...prev, [f.stageId]: f }))
+        })
+        await p.start({ nodes: [scheduler.output], dispose: () => scheduler.dispose() })
+      } else {
+        await p.start(micSource)
+      }
       setRunning(true)
       onRunningChange(true)
-      logInfo('afe', 'Pipeline started (microphone live)')
+      logInfo(
+        'afe',
+        sourceKind === 'file'
+          ? `Pipeline started (file source, ${files.length} file(s))`
+          : 'Pipeline started (microphone live)',
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       logError('afe', err instanceof Error ? err.message : String(err))
     }
-  }, [afeRef, onRunningChange, micSource])
+  }, [afeRef, onRunningChange, micSource, sourceKind, files])
 
   const handleStop = useCallback(() => {
     afeRef.current?.stop()
@@ -168,9 +245,39 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
         </p>
       </div>
 
-      {/* Input source (epic #53 P2) - device picker + browser DSP options. */}
+      {/* Input source (epic #53 P2/P3) - mic device picker or file list. */}
       {!running && (
-        <SourceSelector value={micSource} onChange={updateMicSource} />
+        <div className="space-y-3">
+          <div className="flex items-center gap-1 rounded-lg border border-line bg-surface-2 p-1">
+            <button
+              onClick={() => updateSourceKind('mic')}
+              className={`rounded-md px-3 py-1 text-sm font-medium ${
+                sourceKind === 'mic'
+                  ? 'bg-brand-500 text-ink-1'
+                  : 'text-ink-2 hover:bg-surface-3'
+              }`}
+            >
+              Microphone
+            </button>
+            <button
+              onClick={() => updateSourceKind('file')}
+              className={`rounded-md px-3 py-1 text-sm font-medium ${
+                sourceKind === 'file'
+                  ? 'bg-brand-500 text-ink-1'
+                  : 'text-ink-2 hover:bg-surface-3'
+              }`}
+            >
+              Audio files
+            </button>
+          </div>
+          {sourceKind === 'mic' ? (
+            <SourceSelector value={micSource} onChange={updateMicSource} />
+          ) : (
+            <div className="rounded-xl border border-line bg-surface-2 p-4">
+              <FileSourcePanel files={files} onChange={updateFiles} />
+            </div>
+          )}
+        </div>
       )}
 
       {/* Controls */}

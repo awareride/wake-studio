@@ -47,6 +47,23 @@ export interface MicSourceConfig {
   channelCount?: 1 | 2
 }
 
+/**
+ * File source config for {@link AFEPipeline.start} (epic #53 P3). The host
+ * (web app) decodes the files and builds one AudioBufferSourceNode per active
+ * channel, mixing them (mono) before handing the nodes here; the pipeline just
+ * wires them into the worklet. `dispose` stops all sources when the pipeline
+ * stops.
+ */
+export interface FileSourceConfig {
+  /** One source node per active channel (already mixed to mono if > 1). */
+  nodes: AudioNode[]
+  /** Stop / release the file sources (called on AFE stop). */
+  dispose: () => void
+}
+
+/** Union of accepted pipeline input sources (mic or file). */
+export type PipelineSource = MicSourceConfig | FileSourceConfig
+
 /** Descriptor for one tunable parameter, used to build the Studio config panel
  *  (ADR-017). Every module exposes its parameters this way. */
 export interface ParameterDescriptor {

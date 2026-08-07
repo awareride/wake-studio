@@ -28,6 +28,12 @@ export interface FileSourceItem {
   durationMs: number
   /** Channels discovered by decodeAudioData. */
   channels: FileChannelConfig[]
+  /**
+   * In-memory decoded PCM (epic #53 P3). NOT persisted in the project
+   * snapshot — only the metadata above is. Re-decoding from the original
+   * file (or a P5 clip store) is required after a reload.
+   */
+  buffer?: AudioBuffer
 }
 
 /** Per-channel loop/offset config (confirmed: concurrent mixing, each

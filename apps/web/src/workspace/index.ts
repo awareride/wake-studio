@@ -23,3 +23,8 @@ export {
   requestMicPermission,
   type MicDevice,
 } from './sources/deviceList'
+export {
+  decodeAudioFile,
+  FileScheduler,
+  type DecodedFile,
+} from './sources/fileSource'
