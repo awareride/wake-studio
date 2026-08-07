@@ -3,20 +3,24 @@ import { test, expect } from '@playwright/test'
 /**
  * Per-stage persistence (epic #53 P5) - L3 browser test.
  *
- * Enables the raw-input persistence stage (Step D), starts the unified
- * pipeline, captures a short window, and verifies the captured clip lands in
- * the saved-clips replay list (IndexedDB-backed).
+ * Enables raw-input persistence in the Source config tab (Step D), starts the
+ * unified pipeline (which swaps the config tabs for the run dashboard), and
+ * verifies the captured clip lands in the saved-clips list (IndexedDB).
  */
 
-test('persistence panel captures a clip after a short run', async ({ page }) => {
+test('persistence: config tab gates capture, clip appears after a short run', async ({ page }) => {
   await page.goto('/#/workspace')
 
-  // Step D: enable the raw-input persistence stage.
-  const rawToggle = page.getByRole('checkbox', { name: /Raw input/ })
+  // Step D: enable raw-input persistence (Source tab is active by default).
+  const rawToggle = page.getByRole('checkbox', { name: /raw input/i })
   await rawToggle.check()
 
   // Start the unified pipeline (KWS off by default -> AFE only).
   await page.getByRole('button', { name: /Start pipeline/ }).click()
+
+  // Config tabs are replaced by the run dashboard.
+  await expect(page.getByText('Phase 2 · Preview')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('Phase 1 · Configure')).toBeHidden()
 
   // Capture becomes enabled once the pipeline is running.
   const captureBtn = page.getByRole('button', { name: 'Capture' })

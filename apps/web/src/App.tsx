@@ -47,8 +47,13 @@ export default function App() {
           <SettingsProvider>
             <LogProvider>
               <ConsoleShell route={route} onNavigate={navigate}>
-                {route === "workspace" && <WorkspaceView />}
-                {route === "library" && <ModelLibraryView />}
+                {/* The workspace stays mounted across route changes (hidden
+                    when not active) so a running pipeline keeps running while
+                    the user browses other menus (epic #53 UX). */}
+                <div className={route === 'workspace' ? 'contents' : 'hidden'}>
+                  <WorkspaceView />
+                </div>
+                {route === 'library' && <ModelLibraryView />}
                 {route === "projects" && <ProjectsView />}
                 {route === "console" && <SessionConsoleView />}
                 {route === "playground-rnnoise" && <RnnoisePlayground />}

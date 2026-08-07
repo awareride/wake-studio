@@ -117,12 +117,18 @@ interface Props {
    * KWS status without owning the state.
    */
   commandRef?: MutableRefObject<PanelCommands | null>
+  /**
+   * Optional: report a compact config summary (e.g. "openwakeword · ready")
+   * for the KWS tab node's core preview (epic #53 UX overhaul).
+   */
+  onPreview?: (preview: string) => void
 }
 
 export const KWSPanel = memo(function KWSPanel({
   afePipeline,
   afeRunning,
   commandRef,
+  onPreview,
 }: Props) {
   const engineRef = useRef<KWSEngine | null>(null)
   const [status, setStatus] = useState<KWSStatus>('idle')
@@ -172,6 +178,12 @@ export const KWSPanel = memo(function KWSPanel({
   const [savedSampleCount, setSavedSampleCount] = useState(0)
 
   const { historyRef, setThreshold } = useLiveKws()
+
+  // Report a compact config summary for the tab node's core preview (the
+  // few-shot flag is resolved below; backend + status are enough here).
+  useEffect(() => {
+    onPreview?.(`${config.backend} · ${status === 'idle' ? 'idle' : status}`)
+  }, [config.backend, status, onPreview])
   // Registry-loaded model URLs (lazy; resolved at load time, ADR-011).
   const urlsRef = useRef<BackendModelUrls>({})
   // User-selectable model sources per role (ModelSourceEditor). Keyed by

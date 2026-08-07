@@ -78,10 +78,13 @@ test('model library renders registry entries', async ({ page }) => {
 test('live workspace panels still render (AFE/KWS)', async ({ page }) => {
   await page.goto('/#/workspace')
 
-  // AFE live pipeline.
-  await enableKws(page)
-  await expect(page.getByText('Live AFE pipeline')).toBeVisible()
+  // Phase 1 configure flow with the pipeline-shaped module tabs.
+  await expect(page.getByText('Phase 1 · Configure')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Source config' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'NS config' })).toBeVisible()
+
   // KWS detection.
+  await enableKws(page)
   await expect(page.getByText('KWS detection')).toBeVisible()
   // KWS config is visible up front (spec-driven, ADR-017) - not gated behind
   // a successful model load (the former "Modules" tab and the Training

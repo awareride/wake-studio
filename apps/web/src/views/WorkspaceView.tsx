@@ -1,23 +1,30 @@
 /**
- * Workspace view (epic #53) - Phase 1 Configure / Phase 2 Preview layout.
+ * Workspace view (epic #53 UX overhaul).
  *
- * P7 restructure (plan §2 + §8): configuration groups at the top in
- * collapsible Step sections (A components+source, B AFE, C KWS, D
- * persistence), effects group after Start in one Phase 2 preview container
- * (pipeline overview + stage cards + KWS score curve). The engine panels own
- * the pipeline/engine lifecycle; live preview data flows through the shared
- * live context (`workspace/live.tsx`).
+ * Two exclusive modes:
+ *  - CONFIGURE (not running): a pipeline-shaped tab flow — Source → AEC →
+ *    BSS → NS → KWS — each tab showing the module's config plus a compact
+ *    core-preview on the node itself. Persistence toggles live inside each
+ *    module's panel.
+ *  - RUN (after Start): a full dashboard with every module's live output
+ *    (overview + stage cards + score curve + clips). Only Stop returns to
+ *    config. The workspace stays mounted across route changes (App keep-alive)
+ *    so the pipeline keeps running while browsing other menus.
+ *
+ * Engine lifecycle lives in useAfePipeline; live preview data flows through
+ * the shared live context (workspace/live.tsx).
  */
 
 import * as React from 'react'
-import { AFEPanel } from '../components/AFEPanel'
 import { KWSPanel } from '../components/KWSPanel'
 import { ProjectBar } from '../components/ProjectBar'
-import { SourceConfigSection } from '../components/SourceConfigSection'
-import { StepSection } from '../components/StepSection'
+import { PipelineTabs, type PipelineTabId } from '../components/PipelineTabs'
 import { PipelineOverview } from '../components/PipelineOverview'
 import { StagePanel } from '../components/viz/StageCard'
 import { ScoreCurvePanel } from '../components/ScoreCurvePanel'
+import { ClipsPanel } from '../components/ClipsPanel'
+import { SourcePanel, StageModulePanel, NsPanel } from '../components/ModulePanels'
+import { PersistenceStageToggle } from '../components/PersistenceStageToggle'
 import {
   PipelineCanvas,
   type ComponentSelection,
@@ -25,25 +32,28 @@ import {
 import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import { useConsoleStatus } from '../status'
 import { useProjects, useProjectStageConfig } from '../projects'
-import { usePipelineRunner, type PanelCommands, type PipelinePhase } from '../workspace/usePipelineRunner'
+import { usePipelineRunner, type PanelCommands } from '../workspace/usePipelineRunner'
 import { useSourceConfig } from '../workspace/useSourceConfig'
+import { useAfePipeline } from '../workspace/useAfePipeline'
 import { LiveAfeProvider, LiveKwsProvider, useLiveAfe, type AfeStageId } from '../workspace/live'
 import { useToast } from '../components/toast'
 
+/** All-off persistence record (used before a project snapshot exists). */
+const EMPTY_PERSISTENCE: import('../workspace/types').WorkspaceConfig['persistence'] = {
+  raw: { enabled: false },
+  ns: { enabled: false },
+  kws: { enabled: false },
+}
+
 export function WorkspaceView() {
-  const afeRef = React.useRef<AFEPipeline | null>(null)
   const afeCommandRef = React.useRef<PanelCommands | null>(null)
   const kwsCommandRef = React.useRef<PanelCommands | null>(null)
   const { setStatus } = useConsoleStatus()
   const { current } = useProjects()
   const { toast } = useToast()
 
-  // Component selection + KWS preload persisted in the workspace snapshot.
   const { projectConfig: wsCfg, persist: persistWs } = useProjectStageConfig('workspace')
-  const { projectConfig: afeCfg } = useProjectStageConfig('afe')
-
-  // Step A source state (lifted from the AFE panel, P7) — lives inside
-  // WorkspaceInner (keyed by project) so it re-seeds on project switch.
+  const { projectConfig: afeCfg, persist: persistAfe } = useProjectStageConfig('afe')
 
   const [selection, setSelection] = React.useState<ComponentSelection>(() => ({
     afe: wsCfg?.enabled?.afe ?? true,
@@ -97,15 +107,6 @@ export function WorkspaceView() {
         : 'Mic · default',
   }
 
-  // Step A/B/C open state (all open by default; collapsible per P7).
-  const [openSteps, setOpenSteps] = React.useState<Record<'A' | 'B' | 'C', boolean>>({
-    A: true,
-    B: true,
-    C: true,
-  })
-  const toggleStep = (step: 'A' | 'B' | 'C') =>
-    setOpenSteps((prev) => ({ ...prev, [step]: !prev[step] }))
-
   const initialBypass = {
     aec: wsCfg?.enabled?.afeStages?.aec ?? true,
     bss: wsCfg?.enabled?.afeStages?.bss ?? true,
@@ -130,7 +131,6 @@ export function WorkspaceView() {
         <LiveKwsProvider key={`kws-live-${current?.id ?? 'none'}`}>
           <WorkspaceInner
             key={`ws-${current?.id ?? 'none'}`}
-            afeRef={afeRef}
             afeCommandRef={afeCommandRef}
             kwsCommandRef={kwsCommandRef}
             selection={selection}
@@ -138,32 +138,23 @@ export function WorkspaceView() {
             kwsPreloadOnStart={kwsPreloadOnStart}
             setKwsPreloadOnStart={setKwsPreloadOnStart}
             fallbackChannels={afeCfg?.channels ?? 1}
-            openSteps={openSteps}
-            toggleStep={toggleStep}
             runState={runState}
             onStart={handleStart}
             onStop={handleStop}
             setStatus={setStatus}
             persistWs={persistWs}
+            persistAfe={persistAfe}
+            afeCfg={afeCfg}
             wsCfg={wsCfg}
             current={current}
           />
         </LiveKwsProvider>
       </LiveAfeProvider>
-
-      {current && (
-        <p className="text-xs text-ink-3">
-          Active project:{' '}
-          <span className="font-medium text-ink-2">{current.name}</span> · config
-          snapshots are saved with the project.
-        </p>
-      )}
     </div>
   )
 }
 
 function WorkspaceInner({
-  afeRef,
   afeCommandRef,
   kwsCommandRef,
   selection,
@@ -171,17 +162,16 @@ function WorkspaceInner({
   kwsPreloadOnStart,
   setKwsPreloadOnStart,
   fallbackChannels,
-  openSteps,
-  toggleStep,
   runState,
   onStart,
   onStop,
   setStatus,
   persistWs,
+  persistAfe,
+  afeCfg,
   wsCfg,
   current,
 }: {
-  afeRef: React.MutableRefObject<AFEPipeline | null>
   afeCommandRef: React.MutableRefObject<PanelCommands | null>
   kwsCommandRef: React.MutableRefObject<PanelCommands | null>
   selection: ComponentSelection
@@ -189,10 +179,8 @@ function WorkspaceInner({
   kwsPreloadOnStart: boolean
   setKwsPreloadOnStart: (v: boolean) => void
   fallbackChannels: 1 | 2
-  openSteps: Record<'A' | 'B' | 'C', boolean>
-  toggleStep: (step: 'A' | 'B' | 'C') => void
   runState: {
-    phase: PipelinePhase
+    phase: import('../workspace/usePipelineRunner').PipelinePhase
     afeRunning: boolean
     kwsRunning: boolean
     kwsReady: boolean
@@ -204,21 +192,59 @@ function WorkspaceInner({
   onStop: () => void
   setStatus: (patch: Partial<import('../status').ConsoleStatus>) => void
   persistWs: (patch: Partial<import('../workspace/types').WorkspaceConfig>) => void
+  persistAfe: (patch: Record<string, unknown>) => void
+  afeCfg: { channels?: 1 | 2; topology?: 'single-worklet' | 'node-per-stage'; latencyBudgetMs?: number; vizFps?: number } | undefined
   wsCfg: import('../workspace/types').WorkspaceConfig | undefined
   current: { id: string; name: string } | null
 }) {
   const { frameData, latencyMs, bypass, toggleBypass } = useLiveAfe()
-  // Mirrors afeRef.current in state so children (KWSPanel) re-render when the
-  // pipeline instance is created (ref changes alone don't trigger renders).
   const [afePipeline, setAfePipeline] = React.useState<AFEPipeline | null>(null)
 
-  // Step A source state (P7): lives here (keyed by project via the wrapper)
-  // so it re-seeds when switching projects.
+  // Persistence config — lifted here (not straight from the snapshot) so the
+  // per-module toggles AND the run-dashboard clips panel share one source of
+  // truth even without an active project (persist no-ops then).
+  const [persistence, setPersistenceState] = React.useState<
+    import('../workspace/types').WorkspaceConfig['persistence']
+  >(() => wsCfg?.persistence ?? EMPTY_PERSISTENCE)
+  React.useEffect(() => {
+    setPersistenceState(wsCfg?.persistence ?? EMPTY_PERSISTENCE)
+  }, [wsCfg?.persistence])
+  const setPersistence = React.useCallback(
+    (next: import('../workspace/types').WorkspaceConfig['persistence']) => {
+      setPersistenceState(next)
+      persistWs({ persistence: next })
+    },
+    [persistWs],
+  )
+
+  // Step A source state (P7): re-seeded per project via the keyed wrapper.
   const source = useSourceConfig(wsCfg, persistWs, fallbackChannels)
+  const sourceRef = React.useRef(source)
+  sourceRef.current = source
+
+  // AFE engine lifecycle (commandRef feeds the unified runner).
+  const { afeRef, running, error, commandRef } = useAfePipeline({
+    sourceRef,
+    onRunningChange: (r) => {
+      setAfePipeline(afeRef.current)
+      setStatus({ mic: r ? 'active' : 'idle' })
+    },
+  })
+  // Keep the runner's afe commands in sync (useAfePipeline owns the ref).
+  React.useEffect(() => {
+    afeCommandRef.current = commandRef.current
+  }, [afeCommandRef, commandRef])
+
+  // Active config tab (Source by default; KWS only selectable when enabled).
+  const [activeTab, setActiveTab] = React.useState<PipelineTabId>('source')
+  const activeTabRef = React.useRef(activeTab)
+  activeTabRef.current = activeTab
+
+  // KWS core preview for the tab node (reported by the KWS panel).
+  const [kwsPreview, setKwsPreview] = React.useState('kws · idle')
 
   // Single source of truth for the AFE stage bypass: toggle the live context
-  // AND persist to the workspace snapshot (the `afe` snapshot has no bypass
-  // field — workspace snapshot is the home, #53 P1).
+  // AND persist to the workspace snapshot.
   const handleToggleBypass = React.useCallback(
     (stageId: AfeStageId) => {
       const newVal = !bypass[stageId]
@@ -236,68 +262,116 @@ function WorkspaceInner({
 
   const previewVisible = runState.afeRunning || runState.kwsRunning
 
+  const sourcePreview =
+    source.kind === 'file' ? `Files (${source.files.length})` : 'Mic · default'
+
+  const tabItems = [
+    { id: 'source' as const, label: 'Source', preview: sourcePreview },
+    {
+      id: 'aec' as const,
+      label: 'AEC',
+      preview: bypass.aec ? 'Bypassed' : 'Active',
+      badge: bypass.aec ? undefined : 'on',
+    },
+    {
+      id: 'bss' as const,
+      label: 'BSS',
+      preview: bypass.bss ? 'Bypassed' : 'Active',
+      badge: bypass.bss ? undefined : 'on',
+    },
+    {
+      id: 'ns' as const,
+      label: 'NS',
+      preview: bypass.ns ? 'Bypassed' : 'Active',
+      badge: persistence?.ns?.enabled ? 'persist' : undefined,
+    },
+    ...(selection.kws
+      ? [{ id: 'kws' as const, label: 'KWS', preview: kwsPreview, badge: persistence?.kws?.enabled ? 'persist' : undefined }]
+      : []),
+  ]
+
   return (
     <div className="space-y-4">
-      {/* ================= Phase 1 · Configure ================= */}
-      <section className="rounded-2xl border border-line bg-surface-1 p-4">
-        <div className="mb-3 flex items-center gap-2 border-b border-line pb-3">
-          <span className="rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
-            Phase 1 · Configure
-          </span>
-          <span className="text-xs text-ink-3">set up what runs, then start</span>
+      {/* Run control + component selection (kept, e2e-pinned). */}
+      <PipelineCanvas
+        selection={selection}
+        onSelectionChange={updateSelection}
+        runState={runState}
+        onStart={onStart}
+        onStop={onStop}
+        status={useConsoleStatus().status}
+      />
+
+      {error && (
+        <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+          {error}
         </div>
+      )}
 
-        <div className="space-y-3">
-          <StepSection
-            step="A"
-            title="Components & input source"
-            description="pick the stages and where audio comes from"
-            open={openSteps.A}
-            onToggle={() => toggleStep('A')}
-          >
-            <PipelineCanvas
-              selection={selection}
-              onSelectionChange={updateSelection}
-              runState={runState}
-              onStart={onStart}
-              onStop={onStop}
-              status={useConsoleStatus().status}
+      {/* ============ CONFIGURE (before Start) ============ */}
+      {!previewVisible && (
+        <section className="rounded-2xl border border-line bg-surface-1 p-4">
+          <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-line pb-3">
+            <span className="rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
+              Phase 1 · Configure
+            </span>
+            <span className="text-xs text-ink-3">
+              configure each module, then Start — Stop returns here
+            </span>
+          </div>
+
+          <div className="mb-4">
+            <PipelineTabs
+              active={activeTab}
+              onSelect={setActiveTab}
+              tabs={tabItems}
             />
-            <SourceConfigSection source={source} actions={source} />
-          </StepSection>
+          </div>
 
-          <StepSection
-            step="B"
-            title="AFE configuration"
-            description="pipeline params + per-stage persistence"
-            open={openSteps.B}
-            onToggle={() => toggleStep('B')}
-          >
-            <AFEPanel
-              key={`afe-${current?.id ?? 'none'}`}
-              afeRef={afeRef}
-              onRunningChange={(r) => {
-                setAfePipeline(afeRef.current)
-                setStatus({ mic: r ? 'active' : 'idle' })
-              }}
-              commandRef={afeCommandRef}
+          {/* Active module panel. Panels stay mounted (hidden) so engines and
+              form state survive tab switches. */}
+          <div className={activeTab === 'source' ? '' : 'hidden'}>
+            <SourcePanel
               source={source}
+              actions={source}
+              afeRef={afeRef}
+              running={running}
+              projCfg={afeCfg}
+              persistAfe={persistAfe}
+              persistence={persistence}
+              setPersistence={setPersistence}
+            />
+          </div>
+          <div className={activeTab === 'aec' ? '' : 'hidden'}>
+            <StageModulePanel
+              id="aec"
+              title="AEC · Acoustic echo cancellation"
+              note="Passthrough for v1 (ADR-016); the real engine + persistence wiring lands with it."
+              bypassed={bypass.aec}
               onToggleBypass={handleToggleBypass}
             />
-          </StepSection>
-
-          {/* Step C · KWS config — gated on the KWS component toggle (plan
-              §8.1: only when KWS enabled). */}
+          </div>
+          <div className={activeTab === 'bss' ? '' : 'hidden'}>
+            <StageModulePanel
+              id="bss"
+              title="BSS · Blind source separation"
+              note="Passthrough for v1 (ADR-016); single-mic pipeline. Persistence lands with the real engine."
+              bypassed={bypass.bss}
+              onToggleBypass={handleToggleBypass}
+            />
+          </div>
+          <div className={activeTab === 'ns' ? '' : 'hidden'}>
+            <NsPanel
+              bypassed={bypass.ns}
+              onToggleBypass={handleToggleBypass}
+              persistence={persistence}
+              setPersistence={setPersistence}
+            />
+          </div>
           {selection.kws && (
-            <StepSection
-              step="C"
-              title="KWS configuration"
-              description="backend, models, enrollment"
-              open={openSteps.C}
-              onToggle={() => toggleStep('C')}
-            >
+            <div className={activeTab === 'kws' ? '' : 'hidden'}>
               {/* KWS preload toggle (confirmed decision §11.2). */}
-              <label className="flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm">
+              <label className="mb-4 flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm">
                 <input
                   type="checkbox"
                   checked={kwsPreloadOnStart}
@@ -317,20 +391,38 @@ function WorkspaceInner({
                 afePipeline={afePipeline}
                 afeRunning={runState.afeRunning}
                 commandRef={kwsCommandRef}
+                onPreview={setKwsPreview}
               />
-            </StepSection>
+              <div className="mt-4 rounded-xl border border-line bg-surface-3 p-4">
+                <PersistenceStageToggle
+                  stageId="kws"
+                  label="Persist KWS output (16 kHz stream)"
+                  config={persistence}
+                  onChange={setPersistence}
+                />
+              </div>
+            </div>
           )}
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* ================= Phase 2 · Preview ================= */}
+      {/* ============ RUN dashboard (after Start) ============ */}
       {previewVisible && (
         <section className="rounded-2xl border border-line bg-surface-1 p-4">
-          <div className="mb-3 flex items-center gap-2 border-b border-line pb-3">
+          <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-line pb-3">
             <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-emerald-300">
               Phase 2 · Preview
             </span>
-            <span className="text-xs text-ink-3">live effects after start</span>
+            <span className="text-xs text-ink-3">live effects — Stop to reconfigure</span>
+            <button
+              onClick={onStop}
+              className="ml-auto flex items-center gap-1.5 rounded-lg bg-danger/90 px-3 py-1.5 text-sm font-medium text-ink-1 hover:bg-red-500"
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+                <rect x="6" y="6" width="12" height="12" rx="1.5" />
+              </svg>
+              Stop
+            </button>
           </div>
 
           <div className="space-y-4">
@@ -352,6 +444,11 @@ function WorkspaceInner({
               ))}
             </div>
             {runState.kwsRunning && <ScoreCurvePanel running={runState.kwsRunning} />}
+            <ClipsPanel
+              pipeline={afeRef.current}
+              running={running}
+              config={persistence}
+            />
           </div>
         </section>
       )}
