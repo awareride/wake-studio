@@ -61,7 +61,15 @@ function copyModuleAssets(): Plugin {
         const dest = resolve(projectRoot, 'dist', 'ort')
         mkdirSync(dest, { recursive: true })
         for (const f of readdirSafe(ortWasmDir)) {
-          if (f.endsWith('.wasm') && f.startsWith('ort-wasm-simd-threaded')) {
+          // onnxruntime-web 1.27 loads its runtime via .mjs loader scripts
+          // (ort-wasm-simd-threaded.jsep.mjs / .jspi.mjs / .mjs) that
+          // dynamically import the .wasm binaries. Both must be vendored for
+          // the offline requirement (P0-4 / issue #30); copying only the
+          // .wasm files leaves the loader 404ing in the browser.
+          if (
+            f.startsWith('ort-wasm-simd-threaded') &&
+            (f.endsWith('.wasm') || f.endsWith('.mjs'))
+          ) {
             cpSync(join(ortWasmDir, f), join(dest, f))
           }
         }
@@ -115,6 +123,13 @@ function serveAssets() {
     '.tflite': 'application/octet-stream',
     '.wasm': 'application/wasm',
     '.json': 'application/json',
+    // onnxruntime-web 1.27 loads its runtime via .mjs loader scripts
+    // (ort-wasm-simd-threaded.jsep.mjs etc.) that the browser dynamic-imports.
+    // A wrong MIME (application/octet-stream) makes the import fail with
+    // "TypeError: Failed to fetch dynamically imported module" - serve them
+    // as ES modules.
+    '.mjs': 'text/javascript',
+    '.js': 'text/javascript',
   }
 
   /**

@@ -9,6 +9,7 @@
     ".": "./core/index.ts",
     "./core": "./core/index.ts",
     "./web": "./web/index.ts",
+    "./worker-assembly": "./web/worker-assembly.ts",
     "./spec": "./spec/module.spec.json"
   },
   "scripts": {
@@ -20,7 +21,10 @@
   "dependencies": {
     "@wake-studio/contracts": "workspace:*",
     "@wake-studio/module-afe-graph": "workspace:^",
-    "@wake-studio/platform": "workspace:^"
+    "@wake-studio/platform": "workspace:^",
+    "@wake-studio/module-kws-openwakeword": "workspace:^",
+    "@wake-studio/module-kws-plix": "workspace:^",
+    "@wake-studio/module-kws-sherpa": "workspace:^"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",

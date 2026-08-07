@@ -26,8 +26,15 @@ import { KWSLoadError } from './types'
 import { ScoreSmoother, TriggerDetector, shouldGateByVad } from './logic'
 import { createMainThreadBackend } from './backend'
 
-// Vite bundles the worker into a separate file.
-import KWSWorker from '../web/worker?worker'
+// The KWS Web Worker is created through the worker-assembly seam (ADR-024,
+// issue #23): importing the assembly wires the driver registration
+// side-effects into the worker bundle. It is imported DYNAMICALLY at
+// worker-creation time (not statically): a static import would create an
+// import cycle (engine core -> assembly -> driver -> engine core) whose
+// evaluation order leaves the engine's backend registry uninitialized when a
+// driver calls registerKwsBackend (TDZ ReferenceError). By the time load()
+// runs, every module is fully evaluated, so the cycle is resolved safely.
+// The engine core still never imports a driver module (ADR-024).
 
 type ScoreCallback = (sample: KWSScoreSample) => void
 type TriggerCallback = (event: KWSTriggerEvent) => void
@@ -91,7 +98,18 @@ export class KWSEngine {
     prototype?: Float32Array,
     backendConfig?: unknown,
   ): Promise<void> {
-    if (this._status === 'loading' || this._status === 'ready') return
+    // Guard only against a concurrent load (in-flight). A `ready` engine may
+    // be re-loaded (Reload button, or a backend switch after stop): the old
+    // worker/backend must be torn down first so the new backend actually
+    // boots (previously the ready-guard silently kept the stale backend,
+    // making detection fail after a switch).
+    if (this._status === 'loading') return
+
+    if (this._status === 'ready') {
+      // Explicit re-load: dispose the previous session (worker or
+      // main-thread backend) so the new backend/config take effect.
+      this._teardownBackend()
+    }
 
     this._status = 'loading'
 
@@ -127,7 +145,7 @@ export class KWSEngine {
       }
     }
 
-    this._ensureWorker()
+    await this._ensureWorker()
 
     return new Promise<void>((resolve, reject) => {
       const onMessage = (e: MessageEvent<KWSMainMessage>) => {
@@ -173,18 +191,31 @@ export class KWSEngine {
       this._mainThreadBackend.reset()
       this._smoother?.reset()
       this._trigger?.reset()
-    } else {
+    } else if (this._worker) {
       this._send({ type: 'stop' })
     }
+    // Back to ready: models stay loaded, detection is stopped, and the user
+    // can start again (or reload). A subsequent load() re-boots the backend
+    // (the ready-guard was removed from load, see load()).
     this._status = 'ready'
   }
 
   /** Destroy the worker and release resources. */
   dispose(): void {
-    this.stop()
+    this._teardownBackend()
     this._scoreCallbacks.clear()
     this._triggerCallbacks.clear()
     this._partialCallbacks.clear()
+    this._status = 'idle'
+  }
+
+  /**
+   * Tear down the current inference session (worker or main-thread backend)
+   * so a fresh one can boot. Keeps the subscription callbacks; a subsequent
+   * load() recreates the worker/backend.
+   */
+  private _teardownBackend(): void {
+    this.stop()
     if (this._mainThreadBackend) {
       void this._mainThreadBackend.dispose()
       this._mainThreadBackend = null
@@ -195,7 +226,6 @@ export class KWSEngine {
       this._worker.terminate()
       this._worker = null
     }
-    this._status = 'idle'
   }
 
   // ---- subscriptions ----
@@ -252,9 +282,12 @@ export class KWSEngine {
 
   // ---- internals ----
 
-  private _ensureWorker(): void {
+  private async _ensureWorker(): Promise<void> {
     if (this._worker) return
-    this._worker = new KWSWorker()
+    // Dynamic import: resolves the engine<->driver import cycle at runtime
+    // (see comment above). Vite/Rollup splits this into a separate chunk.
+    const { createKwsWorker } = await import('../web/worker-assembly')
+    this._worker = createKwsWorker()
     this._worker!.onmessage = (e: MessageEvent<KWSMainMessage>) => {
       this._handleMessage(e.data)
     }

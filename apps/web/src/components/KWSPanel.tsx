@@ -44,6 +44,14 @@ import {
 import type { EnrolledSample, WakeWordPrototype } from '@wake-studio/module-few-shot'
 import { recorderWorkletUrl as recorderUrl } from '@wake-studio/module-few-shot/web'
 import { getPlixEncoderVariant } from '@wake-studio/module-kws-plix/encoders/plix-encoder'
+import {
+  importModelFile,
+  listUserModels,
+  deleteUserModel,
+  exportUserModel,
+  blobUrlForModel,
+} from '../model-library'
+import type { UserModel } from '../model-library'
 
 const HISTORY_MAX = 300 // ~3 s at ~100 fps
 
@@ -108,6 +116,80 @@ export function modelUrlsFromRegistry(registry: ModelRegistry): BackendModelUrls
   }
 }
 
+/**
+ * A selectable model source for one KWS model role: a registry entry (the
+ * built-in pretrained model) or a user-supplied URL (e.g. a model trained
+ * with this platform, or a custom artifact URL).
+ */
+export interface ModelSourceOption {
+  /** Registry id, or 'custom' for a user-supplied URL. */
+  id: string
+  /** Label shown in the selector. */
+  label: string
+  /** Resolved URL (undefined only for the 'custom' placeholder). */
+  url?: string
+  /** License / commercial note (from the registry) for the built-ins. */
+  note?: string
+}
+
+/**
+ * Build the candidate model sources for one KWS model role.
+ *
+ * @param registry the loaded model registry
+ * @param role     which model the backend needs:
+ *   - 'melspectrogram'  openwakeword log-Mel front-end
+ *   - 'embedding'       openwakeword speech-embedding backbone
+ *   - 'classifier'      openwakeword wake-word classifier (any classifier
+ *                       onnx that consumes the 96-dim embedding)
+ *   - 'plix-encoder'    PLiX few-shot encoder (base / small variants)
+ * @param current  the currently selected URL (to mark it selected)
+ */
+export function modelSourcesForRole(
+  registry: ModelRegistry,
+  role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder',
+  current?: string,
+): ModelSourceOption[] {
+  const builtIns = registry.models
+    .filter((m) => {
+      switch (role) {
+        case 'melspectrogram':
+          return m.id === 'melspectrogram'
+        case 'embedding':
+          return m.id === 'speech_embedding'
+        case 'classifier':
+          // Any classifier the openwakeword pipeline can consume: the
+          // hey-buddy model (commercially clean) plus the openwakeword demo
+          // classifiers (CC BY-NC-SA, demo-only, flagged in the option note).
+          return (
+            m.id === 'hey-buddy' ||
+            m.id === 'buddy' ||
+            m.id.startsWith('openwakeword-') ||
+            /^(hey|hi|yo|sup|okay|hello|alexa|timer|weather)_?/i.test(m.id) ||
+            /classifier/i.test(m.id)
+          )
+        case 'plix-encoder':
+          return m.id === 'plixkws' || m.id === 'plixkws-small'
+      }
+    })
+    .map((m) => ({
+      id: m.id,
+      label: `${m.name} (${m.id})`,
+      url: m.url,
+      note: `${m.license} · ${m.commercial ? 'commercial' : 'non-commercial'} · ${m.sizeBytes ? (m.sizeBytes / 1024 / 1024).toFixed(1) + ' MB' : 'size n/a'}`,
+    }))
+
+  // Custom-URL option: use the current URL as its value when one is set and
+  // does not match a built-in (i.e. the user previously chose a custom URL).
+  const custom: ModelSourceOption = {
+    id: 'custom',
+    label: 'Custom URL…',
+    url: current && !builtIns.some((b) => b.url === current) ? current : undefined,
+    note: 'Provide your own model URL (e.g. a model trained with this platform).',
+  }
+
+  return [...builtIns, custom]
+}
+
 /** Build a ParameterDescriptor from a ModuleSpec param (spec -> panel).
  *  ModuleParam.type has extra kinds (enum/secret/slider); map to the panel's
  *  ParameterDescriptor union (number/boolean/select/string). */
@@ -141,6 +223,25 @@ export function driverParamsFor(backendId: string): ReadonlyArray<ParameterDescr
   const spec = reg?.spec as ModuleSpec | undefined
   return (spec?.params ?? []).map(descriptorFromParam)
 }
+
+/** One model role the Model-source editor offers for a backend. */
+interface ModelSourceRole {
+  role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder'
+  label: string
+  fallbackId: string
+}
+
+/** Model roles for the traditional (openwakeword) backend. */
+const TRADITIONAL_MODEL_ROLES: ModelSourceRole[] = [
+  { role: 'melspectrogram', label: 'Mel front-end', fallbackId: 'melspectrogram' },
+  { role: 'embedding', label: 'Embedding backbone', fallbackId: 'speech_embedding' },
+  { role: 'classifier', label: 'Wake-word classifier', fallbackId: 'hey-buddy' },
+]
+
+/** Model roles for the few-shot (plixkws) backend. */
+const FEWSHOT_MODEL_ROLES: ModelSourceRole[] = [
+  { role: 'plix-encoder', label: 'PLiX encoder', fallbackId: 'plixkws' },
+]
 
 export const KWSPanel = memo(function KWSPanel({
   afePipeline,
@@ -196,6 +297,85 @@ export const KWSPanel = memo(function KWSPanel({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   // Registry-loaded model URLs (lazy; resolved at load time, ADR-011).
   const urlsRef = useRef<BackendModelUrls>({})
+  // User-selectable model sources per role (ModelSourceEditor). Keyed by
+  // role; value is the selected registry id or 'custom' (URL follows).
+  // Defaults to undefined -> the built-in registry URL is used.
+  const [modelSources, setModelSources] = useState<Record<string, string | undefined>>({})
+  const [customUrls, setCustomUrls] = useState<Record<string, string>>({})
+  // The loaded registry (for the selector options); loaded lazily on demand.
+  const [registryModels, setRegistryModels] = useState<ModelRegistry | null>(null)
+  // User model library (IndexedDB): local-file imports and future training
+  // artifacts. Listed in the Model-source editor; exportable back to disk.
+  const [userModels, setUserModels] = useState<UserModel[]>([])
+  // Object URLs for selected user models (role -> blob URL). Created when a
+  // saved model is chosen, so the backend can fetch() it.
+  const userBlobUrlRef = useRef<Record<string, string>>({})
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Preload the model registry on mount so the Model-source editor shows the
+  // built-in candidates immediately (the registry JSON is local, ADR-011).
+  useEffect(() => {
+    let cancelled = false
+    void loadRegistry()
+      .then((r) => {
+        if (!cancelled) setRegistryModels(r)
+      })
+      .catch(() => {
+        // Registry unreachable - the editor shows the built-in placeholder;
+        // Load will surface the real error.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Load the user model library (IndexedDB) on mount.
+  useEffect(() => {
+    let cancelled = false
+    void listUserModels()
+      .then((models) => {
+        if (!cancelled) setUserModels(models)
+      })
+      .catch(() => {
+        // IndexedDB unavailable - the editor just shows no saved models.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  /** Import a local model file into the user model library for a role. */
+  const handleImportModelFile = useCallback(
+    async (file: File | undefined, role: UserModel['role']) => {
+      if (!file) return
+      try {
+        const model = await importModelFile(file, role, `Imported from ${file.name}`)
+        setUserModels((prev) => [model, ...prev])
+        // Auto-select the freshly imported model for this role.
+        setModelSources((prev) => ({ ...prev, [role]: `user:${model.id}` }))
+        const url = await blobUrlForModel(model.id)
+        if (url) userBlobUrlRef.current[role] = url
+        setError(null)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      }
+    },
+    [],
+  )
+
+  /** Select a saved user model for a role; resolves its blob URL. */
+  const handleSelectUserModel = useCallback(
+    async (role: UserModel['role'], modelId: string) => {
+      setModelSources((prev) => ({ ...prev, [role]: `user:${modelId}` }))
+      const url = await blobUrlForModel(modelId)
+      if (url) {
+        userBlobUrlRef.current[role] = url
+      } else {
+        setError(`Saved model ${modelId} not found in the library.`)
+      }
+    },
+    [],
+  )
   // The selected backend's own params, from its registration spec (ADR-025).
   // Empty when the backend carries no spec (no driver config panel).
   const driverParams = driverParamsFor(config.backend)
@@ -228,9 +408,38 @@ export const KWSPanel = memo(function KWSPanel({
   // params (ADR-025). Seeded from driverValues (spec defaults) so a future
   // few-shot driver with different options works unchanged.
   const plixVariant =
-    (driverValues.encoder as 'base' | 'small' | undefined) ?? 'base'
+    (driverValues.encoder as 'base' | 'small' | undefined) ?? 'small'
   const plixRuntime =
     (driverValues.runtime as 'onnx' | 'transformers' | undefined) ?? 'onnx'
+
+  /**
+   * Resolve the effective model URL for one role, honoring the user's
+   * selection: a registry built-in id or a custom URL. Falls back to the
+   * registry default when nothing is selected.
+   */
+  const resolveModelUrl = useCallback(
+    (
+      registry: ModelRegistry,
+      role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder',
+      fallbackId: string,
+    ): string | undefined => {
+      const selected = modelSources[role]
+      const byId = new Map(registry.models.map((m) => [m.id, m.url]))
+      // User-library model: use the pre-resolved blob URL.
+      if (selected?.startsWith('user:')) {
+        return userBlobUrlRef.current[role]
+      }
+      if (selected && selected !== 'custom') {
+        return byId.get(selected)
+      }
+      if (selected === 'custom') {
+        return customUrls[role]?.trim() || undefined
+      }
+      // Default: the built-in registry entry for this role.
+      return byId.get(fallbackId)
+    },
+    [modelSources, customUrls],
+  )
 
   const handleLoad = useCallback(async () => {
     setError(null)
@@ -242,8 +451,20 @@ export const KWSPanel = memo(function KWSPanel({
       engine.setConfig({ backend: config.backend, threshold: config.threshold })
       // Resolve model URLs from the platform registry (ADR-011) - never
       // hard-coded here; the UI shows the exact fetch command if absent.
+      // User-selected model sources (ModelSourceEditor) override the
+      // registry defaults: built-in pretrained models or a custom URL (e.g. a
+      // model trained with this platform).
       const registry = await loadRegistry()
-      urlsRef.current = modelUrlsFromRegistry(registry)
+      setRegistryModels(registry)
+      const urls: BackendModelUrls =
+        config.backend === 'plixkws'
+          ? { plixkws: resolveModelUrl(registry, 'plix-encoder', 'plixkws') }
+          : {
+              melspectrogram: resolveModelUrl(registry, 'melspectrogram', 'melspectrogram'),
+              embedding: resolveModelUrl(registry, 'embedding', 'speech_embedding'),
+              classifier: resolveModelUrl(registry, 'classifier', 'hey-buddy'),
+            }
+      urlsRef.current = urls
       // Pass the driver's edited params as its backend config (unknown to the
       // engine; the driver's configure() interprets them, e.g. sherpa
       // keywords).
@@ -259,7 +480,7 @@ export const KWSPanel = memo(function KWSPanel({
       setStatus('error')
       logError('kws', err instanceof Error ? err.message : String(err))
     }
-  }, [config.backend, config.threshold, driverValues])
+  }, [config.backend, config.threshold, driverValues, resolveModelUrl])
 
   // Auto-load: switching the backend selection loads that backend's models
   // automatically (registry is a local JSON, ADR-011). Initial mount keeps the
@@ -275,33 +496,58 @@ export const KWSPanel = memo(function KWSPanel({
   // explicitly clicks Load (or Reload) when ready. The few-shot branch never
   // auto-loads either - it runs enrollment first.
   useEffect(() => {
-    if (isFewShot) {
-      // plixkws needs an enrolled prototype; loading the detection backend
-      // without one always fails (worker requires prototypeVector). The plix
-      // branch runs enrollment first, then loads with the prototype.
-      return
-    }
-    // Backend changed: reset to idle so the user sees the Load button for the
-    // newly selected backend (models for the old backend are discarded).
+    // Backend changed: reset to idle so the UI shows the load/start controls
+    // for the newly selected backend (models for the old backend are
+    // discarded). This applies to the few-shot branch too - previously it
+    // early-returned, leaving the UI stuck at the old backend's 'ready' state
+    // and hiding the plixkws encoder-load button (the switch appeared to do
+    // nothing and detection silently failed).
     if (prevBackendRef.current !== config.backend) {
       prevBackendRef.current = config.backend
       setStatus('idle')
+      setError(null)
+      setRunning(false)
+      setDetecting(false)
+      // Tear down the old backend session so the stale worker (old backend)
+      // does not keep running detection for the previous model.
+      engineRef.current?.dispose()
     }
   }, [config.backend, isFewShot])
 
   // --- plixkws enrollment + detection ---
 
-  /** Resolve the PLiX model locator for the selected variant + runtime. */
+  /**
+   * Resolve the PLiX model locator for the selected variant + runtime.
+   * Honors the user's ModelSource selection: a custom encoder URL (e.g. a
+   * model trained with this platform) takes precedence over the variant's
+   * built-in ONNX URL. The transformers runtime always uses the locally
+   * served HF-style dir (variant.transformersLocalDir).
+   */
   const resolvePlixLocator = useCallback((): { url: string; runtime: 'onnx' | 'transformers' } => {
     const variant = getPlixEncoderVariant(plixVariant)
     if (!variant) {
       throw new Error(`Unknown PLiX variant: ${plixVariant}`)
     }
     const rt = plixRuntime
-    const url =
-      rt === 'transformers' ? variant.transformersLocalDir : variant.onnxUrl
+    const customUrl = modelSources['plix-encoder'] === 'custom'
+      ? customUrls['plix-encoder']?.trim()
+      : undefined
+    let url: string
+    if (rt === 'transformers') {
+      url = variant.transformersLocalDir
+    } else if (modelSources['plix-encoder']?.startsWith('user:')) {
+      // User-library encoder (imported file / training artifact).
+      const blobUrl = userBlobUrlRef.current['plix-encoder']
+      if (!blobUrl) throw new Error('Selected PLiX encoder is not in the model library.')
+      url = blobUrl
+    } else if (customUrl) {
+      // User-supplied encoder URL overrides the built-in variant asset.
+      url = customUrl
+    } else {
+      url = variant.onnxUrl
+    }
     return { url, runtime: rt }
-  }, [plixVariant, plixRuntime])
+  }, [plixVariant, plixRuntime, modelSources, customUrls])
 
   const ensureFsEngines = useCallback(() => {
     if (!engineRef.current) {
@@ -773,6 +1019,146 @@ export const KWSPanel = memo(function KWSPanel({
                 </div>
               )
             })}
+        </div>
+
+        {/* Model sources - the user can pick which pretrained model each role
+            uses (built-in registry entries) or supply a custom URL (e.g. a
+            model trained with this platform). The selection overrides the
+            registry defaults on the next Load. */}
+        <div className="space-y-3 border-t border-line pt-3">
+          <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
+            Model sources
+          </div>
+          <p className="text-xs text-ink-3">
+            Pick the pretrained model per role (built-in registry), a saved
+            model from your library, a local file, or a custom URL. Saved
+            models are stored in your browser (IndexedDB) and can be exported
+            back to disk. Applied on the next Load/Reload.
+          </p>
+          {(isFewShot ? FEWSHOT_MODEL_ROLES : TRADITIONAL_MODEL_ROLES).map(({ role, label, fallbackId }) => {
+                const options = registryModels
+                  ? modelSourcesForRole(registryModels, role, customUrls[role])
+                  : []
+                const selected = modelSources[role]
+                const isCustom = selected === 'custom'
+                const isUserModel = selected?.startsWith('user:') ?? false
+                const roleUserModels = userModels.filter((m) => m.role === role)
+                const selectedModelId = isUserModel && selected ? selected.slice(5) : undefined
+                const selectedModel = roleUserModels.find((m) => m.id === selectedModelId)
+                const currentUrl = isCustom
+                  ? customUrls[role] ?? ''
+                  : registryModels
+                    ? modelSourcesForRole(registryModels, role, customUrls[role])
+                        .find((o) => o.id === (selected ?? fallbackId))
+                        ?.url ?? ''
+                    : ''
+                return (
+                  <div key={role} className="space-y-1">
+                    <label className="flex items-center gap-2 text-xs">
+                      <span className="w-36 shrink-0 text-ink-2">{label}</span>
+                      <select
+                        value={selected ?? fallbackId}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          if (v.startsWith('user:')) {
+                            void handleSelectUserModel(role, v.slice(5))
+                          } else {
+                            setModelSources((prev) => ({ ...prev, [role]: v }))
+                          }
+                        }}
+                        disabled={status === 'loading' || running}
+                        className="truncate rounded bg-surface-3 px-2 py-1 text-ink-2"
+                      >
+                        {options.length === 0 && (
+                          <option value={fallbackId}>Built-in ({fallbackId})</option>
+                        )}
+                        {options.map((o) => (
+                          <option key={o.id} value={o.id} title={o.note}>
+                            {o.label}
+                          </option>
+                        ))}
+                        {roleUserModels.length > 0 && (
+                          <optgroup label="Saved models">
+                            {roleUserModels.map((m) => (
+                              <option key={m.id} value={`user:${m.id}`}>
+                                {m.name} ({m.sizeBytes / 1024 / 1024 > 1
+                                  ? (m.sizeBytes / 1024 / 1024).toFixed(1) + ' MB'
+                                  : Math.round(m.sizeBytes / 1024) + ' KB'})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
+                    </label>
+                    {isCustom && (
+                      <input
+                        type="text"
+                        value={customUrls[role] ?? ''}
+                        onChange={(e) =>
+                          setCustomUrls((prev) => ({
+                            ...prev,
+                            [role]: e.target.value,
+                          }))
+                        }
+                        placeholder="https://… or /modules/…/model.onnx"
+                        disabled={status === 'loading' || running}
+                        className="w-full rounded bg-surface-3 px-2 py-1 text-xs font-mono text-ink-2"
+                      />
+                    )}
+                    {isUserModel && selectedModel && (
+                      <div className="flex items-center gap-2 text-[10px] text-ink-3">
+                        <span>
+                          Saved: {selectedModel.name} · {Math.round(selectedModel.sizeBytes / 1024)} KB ·{' '}
+                          {new Date(selectedModel.createdAtMs).toLocaleDateString()}
+                        </span>
+                        <button
+                          onClick={() => void exportUserModel(selectedModel)}
+                          className="text-brand-400 underline hover:text-brand-300"
+                        >
+                          Export
+                        </button>
+                        <button
+                          onClick={() => {
+                            void deleteUserModel(selectedModel.id)
+                            setUserModels((prev) => prev.filter((m) => m.id !== selectedModel.id))
+                            setModelSources((prev) => ({ ...prev, [role]: fallbackId }))
+                          }}
+                          className="text-danger underline hover:text-red-400"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={status === 'loading' || running}
+                        className="rounded bg-surface-3 px-2 py-0.5 text-[10px] text-ink-2 hover:bg-surface-4"
+                      >
+                        Import local file…
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".onnx,.tflite"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          void handleImportModelFile(f, role)
+                          e.target.value = ''
+                        }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-ink-3">
+                      {isCustom
+                        ? 'Custom URL — will be fetched as-is on Load.'
+                        : isUserModel
+                          ? 'Saved model — loaded from your browser library on Load.'
+                          : `URL: ${currentUrl || 'not loaded yet'}`}
+                    </p>
+                  </div>
+                )
+              })}
         </div>
       </div>
 

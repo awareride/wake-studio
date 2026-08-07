@@ -45,14 +45,14 @@
         "high-performance"
       ],
       "source": "benjamin-paine/hey-buddy",
-      "url": "https://huggingface.co/benjamin-paine/hey-buddy/resolve/main/models/hey-buddy.onnx",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/hey-buddy.onnx",
       "format": "onnx",
       "license": "CC-BY-4.0",
       "commercial": true,
       "class": "redistributable",
       "sha256": "TODO-phase2",
       "sizeBytes": 1186048,
-      "notes": "Browser-first wake-word model. Commercially clean (CC-BY-4.0). Replaces the CC BY-NC-SA openWakeWord alexa demo model."
+      "notes": "Browser-first wake-word model. Commercially clean (CC-BY-4.0). Replaces the CC BY-NC-SA openWakeWord alexa demo model. Now vendored locally under the module assets (user-provided 2026-08-07); no remote fetch."
     },
     {
       "id": "plixkws",
@@ -61,10 +61,10 @@
         "high-performance"
       ],
       "source": "aaqibsaeed/plixkws (ONNX export of FewshotML/plix)",
-      "url": "/modules/kws/plix/assets/plixkws-base.onnx",
+      "url": "/modules/kws/plix/assets/plixkws-small.onnx",
       "format": "onnx",
       "runtime": "onnx",
-      "encoderVariant": "base",
+      "encoderVariant": "small",
       "transformersModel": "aaqibsaeed/plixkws",
       "embeddingDim": 1280,
       "license": "Apache-2.0",
@@ -72,7 +72,8 @@
       "class": "redistributable",
       "sha256": "TODO-phase3",
       "sizeBytes": null,
-      "notes": "PLiX 'base' encoder variant (EfficientNet-v2-M). Compact CNN trained as a Prototypical Network; outputs a 1280-dim embedding for prototype-distance matching. Replaces WavLM-base-plus as the Few-Shot encoder (WavLM was too heavy for end-side devices). Apache-2.0 (FewshotML/plix). Two runtimes: 'onnx' (default) loads the exported plixkws-base.onnx via onnxruntime-web; 'transformers' loads the encoder browser-native via @huggingface/transformers v4 (CDN, no .pt / no npm install) and fetches the ONNX weights itself from the Hugging Face 'transformersModel' id (or a locally-served HF-style dir). ONNX stays the default; switch runtime to 'transformers' for a zero-Python deployment. The .pt weights are on Dropbox; export to ONNX via packages/modules/kws/plix/scripts/export-plixkws-onnx.py."
+      "notes": "PLiX 'base' encoder variant (EfficientNet-v2-M). Compact CNN trained as a Prototypical Network; outputs a 1280-dim embedding for prototype-distance matching. Replaces WavLM-base-plus as the Few-Shot encoder (WavLM was too heavy for end-side devices). Apache-2.0 (FewshotML/plix). Two runtimes: 'onnx' (default) loads the exported plixkws-base.onnx via onnxruntime-web; 'transformers' loads the encoder browser-native via @huggingface/transformers v4 (CDN, no .pt / no npm install) and fetches the ONNX weights itself from the Hugging Face 'transformersModel' id (or a locally-served HF-style dir). ONNX stays the default; switch runtime to 'transformers' for a zero-Python deployment. The .pt weights are on Dropbox; export to ONNX via packages/modules/kws/plix/scripts/export-plixkws-onnx.py. NOTE (2026-08-07): only the small ONNX export is vendored in assets/; the base export (plixkws-base.onnx) is not present, so this entry resolves to the small asset. Set a custom encoder URL or export base via scripts/export-plixkws-onnx.py to use base.",
+      "externalData": "plixkws-small.onnx.data"
     },
     {
       "id": "plixkws-small",
@@ -128,6 +129,198 @@
       "sha256": "TODO-phase2",
       "sizeBytes": null,
       "notes": "Used as a browser-demo MCU model until Phase 5 trains a WakeStudio-owned word."
+    },
+    {
+      "id": "openwakeword-alexa",
+      "name": "openWakeWord 'alexa' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/alexa_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 854246,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-hey-jarvis",
+      "name": "openWakeWord 'hey_jarvis' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/hey_jarvis_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 1271370,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-hey-mycroft",
+      "name": "openWakeWord 'hey_mycroft' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/hey_mycroft_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 857691,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-hey-rhasspy",
+      "name": "openWakeWord 'hey_rhasspy' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/hey_rhasspy_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 204081,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-timer",
+      "name": "openWakeWord 'timer' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/timer_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 1742475,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-weather",
+      "name": "openWakeWord 'weather' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/weather_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 1149158,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "hi-buddy",
+      "name": "Hi Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/hi-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'hi-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'hi buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "yo-buddy",
+      "name": "Yo Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/yo-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'yo-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'yo buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "sup-buddy",
+      "name": "Sup Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/sup-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'sup-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'sup buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "okay-buddy",
+      "name": "Okay Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/okay-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1031918,
+      "notes": "benjamin-paine/hey-buddy 'okay-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'okay buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "hello-buddy",
+      "name": "Hello Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/hello-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'hello-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'hello buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "buddy",
+      "name": "Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'buddy' phrase with the openwakeword mel->embedding pipeline."
     }
   ]
 }

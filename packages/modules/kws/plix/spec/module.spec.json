@@ -16,12 +16,18 @@
       "label": "PLiX encoder variant",
       "group": "primary",
       "type": "select",
-      "default": "base",
+      "default": "small",
       "options": [
-        { "value": "base", "label": "PLiX base (EfficientNet-v2-M, 1280-d)" },
-        { "value": "small", "label": "PLiX small (TinyNet-E, 1280-d)" }
+        {
+          "value": "base",
+          "label": "PLiX base (EfficientNet-v2-M, 1280-d)"
+        },
+        {
+          "value": "small",
+          "label": "PLiX small (TinyNet-E, 1280-d)"
+        }
       ],
-      "description": "base = EfficientNet-v2-M (1280-d); small = TinyNet-E (lighter, low-RAM)."
+      "description": "base = EfficientNet-v2-M (1280-d); small = TinyNet-E (lighter, low-RAM). Default is small (TinyNet-E) because only the small ONNX export is vendored in assets/; switch to base when you have the plixkws-base.onnx export."
     },
     {
       "id": "runtime",
@@ -30,8 +36,14 @@
       "type": "select",
       "default": "onnx",
       "options": [
-        { "value": "onnx", "label": "ONNX (onnxruntime-web)" },
-        { "value": "transformers", "label": "Transformers.js (browser-native, CDN)" }
+        {
+          "value": "onnx",
+          "label": "ONNX (onnxruntime-web)"
+        },
+        {
+          "value": "transformers",
+          "label": "Transformers.js (browser-native, CDN)"
+        }
       ],
       "description": "onnx loads the exported ONNX graph; transformers runs the encoder browser-native via @huggingface/transformers (no ONNX file, zero-Python deployment)."
     }
@@ -80,7 +92,10 @@
         "type": "choice",
         "default": "base",
         "required": true,
-        "options": ["base", "small"]
+        "options": [
+          "base",
+          "small"
+        ]
       },
       {
         "id": "language",
@@ -100,14 +115,20 @@
   },
   "tests": {
     "l1": "packages/modules/kws/plix/tests/params.test.ts",
-    "required": ["l1"]
+    "required": [
+      "l1"
+    ]
   },
   "playground": {
     "route": "/playground/kws/plix",
     "entry": "packages/modules/kws/plix/web/playground.tsx"
   },
   "interfaces": {
-    "provides": ["EmbedProvider"],
-    "consumes": ["AFEOutputFrame"]
+    "provides": [
+      "EmbedProvider"
+    ],
+    "consumes": [
+      "AFEOutputFrame"
+    ]
   }
 }
