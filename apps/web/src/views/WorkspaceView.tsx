@@ -305,20 +305,31 @@ function WorkspaceInner({
         </div>
       )}
 
+      {/* Main action — sticks to the top of the viewport while the config /
+          live content scrolls underneath (epic #53 UX). */}
+      <div className="sticky top-3 z-20 flex justify-end">
+        <div className="flex items-center gap-2 rounded-full border border-line bg-surface-2/90 p-1.5 pr-3 shadow-lg shadow-black/10 backdrop-blur">
+          <span
+            className={
+              previewVisible
+                ? 'rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-emerald-300'
+                : 'rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300'
+            }
+          >
+            {previewVisible ? 'Live' : 'Setup'}
+          </span>
+          <RunControl runState={runState} onStart={onStart} onStop={onStop} />
+        </div>
+      </div>
+
       {/* ============ SETUP (before Start) ============
           Kept mounted (hidden) while running so the KWS engine and per-stage
           form state survive the switch to Live — unmounting would dispose
           the engine mid load (epic #53 KWS fix). */}
       <div className={previewVisible ? 'hidden' : ''}>
         <section className="rounded-2xl border border-line bg-surface-1 p-4">
-          <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-line pb-3">
-            <span className="rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
-              Setup
-            </span>
+          <div className="mb-3 border-b border-line pb-3">
             <span className="text-xs text-ink-3">configure each module, then Start — Stop returns here</span>
-            <div className="ml-auto">
-              <RunControl runState={runState} onStart={onStart} onStop={onStop} />
-            </div>
           </div>
 
           <div className="mb-4">
@@ -433,14 +444,8 @@ function WorkspaceInner({
       {/* ============ LIVE dashboard (after Start) ============ */}
       {previewVisible && (
         <section className="rounded-2xl border border-line bg-surface-1 p-4">
-          <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-line pb-3">
-            <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-emerald-300">
-              Live
-            </span>
+          <div className="mb-3 border-b border-line pb-3">
             <span className="text-xs text-ink-3">running effects — Stop to reconfigure</span>
-            <div className="ml-auto">
-              <RunControl runState={runState} onStart={onStart} onStop={onStop} />
-            </div>
           </div>
 
           <div className="space-y-4">
