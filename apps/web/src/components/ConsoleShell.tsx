@@ -8,7 +8,6 @@ import type { ConsoleRoute } from '../router'
 import { Sidebar, TopBar } from './shell'
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogTitle,
@@ -57,39 +56,22 @@ export function ConsoleShell({
           </aside>
 
           {/* Mobile drawer: left-edge slide-in panel (GitHub-style), not a
-              centered dialog. Full-height, no rounding, animates from off-
-              screen left. */}
+              centered dialog. Left edge flush (no rounding), right edge
+              rounded (rounded-r-xl). */}
           <Dialog open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
             <DialogContent
               centered={false}
-              className="drawer-content left-0 top-0 h-screen w-[min(80vw,17rem)] max-w-[calc(100vw-2rem)] rounded-none border-l border-t-0 border-r-0 border-b-0 p-0 data-[state=open]:animate-[drawer-in_180ms_ease-out] data-[state=closed]:animate-[drawer-out_160ms_ease-in]"
+              className="drawer-content left-0 top-0 h-screen w-[min(80vw,17rem)] max-w-[calc(100vw-2rem)] rounded-r-xl border-l border-t-0 border-r-0 border-b-0 p-0 data-[state=open]:animate-[drawer-in_180ms_ease-out] data-[state=closed]:animate-[drawer-out_160ms_ease-in]"
             >
               <DialogTitle className="sr-only">Navigation</DialogTitle>
               <DialogDescription className="sr-only">
                 Primary navigation
               </DialogDescription>
-              <div className="flex h-full flex-col">
-                {/* Close button pinned top-right of the drawer. */}
-                <div className="flex justify-end border-b border-line px-3 py-2">
-                  <DialogClose
-                    className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
-                    aria-label="Close navigation"
-                  >
-                    <svg
-                      viewBox="0 0 16 16"
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
-                    </svg>
-                  </DialogClose>
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  <Sidebar route={route} onNavigate={navigate} />
-                </div>
-              </div>
+              <Sidebar
+                route={route}
+                onNavigate={navigate}
+                onClose={() => setMobileNavOpen(false)}
+              />
             </DialogContent>
           </Dialog>
 

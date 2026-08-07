@@ -209,9 +209,12 @@ function NavSection({ title, items, route, onNavigate }: {
 export function Sidebar({
   route,
   onNavigate,
+  onClose,
 }: {
   route: ConsoleRoute
   onNavigate: (r: ConsoleRoute) => void
+  /** When set (mobile drawer), renders a Close button beside the logo. */
+  onClose?: () => void
 }) {
   const drivers = useSettingsDrivers()
   // Current driver anchor (Settings -> driver focus).
@@ -228,12 +231,29 @@ export function Sidebar({
     <div className="flex h-full w-full flex-col gap-1 overflow-y-auto p-3">
       <div className="mb-2 flex items-center gap-2 px-1.5">
         <Logo />
-        <div className="flex flex-col leading-tight">
+        <div className="flex min-w-0 flex-1 flex-col leading-tight">
           <span className="text-sm font-semibold tracking-tight text-ink-1">
             WakeStudio
           </span>
           <span className="text-[11px] text-ink-3">on-device KWS studio</span>
         </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            aria-label="Close navigation"
+            className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <NavSection title="Studio" items={PRIMARY_NAV} route={route} onNavigate={onNavigate} />
