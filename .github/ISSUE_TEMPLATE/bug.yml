@@ -1,0 +1,55 @@
+name: Bug report
+description: Something isn't working as expected
+title: "bug: "
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is broken? Include the exact error message / stack trace.
+    validations:
+      required: true
+  - type: input
+    id: module
+    attributes:
+      label: Module
+      description: "One of: afe, kws, few-shot, sdk, export, training, platform, web, device, ci/deploy"
+    validations:
+      required: true
+  - type: input
+    id: phase
+    attributes:
+      label: Phase
+      description: "Which phase does this belong to? (e.g. P4, P3.6, v1.x)"
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: How can a teammate reproduce this?
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: P0 blocks the delivery chain / release.
+      options:
+        - P0
+        - P1
+        - P2
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, device, OS, branch, local-service version as applicable.

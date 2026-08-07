@@ -1,0 +1,58 @@
+name: Task
+description: A concrete deliverable broken out of the plan (or an epic's sub-issue)
+title: "task: "
+labels: [task]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why does this task exist? Reference the plan section, epic, or ADR.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What must be true for this task to be done? Be concrete.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: input
+    id: module
+    attributes:
+      label: Module
+      description: "One of: afe, kws, few-shot, sdk, export, training, platform, web, device, ci/deploy"
+  - type: input
+    id: phase
+    attributes:
+      label: Phase
+      description: "Which phase does this belong to? (e.g. P4)"
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: P0 blocks the delivery chain / release.
+      options:
+        - P0
+        - P1
+        - P2
+    validations:
+      required: true
+  - type: dropdown
+    id: estimate
+    attributes:
+      label: Estimate
+      options:
+        - S
+        - M
+        - L
+  - type: input
+    id: adr
+    attributes:
+      label: Related ADR
+      description: "e.g. ADR-021, or N/A"

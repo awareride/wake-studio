@@ -106,6 +106,33 @@ Run `pnpm test:unit` before pushing; the CI runs L1+L2 on every PR.
 - Commit logical units locally. Group related work. Do not commit generated
   artifacts (`dist/`, lockfiles are the exception - `pnpm-lock.yaml` IS tracked).
 
+## Issues & Projects (work tracking)
+
+Task state lives in GitHub Issues + the **WakeStudio Delivery** project
+(org-level, `awareride`), not in plan documents. Docs keep the durable
+knowledge (ADRs, module specs); issues keep the work state.
+
+- **Every change starts from an issue.** Before starting a task, confirm the
+  issue exists (create it if not, using the task/bug templates) and move it to
+  `In progress` in the project.
+- **Every PR must reference an issue.** Put `Closes #N` / `Fixes #N` in the PR
+  description so merge auto-closes the issue. A PR without an issue link is
+  incomplete.
+- **Labels** carry type + priority + scope: `epic`, `task`, `bug`, `question`,
+  `docs`, `p0`, `p1`, and the scope labels (`sdk`, `kws`, `training`, `web`,
+  `device`, `ci/deploy`, `platform`, `export`, `few-shot`, `afe`).
+- **Epics** group phase-sized work; their tasks are GitHub sub-issues.
+- **Questions** (`question` label) close with a decision that lands as an ADR
+  in `DECISIONS.md`.
+- On merge/close, move the issue to `Done` in the project (or let project
+  automation do it).
+- Project fields: `Phase` (P0–P7, v1.x), `Priority` (P0/P1/P2), `Module`,
+  `Estimate` (S/M/L), `Status` (Todo / In progress / Done).
+
+Agent (pi) workflows should drive this via `gh`: `gh issue create`,
+`gh project item-add 2 --owner awareride --url <issue>`, `gh project item-edit`,
+and `gh issue close` on merge.
+
 ## Documentation-first (docs-first)
 
 WakeStudio follows a **documentation-first** workflow (see plan §11):
