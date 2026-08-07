@@ -105,15 +105,10 @@ export function WorkspaceView() {
 
   return (
     <div className="space-y-6">
-      {/* Compact page header: title + project bar + recent projects. */}
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border border-line bg-surface-2 px-4 py-3">
-        <div>
-          <h2 className="text-base font-semibold text-ink-1">Workspace</h2>
-          <p className="text-xs text-ink-3">
-            Build, visualize and test on-device wake-word pipelines — all in the
-            browser.
-          </p>
-        </div>
+      {/* Compact page header: title + Recent (project switcher) + core info,
+          left-aligned. */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-line bg-surface-2 px-4 py-3">
+        <h2 className="text-base font-semibold text-ink-1">Workspace</h2>
         <div className="flex flex-wrap items-center gap-2">
           <RecentProjectsMenu />
           <ProjectBar />
