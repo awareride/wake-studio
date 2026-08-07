@@ -192,8 +192,20 @@ export class OpenWakeWordBackend implements KWSBackend {
     )
 
     // Step 1: melspectrogram -> [1, 1, time, 32]
+    //
+    // openwakeword's mel model expects 16-bit PCM audio (int16 range), not
+    // float [-1,1] samples: AudioFeatures._get_melspectrogram raises unless
+    // the input is int16, and the ONNX graph's STFT/log-Mel is trained for
+    // that magnitude. Feeding float [-1,1] directly drives the log-Mel floor
+    // (outputs ~ -77 dB across the board), which after x/10+2 collapses the
+    // embedding features and leaves every classifier score near 0 (verified:
+    // "hey buddy" clip scored 0.0001 unscaled vs 0.22 with int16 scaling,
+    // using the upstream AudioFeatures pipeline). Scale once, here, before
+    // the tensor is built.
     const melInputName = this._melSession.inputNames[0]
-    const melTensor = new ort.Tensor('float32', melAudio, [1, inputLen])
+    const melScaled = new Float32Array(inputLen)
+    for (let i = 0; i < inputLen; i++) melScaled[i] = melAudio[i] * 32768
+    const melTensor = new ort.Tensor('float32', melScaled, [1, inputLen])
     const melOutputs = await this._melSession.run({ [melInputName]: melTensor })
     const melResult = melOutputs[this._melSession.outputNames[0]] as ort.Tensor
     const melData = melResult.data as Float32Array
