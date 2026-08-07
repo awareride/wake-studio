@@ -39,14 +39,12 @@ export interface FileChannelConfig {
   offsetMs: number
 }
 
-/** Microphone source options (device + browser DSP toggles). */
-export interface MicSourceConfig {
-  deviceId?: string
-  echoCancellation: boolean
-  noiseSuppression: boolean
-  autoGainControl: boolean
-  channelCount: 1 | 2
-}
+/**
+ * Microphone source options (device + browser DSP toggles). Reuses the AFE
+ * module's MicSourceConfig (epic #53 P2) so the workspace config and the
+ * AFEPipeline.start() source arg stay the same shape.
+ */
+export type MicSourceConfig = import('@wake-studio/module-afe-graph').MicSourceConfig
 
 /** The input source selector state. */
 export type InputSourceConfig =

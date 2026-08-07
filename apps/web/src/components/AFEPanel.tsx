@@ -10,6 +10,8 @@ import { logInfo, logError } from '../log'
 import { PipelineOverview } from './PipelineOverview'
 import { RecordReplay } from './RecordReplay'
 import { StagePanel } from './viz/StageCard'
+import { SourceSelector } from './SourceSelector'
+import type { MicSourceConfig } from '@wake-studio/module-afe-graph'
 
 interface AFEPanelProps {
   afeRef: MutableRefObject<AFEPipeline | null>
@@ -37,6 +39,38 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
     bss: wsCfg?.enabled?.afeStages?.bss ?? true,
     ns: wsCfg?.enabled?.afeStages?.ns ?? false,
   }))
+  // Mic source config (epic #53 P2): seeded from the workspace snapshot's
+  // source (falling back to default mic + browser DSP off), persisted on
+  // change, and passed to AFEPipeline.start(source).
+  const [micSource, setMicSource] = useState<MicSourceConfig>(() => {
+    const s = wsCfg?.source
+    if (s?.kind === 'mic') {
+      return {
+        deviceId: s.mic.deviceId,
+        echoCancellation: s.mic.echoCancellation ?? false,
+        noiseSuppression: s.mic.noiseSuppression ?? false,
+        autoGainControl: s.mic.autoGainControl ?? false,
+        channelCount: s.mic.channelCount ?? (projCfg?.channels ?? 1),
+      }
+    }
+    return {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      channelCount: projCfg?.channels ?? 1,
+    }
+  })
+
+  const updateMicSource = useCallback(
+    (next: MicSourceConfig) => {
+      setMicSource(next)
+      // Persist to the workspace snapshot's source (epic #53 P2).
+      persistWs({
+        source: { kind: 'mic', mic: next },
+      })
+    },
+    [persistWs],
+  )
 
   // Keep a ref to bypass so toggleBypass has a stable identity (for memo).
   const bypassRef = useRef(bypass)
@@ -54,7 +88,7 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
       setFrameData((prev) => ({ ...prev, [f.stageId]: f }))
     })
     try {
-      await p.start()
+      await p.start(micSource)
       setRunning(true)
       onRunningChange(true)
       logInfo('afe', 'Pipeline started (microphone live)')
@@ -62,7 +96,7 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
       setError(err instanceof Error ? err.message : String(err))
       logError('afe', err instanceof Error ? err.message : String(err))
     }
-  }, [afeRef, onRunningChange])
+  }, [afeRef, onRunningChange, micSource])
 
   const handleStop = useCallback(() => {
     afeRef.current?.stop()
@@ -133,6 +167,11 @@ export function AFEPanel({ afeRef, onRunningChange, commandRef }: AFEPanelProps)
           WASM). AEC3 and BSS are deferred (ADR-016); VAD from RNNoise for v1.
         </p>
       </div>
+
+      {/* Input source (epic #53 P2) - device picker + browser DSP options. */}
+      {!running && (
+        <SourceSelector value={micSource} onChange={updateMicSource} />
+      )}
 
       {/* Controls */}
       <div className="flex flex-nowrap items-center gap-4 overflow-x-auto rounded-xl border border-line bg-surface-2 p-5">

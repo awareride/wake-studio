@@ -32,6 +32,21 @@ export interface AFEConfig {
   vizFps: number
 }
 
+/**
+ * Microphone source options for {@link AFEPipeline.start} (epic #53 P2).
+ * Browser DSP toggles are surfaced per-device in the input-source selector;
+ * defaults keep the current behavior (browser DSP off — our RNNoise is the
+ * only NS; default device).
+ */
+export interface MicSourceConfig {
+  /** Preferred input device id (default device when omitted). */
+  deviceId?: string
+  echoCancellation?: boolean
+  noiseSuppression?: boolean
+  autoGainControl?: boolean
+  channelCount?: 1 | 2
+}
+
 /** Descriptor for one tunable parameter, used to build the Studio config panel
  *  (ADR-017). Every module exposes its parameters this way. */
 export interface ParameterDescriptor {

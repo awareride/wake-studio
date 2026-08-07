@@ -9,6 +9,7 @@
 import type {
   AFEConfig,
   AFEOutputFrame,
+  MicSourceConfig,
   RecordedClip,
   StageFrameData,
   StageState,
@@ -73,7 +74,7 @@ export class AFEPipeline {
 
   // ---- lifecycle ----
 
-  async start(): Promise<void> {
+  async start(source?: MicSourceConfig): Promise<void> {
     if (this._running) return
 
     // Feature detection.
@@ -84,14 +85,17 @@ export class AFEPipeline {
       throw new UnsupportedBrowserError()
     }
 
-    // Request microphone (browser DSP disabled so ours is the only processing).
+    // Request microphone. Browser DSP toggles + device come from the source
+    // config (epic #53 P2); defaults keep the current behavior (browser DSP
+    // off so ours is the only processing, default device).
     try {
       this._stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          channelCount: this._config.channels,
+          deviceId: source?.deviceId ? { exact: source.deviceId } : undefined,
+          echoCancellation: source?.echoCancellation ?? false,
+          noiseSuppression: source?.noiseSuppression ?? false,
+          autoGainControl: source?.autoGainControl ?? false,
+          channelCount: source?.channelCount ?? this._config.channels,
         },
       })
     } catch {

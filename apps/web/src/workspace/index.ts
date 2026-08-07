@@ -16,3 +16,10 @@ export {
   type PersistStageConfig,
   type WorkspaceConfig,
 } from './types'
+export {
+  enumerateMicDevices,
+  hasDeviceLabels,
+  onDeviceChange,
+  requestMicPermission,
+  type MicDevice,
+} from './sources/deviceList'

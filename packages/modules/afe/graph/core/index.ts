@@ -18,6 +18,7 @@ export type {
   AFEStageKind,
   AFETopology,
   FrameConfig,
+  MicSourceConfig,
   ParameterDescriptor,
   RecordedClip,
   SpectrogramData,
