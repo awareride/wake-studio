@@ -123,6 +123,13 @@ function serveAssets() {
     '.tflite': 'application/octet-stream',
     '.wasm': 'application/wasm',
     '.json': 'application/json',
+    // onnxruntime-web 1.27 loads its runtime via .mjs loader scripts
+    // (ort-wasm-simd-threaded.jsep.mjs etc.) that the browser dynamic-imports.
+    // A wrong MIME (application/octet-stream) makes the import fail with
+    // "TypeError: Failed to fetch dynamically imported module" - serve them
+    // as ES modules.
+    '.mjs': 'text/javascript',
+    '.js': 'text/javascript',
   }
 
   /**
