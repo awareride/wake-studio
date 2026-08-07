@@ -341,12 +341,13 @@ export function TopBar({
 
 /**
  * Mini pipeline bar (epic #53 UX): shows only while the pipeline is running;
- * a compact Source → … → KWS chain with live stage status + latency. The
+ * a compact Source → … → KWS chain, a wake-word indicator (light + live
+ * score, colored against the detection threshold) and a Stop button. The
  * user can collapse it (✕) and reopen it via the small pipeline button.
  */
 function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const { running, latencyMs, bypass } = useLiveAfe()
-  const { kwsRunning } = useLiveKws()
+  const { running, bypass, stopPipeline } = useLiveAfe()
+  const { kwsRunning, lastScore, threshold } = useLiveKws()
 
   if (!running) return null
 
@@ -358,12 +359,40 @@ function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => vo
     { label: 'KWS', active: kwsRunning },
   ]
 
+  // Wake indicator: the light is green when the latest score clears the
+  // threshold (obvious pulse alert), gray otherwise; the score is colored
+  // by how close it is to the threshold.
+  const woken = kwsRunning && lastScore >= threshold
+  const scoreColor = woken
+    ? 'text-emerald-300 font-bold'
+    : lastScore >= threshold * 0.8
+      ? 'text-amber-300'
+      : 'text-ink-3'
+
   return (
     <div className="flex items-center gap-1.5">
       {open ? (
         <>
-          <div className="flex items-center gap-1 rounded-full border border-line bg-surface-2 px-3 py-1.5">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
+          <div className="flex items-center gap-2 rounded-full border border-line bg-surface-2 px-3 py-1.5">
+            <span className="flex items-center gap-1.5">
+              <span
+                className={cn(
+                  'h-2 w-2 rounded-full transition-colors',
+                  woken ? 'animate-pulse bg-emerald-400' : 'bg-slate-500',
+                )}
+              />
+              <span
+                className={cn('font-mono text-[11px] tabular-nums', scoreColor)}
+                title={`detection score (threshold ${threshold.toFixed(2)})`}
+              >
+                {lastScore.toFixed(3)}
+              </span>
+            </span>
+            {woken && (
+              <span className="animate-pulse rounded bg-emerald-500/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-300">
+                Wake!
+              </span>
+            )}
             {stages.map((s, i) => (
               <React.Fragment key={s.label}>
                 {i > 0 && <span className="text-[9px] text-ink-3">→</span>}
@@ -377,10 +406,16 @@ function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => vo
                 </span>
               </React.Fragment>
             ))}
-            <span className="ml-1 font-mono text-[10px] text-ink-3">
-              {latencyMs.toFixed(0)} ms
-            </span>
           </div>
+          <button
+            onClick={stopPipeline}
+            aria-label="Stop pipeline"
+            className="rounded-md p-1.5 text-danger hover:bg-danger/10"
+          >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+              <rect x="6" y="6" width="12" height="12" rx="1.5" />
+            </svg>
+          </button>
           <button
             onClick={onToggle}
             aria-label="Hide pipeline status"

@@ -34,6 +34,10 @@ interface LiveAfeValue {
   pushFrame: (f: StageFrameData) => void
   setLatency: (ms: number) => void
   setRunning: (running: boolean) => void
+  /** Stop the whole pipeline (registered by the workspace runner; the
+   *  top-bar mini bar's Stop button calls this on every view). */
+  stopPipeline: () => void
+  registerStop: (cb: () => void) => () => void
 }
 
 const LiveAfeContext = React.createContext<LiveAfeValue | null>(null)
@@ -61,9 +65,19 @@ export function LiveAfeProvider({
     setBypass((prev) => ({ ...prev, [id]: !prev[id] }))
   }, [])
 
+  // Pipeline stop handler (registered by the workspace runner).
+  const stopRef = React.useRef<() => void>(() => {})
+  const registerStop = React.useCallback((cb: () => void) => {
+    stopRef.current = cb
+    return () => {
+      if (stopRef.current === cb) stopRef.current = () => {}
+    }
+  }, [])
+  const stopPipeline = React.useCallback(() => stopRef.current(), [])
+
   const value = React.useMemo(
-    () => ({ frameData, latencyMs, running, bypass, toggleBypass, pushFrame, setLatency, setRunning }),
-    [frameData, latencyMs, running, bypass, toggleBypass, pushFrame, setLatency, setRunning],
+    () => ({ frameData, latencyMs, running, bypass, toggleBypass, pushFrame, setLatency, setRunning, stopPipeline, registerStop }),
+    [frameData, latencyMs, running, bypass, toggleBypass, pushFrame, setLatency, setRunning, stopPipeline, registerStop],
   )
   return <LiveAfeContext.Provider value={value}>{children}</LiveAfeContext.Provider>
 }
@@ -88,6 +102,9 @@ interface LiveKwsValue {
   /** Whether KWS detection is running (top-bar mini bar). */
   kwsRunning: boolean
   setKwsRunning: (r: boolean) => void
+  /** Latest smoothed score (top-bar mini bar wake indicator). */
+  lastScore: number
+  setLastScore: (s: number) => void
 }
 
 const LiveKwsContext = React.createContext<LiveKwsValue | null>(null)
@@ -96,10 +113,12 @@ export function LiveKwsProvider({ children }: { children: React.ReactNode }) {
   const historyRef = React.useRef<KWSScoreSample[]>([])
   const [threshold, setThreshold] = React.useState(0.5)
   const [kwsRunning, setKwsRunningState] = React.useState(false)
+  const [lastScore, setLastScoreState] = React.useState(0)
   const setKwsRunning = React.useCallback((r: boolean) => setKwsRunningState(r), [])
+  const setLastScore = React.useCallback((s: number) => setLastScoreState(s), [])
   const value = React.useMemo(
-    () => ({ historyRef, threshold, setThreshold, kwsRunning, setKwsRunning }),
-    [threshold, kwsRunning, setKwsRunning],
+    () => ({ historyRef, threshold, setThreshold, kwsRunning, setKwsRunning, lastScore, setLastScore }),
+    [threshold, kwsRunning, setKwsRunning, lastScore, setLastScore],
   )
   return <LiveKwsContext.Provider value={value}>{children}</LiveKwsContext.Provider>
 }

@@ -216,6 +216,10 @@ function WorkspaceInner({
     setKwsRunning(runState.kwsRunning)
   }, [runState.kwsRunning, setKwsRunning])
 
+  // Register the pipeline stop for the top-bar mini bar's Stop button.
+  const { registerStop } = useLiveAfe()
+  React.useEffect(() => registerStop(onStop), [onStop, registerStop])
+
   // Active config tab (Source by default; KWS only selectable when enabled).
   const [activeTab, setActiveTab] = React.useState<PipelineTabId>('source')
 

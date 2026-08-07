@@ -177,7 +177,7 @@ export const KWSPanel = memo(function KWSPanel({
   const [savedPrototypes, setSavedPrototypes] = useState<WakeWordPrototype[]>([])
   const [savedSampleCount, setSavedSampleCount] = useState(0)
 
-  const { historyRef, setThreshold } = useLiveKws()
+  const { historyRef, setThreshold, setLastScore } = useLiveKws()
 
   // Report a compact config summary for the tab node's core preview (the
   // few-shot flag is resolved below; backend + status are enough here).
@@ -490,6 +490,7 @@ export const KWSPanel = memo(function KWSPanel({
     if (!engineRef.current) {
       engineRef.current = new KWSEngine()
       engineRef.current.onScore((s) => {
+        setLastScore(s.smoothedScore)
         fsHistoryRef.current.push(s)
         if (fsHistoryRef.current.length > HISTORY_MAX) fsHistoryRef.current.shift()
       })
@@ -630,6 +631,7 @@ export const KWSPanel = memo(function KWSPanel({
       engine.dispose()
       const fresh = new KWSEngine()
       fresh.onScore((s) => {
+        setLastScore(s.smoothedScore)
         fsHistoryRef.current.push(s)
         if (fsHistoryRef.current.length > HISTORY_MAX) fsHistoryRef.current.shift()
       })
@@ -739,6 +741,7 @@ export const KWSPanel = memo(function KWSPanel({
     }
     const engine = engineRef.current
     engine.onScore((s) => {
+      setLastScore(s.smoothedScore)
       historyRef.current.push(s)
       if (historyRef.current.length > HISTORY_MAX) {
         historyRef.current.shift()
