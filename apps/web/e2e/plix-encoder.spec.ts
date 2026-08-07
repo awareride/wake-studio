@@ -65,3 +65,28 @@ test('plixkws encoder loads in the browser (worker registration works)', async (
   const errorText = page.getByText(/Encoder load failed|Failed to load|not found/i)
   await expect(errorText).toBeHidden()
 })
+
+test('switching backend after a load re-boots with the new backend', async ({ page }) => {
+  test.skip(Boolean(SKIP_REASON), SKIP_REASON ?? '')
+  test.setTimeout(180_000)
+  await page.goto('/')
+
+  // Load openwakeword first (default backend) -> ready.
+  await page.getByRole('button', { name: /Load models/i }).click()
+  await expect(page.getByText(/EP: (WASM|WebGPU)/)).toBeVisible({ timeout: 150_000 })
+
+  // Switch to plixkws -> the Few-Shot load button appears; loading the PLiX
+  // encoder must boot the plix path (previously the stale openwakeword worker
+  // survived the switch and the encoder never loaded).
+  const backendSelect = page.locator('select').filter({
+    has: page.locator('option[value="plixkws"]'),
+  })
+  await backendSelect.selectOption('plixkws')
+  const loadEncoder = page.getByRole('button', { name: /Load PLiX encoder/i })
+  await expect(loadEncoder).toBeVisible()
+  await loadEncoder.click()
+  await expect(page.getByText(/PLiX encoder loaded/i)).toBeVisible({ timeout: 150_000 })
+
+  const errorText = page.getByText(/Failed to load|not found/i)
+  await expect(errorText).toBeHidden()
+})
