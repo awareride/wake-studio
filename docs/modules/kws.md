@@ -69,12 +69,17 @@ experience (requirement R5).
     log-Mel front-end. Commercially clean.
   - **Google speech_embedding** (`embedding_model.onnx`, Apache-2.0) - frozen
     feature backbone (~1.4M params). Commercially clean.
-  - **Demo classifier model** - the **hey-buddy** model
-    (`benjamin-paine/hey-buddy`, CC-BY-4.0, commercially clean) for the Phase 2
-    in-browser demo. Replaces the originally-planned openWakeWord `alexa.onnx`
-    (CC BY-NC-SA, demo-only); see ADR-018 Q-KWS-1 amendment. The same pipeline
-    (mel -> speech-embedding -> classifier) is used; only the classifier weights
-    differ.
+  - **Demo classifier models** - the **hey-buddy family**
+    (`benjamin-paine/hey-buddy`, CC-BY-4.0, commercially clean): one classifier
+    per wake phrase (`hey`/`hi`/`yo`/`sup`/`okay`/`hello`/`buddy`, all vendored
+    under `assets/hey-buddy/models/` and selectable in the Model-source
+    editor) for the Phase 2 in-browser demo. Replaces the originally-planned
+    openWakeWord `alexa.onnx` (CC BY-NC-SA, demo-only); see ADR-018 Q-KWS-1
+    amendment. The same pipeline (mel -> speech-embedding -> classifier) is
+    used; only the classifier weights differ. The openwakeword demo
+    classifiers (`alexa`/`hey_jarvis`/`hey_mycroft`/`hey_rhasspy`/`timer`/
+    `weather`) are also registered and selectable (CC BY-NC-SA, demo-only,
+    rejected by the Phase-4 export gate).
   - **PLiX Few-Shot encoder** (`plixkws`, Apache-2.0) - compact CNN
     (EfficientNet-v2 "base" / TinyNet-E "small") trained as a Prototypical
     Network; outputs a 1280-dim embedding for prototype-distance matching.
