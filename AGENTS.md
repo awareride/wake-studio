@@ -26,6 +26,24 @@ Treat every change as if a teammate will review it on Monday morning.
   `README.zh.md`, `getting-started.zh.md`. If a file is not clearly scoped to a
   non-English locale, write English.
 
+## Issue & project discipline
+
+Task and planning state lives in **GitHub Issues + the `WakeStudio Delivery`
+project** (org `awareride`), driven through the `gh` CLI. Docs keep the
+durable knowledge (ADRs, module specs, architecture); issues keep the work
+state. See `CONTRIBUTING.md` (Issues & Projects section) for the full model.
+
+- Before starting any non-trivial task, confirm the corresponding issue exists
+  (create it with `gh issue create` using the task/bug template if not) and
+  move it to `In progress` in the project.
+- PR bodies must reference the issue (`Closes #N` / `Fixes #N`) so merge
+  auto-closes it.
+- On merge/close, move the issue to `Done` in the project.
+- Use the repo's label set (type `epic`/`task`/`bug`/`question`/`docs`,
+  priority `p0`/`p1`, scope `sdk`/`kws`/`training`/`web`/`device`/`ci/deploy`/
+  `platform`/`export`/`few-shot`/`afe`).
+- Questions (`question` label) close with a decision that lands as an ADR.
+
 ## Git & deployment boundaries
 
 - You **may** stage and commit locally (`git add`, `git commit`) to group
