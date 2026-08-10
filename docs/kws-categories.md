@@ -201,10 +201,12 @@ parameter descriptors differ per type.
 - [x] **Traditional:** `google-research/kws_streaming` — driver module
       `packages/modules/kws/streaming/` (`kws-streaming`), spec'd in
       `docs/modules/kws-streaming.md` ([#72](https://github.com/awareride/wake-studio/issues/72)).
-      Streaming-aware topologies (dnn…bc_resnet) run as external-state graphs
-      over onnxruntime-web; training wraps the unpatched upstream
-      `model_train_eval.py` (ADR-031). Weights still to be trained (upstream
-      ships none).
+      Two inference modes over onnxruntime-web: external-state streaming for the
+      streamable topologies, and sliding-window for the attention ones. **Four
+      pretrained 12-label models ship and work in the browser** (ARM Keyword
+      Transformer kwt1-3 + att_mh_rnn, converted TFLite→ONNX in CI and
+      re-validated on real Speech Commands audio at 99.2-100%). Training wraps
+      the unpatched upstream `model_train_eval.py` (ADR-031).
 - [x] **ASR Decoding:** `k2-fsa/sherpa-onnx` — driver module
       `packages/modules/kws/sherpa/` (`kws-sherpa`).
 - [x] **Few-Shot:** `plixkws` (`FewshotML/plix`) — driver module

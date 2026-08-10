@@ -82,7 +82,19 @@ describe('kws-streaming module spec', () => {
     expect(spec.build.registryEntry).toContain('model-registry.json')
   })
 
-  it('requires L1 only (no model artifact exists to boot yet)', () => {
-    expect(spec.tests.required).toEqual(['l1'])
+  it('requires all three test layers (pretrained artifact exists, ADR-026)', () => {
+    expect(spec.tests.required).toEqual(['l1', 'l2', 'l3'])
+    expect(spec.tests.l2).toContain('onnx-runtime.test.ts')
+    expect(spec.tests.l3).toContain('e2e/kws-streaming.spec.ts')
+  })
+
+  it('offers the 12-label wake words, excluding the non-word labels', () => {
+    const wanted = spec.params.find((p) => p.id === 'wantedWord')
+    expect(wanted?.type).toBe('select')
+    expect(wanted?.options).toContain('yes')
+    expect(wanted?.options).toContain('stop')
+    // _silence_ / _unknown_ are classifier outputs, never wake words.
+    expect(wanted?.options).not.toContain('_silence_')
+    expect(wanted?.options).not.toContain('_unknown_')
   })
 })

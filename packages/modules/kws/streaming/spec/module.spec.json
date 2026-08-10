@@ -5,9 +5,9 @@
     "name": "kws_streaming (Traditional streaming-aware driver)",
     "category": "kws",
     "version": "0.1.0",
-    "maturity": "draft",
+    "maturity": "pilot",
     "owner": "WakeStudio team",
-    "license": "Apache-2.0 (google-research/kws_streaming) + MIT (integration)",
+    "license": "Apache-2.0 (google-research/kws_streaming + ARM keyword-transformer) + MIT (integration)",
     "status": "proposed"
   },
   "params": [
@@ -15,9 +15,21 @@
       "id": "wantedWord",
       "label": "Wake word (label)",
       "group": "primary",
-      "type": "string",
-      "default": "",
-      "description": "Which class label of the trained model is the wake word. Populated from the model's model.json manifest after load; empty means 'use the manifest default'."
+      "type": "select",
+      "default": "yes",
+      "options": [
+        "yes",
+        "no",
+        "up",
+        "down",
+        "left",
+        "right",
+        "on",
+        "off",
+        "stop",
+        "go"
+      ],
+      "description": "Which class label of the loaded model is treated as the wake word. Defaults match the 12-label Speech Commands models (the two remaining labels, _silence_ and _unknown_, are never wake words)."
     },
     {
       "id": "threshold",
@@ -212,7 +224,9 @@
   },
   "tests": {
     "l1": "packages/modules/kws/streaming/tests/streaming-state.test.ts",
-    "required": ["l1"]
+    "l2": "packages/modules/kws/streaming/tests/onnx-runtime.test.ts",
+    "l3": "apps/web/e2e/kws-streaming.spec.ts",
+    "required": ["l1", "l2", "l3"]
   },
   "playground": {
     "route": "/playground/kws/streaming",

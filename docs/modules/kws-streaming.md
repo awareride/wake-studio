@@ -1,6 +1,7 @@
 # kws-streaming (Google Research `kws_streaming`) - Module Specification
 
-- **Status:** Draft (docs-first; awaiting human review)
+- **Status:** Pilot (pretrained weights working in the web console; open
+  questions below still need human review)
 - **Owner:** WakeStudio team
 - **Plan phase:** Phase 2 (inference driver) + Phase 5 (training path)
 - **Related ADRs:** ADR-011 (lazy model registry), ADR-017 (config panel),
@@ -11,7 +12,7 @@
 - **Depends on (modules):** `kws-engine` (registry + `KWSBackend` seam), AFE
   (consumes the 16 kHz output stream)
 - **Issue:** [#72](https://github.com/awareride/wake-studio/issues/72)
-- **Last updated:** 2026-08-07
+- **Last updated:** 2026-08-10
 
 ## 1. Purpose
 
@@ -22,15 +23,27 @@ library (Apache-2.0; paper: *Streaming keyword spotting on mobile devices*,
 arXiv:2005.06720).
 
 The upstream library trains a KWS classifier with a **non-streaming** Keras
-topology and then automatically converts it to a **streaming** inference graph
-by inserting ring buffers into the time-dimension layers. WakeStudio consumes
-the **external-state** flavour of that conversion: the resulting graph is
-*stateless* — every streaming buffer is an explicit graph input and output — so
-one 20 ms packet in, one posterior plus updated buffers out. That is exactly the
-shape of `KWSBackend.processFrame()`, so the driver is a thin state-carrying
-loop over onnxruntime-web with **no new runtime dependency**.
+topology and can then automatically convert it to a **streaming** inference
+graph by inserting ring buffers into the time-dimension layers. This driver
+supports **both** inference shapes, because the published pretrained weights
+need both:
 
-The module covers 9 streamable model families with one code path (`dnn`,
+| Mode | Graph | Driver loop | Used by |
+|---|---|---|---|
+| `streaming-external-state` | stateless; every ring buffer is an explicit input/output | one packet (e.g. 20 ms) in → posterior + updated states out | streamable topologies (`dnn`…`bc_resnet`) |
+| `sliding-window` | the non-streaming graph as-is | 1 s window, re-evaluated every `hopSamples` | attention topologies (`kws_transformer`, `att_mh_rnn`) — what ARM publishes |
+
+Both are a thin loop over onnxruntime-web, so there is **no new runtime
+dependency** (the repo already vendors it for the openwakeword/plix drivers).
+
+> **Why sliding-window exists.** The first implementation covered only the
+> external-state path. The available pretrained checkpoints
+> (ARM-software/keyword-transformer) are all *non-streamable* topologies that
+> ship **only** `tflite_non_stream/`, so none of them could have loaded. Upstream
+> cannot convert attention-over-the-whole-sequence models to streaming, so the
+> window has to slide on our side.
+
+The module covers every published model family with one code path (`dnn`,
 `dnn_raw`, `gru`, `lstm`, `cnn`, `crnn`, `ds_cnn`, `svdf`, `svdf_resnet`,
 `ds_tc_resnet`, `bc_resnet`), because the architecture only changes the shapes
 in the sidecar manifest (§4.2), never the loop.
@@ -70,12 +83,10 @@ Why this module exists (and is not "just another backend"):
   - The generic detection loop (VAD gate, smoothing, threshold, min-duration,
     cooldown) — owned by `kws-engine` (ADR-030).
   - The AFE (this module consumes `AFEOutputFrame`).
-  - **Shipping trained weights.** No model is registered in
-    `model-registry.json` by this change; upstream ships none, and training one
-    needs the Phase-5 runner. Until then the driver is
-    `browserFeasible: true` but requires a user-supplied model (§7).
-  - The TFLite→ONNX conversion **workflow**. §6.4 declares the intended build
-    inputs, but the CI recipe lands with the first trained model.
+  - **Training a model ourselves.** `spec.train` wires the upstream script, but
+    running it needs the Phase-5 runner. Four **pretrained** models are
+    registered instead (§6.5), so the driver works today without training.
+  - Quantized (int8) exports and MCU deployment of these graphs (Phase 4/5).
   - Quantization-aware training and MCU deployment (Phase 4/5).
 - **Public surface:** `KWSStreamingBackend` (via the engine registry),
   `KwsStreamingManifest` (the sidecar type), and the pure state-machine helpers
@@ -296,8 +307,8 @@ is preserved.
 
 | Parameter | Group | Default | Range | Notes |
 |---|---|---|---|---|
-| `modelSource` | primary | `custom` | `custom` | Where the graph comes from. Only user-supplied models exist until Phase 5 trains one (§2 out of scope). |
-| `wantedWord` | primary | `""` (from manifest) | manifest labels | Which label column is the wake word. Populated from `model.json` after load. |
+| model source | primary | `kws-streaming-kwt1` | §6.5 entries, or a custom URL | Picked in the Model-source editor. The registry entry carries `url` + `manifestUrl`, so a model can never be paired with another model's manifest. |
+| `wantedWord` | primary | `yes` | the 10 real labels | Which label column is the wake word (`_silence_`/`_unknown_` excluded). |
 | `threshold` | primary | 0.5 | 0-1 | Detection threshold on the selected posterior (engine-applied). |
 | `resetOnTrigger` | advanced | false | - | false = upstream `reset0` (states kept, the paper's streaming setting); true = `reset1`. |
 | `executionProvider` | advanced | `wasm` | `webgpu` \| `wasm` | WASM by default: these graphs are tiny (10K-75K params), so WebGPU dispatch overhead dominates. |
@@ -308,7 +319,9 @@ is preserved.
 |---|---|---|
 | `sampleRate` | 16000 | Upstream default; the AFE already delivers 16 kHz. |
 | AFE frame | 160 samples | 10 ms; buffered up to `manifest.packetSamples`. |
-| `packetSamples` | from manifest | Typically 320 (20 ms), must match the graph's time stride. |
+| `packetSamples` | from manifest | Streaming mode: typically 320 (20 ms); must match the graph's time stride. |
+| `windowSamples` | from manifest | Sliding-window mode: 16000 (1 s) for the shipped models. |
+| `hopSamples` | from manifest | Sliding-window mode: 1600 (100 ms) — detection latency vs CPU. |
 
 ### 6.3 Training parameters (ADR-031, `spec.train`)
 
@@ -331,23 +344,59 @@ Outputs are read from the upstream run directory
 (`tflite_stream_state_external/stream_state_external.tflite`, `labels.txt`,
 `flags.json`) by the `standardize-results` adapter.
 
-### 6.4 Build inputs (declared, recipe deferred)
+### 6.4 Build inputs
 
 `spec.build` declares the conversion the artifact needs, so the generic
 `build.yaml` can run it once a trained checkpoint exists:
 
 | Input | Default | Notes |
 |---|---|---|
-| `kws_streaming_ref` | `master` | Pinned commit of `google-research/kws_streaming`. |
-| `model` | `ds_tc_resnet` | Which topology was trained. |
-| `opset` | `18` | ONNX opset for the TFLite→ONNX conversion. |
+| `checkpoint_repo` | `ARM-software/keyword-transformer` | Repo publishing `kws_streaming`-family checkpoints. |
+| `checkpoint_ref` | `master` | Pinned ref of that repo. |
+| `checkpoint_root` | `models_data_v2_12_labels` | Directory holding the checkpoint dirs. |
+| `checkpoints` | `kwt1,kwt2,kwt3,att_mh_rnn_1` | Which checkpoints to convert. |
+| `opset` | `17` | ONNX opset for the TFLite→ONNX conversion. |
+| `hop_ms` | `100` | Sliding-window re-evaluation period. |
+| `validate` | `false` | Validate against real Speech Commands audio (~2.3 GB download). **Must be `true`** for any artifact we register. |
+| `min_accuracy` | `0.8` | Build fails below this argmax accuracy. |
+| `per_label` | `10` | Clips per label when validating. |
+
+Build: `gh workflow run build.yaml -f module=kws-streaming -f inputs_json='{"validate":"true"}'`
+→ fetch: `node scripts/fetch-artifact.mjs kws-streaming`.
+
+### 6.5 Shipped pretrained models
+
+Registered in `model-registry.json` (Apache-2.0, commercially clean — ARM
+publishes them under the repo's Apache-2.0 license, and they are trained on
+Speech Commands, CC-BY-4.0). All are 12-label Speech Commands V2 models
+(`_silence_`, `_unknown_`, yes, no, up, down, left, right, on, off, stop, go)
+in `sliding-window` mode:
+
+| Registry id | Model | ONNX size | Upstream top-1 | CI re-validation |
+|---|---|---|---|---|
+| `kws-streaming-kwt1` | Keyword Transformer (1 head) | 3.7 MB | 97.61% | 100.0% (120/120) |
+| `kws-streaming-kwt2` | Keyword Transformer (wider) | 11.0 MB | 98.24% | 100.0% (120/120) |
+| `kws-streaming-kwt3` | Keyword Transformer (largest) | 22.9 MB | 98.65% | 99.2% (119/120) |
+| `kws-streaming-att-mh-rnn` | att_mh_rnn (CNN+biLSTM+MHA) | 6.0 MB | 98.48% | 99.2% (119/120) |
+
+"Upstream top-1" is each checkpoint's own `accuracy_last.txt`; "CI re-validation"
+is our own measurement on real Speech Commands clips after conversion (§9), with
+a silence check asserting `_silence_` wins on zeros.
+
+> **`sha256` is `null` on purpose.** `tf2onnx` output is not byte-reproducible
+> across runs (the same checkpoint produced 3 713 927 bytes locally and
+> 3 713 945 in CI), so recording a hash would fail the next rebuild. Nothing
+> verifies the field at runtime today; when hash pinning matters, the build must
+> first be made deterministic.
 
 ## 7. Error model & failure modes
 
-- **No model configured** (the default state until Phase 5): `load()` rejects
-  with a message that names the module and points at the training panel —
-  "kws-streaming ships no pretrained weights (upstream ships none); train one or
-  supply model.onnx + model.json." This is an expected state, not a bug.
+- **Artifact missing** (the ONNX files are gitignored, ADR-011): `load()`
+  rejects; the fix is `node scripts/fetch-artifact.mjs kws-streaming`. The
+  deploy workflow does this automatically (non-fatal, matching sherpa/plix).
+- **Model without its manifest** (e.g. a custom URL whose sidecar is absent):
+  `load()` rejects before creating the session. The driver never guesses
+  geometry — a wrong window length or label order produces confident nonsense.
 - **Manifest fetch/parse failure:** `load()` rejects before touching the graph,
   so a bad manifest can never produce a silently-wrong stream.
 - **Manifest/graph mismatch** (a declared state or IO name is absent from the
@@ -390,9 +439,24 @@ Outputs are read from the upstream run directory
   - Manifest validation — every §7 rejection path.
   - Decoupling: the existing `kws-engine` `decoupling.test.ts` list is extended
     with this driver, so an engine→driver import fails CI.
-- **L2 (Node):** deferred until a model artifact exists (there is nothing to
-  boot yet). Declared in the spec as a gap, not silently omitted.
-- **L3 (Playwright):** deferred with L2, for the same reason.
+- **L2 (Node, `tests/onnx-runtime.test.ts`):** boots the REAL exported artifact
+  in onnxruntime-node and asserts (a) the manifest validates, (b) it matches the
+  graph's actual tensor names, (c) a 1 s window yields 12 finite logits that
+  softmax to 1, (d) silence does not fire a word, and (e) **frame-by-frame
+  streaming equals whole-clip inference** — 100 × 160-sample AFE frames pushed
+  through `SlidingWindow` must reproduce the direct-inference logits. That last
+  one is the alignment guard: an off-by-one or dropped sample would still
+  produce plausible scores, so "it runs" proves nothing. Skips (not fails) when
+  the artifact is absent.
+- **Build-time real-audio validation (`scripts/validate-kws-streaming.py`):**
+  runs each export over real Speech Commands clips in CI, asserting argmax
+  accuracy against the checkpoint's own label order plus a silence check.
+  Structural conversion is not correctness — a graph can convert cleanly, pass a
+  zeros-input smoke test, and still be numerically wrong (bad weight layout,
+  dropped transform, permuted outputs). The build fails below `min_accuracy`.
+- **L3 (Playwright, `apps/web/e2e/kws-streaming.spec.ts`):** selects the backend
+  in the real UI and asserts the engine reaches `ready` — which happens only if
+  the manifest validated and matched the graph.
 - **Manual:** once trained — speak the wanted word, confirm the score rises and
   a trigger fires; confirm the score curve is continuous across packet
   boundaries (a state-carry bug shows up as a sawtooth).
@@ -410,23 +474,22 @@ Outputs are read from the upstream run directory
 
 ## 11. Open questions
 
-- **[Q-KS-1] Which model do we train and ship as the Traditional baseline?**
-  `ds_tc_resnet` (98.0%, 75K) is the accuracy pick; `bc_resnet_2` (97.6%, 30K)
-  and `bc_resnet_1` (96.4%, ~10K) are the MCU picks. Proposal: `bc_resnet_2` as
-  the shipped default (it is the best accuracy-per-byte for the ADR-021 target
-  matrix) with `ds_tc_resnet` as the app-class option.
+- **[Q-KS-1] Which model is the default?** *Partly answered:* the shipped
+  default is `kws-streaming-kwt1` (3.7 MB, 97.61%) — the smallest pretrained
+  option, so first load is fast. Still open: whether to also train a
+  `bc_resnet_2` (30K params) for the MCU tier, which is the only way to get a
+  *streaming* (external-state) model, since none is published.
 - **[Q-KS-2] Do we support `preprocess: 'mfcc'`/`'micro'` exports?** These put
   the feature extractor *outside* the graph, so the driver would need an
   `@wake-studio/dsp` MFCC front-end bit-matched to upstream's TFLite ops. It
   matters for MCU parity (the `micro` path is the TFLite-Micro one), but for the
   browser `preprocess: 'raw'` is strictly simpler. Proposal: reject for now,
   revisit with the device SDK.
-- **[Q-KS-3] TFLite→ONNX, or a TFLite runtime in the browser?** Converting
-  (`tf2onnx`) keeps one runtime (onnxruntime-web, already vendored) but risks
-  op-coverage gaps on the streaming graph. Adding `@tensorflow/tfjs` (already
-  listed conditionally in `LICENSES.md`) would run the TFLite artifact directly
-  at the cost of a second inference stack in the bundle. Proposal: convert to
-  ONNX; fall back to tfjs only if conversion proves unreliable.
+- **[Q-KS-3] TFLite→ONNX, or a TFLite runtime?** **Answered: convert.** `tf2onnx`
+  handled all four checkpoints with no op-coverage gaps and the converted graphs
+  re-validate at 99.2-100% on real audio, so we keep ONE inference stack
+  (onnxruntime-web) and do not add `@tensorflow/tfjs`. Caveat recorded in §6.5:
+  conversion is not byte-reproducible.
 - **[Q-KS-4] Does `kws_streaming` deserve its own training panel, or does it
   extend the existing `training` module?** ADR-024 §4.2 gives Traditional a
   training panel; this module would be its first real backend. Proposal: keep
@@ -451,3 +514,4 @@ Outputs are read from the upstream run directory
 | Date | Change | Author |
 |---|---|---|
 | 2026-08-07 | Initial draft (docs-first, pending human review) — Traditional-category driver for `google-research/kws_streaming` external-state streaming graphs (#72). | agent |
+| 2026-08-10 | Add `sliding-window` mode (the published ARM checkpoints are non-streamable and ship only `tflite_non_stream/`, so external-state alone could load nothing). CI TFLite→ONNX export + real-audio validation; 4 pretrained models registered and working in the web console; L2 + L3 now real (were declared gaps). Q-KS-3 answered (convert to ONNX); Q-KS-1 partly answered. | agent |

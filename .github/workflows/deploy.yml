@@ -40,12 +40,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Fetch the sherpa KWS wasm + plixkws onnx into the module assets dirs
+      # Fetch the sherpa KWS wasm + plixkws/kws-streaming onnx into the module
+      # assets dirs
       # (gitignored, ADR-011). The build copies them into dist/ (P0-3).
       - name: Fetch runtime assets
         run: |
           node scripts/fetch-artifact.mjs kws-sherpa || echo "sherpa wasm fetch failed (non-fatal for deploy; backend will 404 until built)"
           node scripts/fetch-artifact.mjs kws-plix || echo "plixkws fetch failed (non-fatal)"
+          node scripts/fetch-artifact.mjs kws-streaming || echo "kws-streaming onnx fetch failed (non-fatal; backend will 404 until built)"
 
       # Project-page sites need a sub-path (ADR-012).
       - name: Build PWA (GitHub Pages base)
@@ -92,6 +94,7 @@ jobs:
         run: |
           node scripts/fetch-artifact.mjs kws-sherpa || echo "sherpa wasm fetch failed (non-fatal for deploy; backend will 404 until built)"
           node scripts/fetch-artifact.mjs kws-plix || echo "plixkws fetch failed (non-fatal)"
+          node scripts/fetch-artifact.mjs kws-streaming || echo "kws-streaming onnx fetch failed (non-fatal; backend will 404 until built)"
 
       # Cloudflare Pages serves at root (ADR-012).
       - name: Build PWA (Cloudflare base)

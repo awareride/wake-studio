@@ -17,7 +17,7 @@ module):
 | `kws-engine` | KWSEngine, worker loop, `KWSBackend` interface, registry seam | `packages/modules/kws/engine/` |
 | `kws-openwakeword` | mel→embedding→classifier driver | `packages/modules/kws/openwakeword/` |
 | `kws-sherpa` | main-thread transducer driver (wasm in module assets) | `packages/modules/kws/sherpa/` |
-| `kws-streaming` | external-state streaming-aware graphs (`google-research/kws_streaming`) | `packages/modules/kws/streaming/` |
+| `kws-streaming` | `kws_streaming`-family graphs: external-state streaming + sliding-window (ARM Keyword Transformer pretrained) | `packages/modules/kws/streaming/` |
 | `kws-plix` | EmbedProvider + prototype-distance + encoder variants | `packages/modules/kws/plix/` |
 
 Drivers self-register via `registerKwsBackend` (sherpa via `mainThreadFactory`,

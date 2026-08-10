@@ -15,7 +15,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { validateManifest } from '../core/manifest'
-import { selectLabelScore, softmax } from '../core/streaming'
+import { SlidingWindow, selectLabelScore, softmax } from '../core/streaming'
 
 const ASSETS = resolve(__dirname, '../assets/kws-streaming')
 const MODEL = resolve(ASSETS, 'kwt1.onnx')
@@ -95,6 +95,56 @@ describe.skipIf(!available)('kws-streaming L2: real kwt1 artifact', () => {
       expect(p, `silence scored ${l} at ${p}`).toBeLessThan(0.5)
     }
   }, 60_000)
+
+  /**
+   * The plumbing test: streaming 10 ms AFE frames through SlidingWindow must
+   * present the model the SAME audio as handing it the clip directly.
+   *
+   * This is where a real bug would hide - an off-by-one in the shift, a wrong
+   * alignment, or dropped samples would still produce plausible-looking scores,
+   * so "it runs" proves nothing. Comparing against direct inference makes any
+   * misalignment a hard failure.
+   */
+  it('frame-by-frame streaming matches whole-clip inference', async () => {
+    const windowSamples = manifest!.windowSamples!
+    // A structured signal (chirp): every sample is distinct, so ANY shift or
+    // drop changes the model output measurably - unlike a constant tone.
+    const clip = new Float32Array(windowSamples)
+    for (let i = 0; i < clip.length; i++) {
+      const t = i / manifest!.sampleRate
+      clip[i] = 0.2 * Math.sin(2 * Math.PI * (200 + 600 * t) * t)
+    }
+
+    const runClip = async (audio: Float32Array): Promise<Float32Array> => {
+      const out = await session.run({
+        [manifest!.audioInput]: new ort.Tensor('float32', audio, [1, audio.length]),
+      })
+      return out[manifest!.scoreOutput].data as Float32Array
+    }
+
+    const direct = await runClip(clip)
+
+    // Feed the identical audio as 100 x 160-sample AFE frames.
+    const window = new SlidingWindow(windowSamples, manifest!.hopSamples!)
+    const AFE_FRAME = 160
+    let lastWindow: Float32Array | null = null
+    for (let off = 0; off < clip.length; off += AFE_FRAME) {
+      window.push(clip.subarray(off, off + AFE_FRAME))
+      const w = window.take()
+      if (w) lastWindow = w
+    }
+    expect(window.primed).toBe(true)
+    expect(lastWindow).not.toBeNull()
+    // The final window must be byte-identical to the clip.
+    expect(lastWindow!.length).toBe(clip.length)
+    expect([...lastWindow!]).toEqual([...clip])
+
+    const streamed = await runClip(lastWindow!)
+    // Same audio in => same logits out, to floating-point tolerance.
+    for (let i = 0; i < direct.length; i++) {
+      expect(streamed[i]).toBeCloseTo(direct[i], 4)
+    }
+  }, 120_000)
 })
 
 describe.skipIf(available)('kws-streaming L2 (artifact absent)', () => {
