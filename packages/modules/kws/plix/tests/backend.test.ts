@@ -18,8 +18,10 @@ import type { EmbedProvider } from '@wake-studio/module-kws-engine'
 
 class FakeEmbedder implements EmbedProvider {
   ready = true
+  /** Value returned for every window; tests override this for scale checks. */
+  value = new Float32Array(1280).fill(0.5)
   async embed(): Promise<Float32Array> {
-    return new Float32Array(1280).fill(0.5)
+    return this.value
   }
 }
 
@@ -54,6 +56,45 @@ describe('PlixKwsBackend', () => {
     }
     expect(last).not.toBeNull()
     expect(last!).toBeCloseTo(1.0, 3)
+  })
+
+  it('scores high for cosine-similar embeddings with large raw magnitude (issue #66)', async () => {
+    // The PLiX encoder emits raw GAP embeddings with L2 norm ~4-5. Before the
+    // fix, a near-perfect match (cosine 0.92) had raw d^2 ~3-4 -> score ~0.24,
+    // unreachable for any threshold. After L2 normalization, the same vectors
+    // score ~0.86 (d^2 = 2(1-cos)).
+    const seed = new Float32Array(1280)
+    for (let i = 0; i < 1280; i++) seed[i] = 0.5 + (i % 7) * 0.01
+    const scale = 4.3 // raw L2 norm of the small encoder's embeddings
+    const proto = new Float32Array(1280)
+    for (let i = 0; i < 1280; i++) proto[i] = seed[i] * scale
+    // Query = prototype + tiny perturbation, then scaled to the same magnitude
+    const query = new Float32Array(1280)
+    for (let i = 0; i < 1280; i++) query[i] = (seed[i] + 0.003 * ((i % 3) - 1)) * scale
+
+    const cosine = (() => {
+      let dot = 0, na = 0, nb = 0
+      for (let i = 0; i < 1280; i++) {
+        dot += query[i] * proto[i]
+        na += query[i] * query[i]
+        nb += proto[i] * proto[i]
+      }
+      return dot / (Math.sqrt(na) * Math.sqrt(nb))
+    })()
+    // Sanity: the fixtures are genuinely cosine-similar but far from identical.
+    expect(cosine).toBeGreaterThan(0.9)
+
+    const embedder = new FakeEmbedder()
+    embedder.value = query
+    const backend = new PlixKwsBackend(embedder, { ...FAKE_PROTOTYPE, vector: proto }, 1500)
+    let last: number | null = null
+    for (let i = 0; i < 200; i++) {
+      const s = await backend.processFrame(new Float32Array(160))
+      if (s !== null) last = s
+    }
+    expect(last).not.toBeNull()
+    // 1/(1+2(1-cos)) for cosine 0.92 is ~0.86; the pre-fix raw score was ~0.24.
+    expect(last!).toBeGreaterThan(0.7)
   })
 
   it('reset() and dispose() do not throw when unloaded', async () => {

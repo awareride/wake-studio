@@ -28,6 +28,27 @@ export function squaredEuclidean(a: Float32Array, b: Float32Array): number {
 }
 
 /**
+ * L2-normalize a vector to unit norm (in place-safe: returns a new array).
+ *
+ * Required by the few-shot scoring: the PLiX encoder emits RAW GAP embeddings
+ * with L2 norm ~4-5, so an un-normalized squared-Euclidean distance is large
+ * even for a near-perfect match (cosine 0.92 -> d^2 ~3-4 -> score ~0.24),
+ * making the 1/(1+d^2) score unreachable for any threshold (issue #66).
+ * Normalizing both operands first bounds d^2 = 2(1-cos) to [0,4], which is
+ * the cosine similarity the technical reference specifies. Zero vectors are
+ * returned unchanged (avoid NaN).
+ */
+export function l2Normalize(v: Float32Array): Float32Array {
+  let sum = 0
+  for (let i = 0; i < v.length; i++) sum += v[i] * v[i]
+  const norm = Math.sqrt(sum)
+  if (!Number.isFinite(norm) || norm === 0) return v
+  const out = new Float32Array(v.length)
+  for (let i = 0; i < v.length; i++) out[i] = v[i] / norm
+  return out
+}
+
+/**
  * Rescale a squared-Euclidean distance to a [0,1] similarity score:
  *     score = 1 / (1 + d^2)
  * Mirrors PLiX's framing (negative squared distance as a softmax logit)

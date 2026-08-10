@@ -45,7 +45,7 @@
 
 import type { EmbedProvider, KWSBackend } from '@wake-studio/module-kws-engine'
 import type { WakeWordPrototype } from './prototype'
-import { squaredEuclidean, plixScore } from './prototype'
+import { squaredEuclidean, plixScore, l2Normalize } from './prototype'
 
 /** Detection hop in frames (80 ms / 10 ms = 8 frames at the AFE cadence). */
 const HOP_FRAMES = 8
@@ -166,11 +166,20 @@ export class PlixKwsBackend implements KWSBackend {
     return out
   }
 
-  /** PLiX Prototypical-Network score to the prototype (rescaled [0,1]). */
+  /** PLiX Prototypical-Network score to the prototype (rescaled [0,1]).
+   *
+   * Both operands are L2-normalized first (issue #66): the encoder emits raw
+   * GAP embeddings with L2 norm ~4-5, so an un-normalized squared distance is
+   * large even for a near-perfect match (cosine 0.92 -> d^2 ~3-4 -> score
+   * ~0.24, below any usable threshold). On unit vectors d^2 = 2(1-cos) is
+   * bounded to [0,4] and the score is well-calibrated (cosine 0.92 -> ~0.86),
+   * matching the cosine similarity the technical reference specifies. */
   private _score(embedding: Float32Array): number {
-    const d2 = squaredEuclidean(embedding, this._prototype.vector)
+    const q = l2Normalize(embedding)
+    const p = l2Normalize(this._prototype.vector)
+    const d2 = squaredEuclidean(q, p)
     if (this._useNegative && this._prototype.negativeVector) {
-      const negD2 = squaredEuclidean(embedding, this._prototype.negativeVector)
+      const negD2 = squaredEuclidean(q, l2Normalize(this._prototype.negativeVector))
       // Prefer the query's own class: subtract the negative-class distance.
       return plixScore(Math.max(0, d2 - negD2))
     }

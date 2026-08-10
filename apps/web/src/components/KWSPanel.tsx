@@ -659,7 +659,23 @@ export const KWSPanel = memo(function KWSPanel({
       fresh.onTrigger(() => {
       })
       engineRef.current = fresh
-      fresh.setConfig({ ...DEFAULT_CONFIG, backend: 'plixkws' })
+      // Keep the top-bar wake indicator + preview curve on the same threshold
+      // the engine trigger now uses (the Few-Shot panel's, not KWS defaults).
+      setThreshold(fsConfig.threshold)
+      // Seed the engine trigger config from the Few-Shot panel (fsConfig),
+      // not the KWS DEFAULT_CONFIG: threshold/min-duration/cooldown/VAD live in
+      // the Few-Shot config surface, and the engine's TriggerDetector must use
+      // the same threshold the score curve renders (issue #66 secondary).
+      fresh.setConfig({
+        ...DEFAULT_CONFIG,
+        backend: 'plixkws',
+        threshold: fsConfig.threshold,
+        minDurationMs: fsConfig.minDurationMs,
+        cooldownMs: fsConfig.cooldownMs,
+        smoothingWindowFrames: fsConfig.smoothingWindowFrames,
+        vadGateEnabled: fsConfig.vadGateEnabled,
+        vadThreshold: fsConfig.vadThreshold,
+      })
       const { url, runtime } = resolvePlixLocator()
       await fresh.load(
         { plixkws: url, runtime },
@@ -682,7 +698,7 @@ export const KWSPanel = memo(function KWSPanel({
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
     }
-  }, [afePipeline, afeRunning, prototype, resolvePlixLocator, fsConfig.windowMs, fsConfig.useNegativePrototype])
+  }, [afePipeline, afeRunning, prototype, resolvePlixLocator, setThreshold, fsConfig.threshold, fsConfig.minDurationMs, fsConfig.cooldownMs, fsConfig.smoothingWindowFrames, fsConfig.vadGateEnabled, fsConfig.vadThreshold, fsConfig.windowMs, fsConfig.useNegativePrototype])
 
   const handleStopPlix = useCallback(() => {
     engineRef.current?.stop()

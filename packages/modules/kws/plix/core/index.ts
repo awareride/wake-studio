@@ -25,6 +25,7 @@ export {
   meanPool,
   plixScore,
   squaredEuclidean,
+  l2Normalize,
 } from './prototype'
 
 // Embed-provider factory: the worker hosts the embed() scaffold via this seam
