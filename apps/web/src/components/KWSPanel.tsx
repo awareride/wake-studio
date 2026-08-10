@@ -36,6 +36,7 @@ import {
   FEWSHOT_MODEL_ROLES,
   driverParamsFor,
   modelSourcesForRole,
+  type ModelSourceRole,
 } from '../workspace/kws-config'
 import { ParamRows, type ParamValue } from './UnifiedConfigPanel'
 import { drawScoreCurve } from './viz/ScoreCurve'
@@ -437,6 +438,17 @@ export const KWSPanel = memo(function KWSPanel({
   // (plixkws today, future drivers) get the enrollment flow automatically.
   const selectedBackend = getBackendRegistry().find((r) => r.id === config.backend)
   const isFewShot = selectedBackend?.category === 'few-shot'
+  // Model-source roles per category (ADR-024): traditional (openwakeword) and
+  // few-shot (plixkws) consume model URLs from the registry. asr-decoding
+  // (sherpa-onnx-kws) bundles its model into the wasm .data package and only
+  // takes a keyword list — it has NO registry model sources, so the section
+  // renders a note instead of the openwakeword pickers (issue #64).
+  const modelRoles: readonly ModelSourceRole[] =
+    selectedBackend?.category === 'few-shot'
+      ? FEWSHOT_MODEL_ROLES
+      : selectedBackend?.category === 'asr-decoding'
+        ? []
+        : TRADITIONAL_MODEL_ROLES
   // Backend switching is lightweight: it only updates the selection (and any
   // pending load state), it does NOT auto-load models. Loading a different
   // backend re-initializes the worker + model session, which is slow; the user
@@ -989,7 +1001,14 @@ export const KWSPanel = memo(function KWSPanel({
             models are stored in your browser (IndexedDB) and can be exported
             back to disk. Applied on the next Load/Reload.
           </p>
-          {(isFewShot ? FEWSHOT_MODEL_ROLES : TRADITIONAL_MODEL_ROLES).map(({ role, label, fallbackId }) => {
+          {modelRoles.length === 0 ? (
+            <p className="text-xs text-ink-3">
+              This backend's model is bundled in its wasm runtime — there are
+              no model sources to pick. See the Engine card's resources
+              (sherpa-onnx KWS wasm runtime + wake-word list).
+            </p>
+          ) : (
+            modelRoles.map(({ role, label, fallbackId }) => {
                 const options = registryModels
                   ? modelSourcesForRole(registryModels, role, customUrls[role])
                   : []
@@ -1112,7 +1131,9 @@ export const KWSPanel = memo(function KWSPanel({
                     </p>
                   </div>
                 )
-              })}
+              })
+            )
+          }
       </div>
 
       {/* plixkws enrollment + detection (Few-Shot, Phase 3) - inline in the KWS
