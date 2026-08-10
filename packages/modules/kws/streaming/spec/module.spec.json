@@ -185,6 +185,28 @@
         "type": "string",
         "default": "100",
         "required": false
+      },
+      {
+        "id": "validate",
+        "label": "Validate each export against real Speech Commands audio",
+        "type": "boolean",
+        "default": "false",
+        "required": false,
+        "description": "Downloads Speech Commands V2 (~2.3 GB) and asserts argmax accuracy + a silence sanity check. Structural conversion is not correctness, so this must pass for any artifact we register."
+      },
+      {
+        "id": "min_accuracy",
+        "label": "Minimum argmax accuracy when validating",
+        "type": "string",
+        "default": "0.8",
+        "required": false
+      },
+      {
+        "id": "per_label",
+        "label": "Clips per label when validating",
+        "type": "string",
+        "default": "10",
+        "required": false
       }
     ]
   },

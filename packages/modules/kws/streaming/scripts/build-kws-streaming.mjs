@@ -10,7 +10,9 @@
  *      Commands V2 with 12 labels).
  *   2. Runs the Python exporter (TFLite -> ONNX + sidecar manifest) once per
  *      requested checkpoint, verifying each graph with one onnxruntime pass.
- *   3. Stages `<name>.onnx` + `<name>.json` into --out for upload.
+ *   3. Optionally validates each export against REAL Speech Commands audio
+ *      (--input-validate true) - structural conversion is not correctness.
+ *   4. Stages `<name>.onnx` + `<name>.json` into --out for upload.
  *
  * The torch/TF toolchain stays in Python (scripts/export-kws-streaming-onnx.py)
  * and only ever runs in CI: TensorFlow ships no arm64-macOS wheels for these
@@ -79,6 +81,11 @@ function main() {
     .filter(Boolean)
   const opset = args.inputs.opset || '17'
   const hopMs = args.inputs.hop_ms || '100'
+  // Real-audio validation downloads Speech Commands (~2.3 GB), so it is
+  // opt-in: on for the artifact we intend to ship, off for quick iterations.
+  const validate = String(args.inputs.validate || 'false') === 'true'
+  const minAccuracy = args.inputs.min_accuracy || '0.8'
+  const perLabel = args.inputs.per_label || '10'
 
   if (names.length === 0) die('no checkpoints requested')
 
@@ -125,6 +132,19 @@ function main() {
       '--source', `${repoUrl}/tree/${repoRef}/${checkpointRoot}/${name}`,
       '--upstream-ref', repoRef,
     ])
+
+    if (validate) {
+      // Prove the conversion is numerically right, not merely structurally
+      // valid: run the exported graph over real Speech Commands clips.
+      const validator = join(MODULE_DIR, 'scripts', 'validate-kws-streaming.py')
+      run('python3', [
+        validator,
+        '--onnx', join(outDir, `${name}.onnx`),
+        '--manifest', join(outDir, `${name}.json`),
+        '--per-label', String(perLabel),
+        '--min-accuracy', String(minAccuracy),
+      ])
+    }
   }
 
   console.log('\n[build-kws-streaming] staged artifacts:')
