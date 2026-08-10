@@ -7,7 +7,6 @@
 
 import { describe, it, expect } from 'vitest'
 import spec from '../spec/module.spec.json'
-import { STREAMABLE_MODELS } from '../core/manifest'
 
 describe('kws-streaming module spec', () => {
   it('is a kws driver providing KWSBackend', () => {
@@ -57,17 +56,28 @@ describe('kws-streaming module spec', () => {
     expect(spec.train.outputs.checkpoint).toContain('stream_state_external')
   })
 
-  it('offers only streamable topologies as build inputs', () => {
-    const model = spec.build.inputs.find((i) => i.id === 'model')
-    expect(model?.options).toEqual([...STREAMABLE_MODELS])
-    // ds_tc_resnet: 98.0% @ 75K params on Speech Commands V2 (12 labels).
-    expect(model?.default).toBe('ds_tc_resnet')
+  it('declares the module-owned build script + python toolchain', () => {
+    expect(spec.build.recipe).toBe('workflow')
+    expect(spec.build.workflowRef).toBe('.github/workflows/build.yaml')
+    expect(spec.build.script).toBe('scripts/build-kws-streaming.mjs')
+    expect(spec.build.toolchains.python).toBeTruthy()
   })
 
-  it('pins the upstream ref as a build input', () => {
+  it('defaults to the ARM keyword-transformer pretrained checkpoints', () => {
     const ids = spec.build.inputs.map((i) => i.id)
-    expect(ids).toContain('kws_streaming_ref')
-    expect(ids).toContain('opset')
+    for (const id of ['checkpoint_repo', 'checkpoint_ref', 'checkpoint_root', 'checkpoints', 'opset', 'hop_ms']) {
+      expect(ids).toContain(id)
+    }
+    const repo = spec.build.inputs.find((i) => i.id === 'checkpoint_repo')
+    expect(repo?.default).toContain('ARM-software/keyword-transformer')
+    const root = spec.build.inputs.find((i) => i.id === 'checkpoint_root')
+    expect(root?.default).toBe('models_data_v2_12_labels')
+    const ckpts = spec.build.inputs.find((i) => i.id === 'checkpoints')
+    expect(ckpts?.default).toContain('kwt1')
+  })
+
+  it('unpacks the artifact into a dedicated assets subdir', () => {
+    expect(spec.build.fetch?.subdir).toBe('kws-streaming')
     expect(spec.build.artifactName).toBe('kws-streaming-onnx')
     expect(spec.build.registryEntry).toContain('model-registry.json')
   })

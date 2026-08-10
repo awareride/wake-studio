@@ -1,21 +1,32 @@
 /**
- * kws-streaming - the sidecar manifest that describes an exported
- * `kws_streaming` external-state streaming graph.
+ * kws-streaming - the sidecar manifest that describes an exported model.
  *
- * Upstream (google-research/kws_streaming) converts a non-streaming Keras model
- * into a streaming one by inserting ring buffers into the time-dimension
- * layers. In the EXTERNAL-state flavour those buffers become explicit graph
- * inputs and outputs, so the graph itself is stateless and the caller carries
- * the state between steps.
+ * Upstream (google-research/kws_streaming) supports two inference shapes, and
+ * this driver supports both because the available pretrained weights need them:
  *
- * The input/output tensor names and state shapes depend on the topology (dnn,
- * cnn, ds_tc_resnet, bc_resnet, ...) and on the training flags. Instead of
- * hard-coding any of that per architecture, the exporter writes this manifest
- * next to the model and the driver reads it. That is what lets ONE driver serve
- * every streamable topology upstream ships.
+ *   1. `streaming-external-state` - upstream converts a non-streaming Keras
+ *      model into a streaming one by inserting ring buffers into the
+ *      time-dimension layers. In the EXTERNAL-state flavour those buffers
+ *      become explicit graph inputs/outputs, so the graph is stateless and the
+ *      caller carries the state. One packet (e.g. 20 ms) per step.
+ *
+ *   2. `sliding-window` - the non-streaming graph is run as-is over a sliding
+ *      1 s window, re-evaluated every `hopSamples`. This is the only option for
+ *      topologies upstream cannot convert to streaming (attention over the
+ *      whole sequence: `att_rnn`, `att_mh_rnn`, `kws_transformer`), and it is
+ *      what ARM's keyword-transformer checkpoints ship
+ *      (`tflite_non_stream/non_stream.tflite` only).
+ *
+ * Tensor names, shapes, window/packet sizes and labels all differ per topology
+ * and per training flags, so the exporter writes this manifest next to the
+ * model and the driver reads it. That is what lets ONE driver serve every
+ * model family upstream (and ARM) publish.
  *
  * @see docs/modules/kws-streaming.md §4.2
  */
+
+/** Which inference shape the exported graph expects. */
+export type KwsStreamingMode = 'streaming-external-state' | 'sliding-window'
 
 /** One streaming state buffer: the graph input, its paired output, its shape. */
 export interface KwsStreamingState {
@@ -27,13 +38,17 @@ export interface KwsStreamingState {
   shape: number[]
 }
 
-/** Sidecar manifest for one exported streaming graph. */
+/** Sidecar manifest for one exported graph. */
 export interface KwsStreamingManifest {
   /** Manifest schema version; bumped on breaking changes. */
   version: 1
-  /** Upstream topology name, e.g. 'ds_tc_resnet'. */
+  /** Inference shape (see {@link KwsStreamingMode}). */
+  mode: KwsStreamingMode
+  /** Upstream topology name, e.g. 'ds_tc_resnet', 'kws_transformer'. */
   model: string
-  /** Commit/ref of google-research/kws_streaming this was trained from. */
+  /** Human-readable model provenance (repo + checkpoint dir). */
+  source: string
+  /** Commit/ref the model was exported from. */
   upstreamRef: string
   /** Class labels in output-column order (upstream `labels.txt`). */
   labels: string[]
@@ -41,12 +56,6 @@ export interface KwsStreamingManifest {
   wantedWord: string
   /** Sample rate the graph expects (upstream default 16000). */
   sampleRate: number
-  /**
-   * Samples consumed per streaming step. Upstream requires the streaming input
-   * length to be aligned with the model's total time stride/pooling, so a
-   * partial packet must never be fed.
-   */
-  packetSamples: number
   /**
    * 'graph'    = upstream `--preprocess raw` (the MFCC/mel front-end is part of
    *              the model; the driver feeds raw audio). Recommended.
@@ -58,10 +67,31 @@ export interface KwsStreamingManifest {
   audioInput: string
   /** Logits / softmax output tensor name. */
   scoreOutput: string
-  /** Streaming state buffers, in graph order. */
-  states: KwsStreamingState[]
-  /** True when `scoreOutput` is already softmaxed (upstream default). */
+  /** True when `scoreOutput` is already softmaxed. */
   softmaxed: boolean
+
+  // -- mode: 'streaming-external-state' -------------------------------------
+  /**
+   * Samples consumed per streaming step. Upstream requires the streaming input
+   * length to be aligned with the model's total time stride/pooling, so a
+   * partial packet must never be fed. Required for external-state mode.
+   */
+  packetSamples?: number
+  /** Streaming state buffers, in graph order. Required for external-state mode. */
+  states?: KwsStreamingState[]
+
+  // -- mode: 'sliding-window' ----------------------------------------------
+  /**
+   * Full input length the non-streaming graph expects (e.g. 16000 = 1 s at
+   * 16 kHz, upstream `clip_duration_ms`). Required for sliding-window mode.
+   */
+  windowSamples?: number
+  /**
+   * How often the window is re-evaluated, in samples (e.g. 1600 = every
+   * 100 ms). Trades detection latency against CPU. Required for
+   * sliding-window mode.
+   */
+  hopSamples?: number
 }
 
 /** Topologies upstream can convert to streaming mode (README model table). */
@@ -79,12 +109,36 @@ export const STREAMABLE_MODELS: readonly string[] = [
   'bc_resnet',
 ]
 
+/**
+ * Topologies that need `sliding-window` mode: they attend or pool over the
+ * whole input sequence, so upstream cannot insert streaming ring buffers.
+ * Upstream's README marks these "no" / "not converted".
+ */
+export const NON_STREAMABLE_MODELS: readonly string[] = [
+  'att_rnn',
+  'att_mh_rnn',
+  'kws_transformer',
+  'tc_resnet',
+  'mobilenet',
+  'mobilenet_v2',
+  'xception',
+  'inception',
+  'inception_resnet',
+]
+
 /** Thrown when a manifest is malformed or describes an unsupported export. */
 export class KwsStreamingManifestError extends Error {
   constructor(message: string) {
     super(`kws-streaming manifest: ${message}`)
     this.name = 'KwsStreamingManifestError'
   }
+}
+
+function positiveInt(value: unknown, field: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    throw new KwsStreamingManifestError(`\`${field}\` must be a positive integer`)
+  }
+  return value
 }
 
 /**
@@ -107,14 +161,28 @@ export function validateManifest(raw: unknown): KwsStreamingManifest {
       `unsupported version ${String(m.version)} (this driver reads version 1)`,
     )
   }
+
+  // `mode` defaults to external-state so manifests written before the
+  // sliding-window mode existed keep working.
+  const mode: KwsStreamingMode =
+    m.mode === undefined ? 'streaming-external-state' : (m.mode as KwsStreamingMode)
+  if (mode !== 'streaming-external-state' && mode !== 'sliding-window') {
+    throw new KwsStreamingManifestError(
+      `unknown mode '${String(m.mode)}' (expected 'streaming-external-state' or 'sliding-window')`,
+    )
+  }
+
   if (typeof m.model !== 'string' || m.model.length === 0) {
     throw new KwsStreamingManifestError('`model` must be a non-empty string')
   }
-  if (!STREAMABLE_MODELS.includes(m.model)) {
+  // Streaming mode is only legitimate for topologies upstream can convert;
+  // sliding-window mode exists precisely for the ones it cannot.
+  if (mode === 'streaming-external-state' && !STREAMABLE_MODELS.includes(m.model)) {
     throw new KwsStreamingManifestError(
-      `unknown/non-streamable topology '${m.model}'; expected one of ${STREAMABLE_MODELS.join(', ')}`,
+      `topology '${m.model}' is not streamable: use mode 'sliding-window', or one of ${STREAMABLE_MODELS.join(', ')}`,
     )
   }
+
   if (!Array.isArray(m.labels) || m.labels.length === 0) {
     throw new KwsStreamingManifestError('`labels` must be a non-empty array')
   }
@@ -138,9 +206,6 @@ export function validateManifest(raw: unknown): KwsStreamingManifest {
         'with `--preprocess raw` so the feature extractor is part of the graph',
     )
   }
-  if (typeof m.packetSamples !== 'number' || !Number.isInteger(m.packetSamples) || m.packetSamples <= 0) {
-    throw new KwsStreamingManifestError('`packetSamples` must be a positive integer')
-  }
   if (typeof m.sampleRate !== 'number' || m.sampleRate <= 0) {
     throw new KwsStreamingManifestError('`sampleRate` must be a positive number')
   }
@@ -153,6 +218,36 @@ export function validateManifest(raw: unknown): KwsStreamingManifest {
   if (typeof m.softmaxed !== 'boolean') {
     throw new KwsStreamingManifestError('`softmaxed` must be a boolean')
   }
+
+  const common = {
+    version: 1 as const,
+    mode,
+    model: m.model,
+    source: typeof m.source === 'string' ? m.source : 'unknown',
+    upstreamRef: typeof m.upstreamRef === 'string' ? m.upstreamRef : 'unknown',
+    labels: labels as string[],
+    wantedWord: m.wantedWord,
+    sampleRate: m.sampleRate,
+    featureExtractor: 'graph' as const,
+    audioInput: m.audioInput,
+    scoreOutput: m.scoreOutput,
+    softmaxed: m.softmaxed,
+  }
+
+  if (mode === 'sliding-window') {
+    const windowSamples = positiveInt(m.windowSamples, 'windowSamples')
+    const hopSamples = positiveInt(m.hopSamples, 'hopSamples')
+    if (hopSamples > windowSamples) {
+      throw new KwsStreamingManifestError(
+        `\`hopSamples\` (${hopSamples}) must not exceed \`windowSamples\` (${windowSamples}) - ` +
+          'a hop larger than the window would skip audio entirely',
+      )
+    }
+    return { ...common, windowSamples, hopSamples }
+  }
+
+  // streaming-external-state
+  const packetSamples = positiveInt(m.packetSamples, 'packetSamples')
   if (!Array.isArray(m.states)) {
     throw new KwsStreamingManifestError('`states` must be an array')
   }
@@ -193,31 +288,18 @@ export function validateManifest(raw: unknown): KwsStreamingManifest {
     states.push({ input: s.input, output: s.output, shape: s.shape as number[] })
   }
 
-  if (seenInputs.has(m.audioInput)) {
+  if (seenInputs.has(common.audioInput)) {
     throw new KwsStreamingManifestError(
-      `\`audioInput\` '${m.audioInput}' is also declared as a state input`,
+      `\`audioInput\` '${common.audioInput}' is also declared as a state input`,
     )
   }
-  if (seenOutputs.has(m.scoreOutput)) {
+  if (seenOutputs.has(common.scoreOutput)) {
     throw new KwsStreamingManifestError(
-      `\`scoreOutput\` '${m.scoreOutput}' is also declared as a state output`,
+      `\`scoreOutput\` '${common.scoreOutput}' is also declared as a state output`,
     )
   }
 
-  return {
-    version: 1,
-    model: m.model,
-    upstreamRef: typeof m.upstreamRef === 'string' ? m.upstreamRef : 'unknown',
-    labels: labels as string[],
-    wantedWord: m.wantedWord,
-    sampleRate: m.sampleRate,
-    packetSamples: m.packetSamples,
-    featureExtractor: 'graph',
-    audioInput: m.audioInput,
-    scoreOutput: m.scoreOutput,
-    states,
-    softmaxed: m.softmaxed,
-  }
+  return { ...common, packetSamples, states }
 }
 
 /** Total number of float elements in a state shape. */

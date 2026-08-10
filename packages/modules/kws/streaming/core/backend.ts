@@ -28,6 +28,7 @@ import type { KwsStreamingManifest } from './manifest'
 import { validateManifest } from './manifest'
 import {
   PacketBuffer,
+  SlidingWindow,
   advanceStates,
   createStateBag,
   resetStateBag,
@@ -63,7 +64,10 @@ export class KWSStreamingBackend implements KWSBackend {
   private _manifest: KwsStreamingManifest | null = null
   private _states = new Map<string, Float32Array>()
   private _packets: PacketBuffer | null = null
+  private _window: SlidingWindow | null = null
   private _config: KwsStreamingConfig = { ...DEFAULT_CONFIG }
+  /** Last full label posterior vector (dev panel, §8). */
+  private _lastLabelScores: Float32Array | null = null
 
   /** Serialization guard: ONNX sessions are not re-entrant. */
   private _inferring = false
@@ -80,6 +84,15 @@ export class KWSStreamingBackend implements KWSBackend {
   /** State-bag size in bytes (dev panel, §8). */
   get stateBytes(): number {
     return stateBagBytes(this._states)
+  }
+
+  /**
+   * The most recent per-label posteriors (dev panel, §8). Seeing the whole
+   * vector is the fastest way to spot a model confusing the wake word with a
+   * neighbouring label.
+   */
+  get lastLabelScores(): Float32Array | null {
+    return this._lastLabelScores
   }
 
   configure(patch: Partial<KwsStreamingConfig>): void {
@@ -108,7 +121,14 @@ export class KWSStreamingBackend implements KWSBackend {
     this._session = session
     this._manifest = manifest
     this._states = createStateBag(manifest)
-    this._packets = new PacketBuffer(manifest.packetSamples)
+    this._packets =
+      manifest.mode === 'streaming-external-state'
+        ? new PacketBuffer(manifest.packetSamples!)
+        : null
+    this._window =
+      manifest.mode === 'sliding-window'
+        ? new SlidingWindow(manifest.windowSamples!, manifest.hopSamples!)
+        : null
 
     if (this._config.wantedWord === '') {
       this._config.wantedWord = manifest.wantedWord
@@ -123,14 +143,24 @@ export class KWSStreamingBackend implements KWSBackend {
   async processFrame(samples: Float32Array): Promise<number | null> {
     const session = this._session
     const manifest = this._manifest
-    const packets = this._packets
-    if (!session || !manifest || !packets) return null
-    // Drop frames while a step is in flight. The packet buffer keeps whatever
-    // it already holds, so state continuity is preserved.
+    if (!session || !manifest) return null
+    // Drop frames while a step is in flight. The buffers keep whatever they
+    // already hold, so state/window continuity is preserved.
     if (this._inferring) return null
 
     this._inferring = true
     try {
+      if (this._window) {
+        // Sliding-window mode: the graph wants a whole clip, re-evaluated every
+        // hop. Audio is not consumed by a read, so successive windows overlap.
+        this._window.push(samples)
+        const window = this._window.take()
+        if (window === null) return null
+        return await this._runWindow(session, manifest, window)
+      }
+
+      const packets = this._packets
+      if (!packets) return null
       packets.push(samples)
       let score: number | null = null
       // A partial packet is never fed: upstream requires the streaming input
@@ -147,6 +177,8 @@ export class KWSStreamingBackend implements KWSBackend {
   reset(): void {
     resetStateBag(this._states)
     this._packets?.clear()
+    this._window?.clear()
+    this._lastLabelScores = null
   }
 
   async dispose(): Promise<void> {
@@ -155,9 +187,29 @@ export class KWSStreamingBackend implements KWSBackend {
     this._manifest = null
     this._states.clear()
     this._packets = null
+    this._window = null
+    this._lastLabelScores = null
   }
 
   // ---- internals ----
+
+  /** One sliding-window evaluation: whole clip in, posterior out (stateless). */
+  private async _runWindow(
+    session: ort.InferenceSession,
+    manifest: KwsStreamingManifest,
+    window: Float32Array,
+  ): Promise<number> {
+    const outputs = await session.run({
+      [manifest.audioInput]: new ort.Tensor('float32', window, [1, window.length]),
+    })
+    const scoreTensor = outputs[manifest.scoreOutput]
+    if (!scoreTensor) {
+      throw new Error(
+        `kws-streaming: step produced no output '${manifest.scoreOutput}'`,
+      )
+    }
+    return this._score(manifest, scoreTensor.data as Float32Array)
+  }
 
   /** One streaming step: packet + states in, posterior out, states carried. */
   private async _step(
@@ -171,7 +223,7 @@ export class KWSStreamingBackend implements KWSBackend {
         packet.length,
       ]),
     }
-    for (const state of manifest.states) {
+    for (const state of manifest.states ?? []) {
       const buffer = this._states.get(state.input)
       if (!buffer) {
         throw new Error(`kws-streaming: missing state buffer '${state.input}'`)
@@ -196,9 +248,18 @@ export class KWSStreamingBackend implements KWSBackend {
       outputs as unknown as Record<string, { data: Float32Array }>,
     )
 
+    return this._score(manifest, scoreTensor.data as Float32Array)
+  }
+
+  /** Select the wanted label's posterior and record the full vector. */
+  private _score(
+    manifest: KwsStreamingManifest,
+    raw: Float32Array,
+  ): number {
+    this._lastLabelScores = raw.slice(0, manifest.labels.length)
     return selectLabelScore(
       manifest,
-      scoreTensor.data as Float32Array,
+      raw,
       this._config.wantedWord || manifest.wantedWord,
     )
   }
@@ -248,7 +309,7 @@ function assertGraphMatchesManifest(
 
   if (!inputs.has(manifest.audioInput)) missing.push(`input '${manifest.audioInput}'`)
   if (!outputs.has(manifest.scoreOutput)) missing.push(`output '${manifest.scoreOutput}'`)
-  for (const state of manifest.states) {
+  for (const state of manifest.states ?? []) {
     if (!inputs.has(state.input)) missing.push(`state input '${state.input}'`)
     if (!outputs.has(state.output)) missing.push(`state output '${state.output}'`)
   }

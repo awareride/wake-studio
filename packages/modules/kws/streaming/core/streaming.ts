@@ -31,7 +31,7 @@ export function createStateBag(
   manifest: KwsStreamingManifest,
 ): Map<string, Float32Array> {
   const bag = new Map<string, Float32Array>()
-  for (const state of manifest.states) {
+  for (const state of manifest.states ?? []) {
     bag.set(state.input, new Float32Array(stateSize(state.shape)))
   }
   return bag
@@ -61,7 +61,7 @@ export function advanceStates(
   bag: Map<string, Float32Array>,
   outputs: Record<string, StepTensor | undefined>,
 ): void {
-  for (const state of manifest.states) {
+  for (const state of manifest.states ?? []) {
     const produced = outputs[state.output]
     if (!produced) {
       throw new Error(
@@ -184,5 +184,80 @@ export class PacketBuffer {
   clear(): void {
     this._length = 0
     this._buffer.fill(0)
+  }
+}
+
+/**
+ * Sliding-window ring buffer for `mode: 'sliding-window'` models.
+ *
+ * The non-streaming graph wants a whole `windowSamples` clip (e.g. 1 s) and is
+ * re-evaluated every `hopSamples`. Unlike {@link PacketBuffer}, audio is NOT
+ * consumed by a read: the window keeps the most recent `windowSamples` and
+ * slides forward, so successive evaluations overlap.
+ *
+ * Before the buffer has seen a full window it left-pads with zeros, which is
+ * what upstream's evaluation does for clips shorter than `clip_duration_ms`.
+ */
+export class SlidingWindow {
+  private _window: Float32Array
+  /** Samples accumulated since the last emitted window. */
+  private _sinceHop = 0
+  /** Total samples ever written (to detect the warmup period). */
+  private _seen = 0
+
+  constructor(
+    readonly windowSamples: number,
+    readonly hopSamples: number,
+  ) {
+    if (!Number.isInteger(windowSamples) || windowSamples <= 0) {
+      throw new Error(`kws-streaming: invalid windowSamples ${windowSamples}`)
+    }
+    if (!Number.isInteger(hopSamples) || hopSamples <= 0) {
+      throw new Error(`kws-streaming: invalid hopSamples ${hopSamples}`)
+    }
+    if (hopSamples > windowSamples) {
+      throw new Error(
+        `kws-streaming: hopSamples ${hopSamples} exceeds windowSamples ${windowSamples}`,
+      )
+    }
+    this._window = new Float32Array(windowSamples)
+  }
+
+  /** True once a full window of real audio has been written. */
+  get primed(): boolean {
+    return this._seen >= this.windowSamples
+  }
+
+  /** Append samples, shifting the window left when it overflows. */
+  push(samples: Float32Array): void {
+    if (samples.length === 0) return
+    if (samples.length >= this.windowSamples) {
+      // A single frame larger than the window: keep only its tail.
+      this._window.set(samples.subarray(samples.length - this.windowSamples))
+    } else {
+      this._window.copyWithin(0, samples.length)
+      this._window.set(samples, this.windowSamples - samples.length)
+    }
+    this._sinceHop += samples.length
+    this._seen += samples.length
+  }
+
+  /**
+   * Return the current window when a hop has elapsed, else null.
+   *
+   * The returned array is a copy, so callers may hand it to a tensor safely.
+   */
+  take(): Float32Array | null {
+    if (this._sinceHop < this.hopSamples) return null
+    // Consume whole hops; if several elapsed at once (a big frame), we still
+    // evaluate once - the window already holds the latest audio.
+    this._sinceHop %= this.hopSamples
+    return this._window.slice()
+  }
+
+  clear(): void {
+    this._window.fill(0)
+    this._sinceHop = 0
+    this._seen = 0
   }
 }

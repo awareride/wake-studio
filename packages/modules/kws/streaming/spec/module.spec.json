@@ -133,46 +133,57 @@
   "build": {
     "recipe": "workflow",
     "workflowRef": ".github/workflows/build.yaml",
+    "script": "scripts/build-kws-streaming.mjs",
     "artifactName": "kws-streaming-onnx",
     "registryEntry": "public/model-registry.json#kws-streaming",
+    "fetch": {
+      "subdir": "kws-streaming"
+    },
     "toolchains": {
-      "python": "3.11",
-      "uv": true
+      "python": "3.11"
     },
     "inputs": [
       {
-        "id": "kws_streaming_ref",
-        "label": "google-research/kws_streaming ref (branch/tag/commit)",
+        "id": "checkpoint_repo",
+        "label": "Checkpoint repo (publishes kws_streaming-family checkpoints)",
+        "type": "string",
+        "default": "https://github.com/ARM-software/keyword-transformer",
+        "required": false
+      },
+      {
+        "id": "checkpoint_ref",
+        "label": "Checkpoint repo ref (branch/tag/commit)",
         "type": "string",
         "default": "master",
         "required": false
       },
       {
-        "id": "model",
-        "label": "Streamable topology to train/convert",
-        "type": "choice",
-        "default": "ds_tc_resnet",
-        "options": [
-          "dnn",
-          "dnn_raw",
-          "gru",
-          "lstm",
-          "cnn",
-          "crnn",
-          "ds_cnn",
-          "svdf",
-          "svdf_resnet",
-          "ds_tc_resnet",
-          "bc_resnet"
-        ],
+        "id": "checkpoint_root",
+        "label": "Directory holding the checkpoint dirs",
+        "type": "string",
+        "default": "models_data_v2_12_labels",
+        "required": false
+      },
+      {
+        "id": "checkpoints",
+        "label": "Comma-separated checkpoint dirs to convert",
+        "type": "string",
+        "default": "kwt1,kwt2,kwt3,att_mh_rnn_1",
         "required": false,
-        "description": "Only streamable topologies are listed; att_rnn / att_mh_rnn / tc_resnet / mobilenet* / xception / inception* cannot be converted to streaming mode upstream."
+        "description": "ARM keyword-transformer publishes kwt1/kwt2/kwt3 (Keyword Transformer, 97.6-98.5%) and att_mh_rnn_1. All are non-streamable topologies, so they export in sliding-window mode."
       },
       {
         "id": "opset",
         "label": "ONNX opset for the TFLite -> ONNX conversion",
         "type": "string",
-        "default": "18",
+        "default": "17",
+        "required": false
+      },
+      {
+        "id": "hop_ms",
+        "label": "Sliding-window re-evaluation period (ms)",
+        "type": "string",
+        "default": "100",
         "required": false
       }
     ]

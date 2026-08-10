@@ -13,6 +13,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   KwsStreamingManifestError,
+  NON_STREAMABLE_MODELS,
   STREAMABLE_MODELS,
   stateSize,
   validateManifest,
@@ -20,6 +21,7 @@ import {
 } from '../core/manifest'
 import {
   PacketBuffer,
+  SlidingWindow,
   advanceStates,
   createStateBag,
   resetStateBag,
@@ -28,10 +30,11 @@ import {
   stateBagBytes,
 } from '../core/streaming'
 
-/** A minimal well-formed manifest (ds_tc_resnet-shaped). */
+/** A minimal well-formed streaming manifest (ds_tc_resnet-shaped). */
 function baseManifest(): Record<string, unknown> {
   return {
     version: 1,
+    mode: 'streaming-external-state',
     model: 'ds_tc_resnet',
     upstreamRef: 'master',
     labels: ['silence', 'unknown', 'up', 'down'],
@@ -46,6 +49,39 @@ function baseManifest(): Record<string, unknown> {
       { input: 'state_in_0', output: 'state_out_0', shape: [1, 3, 4] },
       { input: 'state_in_1', output: 'state_out_1', shape: [1, 2] },
     ],
+  }
+}
+
+/** A well-formed sliding-window manifest (ARM keyword-transformer kwt1). */
+function windowManifest(): Record<string, unknown> {
+  return {
+    version: 1,
+    mode: 'sliding-window',
+    model: 'kws_transformer',
+    source: 'ARM-software/keyword-transformer kwt1',
+    upstreamRef: 'master',
+    labels: [
+      '_silence_',
+      '_unknown_',
+      'yes',
+      'no',
+      'up',
+      'down',
+      'left',
+      'right',
+      'on',
+      'off',
+      'stop',
+      'go',
+    ],
+    wantedWord: 'yes',
+    sampleRate: 16000,
+    windowSamples: 16000,
+    hopSamples: 1600,
+    featureExtractor: 'graph',
+    audioInput: 'input_1',
+    scoreOutput: 'Identity',
+    softmaxed: false,
   }
 }
 
@@ -65,22 +101,43 @@ describe('validateManifest', () => {
     expect(validateManifest(raw).upstreamRef).toBe('unknown')
   })
 
+  it('defaults mode to external-state for manifests written before modes existed', () => {
+    const raw = baseManifest()
+    delete raw.mode
+    expect(validateManifest(raw).mode).toBe('streaming-external-state')
+  })
+
+  it('rejects an unknown mode', () => {
+    expect(() => validateManifest({ ...baseManifest(), mode: 'magic' })).toThrow(
+      /unknown mode/,
+    )
+  })
+
   it('rejects an unsupported schema version', () => {
     expect(() => validateManifest({ ...baseManifest(), version: 2 })).toThrow(
       KwsStreamingManifestError,
     )
   })
 
-  it('rejects non-streamable topologies (upstream cannot convert them)', () => {
+  it('rejects non-streamable topologies in STREAMING mode', () => {
     // att_mh_rnn is accurate (98.4%) but attends over the whole sequence, so
-    // upstream marks it non-streamable - no manifest can legitimately exist.
-    for (const model of ['att_rnn', 'att_mh_rnn', 'tc_resnet', 'mobilenet', 'xception']) {
+    // upstream cannot insert streaming buffers - it needs sliding-window mode,
+    // and the error says so.
+    for (const model of NON_STREAMABLE_MODELS) {
       expect(() => validateManifest({ ...baseManifest(), model })).toThrow(
-        /non-streamable/,
+        /not streamable: use mode 'sliding-window'/,
       )
     }
     for (const model of STREAMABLE_MODELS) {
       expect(() => validateManifest({ ...baseManifest(), model })).not.toThrow()
+    }
+  })
+
+  it('ACCEPTS non-streamable topologies in sliding-window mode', () => {
+    // This is the whole point of the second mode: ARM's published checkpoints
+    // are kws_transformer / att_mh_rnn and ship only tflite_non_stream/.
+    for (const model of NON_STREAMABLE_MODELS) {
+      expect(() => validateManifest({ ...windowManifest(), model })).not.toThrow()
     }
   })
 
@@ -130,6 +187,42 @@ describe('validateManifest', () => {
     const raw = baseManifest()
     raw.states = [{ input: 'a', output: 'b', shape: [1, 0] }]
     expect(() => validateManifest(raw)).toThrow(/positive integers/)
+  })
+})
+
+describe('validateManifest: sliding-window mode', () => {
+  it('accepts the ARM keyword-transformer shape', () => {
+    const m = validateManifest(windowManifest())
+    expect(m.mode).toBe('sliding-window')
+    expect(m.model).toBe('kws_transformer')
+    expect(m.windowSamples).toBe(16000)
+    expect(m.hopSamples).toBe(1600)
+    expect(m.labels).toHaveLength(12)
+    // Streaming-only fields must not leak in.
+    expect(m.packetSamples).toBeUndefined()
+    expect(m.states).toBeUndefined()
+  })
+
+  it('requires windowSamples and hopSamples', () => {
+    const noWindow = windowManifest()
+    delete noWindow.windowSamples
+    expect(() => validateManifest(noWindow)).toThrow(/windowSamples/)
+
+    const noHop = windowManifest()
+    delete noHop.hopSamples
+    expect(() => validateManifest(noHop)).toThrow(/hopSamples/)
+  })
+
+  it('rejects a hop larger than the window (it would skip audio)', () => {
+    expect(() =>
+      validateManifest({ ...windowManifest(), hopSamples: 32000 }),
+    ).toThrow(/must not exceed/)
+  })
+
+  it('does not require state declarations', () => {
+    const m = validateManifest(windowManifest())
+    expect(createStateBag(m).size).toBe(0)
+    expect(stateBagBytes(createStateBag(m))).toBe(0)
   })
 })
 
@@ -308,5 +401,80 @@ describe('PacketBuffer (packet alignment)', () => {
   it('rejects an invalid packet size', () => {
     expect(() => new PacketBuffer(0)).toThrow()
     expect(() => new PacketBuffer(1.5)).toThrow()
+  })
+})
+
+describe('SlidingWindow (non-streamable topologies)', () => {
+  it('emits nothing until a hop has elapsed', () => {
+    const w = new SlidingWindow(16, 4)
+    w.push(new Float32Array(2))
+    expect(w.take()).toBeNull()
+    w.push(new Float32Array(2))
+    expect(w.take()?.length).toBe(16)
+  })
+
+  it('always returns a full window, zero-padded during warmup', () => {
+    const w = new SlidingWindow(8, 2)
+    w.push(new Float32Array([1, 2]))
+    const first = w.take()!
+    // Newest audio is right-aligned; the history is still zeros.
+    expect([...first]).toEqual([0, 0, 0, 0, 0, 0, 1, 2])
+    expect(w.primed).toBe(false)
+  })
+
+  it('slides (does NOT consume) so successive windows overlap', () => {
+    const w = new SlidingWindow(4, 2)
+    w.push(new Float32Array([1, 2]))
+    expect([...w.take()!]).toEqual([0, 0, 1, 2])
+    w.push(new Float32Array([3, 4]))
+    // 1,2 are still present - this is the difference from PacketBuffer.
+    expect([...w.take()!]).toEqual([1, 2, 3, 4])
+    w.push(new Float32Array([5, 6]))
+    expect([...w.take()!]).toEqual([3, 4, 5, 6])
+  })
+
+  it('reports primed once a full window of real audio arrived', () => {
+    const w = new SlidingWindow(4, 2)
+    w.push(new Float32Array(2))
+    expect(w.primed).toBe(false)
+    w.push(new Float32Array(2))
+    expect(w.primed).toBe(true)
+  })
+
+  it('keeps only the tail of an over-long frame', () => {
+    const w = new SlidingWindow(4, 2)
+    w.push(new Float32Array([1, 2, 3, 4, 5, 6]))
+    expect([...w.take()!]).toEqual([3, 4, 5, 6])
+  })
+
+  it('evaluates once even when several hops elapsed at once', () => {
+    const w = new SlidingWindow(8, 2)
+    w.push(new Float32Array(6))
+    expect(w.take()).not.toBeNull()
+    // The window already holds the latest audio; no backlog of evaluations.
+    expect(w.take()).toBeNull()
+  })
+
+  it('returns a copy, so the caller cannot corrupt the window', () => {
+    const w = new SlidingWindow(4, 2)
+    w.push(new Float32Array([1, 2]))
+    const taken = w.take()!
+    taken[0] = 99
+    w.push(new Float32Array([3, 4]))
+    expect([...w.take()!]).toEqual([1, 2, 3, 4])
+  })
+
+  it('clear() drops history and un-primes', () => {
+    const w = new SlidingWindow(4, 2)
+    w.push(new Float32Array([1, 2, 3, 4]))
+    w.clear()
+    expect(w.primed).toBe(false)
+    expect(w.take()).toBeNull()
+  })
+
+  it('rejects invalid geometry', () => {
+    expect(() => new SlidingWindow(0, 1)).toThrow()
+    expect(() => new SlidingWindow(4, 0)).toThrow()
+    expect(() => new SlidingWindow(4, 8)).toThrow(/exceeds/)
   })
 })
