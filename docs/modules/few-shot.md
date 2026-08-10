@@ -148,6 +148,15 @@ User records sample -> quality check -> PLiX embed(sample) -> EnrolledSample
 (repeat N times) -> mean-pool embeddings -> WakeWordPrototype -> IndexedDB
 ```
 
+**Negative-class enrollment (open-set rejection, issue #69):**
+```
+User records other words / background (non-target) samples -> PLiX embed
+(repeat N times) -> mean-pool -> negativeVector attached to the wake-word
+prototype + persisted (IndexedDB) -> useNegativePrototype auto-enabled
+```
+Detection then scores the query against BOTH prototypes (relative distance),
+so non-target speech scores low instead of clearing the threshold.
+
 **Live detection (via `PlixKwsBackend`, a `KWSBackend`):**
 ```
 AFE (16kHz) -> accumulate windowMs of audio -> PLiX embed -> protoDistance(proto)
@@ -262,6 +271,7 @@ unchanged.
 
 | Date | Change | Author |
 |---|---|---|
+| 2026-08-10 | Negative-prototype enrollment UI + plumbing (issue #69): record non-target samples in the KWS panel, mean-pool into a negativeVector attached to the wake-word prototype, auto-enable useNegativePrototype. Engine carries prototypeNegative through the worker load message into initWithPrototype; scoring is relative (word vs negative class) so other speech scores low. | agent |
 | 2026-08-10 | Recalibrate default threshold 0.7 -> 0.9 (issue #69). 0.7 predated the #66 normalization fix when all scores were ~0.24; post-#66 real speech scores 0.78-0.96, so the old default made the wake word fire on ANY speech. Verified with real speech: enrolled word 0.92-1.0 vs other words 0.78-0.89. | agent |
 | 2026-08-10 | Add silence gate to PLiX detection (issue #66 follow-up): windows at/below `silenceFloorDbfs` (-45 dBFS RMS default) score 0 and skip the encoder. The model maps silence/background to a cosine-similar spot near the prototype (score ~0.7+ with no input after the normalization fix), so energy gating is required to avoid false triggers. Tunable via the Few-Shot config surface. | agent |
 | 2026-08-10 | Fix PLiX never triggering (issue #66): L2-normalize query + prototype before squared-Euclidean scoring (raw GAP embeddings have L2 norm ~4-5, so un-normalized d^2 ~3-4 even for a 0.92-cosine match -> score ~0.24, unreachable). Normalized d^2 = 2(1-cos) is well-calibrated; also wire the Few-Shot panel threshold/VAD/min-duration into the engine trigger config instead of KWS defaults. | agent |

@@ -152,6 +152,58 @@ describe('PlixKwsBackend', () => {
     expect(last).not.toBeNull()
     expect(last!).toBeCloseTo(1.0, 3)
   })
+
+  it('negative prototype: word-like query scores high, other-speech-like query low (issue #69)', async () => {
+    // Query close to the word prototype -> high P(word); query close to the
+    // negative prototype -> low. With softmax over the two class distances:
+    //   score = 1 / (1 + exp(d2_word - d2_neg))
+    const wordVec = new Float32Array(1280).fill(0.5)
+    const negVec = new Float32Array(1280).fill(-0.5)
+    const proto: WakeWordPrototype = {
+      id: 'p',
+      word: 'hey job',
+      vector: wordVec,
+      negativeVector: negVec,
+      sampleIds: [],
+      createdAtMs: 0,
+    }
+
+    // Embedder returns a word-like query (same direction as wordVec).
+    const wordEmbed = new Float32Array(1280).fill(0.5)
+    const wordBackend = new PlixKwsBackend(
+      new FakeEmbedder(),
+      proto,
+      1500,
+      true, // useNegative
+    )
+    ;(wordBackend as unknown as { _embedProvider: { value: Float32Array } })._embedProvider.value =
+      wordEmbed
+    let wordScore: number | null = null
+    for (let i = 0; i < 200; i++) {
+      const s = await wordBackend.processFrame(speechFrame(i))
+      if (s !== null) wordScore = s
+    }
+    expect(wordScore).not.toBeNull()
+    expect(wordScore!).toBeGreaterThan(0.7)
+
+    // Embedder returns an other-speech-like query (same direction as negVec).
+    const negEmbed = new Float32Array(1280).fill(-0.5)
+    const negBackend = new PlixKwsBackend(
+      new FakeEmbedder(),
+      proto,
+      1500,
+      true, // useNegative
+    )
+    ;(negBackend as unknown as { _embedProvider: { value: Float32Array } })._embedProvider.value =
+      negEmbed
+    let negScore: number | null = null
+    for (let i = 0; i < 200; i++) {
+      const s = await negBackend.processFrame(speechFrame(i))
+      if (s !== null) negScore = s
+    }
+    expect(negScore).not.toBeNull()
+    expect(negScore!).toBeLessThan(0.3)
+  })
 })
 
 // ---------------------------------------------------------------------------

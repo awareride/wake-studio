@@ -208,8 +208,13 @@ export class PlixKwsBackend implements KWSBackend {
     const d2 = squaredEuclidean(q, p)
     if (this._useNegative && this._prototype.negativeVector) {
       const negD2 = squaredEuclidean(q, l2Normalize(this._prototype.negativeVector))
-      // Prefer the query's own class: subtract the negative-class distance.
-      return plixScore(Math.max(0, d2 - negD2))
+      // Open-set rejection (issue #69): score is the probability of the wake
+      // word class under a 2-class softmax over the squared distances,
+      // P(word) = exp(-d2) / (exp(-d2) + exp(-negD2)) = 1/(1+exp(d2-negD2)).
+      // A query far from BOTH prototypes (ambiguous) scores ~0.5, not 1.0 -
+      // the old max(0, d2-negD2) form saturated at 1.0 for any query closer
+      // to the word than the negative, including equidistant ones.
+      return 1 / (1 + Math.exp(d2 - negD2))
     }
     return plixScore(d2)
   }

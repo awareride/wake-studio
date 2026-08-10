@@ -110,7 +110,8 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
       label: 'Negative prototype',
       type: 'boolean',
       default: false,
-      description: 'Subtract the negative prototype for a tighter decision boundary.',
+      description:
+        'Score against BOTH the wake word and the enrolled negative class (other words / background). Auto-enabled when you enroll negative samples in the panel; rejects non-target speech that would otherwise clear the threshold (open-set rejection, issue #69).',
     },
     {
       id: 'silenceFloorDbfs',

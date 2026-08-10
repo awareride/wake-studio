@@ -97,6 +97,7 @@ export class KWSEngine {
     models: BackendModelUrls,
     prototype?: Float32Array,
     backendConfig?: unknown,
+    prototypeNegative?: Float32Array,
   ): Promise<void> {
     // Guard only against a concurrent load (in-flight). A `ready` engine may
     // be re-loaded (Reload button, or a backend switch after stop): the old
@@ -169,6 +170,10 @@ export class KWSEngine {
         backend: this._config.backend,
         models,
         prototype: prototype ? Array.from(prototype) : undefined,
+        // Negative-class prototype for open-set rejection (plixkws, issue #69).
+        prototypeNegative: prototypeNegative
+          ? Array.from(prototypeNegative)
+          : undefined,
         // Pass the driver backend config into the worker (e.g. plixkws
         // windowMs / useNegativePrototype, epic #53 P1).
         backendConfig,

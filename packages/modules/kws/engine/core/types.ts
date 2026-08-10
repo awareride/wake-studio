@@ -165,6 +165,8 @@ export type KWSWorkerMessage =
       backend: KWSBackendId
       models: BackendModelUrls
       prototype?: number[]
+      /** Negative-class prototype (plixkws open-set rejection, issue #69). */
+      prototypeNegative?: number[]
       /**
        * Driver-specific backend config (e.g. plixkws windowMs /
        * useNegativePrototype). Passed through to the backend's init
