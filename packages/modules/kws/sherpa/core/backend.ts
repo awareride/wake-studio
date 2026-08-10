@@ -252,13 +252,31 @@ export class SherpaOnnxKwsBackend implements KWSBackend {
       return 1
     }
 
-    if (!this._spotter.isReady(this._stream)) return 0
+    // Decode as many ready chunks as the stream has buffered (mirrors the
+    // upstream wasm/kws/app.js loop). IMPORTANT: do NOT reset the stream here.
+    // sherpa-onnx's Reset() wipes the decoder hypothesis AND the encoder RNN
+    // states (keyword-spotter-transducer-impl.h), and the upstream demo
+    // resets only after a keyword hit — sherpa itself auto-resets after ~1.5 s
+    // of trailing silence. Resetting after every decode destroyed the
+    // streaming state, so keywords spanning multiple chunks (e.g. 你好军哥)
+    // never accumulated enough context to fire.
+    let keyword = ''
+    while (this._spotter.isReady(this._stream)) {
+      this._spotter.decode(this._stream)
+      const result = this._spotter.getResult(this._stream)
+      const k = (result.keyword ?? '').trim()
+      if (k.length > 0) {
+        keyword = k
+        // Reset right after a hit (upstream does the same) so the same
+        // keyword can be detected again on the next utterance.
+        try {
+          this._spotter.reset(this._stream)
+        } catch {
+          /* ignore */
+        }
+      }
+    }
 
-    this._spotter.decode(this._stream)
-    const result = this._spotter.getResult(this._stream)
-    this._spotter.reset(this._stream)
-
-    const keyword = (result.keyword ?? '').trim()
     if (keyword.length > 0) {
       this._lastKeyword = keyword
       // Hold high for ~400 ms (40 frames) to satisfy min-duration + cooldown.

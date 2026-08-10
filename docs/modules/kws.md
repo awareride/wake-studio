@@ -272,6 +272,13 @@ it runs on the **main thread** and drives its own smoothing/trigger loop there
 (see `packages/modules/kws/sherpa/core/backend.ts` + the engine's `KWSEngine`). Both paths expose the
 same `onScore`/`onTrigger` events to the UI.
 
+**sherpa stream lifecycle (issue #64):** the sherpa `KeywordSpotter` stream is
+resetted **only after a keyword hit**, never per-frame. `Reset()` wipes the
+decoder hypothesis *and* the encoder RNN states, so resetting after every
+decode destroyed the streaming context and multi-frame keywords (e.g. 你好军哥)
+never fired. sherpa itself auto-resets after ~1.5 s of trailing silence, so the
+backend just decodes every ready chunk (`while isReady -> decode`).
+
 ```
 AFE (AudioWorklet)                KWS Worker (ONNX backends)   Main thread (UI)
       │                               │                            │
