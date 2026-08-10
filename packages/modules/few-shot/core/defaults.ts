@@ -6,7 +6,7 @@ import type { FewShotConfig, ParameterDescriptor } from './types'
 
 /** Default Few-Shot configuration. */
 export const DEFAULT_CONFIG: FewShotConfig = {
-  threshold: 0.7,
+  threshold: 0.9,
   minDurationMs: 300,
   cooldownMs: 2000,
   smoothingWindowFrames: 5,
@@ -26,12 +26,12 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
       id: 'threshold',
       label: 'Distance threshold',
       type: 'number',
-      default: 0.7,
+      default: 0.9,
       min: 0.5,
       max: 0.95,
       step: 0.01,
       description:
-        'PLiX prototype-distance score (1 / (1 + d^2), rescaled [0,1]) must exceed this to trigger.',
+        'PLiX prototype-distance score (1 / (1 + d^2) on L2-normalized embeddings, rescaled [0,1]) must exceed this to trigger. The enrolled word typically scores 0.9-1.0; other speech 0.7-0.9. Default 0.9 rejects most non-target speech (post-#66 score scale).',
     },
     {
       id: 'minDurationMs',

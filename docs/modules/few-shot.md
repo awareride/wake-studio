@@ -179,7 +179,7 @@ unchanged.
 
 | Parameter | Default | Range | Notes |
 |---|---|---|---|
-| `threshold` | 0.7 | 0.5-0.95 | PLiX prototype-distance score (rescaled [0,1]). |
+| `threshold` | 0.9 | 0.5-0.95 | PLiX prototype-distance score on L2-normalized embeddings (issue #66): enrolled word ~0.9-1.0, other speech ~0.7-0.9. Default 0.9 rejects most non-target speech. |
 | `minDurationMs` | 300 | 100-3000 | Sustained activation before trigger. |
 | `cooldownMs` | 2000 | 500-10000 | Min time between triggers. |
 | `smoothingWindowFrames` | 5 | 1-30 | Sliding-window max-pool. |
@@ -262,6 +262,7 @@ unchanged.
 
 | Date | Change | Author |
 |---|---|---|
+| 2026-08-10 | Recalibrate default threshold 0.7 -> 0.9 (issue #69). 0.7 predated the #66 normalization fix when all scores were ~0.24; post-#66 real speech scores 0.78-0.96, so the old default made the wake word fire on ANY speech. Verified with real speech: enrolled word 0.92-1.0 vs other words 0.78-0.89. | agent |
 | 2026-08-10 | Add silence gate to PLiX detection (issue #66 follow-up): windows at/below `silenceFloorDbfs` (-45 dBFS RMS default) score 0 and skip the encoder. The model maps silence/background to a cosine-similar spot near the prototype (score ~0.7+ with no input after the normalization fix), so energy gating is required to avoid false triggers. Tunable via the Few-Shot config surface. | agent |
 | 2026-08-10 | Fix PLiX never triggering (issue #66): L2-normalize query + prototype before squared-Euclidean scoring (raw GAP embeddings have L2 norm ~4-5, so un-normalized d^2 ~3-4 even for a 0.92-cosine match -> score ~0.24, unreachable). Normalized d^2 = 2(1-cos) is well-calibrated; also wire the Few-Shot panel threshold/VAD/min-duration into the engine trigger config instead of KWS defaults. | agent |
 | 2026-07-27 | Initial draft (docs-first, pending human review). | agent |
