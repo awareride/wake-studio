@@ -35,8 +35,11 @@ registerKwsBackend({
   category: 'traditional',
   create: () => new KWSStreamingBackend(),
   browserFeasible: true,
-  // Upstream ships code, not weights: the driver is browser-feasible but needs
-  // a model the user trained (or supplied) first.
-  availabilityNote: 'Requires a trained model (upstream ships no weights)',
+  availabilityNote: 'Pretrained: Keyword Transformer / att_mh_rnn (12 labels)',
+  // This driver needs a graph + its sidecar manifest, not the openwakeword
+  // model triple. Declaring it here keeps the worker free of per-backend
+  // cases (ADR-024).
+  hasRequiredUrls: (urls) =>
+    Boolean(urls.kwsStreaming?.model && urls.kwsStreaming?.manifest),
   spec: kwsStreamingSpec as unknown as ModuleSpec,
 })

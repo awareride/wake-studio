@@ -148,6 +148,17 @@
         "notes": {
           "type": "string",
           "description": "Human note (source detail, runtime behavior, fetch instructions)."
+        },
+        "manifestUrl": {
+          "type": "string",
+          "description": "Sidecar manifest URL for models that need one (kws-streaming: model.json declaring tensor names, labels, window/packet geometry). See docs/modules/kws-streaming.md §4.2."
+        },
+        "accuracy": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Reported top-1 accuracy in percent on the model's own eval set (provenance for the UI; e.g. 97.61 for kwt1 on Speech Commands V2 12-label)."
         }
       },
       "additionalProperties": false

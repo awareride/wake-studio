@@ -1,7 +1,7 @@
 {
   "$schema": "./model-registry.schema.json",
   "version": 1,
-  "updated": "2025-01-01",
+  "updated": "2026-08-10",
   "note": "Catalog of lazily-fetched models (ADR-011). Weights are never bundled. Each entry's 'license' and 'commercial' fields drive the Phase 4 export license gate.",
   "models": [
     {
@@ -96,6 +96,78 @@
       "sha256": "TODO-phase3",
       "sizeBytes": null,
       "notes": "PLiX 'small' encoder variant (TinyNet-E) - lighter than 'base', for low-RAM / end-side devices. Still outputs a 1280-dim embedding from the same 1x64x100 log-Mel front-end, so prototype-distance scoring is identical to 'base'. Exported with external data: plixkws-small.onnx references plixkws-small.onnx.data (co-located, served from /modules/kws/plix/assets/). Select this variant via the encoder selector in the Few-Shot panel (ADR-002). Same two runtimes as 'base' (onnx / transformers). The 'transformers' runtime loads from a LOCALLY-EXPORTED HF-style dir (staged by the PLiX module build under /modules/kws/plix/assets/hf/plixkws); the Hugging Face repo only ships .pt weights, not ONNX."
+    },
+    {
+      "id": "kws-streaming-kwt1",
+      "name": "Keyword Transformer KWT-1 (Speech Commands V2, 12 labels)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
+      "url": "/modules/kws/streaming/assets/kws-streaming/kwt1.onnx",
+      "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/kwt1.json",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": null,
+      "sizeBytes": 3617784,
+      "accuracy": 97.61,
+      "notes": "ARM Keyword Transformer, 1 head. Sliding-window (non-streamable topology): 1 s window re-evaluated every 100 ms; the MFCC front-end is inside the graph (preprocess=raw, feature_type=mfcc_tf). Labels: _silence_/_unknown_/yes/no/up/down/left/right/on/off/stop/go. CI-validated at 100% argmax over 120 real Speech Commands clips (mean target p~0.90; silence -> _silence_)."
+    },
+    {
+      "id": "kws-streaming-kwt2",
+      "name": "Keyword Transformer KWT-2 (Speech Commands V2, 12 labels)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
+      "url": "/modules/kws/streaming/assets/kws-streaming/kwt2.onnx",
+      "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/kwt2.json",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": null,
+      "sizeBytes": 10830708,
+      "accuracy": 98.24,
+      "notes": "ARM Keyword Transformer, 2x width of KWT-1. Same sliding-window geometry and labels as kws-streaming-kwt1; higher accuracy at ~3x the size."
+    },
+    {
+      "id": "kws-streaming-kwt3",
+      "name": "Keyword Transformer KWT-3 (Speech Commands V2, 12 labels)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
+      "url": "/modules/kws/streaming/assets/kws-streaming/kwt3.onnx",
+      "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/kwt3.json",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": null,
+      "sizeBytes": 22717772,
+      "accuracy": 98.65,
+      "notes": "ARM Keyword Transformer, largest variant. Same sliding-window geometry and labels as kws-streaming-kwt1; best accuracy, heaviest download."
+    },
+    {
+      "id": "kws-streaming-att-mh-rnn",
+      "name": "att_mh_rnn (multi-head attention RNN, Speech Commands V2, 12 labels)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
+      "url": "/modules/kws/streaming/assets/kws-streaming/att_mh_rnn_1.onnx",
+      "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/att_mh_rnn_1.json",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": null,
+      "sizeBytes": 5289700,
+      "accuracy": 98.48,
+      "notes": "google-research/kws_streaming att_mh_rnn (CNN + biLSTM + multi-head attention). Non-streamable by design (attends over the whole sequence), so it runs in sliding-window mode."
     },
     {
       "id": "silero-vad",

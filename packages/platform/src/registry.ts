@@ -32,6 +32,14 @@ export interface RegistryModel {
   embeddingDim?: number
   /** For ONNX external-data exports: the co-located .data file name. */
   externalData?: string
+  /**
+   * Sidecar manifest URL for models that need one (kws-streaming: the
+   * `model.json` declaring tensor names, labels and window/packet geometry).
+   * @see docs/modules/kws-streaming.md §4.2
+   */
+  manifestUrl?: string
+  /** Reported top-1 accuracy (%) on the model's own eval set, for provenance. */
+  accuracy?: number | null
   notes?: string
 }
 

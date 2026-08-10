@@ -24,9 +24,11 @@
 import * as openWakeWordDriver from '@wake-studio/module-kws-openwakeword'
 import * as sherpaDriver from '@wake-studio/module-kws-sherpa'
 import * as plixDriver from '@wake-studio/module-kws-plix'
+import * as streamingDriver from '@wake-studio/module-kws-streaming'
 void openWakeWordDriver.OpenWakeWordBackend
 void sherpaDriver.SherpaOnnxKwsBackend
 void plixDriver.PlixKwsBackend
+void streamingDriver.KWSStreamingBackend
 
 import type {
   BackendModelUrls,
@@ -39,6 +41,7 @@ import type {
 } from '../core/types'
 import { DEFAULT_MODEL_RUNTIME } from '@wake-studio/platform'
 import {
+  backendHasRequiredUrls,
   createBackend,
   createEmbedProvider,
 } from '../core/backend'
@@ -199,10 +202,20 @@ async function handleLoad(
       // Detection backend: only load if its required URLs are present. If only
       // plixkws is provided (Few-Shot enrollment / embed-only mode), skip the
       // detection backend - embed() still works via the PLiX provider above.
-      const hasDetectionUrls =
-        urls.melspectrogram && urls.embedding && urls.classifier
+      //
+      // Each driver needs a different URL set, so "do we have what this
+      // backend needs?" is answered by the driver's own registration
+      // (`hasRequiredUrls`, ADR-024) rather than by assuming the openwakeword
+      // triple - that assumption silently skipped loading for any other
+      // driver, leaving the engine ready-but-deaf.
+      const hasDetectionUrls = backendHasRequiredUrls(backendId, urls)
       if (hasDetectionUrls) {
         backend = createBackend(backendId)
+        // Drivers with their own params (e.g. kws-streaming's wantedWord)
+        // consume them through the optional configure() capability before load.
+        ;(backend as KWSBackend & { configure?: (c: unknown) => void }).configure?.(
+          backendConfig ?? {},
+        )
         await backend.load(urls, actualExecutionProvider)
         // OpenWakeWord (and similar) actually exercise the WebGPU EP.
         gpuBackendLoaded = true

@@ -88,7 +88,7 @@ export interface ModelSourceOption {
  */
 export function modelSourcesForRole(
   registry: ModelRegistry,
-  role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder',
+  role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder' | 'kws-streaming-model',
   current?: string,
 ): ModelSourceOption[] {
   const builtIns = registry.models
@@ -111,13 +111,20 @@ export function modelSourcesForRole(
           )
         case 'plix-encoder':
           return m.id === 'plixkws' || m.id === 'plixkws-small'
+        case 'kws-streaming-model':
+          // Exported kws_streaming-family graphs; each carries a sidecar
+          // manifest (manifestUrl) describing its geometry.
+          return m.id.startsWith('kws-streaming-')
       }
     })
     .map((m) => ({
       id: m.id,
       label: `${m.name} (${m.id})`,
       url: m.url,
-      note: `${m.license} · ${m.commercial ? 'commercial' : 'non-commercial'} · ${m.sizeBytes ? (m.sizeBytes / 1024 / 1024).toFixed(1) + ' MB' : 'size n/a'}`,
+      note:
+        `${m.license} · ${m.commercial ? 'commercial' : 'non-commercial'} · ` +
+        `${m.sizeBytes ? (m.sizeBytes / 1024 / 1024).toFixed(1) + ' MB' : 'size n/a'}` +
+        `${m.accuracy ? ` · ${m.accuracy}% top-1` : ''}`,
     }))
 
   // Custom-URL option: use the current URL as its value when one is set and
@@ -134,7 +141,7 @@ export function modelSourcesForRole(
 
 /** One model role the Model-source editor offers for a backend. */
 export interface ModelSourceRole {
-  role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder'
+  role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder' | 'kws-streaming-model'
   label: string
   fallbackId: string
 }
@@ -149,4 +156,18 @@ export const TRADITIONAL_MODEL_ROLES: ModelSourceRole[] = [
 /** Model roles for the few-shot (plixkws) backend. */
 export const FEWSHOT_MODEL_ROLES: ModelSourceRole[] = [
   { role: 'plix-encoder', label: 'PLiX encoder', fallbackId: 'plixkws' },
+]
+
+/**
+ * Model roles for the kws-streaming backend (ADR-024 Traditional).
+ *
+ * One role: the exported graph. Its sidecar manifest travels with it via the
+ * registry's `manifestUrl`, so the user picks a model, not a pair of files.
+ */
+export const KWS_STREAMING_MODEL_ROLES: ModelSourceRole[] = [
+  {
+    role: 'kws-streaming-model',
+    label: 'kws_streaming model',
+    fallbackId: 'kws-streaming-kwt1',
+  },
 ]

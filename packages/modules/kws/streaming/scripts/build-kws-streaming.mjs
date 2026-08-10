@@ -27,9 +27,10 @@
  *     [--input-opset 17] [--input-hop_ms 100]
  */
 
-import { mkdirSync, rmSync, existsSync, readdirSync } from 'node:fs'
+import { mkdirSync, rmSync, existsSync, readdirSync, statSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 
 const MODULE_DIR = process.env.MODULE_DIR || resolve(import.meta.dirname, '..')
 
@@ -147,8 +148,27 @@ function main() {
     }
   }
 
+  // Emit exact size + sha256 per artifact file. The registry (ADR-027) needs
+  // real hashes/sizes, and eyeballing "3.5 MB" from a log is how TODO-phase2
+  // placeholders happen.
+  const index = {}
+  for (const f of readdirSync(outDir).sort()) {
+    const full = join(outDir, f)
+    if (!statSync(full).isFile()) continue
+    index[f] = {
+      sizeBytes: statSync(full).size,
+      sha256: createHash('sha256').update(readFileSync(full)).digest('hex'),
+    }
+  }
+  writeFileSync(
+    join(outDir, 'artifacts.index.json'),
+    JSON.stringify(index, null, 2) + '\n',
+  )
+
   console.log('\n[build-kws-streaming] staged artifacts:')
-  for (const f of readdirSync(outDir).sort()) console.log(`  ${f}`)
+  for (const [f, meta] of Object.entries(index)) {
+    console.log(`  ${f}  ${meta.sizeBytes} bytes  sha256:${meta.sha256}`)
+  }
   console.log('Done. kws-streaming ONNX staged in', outDir)
 }
 
