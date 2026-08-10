@@ -15,6 +15,8 @@ export const DEFAULT_CONFIG: FewShotConfig = {
   windowMs: 1500,
   hopMs: 80,
   useNegativePrototype: false,
+  /** RMS (dBFS) below which a detection window scores 0 (silence gate). */
+  silenceFloorDbfs: -45,
 }
 
 /** Declare all tunable Few-Shot parameters for the Studio config panel. */
@@ -109,6 +111,18 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
       type: 'boolean',
       default: false,
       description: 'Subtract the negative prototype for a tighter decision boundary.',
+    },
+    {
+      id: 'silenceFloorDbfs',
+      label: 'Silence gate (dBFS RMS)',
+      type: 'number',
+      default: -45,
+      min: -60,
+      max: -20,
+      step: 1,
+      unit: 'dBFS',
+      description:
+        'Windows at or below this RMS level score 0 (no speech input). Prevents the PLiX model from scoring silence/background near the prototype (false triggers with no word spoken).',
     },
   ]
 }

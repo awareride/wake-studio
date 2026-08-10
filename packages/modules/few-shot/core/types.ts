@@ -42,6 +42,8 @@ export interface FewShotConfig {
   windowMs: number
   hopMs: number
   useNegativePrototype: boolean
+  /** RMS (dBFS) below which a detection window scores 0 (silence gate). */
+  silenceFloorDbfs: number
 }
 
 /** Descriptor for one tunable parameter (shared with AFE/KWS, ADR-017). */

@@ -176,12 +176,17 @@ async function handleLoad(
           initWithPrototype?: (
             p: unknown,
             e: unknown,
-            opts?: { windowMs?: number; useNegative?: boolean },
+            opts?: {
+              windowMs?: number
+              useNegative?: boolean
+              silenceFloorDbfs?: number
+            },
           ) => void
         }
       ).initWithPrototype?.(proto, embedProvider, {
         windowMs: (backendConfig as { windowMs?: number } | undefined)?.windowMs,
         useNegative: (backendConfig as { useNegative?: boolean } | undefined)?.useNegative,
+        silenceFloorDbfs: (backendConfig as { silenceFloorDbfs?: number } | undefined)?.silenceFloorDbfs,
       })
     } else {
       // Detection backend: only load if its required URLs are present. If only

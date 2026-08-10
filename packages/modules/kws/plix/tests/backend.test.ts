@@ -33,6 +33,21 @@ const FAKE_PROTOTYPE: WakeWordPrototype = {
   createdAtMs: 0,
 }
 
+/** A 10 ms AFE frame with energy above the silence floor (RMS ~= -13 dBFS). */
+function speechFrame(seed = 0): Float32Array {
+  const f = new Float32Array(160)
+  for (let i = 0; i < 160; i++) {
+    // ~0.2 amplitude sine -> RMS ~ -13 dBFS, well above the -45 floor.
+    f[i] = 0.2 * Math.sin((2 * Math.PI * 200 * i) / 16000 + seed)
+  }
+  return f
+}
+
+/** A silent frame (all zeros) - must score 0 via the silence gate. */
+function silentFrame(): Float32Array {
+  return new Float32Array(160)
+}
+
 describe('PlixKwsBackend', () => {
   it('is not ready before the embedder is ready', () => {
     const notReady = new FakeEmbedder()
@@ -51,7 +66,7 @@ describe('PlixKwsBackend', () => {
     const backend = new PlixKwsBackend(new FakeEmbedder(), FAKE_PROTOTYPE, 1500)
     let last: number | null = null
     for (let i = 0; i < 200; i++) {
-      const s = await backend.processFrame(new Float32Array(160))
+      const s = await backend.processFrame(speechFrame(i))
       if (s !== null) last = s
     }
     expect(last).not.toBeNull()
@@ -89,7 +104,7 @@ describe('PlixKwsBackend', () => {
     const backend = new PlixKwsBackend(embedder, { ...FAKE_PROTOTYPE, vector: proto }, 1500)
     let last: number | null = null
     for (let i = 0; i < 200; i++) {
-      const s = await backend.processFrame(new Float32Array(160))
+      const s = await backend.processFrame(speechFrame(i))
       if (s !== null) last = s
     }
     expect(last).not.toBeNull()
@@ -101,6 +116,41 @@ describe('PlixKwsBackend', () => {
     const backend = new PlixKwsBackend(new FakeEmbedder(), FAKE_PROTOTYPE)
     expect(() => backend.reset()).not.toThrow()
     await expect(backend.dispose()).resolves.toBeUndefined()
+  })
+
+  it('scores 0 for silent windows (no false trigger on silence, issue)', async () => {
+    // The PLiX model maps silence to a spot near the prototype in cosine
+    // space (score ~0.74 after #66 normalization), so an energy floor is
+    // required. With a fully silent window the backend must score 0 and skip
+    // the encoder entirely.
+    let embedCalls = 0
+    const embedder = new FakeEmbedder()
+    const originalEmbed = embedder.embed.bind(embedder)
+    embedder.embed = async () => {
+      embedCalls++
+      return originalEmbed()
+    }
+    const backend = new PlixKwsBackend(embedder, FAKE_PROTOTYPE, 1500)
+    let last: number | null = null
+    for (let i = 0; i < 200; i++) {
+      const s = await backend.processFrame(silentFrame())
+      if (s !== null) last = s
+    }
+    expect(last).toBe(0)
+    // The encoder must not run for silent windows.
+    expect(embedCalls).toBe(0)
+  })
+
+  it('still scores normally for speech windows (silence gate does not clip speech)', async () => {
+    const embedder = new FakeEmbedder()
+    const backend = new PlixKwsBackend(embedder, FAKE_PROTOTYPE, 1500)
+    let last: number | null = null
+    for (let i = 0; i < 200; i++) {
+      const s = await backend.processFrame(speechFrame(i))
+      if (s !== null) last = s
+    }
+    expect(last).not.toBeNull()
+    expect(last!).toBeCloseTo(1.0, 3)
   })
 })
 

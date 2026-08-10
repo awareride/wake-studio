@@ -188,6 +188,7 @@ unchanged.
 | `windowMs` | 1500 | 500-3000 | Detection window fed to PLiX. |
 | `hopMs` | 80 | fixed | Detection hop (= 1 AFE 80 ms chunk). |
 | `useNegativePrototype` | false | - | Subtract negative prototype for tighter boundary. |
+| `silenceFloorDbfs` | -45 | -60..-20 | RMS (dBFS) below which a window scores 0. The PLiX model maps silence/background to a spot near the prototype in cosine space (score ~0.7+ with no input after #66 normalization), so this energy gate suppresses false triggers when nobody is speaking. Speech windows sit at ~-12..-30 dBFS RMS. |
 
 ## 7. Error model & failure modes
 
@@ -261,6 +262,7 @@ unchanged.
 
 | Date | Change | Author |
 |---|---|---|
+| 2026-08-10 | Add silence gate to PLiX detection (issue #66 follow-up): windows at/below `silenceFloorDbfs` (-45 dBFS RMS default) score 0 and skip the encoder. The model maps silence/background to a cosine-similar spot near the prototype (score ~0.7+ with no input after the normalization fix), so energy gating is required to avoid false triggers. Tunable via the Few-Shot config surface. | agent |
 | 2026-08-10 | Fix PLiX never triggering (issue #66): L2-normalize query + prototype before squared-Euclidean scoring (raw GAP embeddings have L2 norm ~4-5, so un-normalized d^2 ~3-4 even for a 0.92-cosine match -> score ~0.24, unreachable). Normalized d^2 = 2(1-cos) is well-calibrated; also wire the Few-Shot panel threshold/VAD/min-duration into the engine trigger config instead of KWS defaults. | agent |
 | 2026-07-27 | Initial draft (docs-first, pending human review). | agent |
 | 2026-07-28 | Q-FS-1 resolved: WavLM-base-plus-sv (512-dim, int8 ONNX); defaults tuned (min-duration 300, smoothing 5). | agent |

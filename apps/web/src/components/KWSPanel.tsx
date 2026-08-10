@@ -177,6 +177,7 @@ export const KWSPanel = memo(function KWSPanel({
     windowMs: number
     hopMs: number
     useNegativePrototype: boolean
+    silenceFloorDbfs: number
   }>({
     ...FS_DEFAULTS,
     ...(fsProjCfg as Partial<typeof FS_DEFAULTS> | undefined),
@@ -688,8 +689,13 @@ export const KWSPanel = memo(function KWSPanel({
         proto.vector,
         // Few-Shot detection params from the config panel (epic #53 P1):
         // windowMs + useNegativePrototype reach the plix backend via the
-        // worker load message -> initWithPrototype opts.
-        { windowMs: fsConfig.windowMs, useNegative: fsConfig.useNegativePrototype },
+        // worker load message -> initWithPrototype opts. silenceFloorDbfs
+        // gates silent windows to score 0 (no false triggers on silence).
+        {
+          windowMs: fsConfig.windowMs,
+          useNegative: fsConfig.useNegativePrototype,
+          silenceFloorDbfs: fsConfig.silenceFloorDbfs,
+        },
       )
       const afe2 = afeRef?.current ?? afePipeline
       fresh.start({
@@ -704,7 +710,7 @@ export const KWSPanel = memo(function KWSPanel({
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
     }
-  }, [afePipeline, afeRunning, prototype, resolvePlixLocator, setThreshold, historyRef, fsConfig.threshold, fsConfig.minDurationMs, fsConfig.cooldownMs, fsConfig.smoothingWindowFrames, fsConfig.vadGateEnabled, fsConfig.vadThreshold, fsConfig.windowMs, fsConfig.useNegativePrototype])
+  }, [afePipeline, afeRunning, prototype, resolvePlixLocator, setThreshold, historyRef, fsConfig.threshold, fsConfig.minDurationMs, fsConfig.cooldownMs, fsConfig.smoothingWindowFrames, fsConfig.vadGateEnabled, fsConfig.vadThreshold, fsConfig.windowMs, fsConfig.useNegativePrototype, fsConfig.silenceFloorDbfs])
 
   const handleStopPlix = useCallback(() => {
     engineRef.current?.stop()
