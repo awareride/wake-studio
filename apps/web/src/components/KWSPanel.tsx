@@ -653,8 +653,14 @@ export const KWSPanel = memo(function KWSPanel({
       const fresh = new KWSEngine()
       fresh.onScore((s) => {
         setLastScore(s.smoothedScore)
+        // Few-shot scores must reach BOTH the panel's own curve (fsHistoryRef)
+        // and the shared workspace history (historyRef) that ScoreCurvePanel /
+        // the top-bar mini bar render (issue #67: previously only fsHistoryRef
+        // was written, so the workspace score curve stayed empty).
         fsHistoryRef.current.push(s)
         if (fsHistoryRef.current.length > HISTORY_MAX) fsHistoryRef.current.shift()
+        historyRef.current.push(s)
+        if (historyRef.current.length > HISTORY_MAX) historyRef.current.shift()
       })
       fresh.onTrigger(() => {
       })
@@ -698,13 +704,14 @@ export const KWSPanel = memo(function KWSPanel({
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
     }
-  }, [afePipeline, afeRunning, prototype, resolvePlixLocator, setThreshold, fsConfig.threshold, fsConfig.minDurationMs, fsConfig.cooldownMs, fsConfig.smoothingWindowFrames, fsConfig.vadGateEnabled, fsConfig.vadThreshold, fsConfig.windowMs, fsConfig.useNegativePrototype])
+  }, [afePipeline, afeRunning, prototype, resolvePlixLocator, setThreshold, historyRef, fsConfig.threshold, fsConfig.minDurationMs, fsConfig.cooldownMs, fsConfig.smoothingWindowFrames, fsConfig.vadGateEnabled, fsConfig.vadThreshold, fsConfig.windowMs, fsConfig.useNegativePrototype])
 
   const handleStopPlix = useCallback(() => {
     engineRef.current?.stop()
     setDetecting(false)
     fsHistoryRef.current = []
-  }, [])
+    historyRef.current = []
+  }, [historyRef])
 
 
   const handleStart = useCallback(() => {
@@ -729,16 +736,23 @@ export const KWSPanel = memo(function KWSPanel({
   // Expose load/start/stop to the workspace pipeline runner via commandRef
   // (epic #53 P4). The runner drives the unified Start/Stop; the panel keeps
   // its own Load/Reload buttons.
+  //
+  // Dispatch on the backend's few-shot category (issue #67): the few-shot
+  // flow needs its own load/start/stop (handleLoadEncoder/handleStartPlix/
+  // handleStopPlix) because the plixkws backend must be booted WITH the
+  // enrolled prototype. Using the traditional handlers here made the unified
+  // Start either fail (handleLoad with no prototype -> worker error) or start
+  // the encoder-only engine with no detection backend (empty score curve).
   useEffect(() => {
     if (commandRef) {
       commandRef.current = {
-        load: handleLoad,
-        start: handleStart,
-        stop: handleStop,
-        getState: () => ({ status, running, isFewShot }),
+        load: isFewShot ? handleLoadEncoder : handleLoad,
+        start: isFewShot ? handleStartPlix : handleStart,
+        stop: isFewShot ? handleStopPlix : handleStop,
+        getState: () => ({ status, running: running || detecting, isFewShot }),
       }
     }
-  }, [commandRef, handleLoad, handleStart, handleStop, status, running, isFewShot])
+  }, [commandRef, handleLoad, handleLoadEncoder, handleStart, handleStartPlix, handleStop, handleStopPlix, status, running, detecting, isFewShot])
 
   const updateConfig = useCallback((patch: Partial<KWSConfig>) => {
     setConfig((prev) => {
