@@ -27,11 +27,13 @@
 import * as openWakeWordDriver from '@wake-studio/module-kws-openwakeword'
 import * as sherpaDriver from '@wake-studio/module-kws-sherpa'
 import * as plixDriver from '@wake-studio/module-kws-plix'
+import * as streamingDriver from '@wake-studio/module-kws-streaming'
 
 // Keep the namespace imports live: their modules register backends on import.
 void openWakeWordDriver.OpenWakeWordBackend
 void sherpaDriver.SherpaOnnxKwsBackend
 void plixDriver.PlixKwsBackend
+void streamingDriver.KWSStreamingBackend
 
 // The worker itself (Vite `?worker` bundles it as a separate file).
 import KWSWorker from './worker?worker'

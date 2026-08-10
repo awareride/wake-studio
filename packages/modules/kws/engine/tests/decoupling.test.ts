@@ -21,6 +21,7 @@ const driverPackageNames = [
   '@wake-studio/module-kws-openwakeword',
   '@wake-studio/module-kws-plix',
   '@wake-studio/module-kws-sherpa',
+  '@wake-studio/module-kws-streaming',
 ]
 
 /** Recursively list files under a directory. */
@@ -52,7 +53,9 @@ describe('ADR-024: engine core does not import driver modules', () => {
     }
     // Relative imports that walk up past core/ into a driver dir would also
     // violate the decoupling rule.
-    expect(src).not.toMatch(/from\s+['"].*module-kws-(openwakeword|plix|sherpa)['"]/)
+    expect(src).not.toMatch(
+      /from\s+['"].*module-kws-(openwakeword|plix|sherpa|streaming)['"]/,
+    )
   })
 
   it('the worker assembly seam is the only driver wiring point', () => {

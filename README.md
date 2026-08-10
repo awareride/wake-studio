@@ -50,6 +50,7 @@ next. See `.agents/plan/goal.plan` for the full phased roadmap and
 | `kws-openwakeword` | kws | pilot | ✅✅✅✅✅✅ | 100% |
 | `kws-plix` | kws | draft | ✅✅✅✅✅✅ | 100% |
 | `kws-sherpa` | kws | draft | ✅✅✅✅✅✅ | 100% |
+| `kws-streaming` | kws | draft | ✅✅✅✅✅✅ | 100% |
 | `training` | training | draft | ✅✅✅✅✅✅ | 100% |
 <!-- /MODULE-STATUS -->
 

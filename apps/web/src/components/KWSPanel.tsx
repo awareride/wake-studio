@@ -67,6 +67,19 @@ import type { UserModel } from '../model-library'
 
 const HISTORY_MAX = 300 // ~3 s at ~100 fps
 
+/**
+ * Render a `BackendModelUrls` entry as one line of detail text.
+ *
+ * Most entries are a plain URL string, but some drivers group several files
+ * under one key (e.g. kws-streaming's `{ model, manifest }`), so the object
+ * shape has to be flattened before it reaches JSX.
+ */
+function formatUrlDetail(value: BackendModelUrls[keyof BackendModelUrls]): string {
+  if (value === undefined || value === null) return 'not loaded'
+  if (typeof value === 'string') return value
+  return Object.values(value).filter(Boolean).join(', ') || 'not loaded'
+}
+
 // plixkws enrollment constants (mirrors the removed Few-Shot panel).
 const RECORD_MS = 1500
 const MIN_SAMPLES = 3
@@ -1037,7 +1050,7 @@ export const KWSPanel = memo(function KWSPanel({
                       : status === 'loading'
                         ? 'loading…'
                         : res.urlKey
-                          ? urlsRef.current[res.urlKey] ?? 'not loaded'
+                          ? formatUrlDetail(urlsRef.current[res.urlKey])
                           : ''
               return (
                 <div key={res.id} className="flex items-center gap-2 text-xs">

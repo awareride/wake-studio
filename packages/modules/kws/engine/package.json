@@ -2,7 +2,7 @@
   "name": "@wake-studio/module-kws-engine",
   "version": "0.1.0",
   "private": true,
-  "description": "KWS engine module (ADR-018/020): pluggable KWSBackend interface, worker inference loop, score smoothing/trigger, config. Driver modules (openwakeword/sherpa/plix) plug in per ADR-024.",
+  "description": "KWS engine module (ADR-018/020): pluggable KWSBackend interface, worker inference loop, score smoothing/trigger, config. Driver modules (openwakeword/sherpa/plix/streaming) plug in per ADR-024.",
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -24,7 +24,8 @@
     "@wake-studio/platform": "workspace:^",
     "@wake-studio/module-kws-openwakeword": "workspace:^",
     "@wake-studio/module-kws-plix": "workspace:^",
-    "@wake-studio/module-kws-sherpa": "workspace:^"
+    "@wake-studio/module-kws-sherpa": "workspace:^",
+    "@wake-studio/module-kws-streaming": "workspace:^"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",
