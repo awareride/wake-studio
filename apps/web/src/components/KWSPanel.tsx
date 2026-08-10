@@ -162,8 +162,13 @@ export const KWSPanel = memo(function KWSPanel({
   // --- plixkws enrollment state (Few-Shot, Phase 3) ---
   const fsEngineRef = useRef<FewShotEngine | null>(null)
   const [samples, setSamples] = useState<EnrolledSample[]>([])
+  // Negative-class enrollment (open-set rejection, issue #69): the user
+  // records other words / background speech so non-target audio scores low.
+  const [negSamples, setNegSamples] = useState<EnrolledSample[]>([])
   const [recording, setRecording] = useState(false)
+  const [recordingNeg, setRecordingNeg] = useState(false)
   const [building, setBuilding] = useState(false)
+  const [buildingNeg, setBuildingNeg] = useState(false)
   const [prototype, setPrototype] = useState<WakeWordPrototype | null>(null)
   const [detecting, setDetecting] = useState(false)
   const { projectConfig: fsProjCfg, persist: persistFs } = useProjectStageConfig('fewShot')
@@ -177,6 +182,7 @@ export const KWSPanel = memo(function KWSPanel({
     windowMs: number
     hopMs: number
     useNegativePrototype: boolean
+    silenceFloorDbfs: number
   }>({
     ...FS_DEFAULTS,
     ...(fsProjCfg as Partial<typeof FS_DEFAULTS> | undefined),
@@ -565,57 +571,65 @@ export const KWSPanel = memo(function KWSPanel({
     }
   }, [ensureFsEngines, resolvePlixLocator])
 
-  /** Record a 1.5 s sample from the mic at 16 kHz. */
-  const handleRecord = useCallback(async () => {
-    setError(null)
-    setRecording(true)
-    let ctx: AudioContext | null = null
-    let stream: MediaStream | null = null
-    let node: AudioWorkletNode | null = null
-    let source: MediaStreamAudioSourceNode | null = null
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-      })
-      ctx = new AudioContext({ sampleRate: 16000 })
-      if (ctx.state === 'suspended') await ctx.resume()
-      await ctx.audioWorklet.addModule(recorderUrl)
+  /** Record a 1.5 s sample from the mic at 16 kHz into the given bucket
+   *  ('pos' = wake word samples, 'neg' = other-speech/background samples for
+   *  the negative class, issue #69). */
+  const handleRecord = useCallback(
+    async (bucket: 'pos' | 'neg' = 'pos') => {
+      setError(null)
+      if (bucket === 'neg') setRecordingNeg(true)
+      else setRecording(true)
+      let ctx: AudioContext | null = null
+      let stream: MediaStream | null = null
+      let node: AudioWorkletNode | null = null
+      let source: MediaStreamAudioSourceNode | null = null
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        })
+        ctx = new AudioContext({ sampleRate: 16000 })
+        if (ctx.state === 'suspended') await ctx.resume()
+        await ctx.audioWorklet.addModule(recorderUrl)
 
-      source = ctx.createMediaStreamSource(stream)
-      node = new AudioWorkletNode(ctx, 'few-shot-recorder')
-      const chunks: Float32Array[] = []
-      node.port.onmessage = (e: MessageEvent<{ type: 'chunk'; samples: Float32Array }>) => {
-        if (e.data.type === 'chunk') chunks.push(e.data.samples)
+        source = ctx.createMediaStreamSource(stream)
+        node = new AudioWorkletNode(ctx, 'few-shot-recorder')
+        const chunks: Float32Array[] = []
+        node.port.onmessage = (e: MessageEvent<{ type: 'chunk'; samples: Float32Array }>) => {
+          if (e.data.type === 'chunk') chunks.push(e.data.samples)
+        }
+        source.connect(node)
+        node.connect(ctx.destination)
+
+        await new Promise((r) => setTimeout(r, RECORD_MS))
+        node.disconnect()
+        source.disconnect()
+        stream.getTracks().forEach((t) => t.stop())
+
+        const total = chunks.reduce((a, c) => a + c.length, 0)
+        const audio = new Float32Array(total)
+        let off = 0
+        for (const c of chunks) {
+          audio.set(c, off)
+          off += c.length
+        }
+
+        ensureFsEngines()
+        const sample = await fsEngineRef.current!.embedSample(audio, 16000)
+        if (bucket === 'neg') setNegSamples((prev) => [...prev, sample])
+        else setSamples((prev) => [...prev, sample])
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      } finally {
+        if (bucket === 'neg') setRecordingNeg(false)
+        else setRecording(false)
+        try { node?.disconnect() } catch { /* ignore */ }
+        try { source?.disconnect() } catch { /* ignore */ }
+        stream?.getTracks().forEach((t) => t.stop())
+        if (ctx) await ctx.close().catch(() => {})
       }
-      source.connect(node)
-      node.connect(ctx.destination)
-
-      await new Promise((r) => setTimeout(r, RECORD_MS))
-      node.disconnect()
-      source.disconnect()
-      stream.getTracks().forEach((t) => t.stop())
-
-      const total = chunks.reduce((a, c) => a + c.length, 0)
-      const audio = new Float32Array(total)
-      let off = 0
-      for (const c of chunks) {
-        audio.set(c, off)
-        off += c.length
-      }
-
-      ensureFsEngines()
-      const sample = await fsEngineRef.current!.embedSample(audio, 16000)
-      setSamples((prev) => [...prev, sample])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setRecording(false)
-      try { node?.disconnect() } catch { /* ignore */ }
-      try { source?.disconnect() } catch { /* ignore */ }
-      stream?.getTracks().forEach((t) => t.stop())
-      if (ctx) await ctx.close().catch(() => {})
-    }
-  }, [ensureFsEngines])
+    },
+    [ensureFsEngines],
+  )
 
   const handleBuildPrototype = useCallback(async () => {
     setError(null)
@@ -631,6 +645,30 @@ export const KWSPanel = memo(function KWSPanel({
       setBuilding(false)
     }
   }, [samples])
+
+  /** Build + persist the negative-class prototype from non-target samples. */
+  const handleBuildNegative = useCallback(async () => {
+    setError(null)
+    setBuildingNeg(true)
+    try {
+      const fs = fsEngineRef.current!
+      if (!prototype) {
+        setError('Build the wake-word prototype first, then enroll negative samples.')
+        return
+      }
+      const negVector = fs.buildNegativeVector(negSamples)
+      const updated = await fs.attachNegativePrototype(prototype, negVector)
+      setPrototype(updated)
+      // Open-set rejection is only meaningful when a negative class exists:
+      // auto-enable it so detection uses the relative score.
+      setFsConfig((prev) => ({ ...prev, useNegativePrototype: true }))
+      logInfo('kws', `Negative prototype built (${negSamples.length} samples, ${negVector.length}-dim)`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBuildingNeg(false)
+    }
+  }, [prototype, negSamples])
 
   /** Load the plixkws detection backend with the prototype and start. */
   const handleStartPlix = useCallback(async () => {
@@ -653,21 +691,51 @@ export const KWSPanel = memo(function KWSPanel({
       const fresh = new KWSEngine()
       fresh.onScore((s) => {
         setLastScore(s.smoothedScore)
+        // Few-shot scores must reach BOTH the panel's own curve (fsHistoryRef)
+        // and the shared workspace history (historyRef) that ScoreCurvePanel /
+        // the top-bar mini bar render (issue #67: previously only fsHistoryRef
+        // was written, so the workspace score curve stayed empty).
         fsHistoryRef.current.push(s)
         if (fsHistoryRef.current.length > HISTORY_MAX) fsHistoryRef.current.shift()
+        historyRef.current.push(s)
+        if (historyRef.current.length > HISTORY_MAX) historyRef.current.shift()
       })
       fresh.onTrigger(() => {
       })
       engineRef.current = fresh
-      fresh.setConfig({ ...DEFAULT_CONFIG, backend: 'plixkws' })
+      // Keep the top-bar wake indicator + preview curve on the same threshold
+      // the engine trigger now uses (the Few-Shot panel's, not KWS defaults).
+      setThreshold(fsConfig.threshold)
+      // Seed the engine trigger config from the Few-Shot panel (fsConfig),
+      // not the KWS DEFAULT_CONFIG: threshold/min-duration/cooldown/VAD live in
+      // the Few-Shot config surface, and the engine's TriggerDetector must use
+      // the same threshold the score curve renders (issue #66 secondary).
+      fresh.setConfig({
+        ...DEFAULT_CONFIG,
+        backend: 'plixkws',
+        threshold: fsConfig.threshold,
+        minDurationMs: fsConfig.minDurationMs,
+        cooldownMs: fsConfig.cooldownMs,
+        smoothingWindowFrames: fsConfig.smoothingWindowFrames,
+        vadGateEnabled: fsConfig.vadGateEnabled,
+        vadThreshold: fsConfig.vadThreshold,
+      })
       const { url, runtime } = resolvePlixLocator()
       await fresh.load(
         { plixkws: url, runtime },
         proto.vector,
         // Few-Shot detection params from the config panel (epic #53 P1):
         // windowMs + useNegativePrototype reach the plix backend via the
-        // worker load message -> initWithPrototype opts.
-        { windowMs: fsConfig.windowMs, useNegative: fsConfig.useNegativePrototype },
+        // worker load message -> initWithPrototype opts. silenceFloorDbfs
+        // gates silent windows to score 0 (no false triggers on silence).
+        {
+          windowMs: fsConfig.windowMs,
+          useNegative: fsConfig.useNegativePrototype,
+          silenceFloorDbfs: fsConfig.silenceFloorDbfs,
+        },
+        // Negative-class prototype (open-set rejection, issue #69): reaches
+        // the worker as prototypeNegative -> initWithPrototype proto.
+        proto.negativeVector,
       )
       const afe2 = afeRef?.current ?? afePipeline
       fresh.start({
@@ -682,13 +750,14 @@ export const KWSPanel = memo(function KWSPanel({
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
     }
-  }, [afePipeline, afeRunning, prototype, resolvePlixLocator, fsConfig.windowMs, fsConfig.useNegativePrototype])
+  }, [afePipeline, afeRunning, prototype, resolvePlixLocator, setThreshold, historyRef, fsConfig.threshold, fsConfig.minDurationMs, fsConfig.cooldownMs, fsConfig.smoothingWindowFrames, fsConfig.vadGateEnabled, fsConfig.vadThreshold, fsConfig.windowMs, fsConfig.useNegativePrototype, fsConfig.silenceFloorDbfs])
 
   const handleStopPlix = useCallback(() => {
     engineRef.current?.stop()
     setDetecting(false)
     fsHistoryRef.current = []
-  }, [])
+    historyRef.current = []
+  }, [historyRef])
 
 
   const handleStart = useCallback(() => {
@@ -713,16 +782,23 @@ export const KWSPanel = memo(function KWSPanel({
   // Expose load/start/stop to the workspace pipeline runner via commandRef
   // (epic #53 P4). The runner drives the unified Start/Stop; the panel keeps
   // its own Load/Reload buttons.
+  //
+  // Dispatch on the backend's few-shot category (issue #67): the few-shot
+  // flow needs its own load/start/stop (handleLoadEncoder/handleStartPlix/
+  // handleStopPlix) because the plixkws backend must be booted WITH the
+  // enrolled prototype. Using the traditional handlers here made the unified
+  // Start either fail (handleLoad with no prototype -> worker error) or start
+  // the encoder-only engine with no detection backend (empty score curve).
   useEffect(() => {
     if (commandRef) {
       commandRef.current = {
-        load: handleLoad,
-        start: handleStart,
-        stop: handleStop,
-        getState: () => ({ status, running, isFewShot }),
+        load: isFewShot ? handleLoadEncoder : handleLoad,
+        start: isFewShot ? handleStartPlix : handleStart,
+        stop: isFewShot ? handleStopPlix : handleStop,
+        getState: () => ({ status, running: running || detecting, isFewShot }),
       }
     }
-  }, [commandRef, handleLoad, handleStart, handleStop, status, running, isFewShot])
+  }, [commandRef, handleLoad, handleLoadEncoder, handleStart, handleStartPlix, handleStop, handleStopPlix, status, running, detecting, isFewShot])
 
   const updateConfig = useCallback((patch: Partial<KWSConfig>) => {
     setConfig((prev) => {
@@ -1183,7 +1259,7 @@ export const KWSPanel = memo(function KWSPanel({
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-3">
                 <button
-                  onClick={handleRecord}
+                  onClick={() => void handleRecord('pos')}
                   disabled={recording}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-emerald-500 disabled:opacity-50"
                 >
@@ -1234,6 +1310,76 @@ export const KWSPanel = memo(function KWSPanel({
                   )}
                 </div>
               )}
+
+              {/* Negative-class enrollment (open-set rejection, issue #69):
+                  record other words / background speech so non-target audio
+                  scores low instead of triggering. Optional, but strongly
+                  recommended - the model's single-prototype score can clear
+                  the threshold on other speech without a negative class. */}
+              <div className="space-y-2 border-t border-line pt-3">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-semibold text-ink-2">
+                    Negative samples{' '}
+                    <span className="font-normal text-ink-3">
+                      (optional — other words / background, for open-set rejection)
+                    </span>
+                  </h4>
+                  {prototype?.negativeVector && (
+                    <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
+                      enrolled
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => void handleRecord('neg')}
+                    disabled={recordingNeg}
+                    className="rounded-lg bg-surface-3 px-4 py-2 text-sm font-medium text-ink-2 hover:bg-surface-4 disabled:opacity-50"
+                  >
+                    {recordingNeg ? `Recording… (${RECORD_MS}ms)` : 'Record non-target sample'}
+                  </button>
+                  {negSamples.length >= MIN_SAMPLES && prototype && (
+                    <button
+                      onClick={handleBuildNegative}
+                      disabled={buildingNeg}
+                      className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
+                    >
+                      {buildingNeg
+                        ? 'Building…'
+                        : prototype.negativeVector
+                          ? 'Re-enroll negative prototype'
+                          : `Build negative prototype (${negSamples.length} samples)`}
+                    </button>
+                  )}
+                  {negSamples.length > 0 && (
+                    <span className="text-xs text-ink-3">
+                      {negSamples.length}/{MIN_SAMPLES}+ samples
+                    </span>
+                  )}
+                </div>
+                {prototype && !prototype.negativeVector && negSamples.length === 0 && (
+                  <p className="text-[10px] text-ink-3">
+                    Say other words you don't want to trigger on (e.g. "hello", "hi",
+                    background conversation) — the detector then scores them against this
+                    negative class instead of the wake word alone.
+                  </p>
+                )}
+                {negSamples.length > 0 && (
+                  <div className="space-y-1 text-xs text-ink-2">
+                    {negSamples.map((s, i) => (
+                      <div key={s.id} className="flex gap-3">
+                        <span className="w-8 font-mono">#{i + 1}</span>
+                        <span>{s.quality.durationMs.toFixed(0)} ms</span>
+                        <span>{s.quality.peakDbfs.toFixed(1)} dBFS</span>
+                        <span>SNR {s.quality.snrDb.toFixed(1)} dB</span>
+                        <span className={s.quality.acceptable ? 'text-success' : 'text-warning'}>
+                          {s.quality.clipped ? 'clipped' : s.quality.acceptable ? 'OK' : 'low quality'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

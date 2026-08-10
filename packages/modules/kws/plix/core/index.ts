@@ -25,6 +25,7 @@ export {
   meanPool,
   plixScore,
   squaredEuclidean,
+  l2Normalize,
 } from './prototype'
 
 // Embed-provider factory: the worker hosts the embed() scaffold via this seam
@@ -51,7 +52,12 @@ registerKwsBackend({
       initWithPrototype?: (
         proto: WakeWordPrototype,
         embed: EmbedProvider,
-        opts?: { windowMs?: number; useNegative?: boolean },
+        opts?: {
+          windowMs?: number
+          useNegative?: boolean
+          /** RMS (dBFS) floor below which windows score 0 (silence gate). */
+          silenceFloorDbfs?: number
+        },
       ) => void
     }
     withInit.initWithPrototype = (proto, embed, opts) => {
@@ -63,6 +69,7 @@ registerKwsBackend({
         proto,
         opts?.windowMs ?? 1500,
         opts?.useNegative ?? false,
+        opts?.silenceFloorDbfs,
       )
       // Copy state that may already exist (none before load, but stay safe).
       Object.assign(backend, next, {

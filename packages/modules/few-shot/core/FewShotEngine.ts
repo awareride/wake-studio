@@ -105,6 +105,33 @@ export class FewShotEngine {
     }
   }
 
+  /**
+   * Build a negative-class prototype vector from non-target samples
+   * (mean-pool their embeddings). Used for open-set rejection: the user
+   * records other words / background speech, and detection scores the query
+   * against BOTH the wake word and this negative class, so non-target speech
+   * scores low instead of high (issue #69).
+   */
+  buildNegativeVector(samples: EnrolledSample[]): Float32Array {
+    if (samples.length === 0) {
+      throw new Error('Cannot build a negative prototype from zero samples.')
+    }
+    return meanPool(samples.map((s) => s.embedding))
+  }
+
+  /**
+   * Attach a negative-class prototype to an existing wake-word prototype and
+   * persist it. Returns the updated prototype.
+   */
+  async attachNegativePrototype(
+    proto: WakeWordPrototype,
+    negativeVector: Float32Array,
+  ): Promise<WakeWordPrototype> {
+    const updated = { ...proto, negativeVector }
+    await savePrototype(updated)
+    return updated
+  }
+
   /** List stored prototypes. */
   async listPrototypes(): Promise<WakeWordPrototype[]> {
     return listPrototypes()

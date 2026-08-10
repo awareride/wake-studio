@@ -45,10 +45,22 @@
 
 import type { EmbedProvider, KWSBackend } from '@wake-studio/module-kws-engine'
 import type { WakeWordPrototype } from './prototype'
-import { squaredEuclidean, plixScore } from './prototype'
+import { squaredEuclidean, plixScore, l2Normalize } from './prototype'
+import { rmsDbfs } from '@wake-studio/dsp'
 
 /** Detection hop in frames (80 ms / 10 ms = 8 frames at the AFE cadence). */
 const HOP_FRAMES = 8
+
+/**
+ * Silence gate floor (RMS, dBFS). Windows below this energy level are scored
+ * 0 without running the encoder (issue: silence/background scored 0.7+ after
+ * the #66 normalization fix - the model maps silence to a spot near the
+ * prototype in cosine space, producing false triggers with no speech input).
+ * Speech windows sit at roughly -12 to -30 dBFS RMS; silence/noise at -45 to
+ * -Infinity. Overridable per load via initWithPrototype opts
+ * (silenceFloorDbfs).
+ */
+const DEFAULT_SILENCE_FLOOR_DBFS = -45
 
 export class PlixKwsBackend implements KWSBackend {
   readonly id = 'plixkws' as const
@@ -58,6 +70,8 @@ export class PlixKwsBackend implements KWSBackend {
   private _prototype: WakeWordPrototype
   private _windowSamples: number
   private _useNegative: boolean
+  /** RMS (dBFS) below which a window is treated as silence (score 0). */
+  private _silenceFloorDbfs: number
 
   // Continuous ring buffer (always appended to, even during inference).
   private _ring: Float32Array
@@ -75,11 +89,13 @@ export class PlixKwsBackend implements KWSBackend {
     prototype: WakeWordPrototype,
     windowMs = 1500,
     useNegative = false,
+    silenceFloorDbfs = DEFAULT_SILENCE_FLOOR_DBFS,
   ) {
     this._embedProvider = embedProvider
     this._prototype = prototype
     this._windowSamples = Math.round(16000 * (windowMs / 1000))
     this._useNegative = useNegative
+    this._silenceFloorDbfs = silenceFloorDbfs
     // Capacity = 2x window so audio arriving during inference is never lost.
     this._ring = new Float32Array(this._windowSamples * 2)
   }
@@ -112,10 +128,22 @@ export class PlixKwsBackend implements KWSBackend {
     // 4. Need a full window before scoring (warmup).
     if (this._len < this._windowSamples) return null
 
-    // 5. Run the PLiX encoder on the latest window and score it.
+    // 5. Silence gate: a window at or below the energy floor is NOT the wake
+    // word (no speech input). Score 0 and skip the encoder - the PLiX model
+    // maps silence/background to a cosine-similar spot near the prototype
+    // (score ~0.7+ with no input after #66), so energy gating is required to
+    // avoid false positives. Speech windows sit at -12..-30 dBFS RMS.
+    const window = this._latestWindow()
+    const rms = rmsDbfs(window)
+    if (rms < this._silenceFloorDbfs) {
+      this._lastScore = 0
+      this._hasScore = true
+      return 0
+    }
+
+    // 6. Run the PLiX encoder on the latest window and score it.
     this._inferring = true
     try {
-      const window = this._latestWindow()
       const embedding = await this._embedProvider.embed(window, 16000)
       this._lastScore = this._score(embedding)
       this._hasScore = true
@@ -166,13 +194,27 @@ export class PlixKwsBackend implements KWSBackend {
     return out
   }
 
-  /** PLiX Prototypical-Network score to the prototype (rescaled [0,1]). */
+  /** PLiX Prototypical-Network score to the prototype (rescaled [0,1]).
+   *
+   * Both operands are L2-normalized first (issue #66): the encoder emits raw
+   * GAP embeddings with L2 norm ~4-5, so an un-normalized squared distance is
+   * large even for a near-perfect match (cosine 0.92 -> d^2 ~3-4 -> score
+   * ~0.24, below any usable threshold). On unit vectors d^2 = 2(1-cos) is
+   * bounded to [0,4] and the score is well-calibrated (cosine 0.92 -> ~0.86),
+   * matching the cosine similarity the technical reference specifies. */
   private _score(embedding: Float32Array): number {
-    const d2 = squaredEuclidean(embedding, this._prototype.vector)
+    const q = l2Normalize(embedding)
+    const p = l2Normalize(this._prototype.vector)
+    const d2 = squaredEuclidean(q, p)
     if (this._useNegative && this._prototype.negativeVector) {
-      const negD2 = squaredEuclidean(embedding, this._prototype.negativeVector)
-      // Prefer the query's own class: subtract the negative-class distance.
-      return plixScore(Math.max(0, d2 - negD2))
+      const negD2 = squaredEuclidean(q, l2Normalize(this._prototype.negativeVector))
+      // Open-set rejection (issue #69): score is the probability of the wake
+      // word class under a 2-class softmax over the squared distances,
+      // P(word) = exp(-d2) / (exp(-d2) + exp(-negD2)) = 1/(1+exp(d2-negD2)).
+      // A query far from BOTH prototypes (ambiguous) scores ~0.5, not 1.0 -
+      // the old max(0, d2-negD2) form saturated at 1.0 for any query closer
+      // to the word than the negative, including equidistant ones.
+      return 1 / (1 + Math.exp(d2 - negD2))
     }
     return plixScore(d2)
   }

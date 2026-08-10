@@ -148,6 +148,15 @@ User records sample -> quality check -> PLiX embed(sample) -> EnrolledSample
 (repeat N times) -> mean-pool embeddings -> WakeWordPrototype -> IndexedDB
 ```
 
+**Negative-class enrollment (open-set rejection, issue #69):**
+```
+User records other words / background (non-target) samples -> PLiX embed
+(repeat N times) -> mean-pool -> negativeVector attached to the wake-word
+prototype + persisted (IndexedDB) -> useNegativePrototype auto-enabled
+```
+Detection then scores the query against BOTH prototypes (relative distance),
+so non-target speech scores low instead of clearing the threshold.
+
 **Live detection (via `PlixKwsBackend`, a `KWSBackend`):**
 ```
 AFE (16kHz) -> accumulate windowMs of audio -> PLiX embed -> protoDistance(proto)
@@ -162,6 +171,15 @@ KWS engine (worker) handles smoothing, threshold, and trigger - exactly as for t
 OpenWakeWord backend. This is the power of the shared `KWSBackend` interface
 (ADR-020).
 
+**Normalization (issue #66):** both the query embedding and the prototype are
+L2-normalized before the squared-Euclidean distance is computed, so
+`d^2 = 2(1-cos) ∈ [0,4]` and the score is well-calibrated: a cosine-similar
+match (cos 0.92) scores ~0.86, while raw GAP embeddings (L2 norm ~4-5) would
+have scored ~0.24 for any input - unreachable for the 0.5/0.7 thresholds. This
+is the cosine similarity the technical reference specifies (docs/Technical
+Reference_...plixkws.md §2.1), expressed via the paper's squared-Euclidean
+metric on unit vectors.
+
 **Cosine similarity:** `cos(a, b) = dot(a,b) / (||a|| * ||b||)`, rescaled to
 [0,1] via `(cos + 1) / 2` so the existing threshold/min-duration UI works
 unchanged.
@@ -170,7 +188,7 @@ unchanged.
 
 | Parameter | Default | Range | Notes |
 |---|---|---|---|
-| `threshold` | 0.7 | 0.5-0.95 | PLiX prototype-distance score (rescaled [0,1]). |
+| `threshold` | 0.9 | 0.5-0.95 | PLiX prototype-distance score on L2-normalized embeddings (issue #66): enrolled word ~0.9-1.0, other speech ~0.7-0.9. Default 0.9 rejects most non-target speech. |
 | `minDurationMs` | 300 | 100-3000 | Sustained activation before trigger. |
 | `cooldownMs` | 2000 | 500-10000 | Min time between triggers. |
 | `smoothingWindowFrames` | 5 | 1-30 | Sliding-window max-pool. |
@@ -179,6 +197,7 @@ unchanged.
 | `windowMs` | 1500 | 500-3000 | Detection window fed to PLiX. |
 | `hopMs` | 80 | fixed | Detection hop (= 1 AFE 80 ms chunk). |
 | `useNegativePrototype` | false | - | Subtract negative prototype for tighter boundary. |
+| `silenceFloorDbfs` | -45 | -60..-20 | RMS (dBFS) below which a window scores 0. The PLiX model maps silence/background to a spot near the prototype in cosine space (score ~0.7+ with no input after #66 normalization), so this energy gate suppresses false triggers when nobody is speaking. Speech windows sit at ~-12..-30 dBFS RMS. |
 
 ## 7. Error model & failure modes
 
@@ -252,6 +271,10 @@ unchanged.
 
 | Date | Change | Author |
 |---|---|---|
+| 2026-08-10 | Negative-prototype enrollment UI + plumbing (issue #69): record non-target samples in the KWS panel, mean-pool into a negativeVector attached to the wake-word prototype, auto-enable useNegativePrototype. Engine carries prototypeNegative through the worker load message into initWithPrototype; scoring is relative (word vs negative class) so other speech scores low. | agent |
+| 2026-08-10 | Recalibrate default threshold 0.7 -> 0.9 (issue #69). 0.7 predated the #66 normalization fix when all scores were ~0.24; post-#66 real speech scores 0.78-0.96, so the old default made the wake word fire on ANY speech. Verified with real speech: enrolled word 0.92-1.0 vs other words 0.78-0.89. | agent |
+| 2026-08-10 | Add silence gate to PLiX detection (issue #66 follow-up): windows at/below `silenceFloorDbfs` (-45 dBFS RMS default) score 0 and skip the encoder. The model maps silence/background to a cosine-similar spot near the prototype (score ~0.7+ with no input after the normalization fix), so energy gating is required to avoid false triggers. Tunable via the Few-Shot config surface. | agent |
+| 2026-08-10 | Fix PLiX never triggering (issue #66): L2-normalize query + prototype before squared-Euclidean scoring (raw GAP embeddings have L2 norm ~4-5, so un-normalized d^2 ~3-4 even for a 0.92-cosine match -> score ~0.24, unreachable). Normalized d^2 = 2(1-cos) is well-calibrated; also wire the Few-Shot panel threshold/VAD/min-duration into the engine trigger config instead of KWS defaults. | agent |
 | 2026-07-27 | Initial draft (docs-first, pending human review). | agent |
 | 2026-07-28 | Q-FS-1 resolved: WavLM-base-plus-sv (512-dim, int8 ONNX); defaults tuned (min-duration 300, smoothing 5). | agent |
 | 2026-07-28 | Fix Build-prototype feedback (prototype is state, not a ref) + WavLM detection smoothness (continuous ring buffer, 80 ms hop, zero-order-hold caching; serialization guard moved into each backend). | agent |

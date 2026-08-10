@@ -108,6 +108,7 @@ async function handleLoad(
   urls: BackendModelUrls,
   prototypeVector?: number[],
   backendConfig?: unknown,
+  prototypeNegative?: number[],
 ): Promise<void> {
   actualExecutionProvider =
     config.executionProvider === 'webgpu'
@@ -162,6 +163,12 @@ async function handleLoad(
         id: 'enrolled',
         word: 'enrolled-word',
         vector: new Float32Array(prototypeVector),
+        // Negative-class prototype (open-set rejection, issue #69): the user
+        // enrolled other words/background; scoring subtracts this class's
+        // distance so non-target speech scores low.
+        negativeVector: prototypeNegative
+          ? new Float32Array(prototypeNegative)
+          : undefined,
         sampleIds: [],
         createdAtMs: Date.now(),
       }
@@ -176,12 +183,17 @@ async function handleLoad(
           initWithPrototype?: (
             p: unknown,
             e: unknown,
-            opts?: { windowMs?: number; useNegative?: boolean },
+            opts?: {
+              windowMs?: number
+              useNegative?: boolean
+              silenceFloorDbfs?: number
+            },
           ) => void
         }
       ).initWithPrototype?.(proto, embedProvider, {
         windowMs: (backendConfig as { windowMs?: number } | undefined)?.windowMs,
         useNegative: (backendConfig as { useNegative?: boolean } | undefined)?.useNegative,
+        silenceFloorDbfs: (backendConfig as { silenceFloorDbfs?: number } | undefined)?.silenceFloorDbfs,
       })
     } else {
       // Detection backend: only load if its required URLs are present. If only
@@ -346,7 +358,7 @@ self.onmessage = async (e: MessageEvent<KWSWorkerMessage>) => {
   try {
     switch (msg.type) {
       case 'load':
-        await handleLoad(msg.backend, msg.models, msg.prototype, msg.backendConfig)
+        await handleLoad(msg.backend, msg.models, msg.prototype, msg.backendConfig, msg.prototypeNegative)
         break
       case 'config':
         handleConfig(msg.config)
