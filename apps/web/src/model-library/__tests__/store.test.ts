@@ -130,4 +130,45 @@ describe('user model library store', () => {
     const all = await listUserModels()
     expect(all).toHaveLength(0)
   })
+
+  it('stores provisioned artifacts alongside models (ADR-033)', async () => {
+    const { importModelFile, saveProvisionArtifact, listProvisionArtifacts, listUserModels } =
+      await freshStore()
+    await importModelFile(FILE, 'classifier')
+    const saved = await saveProvisionArtifact(
+      {
+        kind: 'prototype',
+        backendId: 'plixkws',
+        payload: {
+          id: 'p1',
+          word: 'hey-buddy',
+          vector: [1, 2, 3],
+          sampleIds: ['s1', 's2'],
+          createdAtMs: Date.now(),
+        },
+      },
+      { name: 'hey-buddy' },
+    )
+    expect(saved.kind).toBe('artifact')
+    expect(saved.artifactType).toBe('prototype')
+    expect(saved.id).toMatch(/^artifact-/)
+
+    // One browsable collection: both the model and the artifact are listed.
+    const artifacts = await listProvisionArtifacts()
+    expect(artifacts).toHaveLength(1)
+    expect(artifacts[0].artifact.kind).toBe('prototype')
+    // Models are not artifacts (and legacy entries without kind are models).
+    expect(await listUserModels()).toHaveLength(1)
+  })
+
+  it('deletes a provisioned artifact', async () => {
+    const { saveProvisionArtifact, deleteProvisionArtifact, listProvisionArtifacts } =
+      await freshStore()
+    const saved = await saveProvisionArtifact(
+      { kind: 'list', backendId: 'sherpa-onnx-kws', payload: { keywords: 'x iǎo ài tóng xué @test' } },
+      { name: 'test-keywords' },
+    )
+    await deleteProvisionArtifact(saved.id)
+    expect(await listProvisionArtifacts()).toHaveLength(0)
+  })
 })

@@ -1,0 +1,82 @@
+{
+  "$schema": "../../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "kws-plix-provision",
+    "name": "PLiX Few-Shot enrollment (provisioning)",
+    "category": "kws",
+    "version": "0.1.0",
+    "maturity": "draft",
+    "owner": "WakeStudio team",
+    "license": "Apache-2.0 (plixkws) + MIT (integration)",
+    "status": "proposed"
+  },
+  "params": [],
+  "actions": [
+    {
+      "id": "record",
+      "label": "Record sample",
+      "kind": "record",
+      "progress": "indeterminate",
+      "requires": ["platform.mic"]
+    },
+    {
+      "id": "enroll",
+      "label": "Build prototype",
+      "kind": "enroll",
+      "progress": "determinate",
+      "requires": ["samples"]
+    },
+    {
+      "id": "enroll-negative",
+      "label": "Enroll negative prototype",
+      "kind": "enroll",
+      "progress": "determinate",
+      "requires": ["samples", "negativeSamples"]
+    },
+    {
+      "id": "start",
+      "label": "Start Few-Shot detection",
+      "kind": "start",
+      "requires": ["prototype", "platform.afe"]
+    },
+    {
+      "id": "stop",
+      "label": "Stop Few-Shot detection",
+      "kind": "stop"
+    }
+  ],
+  "status": [
+    {
+      "id": "samples",
+      "label": "Enrolled samples",
+      "renderer": "badge",
+      "source": "engine:samples",
+      "refreshMs": 250
+    },
+    {
+      "id": "prototype",
+      "label": "Prototype",
+      "renderer": "badge",
+      "source": "engine:prototype",
+      "refreshMs": 250
+    }
+  ],
+  "runtime": {
+    "web": {
+      "engine": "PlixKwsBackend",
+      "worker": true
+    }
+  },
+  "tests": {
+    "l1": "packages/modules/kws/plix/tests/backend.test.ts",
+    "required": ["l1"]
+  },
+  "playground": {
+    "route": "/playground/kws/plix/provision",
+    "entry": "packages/modules/kws/plix/web/playground.tsx"
+  },
+  "interfaces": {
+    "provides": ["ProvisionCapability"],
+    "consumes": ["EmbedProvider", "KWSBackend"]
+  }
+}

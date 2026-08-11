@@ -16,6 +16,7 @@ import type {
   BackendModelResolveContext,
   BackendResourceDescriptor,
   ModelSourceRole,
+  ProvisionCapability,
 } from './types'
 import type { ModuleSpec } from '@wake-studio/contracts'
 
@@ -75,6 +76,14 @@ export interface KWSBackendRegistration {
    * Defaults to [].
    */
   resources?: BackendResourceDescriptor[]
+  /**
+   * Optional provisioning capability (ADR-033): how this backend produces the
+   * wake-word artifact it loads with (enrolled prototype / keyword list /
+   * trained classifier). The host renders the capability's spec, collects
+   * input, calls produce(), persists the artifact, then feeds apply() into
+   * engine.load. Omitted for backends that load plain pretrained models.
+   */
+  provision?: ProvisionCapability
   /**
    * Optional: a main-thread-only backend factory (e.g. sherpa-onnx-kws runs
    * on the main thread - its classic emscripten wasm needs DOM, ADR-018).

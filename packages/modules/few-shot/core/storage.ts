@@ -11,6 +11,7 @@ import type {
   SerializedPrototype,
   WakeWordPrototype,
 } from './types'
+import { deserializePrototype, serializePrototype } from './serialize'
 
 const DB_NAME = 'wake-studio-few-shot'
 const DB_VERSION = 1
@@ -39,29 +40,11 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 function serialize(proto: WakeWordPrototype): SerializedPrototype {
-  return {
-    id: proto.id,
-    word: proto.word,
-    vector: Array.from(proto.vector),
-    negativeVector: proto.negativeVector
-      ? Array.from(proto.negativeVector)
-      : undefined,
-    sampleIds: proto.sampleIds,
-    createdAtMs: proto.createdAtMs,
-  }
+  return serializePrototype(proto)
 }
 
 function deserialize(s: SerializedPrototype): WakeWordPrototype {
-  return {
-    id: s.id,
-    word: s.word,
-    vector: new Float32Array(s.vector),
-    negativeVector: s.negativeVector
-      ? new Float32Array(s.negativeVector)
-      : undefined,
-    sampleIds: s.sampleIds,
-    createdAtMs: s.createdAtMs,
-  }
+  return deserializePrototype(s)
 }
 
 export async function savePrototype(

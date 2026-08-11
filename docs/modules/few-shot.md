@@ -5,10 +5,11 @@
 - **Plan phase:** Phase 3
 - **Related ADRs:** ADR-002 (PLiX Few-Shot encoder), ADR-013 (enrollment is client-side,
   not training), ADR-017 (config panel), ADR-020 (EmbedProvider/KWSBackend),
-  ADR-021 (device SDK shares the interface)
+  ADR-021 (device SDK shares the interface), ADR-033 (provisioning capability)
 - **Depends on (modules):** KWS (`embed(audio)` scaffold + `PlixKwsEmbedProvider`),
-  AFE (16 kHz output stream for live detection); consumes `WakeWordPrototype` +
-  scoring from the plix driver (single source of truth)
+  AFE (16 kHz output stream for live detection); owns `WakeWordPrototype` +
+  scoring primitives (ADR-033 inversion - moved out of the plix driver so any
+  enrollment/training driver can produce the same artifact type)
 - **Last updated:** 2026-08-05
 - **Last updated:** 2026-07-28
 
@@ -87,7 +88,7 @@ export interface SampleQuality {
   acceptable: boolean   // overall pass/fail
 }
 
-/** A stored wake-word prototype. */
+/** A stored wake-word prototype (owned by this module, ADR-033). */
 export interface WakeWordPrototype {
   id: string
   word: string
@@ -273,6 +274,7 @@ unchanged.
 |---|---|---|
 | 2026-08-10 | Negative-prototype enrollment UI + plumbing (issue #69): record non-target samples in the KWS panel, mean-pool into a negativeVector attached to the wake-word prototype, auto-enable useNegativePrototype. Engine carries prototypeNegative through the worker load message into initWithPrototype; scoring is relative (word vs negative class) so other speech scores low. | agent |
 | 2026-08-10 | Recalibrate default threshold 0.7 -> 0.9 (issue #69). 0.7 predated the #66 normalization fix when all scores were ~0.24; post-#66 real speech scores 0.78-0.96, so the old default made the wake word fire on ANY speech. Verified with real speech: enrolled word 0.92-1.0 vs other words 0.78-0.89. | agent |
+| 2026-08-11 | ADR-033: `WakeWordPrototype` + scoring primitives moved INTO this module (from the plix driver) so any enrollment/training driver can produce the same artifact type; serialize helpers (`serializePrototype`/`deserializePrototype`/`uid`) exported; prototype persistence moves host-side (user artifact library); sample store stays module-owned. | agent |
 | 2026-08-10 | Add silence gate to PLiX detection (issue #66 follow-up): windows at/below `silenceFloorDbfs` (-45 dBFS RMS default) score 0 and skip the encoder. The model maps silence/background to a cosine-similar spot near the prototype (score ~0.7+ with no input after the normalization fix), so energy gating is required to avoid false triggers. Tunable via the Few-Shot config surface. | agent |
 | 2026-08-10 | Fix PLiX never triggering (issue #66): L2-normalize query + prototype before squared-Euclidean scoring (raw GAP embeddings have L2 norm ~4-5, so un-normalized d^2 ~3-4 even for a 0.92-cosine match -> score ~0.24, unreachable). Normalized d^2 = 2(1-cos) is well-calibrated; also wire the Few-Shot panel threshold/VAD/min-duration into the engine trigger config instead of KWS defaults. | agent |
 | 2026-07-27 | Initial draft (docs-first, pending human review). | agent |

@@ -1,0 +1,50 @@
+{
+  "$schema": "../../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "kws-sherpa-provision",
+    "name": "sherpa-onnx KWS keyword list (provisioning)",
+    "category": "kws",
+    "version": "0.1.0",
+    "maturity": "draft",
+    "owner": "WakeStudio team",
+    "license": "Apache-2.0 (sherpa-onnx) + MIT (integration)",
+    "status": "proposed"
+  },
+  "params": [],
+  "actions": [
+    {
+      "id": "load-with-list",
+      "label": "Load with keyword list",
+      "kind": "load",
+      "progress": "determinate",
+      "requires": ["params.keywords"]
+    }
+  ],
+  "status": [
+    {
+      "id": "keywords",
+      "label": "Wake-word list",
+      "renderer": "badge",
+      "source": "engine:keywords",
+      "refreshMs": 250
+    }
+  ],
+  "runtime": {
+    "web": {
+      "engine": "SherpaOnnxKwsBackend",
+      "worker": true
+    }
+  },
+  "tests": {
+    "l1": "packages/modules/kws/sherpa/tests/provision.test.ts",
+    "required": ["l1"]
+  },
+  "playground": {
+    "route": "/playground/kws/sherpa/provision",
+    "entry": "packages/modules/kws/sherpa/web/playground.tsx"
+  },
+  "interfaces": {
+    "provides": ["ProvisionCapability"],
+    "consumes": ["AFEOutputFrame"]
+  }
+}

@@ -21,6 +21,7 @@
   "dependencies": {
     "@wake-studio/contracts": "workspace:*",
     "@wake-studio/dsp": "workspace:*",
+    "@wake-studio/module-few-shot": "workspace:^",
     "@wake-studio/module-kws-engine": "workspace:^",
     "@wake-studio/platform": "workspace:^",
     "onnxruntime-web": "^1.27.0"

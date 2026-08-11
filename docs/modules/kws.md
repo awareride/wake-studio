@@ -436,6 +436,31 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
 
 All Phase 2 open questions are resolved (ADR-018); the contract is locked.
 
+- **[ADR-033] Provisioning capability (one abstract wake-word artifact flow).**
+  Producing "the wake-word artifact a backend needs" (enrolled prototype /
+  keyword list / trained classifier) is one abstract behavior with different
+  input collection per driver. `KWSBackendRegistration` gains an optional
+  `provision?: ProvisionCapability` (ADR-033):
+  - **contracts** (`packages/contracts/src/provision.ts`) owns the pure data
+    contract: `ProvisionKind` (`'prototype' | 'list' | 'train'`) and the
+    serializable `ProvisionArtifact` payloads (wire + persistence form;
+    `Float32Array -> number[]`).
+  - **kws-engine** binds them to engine types: `ProvisionCapability`
+    (`{ kind, spec?, produce(input), apply(artifact) }`) on the registration.
+  - **Host flow:** collect (driver's provisioning spec renders the panel) →
+    `produce(input)` → persist (user artifact library, IndexedDB - same store
+    as imported models) → `apply(artifact)` into `engine.load` (the artifact
+    rides in `backendConfig`, opaque to the host).
+  - The host's `commandRef` load/start/stop dispatch follows `provision`
+    presence instead of the KWS category (`isFewShot` removed); a second
+    few-shot driver or a keyword-list driver needs zero host edits.
+  - Today two kinds are implemented: plix `prototype` (enrollment) and sherpa
+    `list` (keyword list); `train` (Phase 5 train-runner) is declared but
+    unimplemented. The host branches on `provision.kind` for the panel
+    section (prototype enrollment UI vs list keyword editor) - adding a
+    driver of either kind needs zero host edits.
+  - The worker's plixkws load branch reads the prototype from `backendConfig`
+    (the legacy `prototype` message field remains supported).
 - **[Q-KWS-1] Demo model -> `hey-buddy`** (`benjamin-paine/hey-buddy`, CC-BY-4.0,
   commercially clean) (ADR-018, amended). Originally planned as openWakeWord
   `alexa.onnx` (CC BY-NC-SA, demo-only); switched to hey-buddy because it is
@@ -485,3 +510,5 @@ All Phase 2 open questions are resolved (ADR-018); the contract is locked.
 | 2026-07-28 | Migrate the Few-Shot encoder from WavLM-base-plus to **PLiX** (`aaqibsaeed/plixkws`, Apache-2.0). WavLM-base-plus was too heavy for end-side devices; PLiX is a compact CNN (EfficientNet-v2 "base" / TinyNet-E "small") with Prototypical-Network scoring (embedding -> mean prototype -> distance). New `plixkws` backend id + `PlixKwsEmbedProvider` (log-Mel front-end, WASM-pinned). Scoring uses squared-Euclidean distance to the prototype, rescaled to [0,1] via `1/(1+d^2)`. Replaces `wavlm-few-shot` / `WavLMEmbedProvider`. | agent |
 | 2026-07-31 | Add `sherpa-onnx-kws` backend (real KWS transducer, emscripten WASM, main-thread) to the backend union, `KWSBackend` optional `onDetection`/`configure`, `SherpaOnnxKwsConfig`, `BackendModelUrls.sherpaKws`, `KWSConfig.runtime`. Threading §5 amended (sherpa runs main-thread), config table + error model + testing strategy updated. Docs-only sync with ba52a61. | agent |
 | 2026-08-07 | Add the `kws-streaming` driver (§0 layout, backend-id union, `BackendModelUrls.kwsStreaming`) - `google-research/kws_streaming` external-state streaming graphs, Traditional category (#72). Contract detail lives in `docs/modules/kws-streaming.md`. | agent |
+| 2026-08-11 | ADR-033 provisioning capability: `ProvisionCapability` on the backend registration (contracts payload types + kws-engine interface), plix `prototype` capability (produce/apply), worker reads the prototype from backendConfig, host dispatch on `provision` presence (no `isFewShot`), artifacts persist in the shared user artifact library (prototypes today). | agent |
+| 2026-08-11 | sherpa `list` capability (ADR-033): produce/apply wrap the keyword-list artifact; the host's provisioning section is kind-driven (prototype enrollment UI vs list keyword editor); `commandRef` load for list-kind produces + applies + loads. | agent |

@@ -11,6 +11,11 @@
 
 import type { ModelRegistry, ModelRuntime } from '@wake-studio/platform'
 import { DEFAULT_MODEL_RUNTIME } from '@wake-studio/platform'
+import type {
+  ModuleSpec,
+  ProvisionArtifact,
+  ProvisionKind,
+} from '@wake-studio/contracts'
 /**
  * Pluggable KWS backend identifiers (ADR-020). The engine delegates inference
  * to a `KWSBackend` adapter; selection is per-target / per-word.
@@ -210,6 +215,48 @@ export interface BackendResourceDescriptor {
    * and detail from the loaded URL.
    */
   state?: (ctx: BackendResourceStateContext) => BackendResourceState
+}
+
+// ---------------------------------------------------------------------------
+// Provisioning capability (ADR-033).
+//
+// Producing "the wake-word artifact a backend needs" (enrolled prototype /
+// keyword list / trained classifier) is one abstract behavior with different
+// input collection per driver. The pure payload types live in contracts
+// (ProvisionKind / ProvisionArtifact); this interface binds them to engine
+// types. Hosts render the capability's spec, collect input, call produce(),
+// persist the artifact, then feed apply() into engine.load - the host never
+// branches on a backend id.
+// ---------------------------------------------------------------------------
+
+/**
+ * A backend's provisioning capability (ADR-033). Optional on the
+ * registration; traditional backends (openwakeword, sherpa, kws-streaming)
+ * omit it and keep the plain resolveModelUrls -> engine.load path.
+ */
+export interface ProvisionCapability {
+  /** Which artifact kind this capability produces. */
+  kind: ProvisionKind
+  /**
+   * Provisioning panel spec (ADR-025) - rendered by the generator, host stays
+   * generic. Declares the collect/produce actions + status (e.g. record,
+   * enroll, start) and any input params.
+   */
+  spec?: ModuleSpec
+  /**
+   * Run the provisioning: mic samples / dataset / keyword text in, artifact
+   * out. The input shape is driver-defined (see the capability's spec).
+   */
+  produce(input: unknown): Promise<ProvisionArtifact>
+  /**
+   * Feed the artifact into engine.load: resolved model URLs and/or driver
+   * backend config. For few-shot the artifact's prototype vector(s) ride in
+   * backendConfig (opaque to the host, read by the worker's load handler).
+   */
+  apply(artifact: ProvisionArtifact): {
+    urls?: BackendModelUrls
+    backendConfig?: Record<string, unknown>
+  }
 }
 
 /**

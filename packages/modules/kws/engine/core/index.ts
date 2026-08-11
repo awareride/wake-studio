@@ -41,6 +41,7 @@ export type {
   KWSStatus,
   ModelSourceRole,
   ParameterDescriptor,
+  ProvisionCapability,
   SherpaOnnxKwsConfig,
 } from './types'
 export { KWSLoadError, KWSUnsupportedError } from './types'

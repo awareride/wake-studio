@@ -45,7 +45,7 @@ export async function runPipelineStart(
   // 2. KWS if enabled + available.
   if (!flags.kwsEnabled || !kws) return { ok: true }
 
-  const kwsState = kws.getState?.() ?? { status: 'idle', running: false, isFewShot: false }
+  const kwsState = kws.getState?.() ?? { status: 'idle', running: false, hasProvision: false }
 
   // Auto-load when preload is ON and the engine is not ready yet.
   let kwsLoaded = false

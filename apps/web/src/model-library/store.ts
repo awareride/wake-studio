@@ -17,11 +17,15 @@
  * a model can be moved to another machine or re-imported.
  */
 
+import type { ProvisionArtifact, ProvisionKind } from '@wake-studio/contracts'
+
 const DB_NAME = 'wake-studio-user-models'
 const DB_VERSION = 1
 const MODEL_STORE = 'models'
 
 export interface UserModel {
+  /** Legacy entries (pre-ADR-033) have no kind; treated as models. */
+  kind?: 'model'
   id: string
   /** Role this model was imported for (classifier / melspectrogram / ...). */
   role: string
@@ -92,10 +96,13 @@ export async function importModelFile(
   return model
 }
 
-/** List all stored user models. */
+/** List all stored user models (artifacts excluded - they are provisioned
+ *  artifacts, not importable model binaries). */
 export async function listUserModels(): Promise<UserModel[]> {
-  const all = await tx<UserModel[]>('readonly', (s) => s.getAll())
-  return (all as UserModel[]).sort((a, b) => b.createdAtMs - a.createdAtMs)
+  const all = await tx<unknown[]>('readonly', (s) => s.getAll())
+  return (all as Array<UserModel | UserArtifact>)
+    .filter((e): e is UserModel => e.kind !== 'artifact')
+    .sort((a, b) => b.createdAtMs - a.createdAtMs)
 }
 
 /** Delete a stored user model. */
@@ -147,4 +154,77 @@ export async function blobUrlForModel(id: string): Promise<string | null> {
   const model = await tx<UserModel | undefined>('readonly', (s) => s.get(id))
   if (!model) return null
   return URL.createObjectURL(model.blob)
+}
+
+// ---------------------------------------------------------------------------
+// Provisioned artifacts (ADR-033).
+//
+// The same library that holds imported models also holds provisioning
+// artifacts (enrolled prototypes today; keyword lists and trained classifiers
+// later) so they are one browsable collection. Entries are plain JSON
+// (structured-clone-able: number[] vectors, no Float32Array/Blob), so they
+// share the existing 'models' object store without a schema bump - entries
+// without a `kind` are legacy models.
+// ---------------------------------------------------------------------------
+
+/** A provisioned artifact stored in the user library (ADR-033). */
+export interface UserArtifact {
+  kind: 'artifact'
+  id: string
+  /** Which provisioning kind produced it ('prototype' | 'list' | 'train'). */
+  artifactType: ProvisionKind
+  /** The backend this artifact provisions (e.g. 'plixkws'). */
+  backendId: string
+  /** Display name (e.g. the enrolled wake word). */
+  name: string
+  /** Approximate size in bytes of the serialized payload. */
+  sizeBytes: number
+  createdAtMs: number
+  notes?: string
+  /** The serialized artifact (contracts provisioning payload). */
+  artifact: ProvisionArtifact
+}
+
+/** Persist a provisioned artifact into the shared user library. */
+export async function saveProvisionArtifact(
+  artifact: ProvisionArtifact,
+  meta: { name: string; notes?: string },
+): Promise<UserArtifact> {
+  const entry: UserArtifact = {
+    kind: 'artifact',
+    id: `artifact-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    artifactType: artifact.kind,
+    backendId: artifact.backendId,
+    name: meta.name,
+    sizeBytes: JSON.stringify(artifact).length,
+    createdAtMs: Date.now(),
+    notes: meta.notes,
+    artifact,
+  }
+  await tx('readwrite', (s) => s.put(entry))
+  return entry
+}
+
+/** List all stored provisioning artifacts (newest first). */
+export async function listProvisionArtifacts(): Promise<UserArtifact[]> {
+  const all = await tx<unknown[]>('readonly', (s) => s.getAll())
+  return (all as Array<UserArtifact | UserModel>)
+    .filter((e): e is UserArtifact => e.kind === 'artifact')
+    .sort((a, b) => b.createdAtMs - a.createdAtMs)
+}
+
+/** Look up one stored provisioning artifact. */
+export async function getProvisionArtifact(
+  id: string,
+): Promise<UserArtifact | undefined> {
+  const entry = await tx<UserArtifact | UserModel | undefined>(
+    'readonly',
+    (s) => s.get(id),
+  )
+  return entry && entry.kind === 'artifact' ? (entry as UserArtifact) : undefined
+}
+
+/** Delete a stored provisioning artifact. */
+export async function deleteProvisionArtifact(id: string): Promise<void> {
+  await tx('readwrite', (s) => s.delete(id))
 }

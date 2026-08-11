@@ -13,7 +13,7 @@ import { normalizeSelectOptions } from '@wake-studio/module-kit'
 import type { BackendModelUrls } from '@wake-studio/module-kws-engine'
 import type { ParameterDescriptor } from '@wake-studio/module-afe-graph'
 import type { ModelRegistry } from '@wake-studio/platform'
-import type { ModuleSpec, ModuleParam } from '@wake-studio/contracts'
+import type { ModuleSpec, ModuleParam, ModuleAction } from '@wake-studio/contracts'
 
 /**
  * Normalize a spec param's `options` into the panel's `{value,label}` shape.
@@ -71,6 +71,23 @@ export function loadActionLabel(
     (a) => a.kind === 'load',
   )
   return action?.label ?? 'Load models'
+}
+
+/** Actions declared by a backend's provisioning spec (ADR-033). */
+export function provisionActionsFor(
+  backendId: string,
+): ReadonlyArray<ModuleAction> {
+  const reg = getBackendRegistry().find((r) => r.id === backendId)
+  const spec = reg?.provision?.spec as ModuleSpec | undefined
+  return spec?.actions ?? []
+}
+
+/** Label for a provisioning action by id (ADR-033); generic fallback. */
+export function provisionActionLabel(
+  backendId: string,
+  actionId: string,
+): string | undefined {
+  return provisionActionsFor(backendId).find((a) => a.id === actionId)?.label
 }
 
 /** Resolve the three openwakeword model roles from a registry, or a remote
