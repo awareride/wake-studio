@@ -41,6 +41,7 @@ jobs:
         run: |
           node scripts/fetch-artifact.mjs kws-sherpa || echo "sherpa artifact fetch failed; sherpa L2 skips"
           node scripts/fetch-artifact.mjs kws-openwakeword || echo "openwakeword assets fetch failed; openwakeword L2 skips"
+          node scripts/fetch-artifact.mjs kws-plix || echo "plix assets fetch failed; plix L2 skips"
 
       - name: Lint
         run: pnpm lint
@@ -101,6 +102,7 @@ jobs:
         run: |
           node scripts/fetch-artifact.mjs kws-sherpa || echo "sherpa wasm fetch failed; sherpa-kws spec will be skipped"
           node scripts/fetch-artifact.mjs kws-openwakeword || echo "openwakeword assets fetch failed; openwakeword spec will be skipped"
+          node scripts/fetch-artifact.mjs kws-plix || echo "plix assets fetch failed; plix specs will be skipped"
 
       - name: Build PWA (for preview server)
         # `pnpm preview` serves dist/; the e2e job must build it first (the
