@@ -837,6 +837,119 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 
 ---
 
+## ADR-033 — Provisioning capability: one abstract wake-word artifact flow for all KWS backends
+
+- **Status:** Accepted (2026-08-11; decision points confirmed by human - issue #76)
+- **Origin:** Issue #76 (Part 2 of the KWSPanel decoupling series; depends on the
+  registration seams #75, pairs with Q15 #74)
+- **Decision:**
+  1. **A provisioning capability on `KWSBackendRegistration`.** Producing "the
+     wake-word artifact a backend needs" is the same abstract behavior across
+     drivers (plix enrollment, sherpa keyword list, future training) with
+     different input collection. Add an optional `provision?: ProvisionCapability`
+     to the registration (ADR-024 seam pattern):
+     ```ts
+     // contracts/src/provision.ts - pure data contract (no engine types)
+     type ProvisionKind = 'prototype' | 'list' | 'train'   // extensible
+
+     // serializable payloads (wire + persistence form; Float32Array -> number[])
+     interface ProvisionPrototypePayload {
+       id: string; word: string; vector: number[]
+       negativeVector?: number[]; sampleIds: string[]; createdAtMs: number
+     }
+     interface ProvisionListPayload { keywords: string }
+     interface ProvisionTrainPayload { urls: Record<string, string>; registryEntry?: string }
+
+     type ProvisionArtifact =
+       | { kind: 'prototype'; backendId: string; payload: ProvisionPrototypePayload }
+       | { kind: 'list';      backendId: string; payload: ProvisionListPayload }
+       | { kind: 'train';     backendId: string; payload: ProvisionTrainPayload }
+     ```
+     The capability **interface** lives in `kws-engine` next to the registration
+     (it binds contract payloads to engine types):
+     ```ts
+     interface ProvisionCapability {
+       kind: ProvisionKind
+       /** Provisioning panel spec - rendered by the generator, host stays generic. */
+       spec?: ModuleSpec
+       /** Input in (mic samples / dataset / keyword text), artifact out. */
+       produce(input: unknown): Promise<ProvisionArtifact>
+       /** Feed the artifact into engine.load: urls and/or backend config. */
+       apply(artifact: ProvisionArtifact): {
+         urls?: BackendModelUrls
+         backendConfig?: Record<string, unknown>
+       }
+     }
+     ```
+  2. **Prerequisite inversion (#74 §5).** `WakeWordPrototype` + the scoring
+     primitives (`squaredEuclidean` / `plixScore` / `l2Normalize` / `meanPool`)
+     move out of the `kws-plix` driver module into `few-shot` (a capability
+     module); `plix` imports them. `few-shot`'s current re-export of plix
+     symbols is deleted. Only this way can a future `train`-kind driver
+     (openwakeword training) produce the same artifact type without importing
+     an impl module (#74 rule).
+  3. **Unified host flow: collect → produce → persist → load-with-artifact.**
+     The host renders the capability's provisioning spec, collects input
+     (shared recorder from `few-shot/web`, a capability module), calls
+     `produce(input)`, persists the artifact, then feeds `apply(artifact)` into
+     `engine.load(urls, undefined, backendConfig)` - the artifact rides in
+     `backendConfig` (opaque to the host), which for plix carries the prototype
+     vectors. Traditional backends without a capability keep today's
+     registration-driven `resolveModelUrls` → `engine.load` path unchanged.
+  4. **`commandRef` dispatch collapses to "ask the capability".** The
+     `isFewShot` branch in the host's load/start/stop dispatch is replaced by
+     a check for `provision` presence. A second few-shot driver or a list-based
+     driver needs zero host edits (ADR-024 rule preserved).
+  5. **Artifacts persist in the shared user artifact library.** The app-level
+     user model library (`apps/web/src/model-library`, IndexedDB) generalizes
+     to store both imported models and provisioned artifacts
+     (`kind: 'model' | 'artifact'` + typed payload). Prototypes today, keyword
+     lists and trained classifiers later become one browsable collection.
+     The few-shot module's **prototype** storage moves host-side (persist is a
+     host responsibility per the unified flow); its **sample** store stays
+     module-owned (input clips are not artifacts). Existing
+     `wake-studio-few-shot` prototypes migrate into the library lazily once.
+     This supersedes migration-plan Q-F1's module-owned-prototype-storage
+     default for prototypes specifically.
+- **Rationale:** Every backend needs "produce the artifact, then load with it";
+  today the host branches on `isFewShot` and embeds plix's enrollment UI
+  inline, which does not scale to a second few-shot driver or to training
+  outputs. The capability keeps the host generic (ADR-024/025), moves the
+  enrollment flow behind a driver-owned spec + `produce`/`apply` pair, and
+  gives training (Phase 5) a contract to implement against.
+- **Open questions resolved in this ADR (flagged for human):**
+  1. *ProvisionKind taxonomy* - declare all three kinds now ('train' included)
+     but implement only 'prototype' in this change; 'list' (sherpa) and 'train'
+     (openwakeword/kws-streaming, waits for the Phase 5 train-runner) are
+     follow-ups. Hosts render unimplemented kinds as disabled with the driver's
+     availabilityNote.
+  2. *Artifact persistence* - the shared user artifact library stays app-level
+     (its only consumer today is the host; the platform move waits for a second
+     consumer per the YAGNI scope guard).
+  3. *commandRef* - dispatch on `provision` presence, not category (agreed per
+     the issue body).
+  4. *Panel rendering* - provisioning panels render from the driver's
+     provisioning spec via module-kit's generator (params/actions/status; the
+     spec schema already has `ActionKind 'record'` and `StatusRenderer
+     'curve'`/`'bar'`). If an enrollment action kind is needed, extend
+     `ActionKind` - a spec schema change, never a hand panel.
+- **Consequences:**
+  - `ProvisionKind`/`ProvisionArtifact` land in `packages/contracts` (pure
+    types); `ProvisionCapability` + `provision?` land in `kws-engine` next to
+    `KWSBackendRegistration`.
+  - `few-shot` owns `WakeWordPrototype` + scoring; `kws-plix` imports them.
+    `few-shot/core/index.ts` no longer re-exports from plix.
+  - KWSPanel's enrollment section becomes a generic provisioning section driven
+    by the selected backend's capability spec; plix-specific strings move into
+    the plix spec. Enrollment UX is unchanged (acceptance criterion).
+  - Out of scope for this change (follow-ups): sherpa `list` capability,
+    `train` capability + train-runner wiring (Phase 5), shrinking
+    `BackendModelUrls`/worker `prototype` fields into `backendConfig` (#74 §5).
+  - ADR-030/024 decoupling rule preserved: adding a provisioning backend = a
+    capability + spec in its driver module, zero host edits.
+
+---
+
 _Open questions still pending human input: Q10 (self-hosted training engine) is
 open for Phase 5. Q9 (training backends) is ADR-013 (amended: in-browser training
 removed, Cloud Providers unified, Colab added as ADR-023); targets are ADR-019

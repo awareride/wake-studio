@@ -30,3 +30,11 @@ export type {
   AFEStageResult,
   AFEStageKind,
 } from './module-spec'
+export type {
+  ProvisionArtifact,
+  ProvisionKind,
+  ProvisionListPayload,
+  ProvisionPrototypePayload,
+  ProvisionTrainPayload,
+} from './provision'
+export { isProvisionArtifactKind } from './provision'

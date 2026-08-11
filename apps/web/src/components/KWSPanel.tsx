@@ -52,7 +52,8 @@ import {
   DEFAULT_CONFIG as FS_DEFAULTS,
   describeParameters as fewShotDescribeParameters,
 } from '@wake-studio/module-few-shot'
-import type { EnrolledSample, WakeWordPrototype } from '@wake-studio/module-few-shot'
+import type { EnrolledSample } from '@wake-studio/module-few-shot'
+import { serializePrototype } from '@wake-studio/module-few-shot'
 import { recorderWorkletUrl as recorderUrl } from '@wake-studio/module-few-shot/web'
 import {
   importModelFile,
@@ -60,8 +61,12 @@ import {
   deleteUserModel,
   exportUserModel,
   blobUrlForModel,
+  saveProvisionArtifact,
+  listProvisionArtifacts,
+  deleteProvisionArtifact,
 } from '../model-library'
-import type { UserModel } from '../model-library'
+import type { UserModel, UserArtifact } from '../model-library'
+import { provisionActionLabel } from '../workspace/kws-config'
 
 const HISTORY_MAX = 300 // ~3 s at ~100 fps
 
@@ -142,7 +147,11 @@ export const KWSPanel = memo(function KWSPanel({
   const [recordingNeg, setRecordingNeg] = useState(false)
   const [building, setBuilding] = useState(false)
   const [buildingNeg, setBuildingNeg] = useState(false)
-  const [prototype, setPrototype] = useState<WakeWordPrototype | null>(null)
+  // The persisted provisioning artifact (user artifact library, ADR-033): the
+  // enrolled prototype this backend loads with. Produced via the backend's
+  // provisioning capability, persisted, then applied at load - the host never
+  // touches driver-specific prototype types.
+  const [artifact, setArtifact] = useState<UserArtifact | null>(null)
   const [detecting, setDetecting] = useState(false)
   const { projectConfig: fsProjCfg, persist: persistFs } = useProjectStageConfig('fewShot')
   const [fsConfig, setFsConfig] = useState<{
@@ -162,9 +171,10 @@ export const KWSPanel = memo(function KWSPanel({
   })
   const fsCanvasRef = useRef<HTMLCanvasElement>(null)
   const fsHistoryRef = useRef<KWSScoreSample[]>([])
-  // Persisted few-shot artifacts (IndexedDB, ADR-013): shown in the Engine
-  // card's resource list so previously-enrolled data is visible on load.
-  const [savedPrototypes, setSavedPrototypes] = useState<WakeWordPrototype[]>([])
+  // Persisted provisioning artifacts (user artifact library, ADR-033): shown
+  // in the Engine card's resource list so previously-enrolled data is visible
+  // on load.
+  const [savedPrototypes, setSavedPrototypes] = useState<UserArtifact[]>([])
   const [savedSampleCount, setSavedSampleCount] = useState(0)
 
   const { historyRef, setThreshold, setLastScore } = useLiveKws()
@@ -394,10 +404,14 @@ export const KWSPanel = memo(function KWSPanel({
   // automatically (registry is a local JSON, ADR-011). Initial mount keeps the
   // manual Load button (no surprise model fetches on visit); "Reload" re-applies
   const prevBackendRef = useRef(config.backend)
-  // The backend's KWS functional category (ADR-024): few-shot backends
-  // (plixkws today, future drivers) get the enrollment flow automatically.
+  // The backend's provisioning capability (ADR-033): few-shot backends
+  // (plixkws today, future enrollment drivers) declare one, and the host's
+  // load/start/stop dispatch + the enrollment section follow it instead of
+  // branching on the KWS category (which would not scale to a second
+  // few-shot driver or to training outputs).
   const selectedBackend = getBackendRegistry().find((r) => r.id === config.backend)
-  const isFewShot = selectedBackend?.category === 'few-shot'
+  const provision = selectedBackend?.provision
+  const hasProvision = Boolean(provision)
   // Model-source roles come from the backend's registration (ADR-024): each
   // driver declares the roles it consumes. asr-decoding (sherpa-onnx-kws)
   // bundles its model into the wasm .data package and only takes a keyword
@@ -426,7 +440,7 @@ export const KWSPanel = memo(function KWSPanel({
       // does not keep running detection for the previous model.
       engineRef.current?.dispose()
     }
-  }, [config.backend, isFewShot])
+  }, [config.backend, hasProvision])
 
   // --- plixkws enrollment + detection ---
 
@@ -447,19 +461,44 @@ export const KWSPanel = memo(function KWSPanel({
     return engineRef.current
   }, [])
 
-  // Load persisted few-shot artifacts (IndexedDB) on mount + when a new
-  // prototype is built, so the Engine card's resource list stays fresh.
+  // Load persisted provisioning artifacts (user artifact library, ADR-033) on
+  // mount + when a new artifact is produced, so the Engine card's resource
+  // list stays fresh. Legacy few-shot prototypes (pre-ADR-033 IndexedDB store)
+  // migrate into the library lazily once.
+  const migratedRef = useRef(false)
   useEffect(() => {
     let cancelled = false
     void (async () => {
       try {
         ensureFsEngines()
-        const fs = fsEngineRef.current
-        if (!fs) return
-        const protos = await fs.listPrototypes()
+        let lib = await listProvisionArtifacts()
+        const protos = lib.filter((e) => e.artifactType === 'prototype')
+        // One-time migration from the legacy few-shot module store (only when
+        // the library has no prototype artifacts yet - prevents re-running).
+        if (protos.length === 0 && !migratedRef.current) {
+          migratedRef.current = true
+          const legacy = (await fsEngineRef.current?.listPrototypes()) ?? []
+          for (const p of legacy) {
+            await saveProvisionArtifact(
+              {
+                kind: 'prototype',
+                backendId: 'plixkws',
+                payload: serializePrototype(p),
+              },
+              { name: p.word, notes: 'Migrated from the legacy few-shot store' },
+            )
+          }
+          if (legacy.length > 0) lib = await listProvisionArtifacts()
+        }
+        const stored = lib.filter((e) => e.artifactType === 'prototype')
         if (!cancelled) {
-          setSavedPrototypes(protos)
-          setSavedSampleCount(protos.reduce((acc, p) => acc + p.sampleIds.length, 0))
+          setSavedPrototypes(stored)
+          setSavedSampleCount(
+            stored.reduce((acc, e) => {
+              if (e.artifact.kind !== 'prototype') return acc
+              return acc + e.artifact.payload.sampleIds.length
+            }, 0),
+          )
         }
       } catch {
         // IndexedDB unavailable - ignore; the list stays empty.
@@ -468,17 +507,20 @@ export const KWSPanel = memo(function KWSPanel({
     return () => {
       cancelled = true
     }
-  }, [prototype, ensureFsEngines])
+  }, [artifact, ensureFsEngines])
 
   /** Load the PLiX encoder (embed-only, no detection backend yet). */
-  const handleLoadEncoder = useCallback(async () => {
+  const handleProvisionLoad = useCallback(async () => {
     setError(null)
     const engine = ensureFsEngines()
     try {
       setStatus('loading')
-      // Embed-only boot: the few-shot detection path demands a prototype, so
-      // the engine loads the encoder through a traditional backend id. The
-      // selected few-shot driver still owns the URL resolution below.
+      // Embed-only boot: the provisioning detection path demands an artifact
+      // (prototype), so the encoder alone is loaded through a traditional
+      // backend id - the worker boots the embed provider whenever a plixkws
+      // URL is present and skips the detection backend when no traditional
+      // URLs are (ADR-033). The selected provisioning driver still owns the
+      // URL resolution below.
       engine.setConfig({ ...DEFAULT_CONFIG, backend: 'openwakeword' })
       const urls = await resolveModelUrlsFor(config.backend)
       urlsRef.current = urls
@@ -555,47 +597,71 @@ export const KWSPanel = memo(function KWSPanel({
     setError(null)
     setBuilding(true)
     try {
-      const fs = fsEngineRef.current!
-      const proto = fs.buildPrototype('custom-word', samples)
-      await fs.savePrototype(proto, samples)
-      setPrototype(proto)
+      const cap = provision
+      if (!cap) throw new Error('This backend has no provisioning capability.')
+      // produce(): the driver turns the enrolled samples into the artifact
+      // (prototype). The host persists it to the user artifact library and
+      // holds the library entry as the load source (ADR-033).
+      const produced = await cap.produce({
+        word: 'custom-word',
+        samples,
+      })
+      const saved = await saveProvisionArtifact(produced, {
+        name: produced.kind === 'prototype' ? produced.payload.word : 'prototype',
+      })
+      setArtifact(saved)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBuilding(false)
     }
-  }, [samples])
+  }, [provision, samples])
 
   /** Build + persist the negative-class prototype from non-target samples. */
   const handleBuildNegative = useCallback(async () => {
     setError(null)
     setBuildingNeg(true)
     try {
-      const fs = fsEngineRef.current!
-      if (!prototype) {
+      const cap = provision
+      if (!cap) throw new Error('This backend has no provisioning capability.')
+      const current = artifact
+      if (!current) {
         setError('Build the wake-word prototype first, then enroll negative samples.')
         return
       }
-      const negVector = fs.buildNegativeVector(negSamples)
-      const updated = await fs.attachNegativePrototype(prototype, negVector)
-      setPrototype(updated)
+      if (current.artifact.kind !== 'prototype') return
+      // Re-produce with the negative-class samples included (the negative
+      // vector is part of the same prototype artifact, issue #69) and
+      // supersede the previous library entry.
+      const next = await cap.produce({
+        word: current.artifact.payload.word,
+        samples,
+        negativeSamples: negSamples,
+      })
+      await deleteProvisionArtifact(current.id)
+      const saved = await saveProvisionArtifact(next, {
+        name: next.kind === 'prototype' ? next.payload.word : 'prototype',
+      })
+      setArtifact(saved)
       // Open-set rejection is only meaningful when a negative class exists:
       // auto-enable it so detection uses the relative score.
       setFsConfig((prev) => ({ ...prev, useNegativePrototype: true }))
-      logInfo('kws', `Negative prototype built (${negSamples.length} samples, ${negVector.length}-dim)`)
+      logInfo('kws', `Negative prototype built (${negSamples.length} samples)`)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBuildingNeg(false)
     }
-  }, [prototype, negSamples])
+  }, [provision, artifact, samples, negSamples])
 
-  /** Load the plixkws detection backend with the prototype and start. */
-  const handleStartPlix = useCallback(async () => {
+  /** Load the provisioning backend with its artifact and start. */
+  const handleProvisionStart = useCallback(async () => {
     setError(null)
     const engine = engineRef.current!
-    const proto = prototype
-    if (!proto) {
+    const cap = provision
+    if (!cap) throw new Error('This backend has no provisioning capability.')
+    const saved = artifact
+    if (!saved) {
       setError('Build a prototype first.')
       return
     }
@@ -605,13 +671,26 @@ export const KWSPanel = memo(function KWSPanel({
       return
     }
     try {
-      // Fresh worker + engine: dispose and recreate so the plixkws backend
-      // boots cleanly with the prototype (KWSEngine.load guards re-entry).
+      // apply(): the driver maps the artifact into the engine load inputs
+      // (backend config; prototype vector(s) ride inside it, opaque to the
+      // host). The live few-shot detection params (the few-shot module's own
+      // config surface) are overlaid on top - the backend reads the same
+      // param ids (windowMs / useNegativePrototype / silenceFloorDbfs).
+      const applied = cap.apply(saved.artifact)
+      const backendConfig = {
+        ...applied.backendConfig,
+        windowMs: fsConfig.windowMs,
+        useNegativePrototype: fsConfig.useNegativePrototype,
+        silenceFloorDbfs: fsConfig.silenceFloorDbfs,
+      }
+      // Fresh worker + engine: dispose and recreate so the provisioning
+      // backend boots cleanly with the artifact (KWSEngine.load guards
+      // re-entry).
       engine.dispose()
       const fresh = new KWSEngine()
       fresh.onScore((s) => {
         setLastScore(s.smoothedScore)
-        // Few-shot scores must reach BOTH the panel's own curve (fsHistoryRef)
+        // Scores must reach BOTH the panel's own curve (fsHistoryRef)
         // and the shared workspace history (historyRef) that ScoreCurvePanel /
         // the top-bar mini bar render (issue #67: previously only fsHistoryRef
         // was written, so the workspace score curve stayed empty).
@@ -632,7 +711,7 @@ export const KWSPanel = memo(function KWSPanel({
       // the same threshold the score curve renders (issue #66 secondary).
       fresh.setConfig({
         ...DEFAULT_CONFIG,
-        backend: 'plixkws',
+        backend: config.backend,
         threshold: fsConfig.threshold,
         minDurationMs: fsConfig.minDurationMs,
         cooldownMs: fsConfig.cooldownMs,
@@ -640,26 +719,10 @@ export const KWSPanel = memo(function KWSPanel({
         vadGateEnabled: fsConfig.vadGateEnabled,
         vadThreshold: fsConfig.vadThreshold,
       })
-      // Resolve the encoder URLs through the plix driver's registration
-      // (ADR-024): variant + runtime + model-source selection are driver
-      // knowledge, not the panel's.
-      const urls = await resolveModelUrlsFor(config.backend)
-      await fresh.load(
-        urls,
-        proto.vector,
-        // Few-Shot detection params from the config panel (epic #53 P1):
-        // windowMs + useNegativePrototype reach the plix backend via the
-        // worker load message -> initWithPrototype opts. silenceFloorDbfs
-        // gates silent windows to score 0 (no false triggers on silence).
-        {
-          windowMs: fsConfig.windowMs,
-          useNegative: fsConfig.useNegativePrototype,
-          silenceFloorDbfs: fsConfig.silenceFloorDbfs,
-        },
-        // Negative-class prototype (open-set rejection, issue #69): reaches
-        // the worker as prototypeNegative -> initWithPrototype proto.
-        proto.negativeVector,
-      )
+      // Model URLs come from the driver's registration resolver (ADR-024)
+      // unless the artifact itself carries them (e.g. a train artifact).
+      const urls = applied.urls ?? (await resolveModelUrlsFor(config.backend))
+      await fresh.load(urls, undefined, backendConfig)
       const afe2 = afeRef?.current ?? afePipeline
       fresh.start({
         onOutput: (cb) => {
@@ -673,9 +736,9 @@ export const KWSPanel = memo(function KWSPanel({
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
     }
-  }, [afePipeline, afeRunning, prototype, resolveModelUrlsFor, config.backend, setThreshold, historyRef, fsConfig.threshold, fsConfig.minDurationMs, fsConfig.cooldownMs, fsConfig.smoothingWindowFrames, fsConfig.vadGateEnabled, fsConfig.vadThreshold, fsConfig.windowMs, fsConfig.useNegativePrototype, fsConfig.silenceFloorDbfs])
+  }, [provision, artifact, afePipeline, afeRunning, resolveModelUrlsFor, config.backend, setThreshold, historyRef, fsConfig.threshold, fsConfig.minDurationMs, fsConfig.cooldownMs, fsConfig.smoothingWindowFrames, fsConfig.vadGateEnabled, fsConfig.vadThreshold, fsConfig.windowMs, fsConfig.useNegativePrototype, fsConfig.silenceFloorDbfs])
 
-  const handleStopPlix = useCallback(() => {
+  const handleProvisionStop = useCallback(() => {
     engineRef.current?.stop()
     setDetecting(false)
     fsHistoryRef.current = []
@@ -706,22 +769,21 @@ export const KWSPanel = memo(function KWSPanel({
   // (epic #53 P4). The runner drives the unified Start/Stop; the panel keeps
   // its own Load/Reload buttons.
   //
-  // Dispatch on the backend's few-shot category (issue #67): the few-shot
-  // flow needs its own load/start/stop (handleLoadEncoder/handleStartPlix/
-  // handleStopPlix) because the plixkws backend must be booted WITH the
-  // enrolled prototype. Using the traditional handlers here made the unified
-  // Start either fail (handleLoad with no prototype -> worker error) or start
-  // the encoder-only engine with no detection backend (empty score curve).
+  // Dispatch on the backend's provisioning capability (ADR-033), not on its
+  // category: a provisioning backend (plixkws today, any future enrollment or
+  // keyword-list driver) boots WITH its produced artifact, so it needs its
+  // own load/start/stop. Traditional backends keep the plain load/start/stop.
+  // Adding a provisioning driver never edits this dispatch.
   useEffect(() => {
     if (commandRef) {
       commandRef.current = {
-        load: isFewShot ? handleLoadEncoder : handleLoad,
-        start: isFewShot ? handleStartPlix : handleStart,
-        stop: isFewShot ? handleStopPlix : handleStop,
-        getState: () => ({ status, running: running || detecting, isFewShot }),
+        load: hasProvision ? handleProvisionLoad : handleLoad,
+        start: hasProvision ? handleProvisionStart : handleStart,
+        stop: hasProvision ? handleProvisionStop : handleStop,
+        getState: () => ({ status, running: running || detecting, hasProvision }),
       }
     }
-  }, [commandRef, handleLoad, handleLoadEncoder, handleStart, handleStartPlix, handleStop, handleStopPlix, status, running, detecting, isFewShot])
+  }, [commandRef, hasProvision, handleLoad, handleProvisionLoad, handleStart, handleProvisionStart, handleStop, handleProvisionStop, status, running, detecting])
 
   const updateConfig = useCallback((patch: Partial<KWSConfig>) => {
     setConfig((prev) => {
@@ -787,6 +849,13 @@ export const KWSPanel = memo(function KWSPanel({
   }, [config.backend, config.threshold])
 
   const canStart = status === 'ready' && afeRunning && !running
+  // The prototype payload of the current artifact (narrowed). Undefined when
+  // the artifact is absent or not a prototype kind - keeps the enrollment JSX
+  // generic over the artifact type (ADR-033).
+  const artifactProto =
+    artifact && artifact.artifact.kind === 'prototype'
+      ? artifact.artifact.payload
+      : undefined
 
   return (
     <section className="space-y-6">
@@ -836,13 +905,13 @@ export const KWSPanel = memo(function KWSPanel({
             <h3 className="text-sm font-semibold text-ink-1">Engine</h3>
             <span className="text-xs text-ink-3">
               {selectedBackend?.label ?? config.backend} ·{' '}
-              {status === 'ready' && !isFewShot
+              {status === 'ready' && !hasProvision
                 ? `${executionProvider === 'webgpu' ? 'WebGPU' : 'WASM'}`
                 : status}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {!isFewShot && status === 'idle' && (
+            {!hasProvision && status === 'idle' && (
               <button
                 onClick={handleLoad}
                 className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-brand-400"
@@ -850,7 +919,7 @@ export const KWSPanel = memo(function KWSPanel({
                 Load models
               </button>
             )}
-            {!isFewShot && (status === 'ready' || status === 'error') && (
+            {!hasProvision && (status === 'ready' || status === 'error') && (
               <button
                 onClick={handleLoad}
                 className="rounded-lg bg-surface-3 px-4 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-4"
@@ -858,16 +927,16 @@ export const KWSPanel = memo(function KWSPanel({
                 Reload models
               </button>
             )}
-            {isFewShot && status !== 'ready' && status !== 'running' && !detecting && (
+            {hasProvision && status !== 'ready' && status !== 'running' && !detecting && (
               <button
-                onClick={handleLoadEncoder}
+                onClick={handleProvisionLoad}
                 disabled={status === 'loading'}
                 className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
               >
                 {status === 'loading' ? 'Loading…' : loadActionLabel(selectedBackend)}
               </button>
             )}
-            {!isFewShot && canStart && (
+            {!hasProvision && canStart && (
               <button
                 onClick={handleStart}
                 className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-emerald-500"
@@ -875,7 +944,7 @@ export const KWSPanel = memo(function KWSPanel({
                 Start detection
               </button>
             )}
-            {!isFewShot && running && (
+            {!hasProvision && running && (
               <button
                 onClick={handleStop}
                 className="rounded-lg bg-danger/90 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-red-500"
@@ -883,21 +952,21 @@ export const KWSPanel = memo(function KWSPanel({
                 Stop detection
               </button>
             )}
-            {isFewShot && prototype && !detecting && (
+            {hasProvision && artifact && !detecting && (
               <button
-                onClick={handleStartPlix}
+                onClick={handleProvisionStart}
                 disabled={!afeRunning}
                 className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-emerald-500 disabled:opacity-50"
               >
-                Start Few-Shot detection
+                {provisionActionLabel(config.backend, 'start') ?? 'Start detection'}
               </button>
             )}
-            {isFewShot && detecting && (
+            {hasProvision && detecting && (
               <button
-                onClick={handleStopPlix}
+                onClick={handleProvisionStop}
                 className="rounded-lg bg-danger/90 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-red-500"
               >
-                Stop Few-Shot detection
+                {provisionActionLabel(config.backend, 'stop') ?? 'Stop detection'}
               </button>
             )}
           </div>
@@ -908,7 +977,7 @@ export const KWSPanel = memo(function KWSPanel({
           {status === 'loading' && (
             <span className="text-ink-2">Loading models…</span>
           )}
-          {status === 'ready' && !isFewShot && !afeRunning && (
+          {status === 'ready' && !hasProvision && !afeRunning && (
             <span className="text-warning">
               Start the AFE microphone first
             </span>
@@ -918,16 +987,16 @@ export const KWSPanel = memo(function KWSPanel({
               Warming up… (collecting ~2 s of audio context)
             </span>
           )}
-          {status === 'ready' && !isFewShot && (
+          {status === 'ready' && !hasProvision && (
             <span>Models loaded · EP: {executionProvider === 'webgpu' ? 'WebGPU' : 'WASM'}</span>
           )}
-          {status === 'ready' && isFewShot && (
+          {status === 'ready' && hasProvision && (
             <span className="text-ink-2">Encoder loaded — record samples to enroll</span>
           )}
-          {isFewShot && detecting && (
-            <span className="text-ink-2">Few-Shot detection running</span>
+          {hasProvision && detecting && (
+            <span className="text-ink-2">Detection running</span>
           )}
-          {error && status === 'error' && !isFewShot && (
+          {error && status === 'error' && !hasProvision && (
             <span className="text-danger">Load failed — check the registry / assets</span>
           )}
         </div>
@@ -1138,13 +1207,14 @@ export const KWSPanel = memo(function KWSPanel({
       {/* plixkws enrollment + detection (Few-Shot, Phase 3) - inline in the KWS
           panel; the standalone Few-Shot panel was merged here. The encoder
           variant + runtime are the plix driver's spec params (ADR-025). */}
-      {isFewShot && (
+      {hasProvision && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-4">
             <h3 className="text-sm font-semibold text-ink-1">
-              Few-Shot enrollment{' '}
+              Provisioning{' '}
               <span className="text-xs font-normal text-ink-3">
-                (Phase 3 · enroll a custom wake word, then detect)
+                (enroll a custom wake word, then detect — driven by the backend's
+                provisioning capability, ADR-033)
               </span>
             </h3>
           </div>
@@ -1156,9 +1226,9 @@ export const KWSPanel = memo(function KWSPanel({
             </p>
           )}
 
-          {/* plix driver config (ADR-025): the encoder/runtime params from the
-              plix driver spec, rendered via module-kit controls. The enrollment
-              flow below consumes these values via driverValues. */}
+          {/* Driver config (ADR-025): the driver's own params from its
+              registration spec, rendered via module-kit controls. The
+              provisioning flow below consumes these values via driverValues. */}
           {driverParams.length > 0 && !detecting && (
             <div className="space-y-1 border-t border-line pt-3">
               <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
@@ -1186,7 +1256,9 @@ export const KWSPanel = memo(function KWSPanel({
                   disabled={recording}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-emerald-500 disabled:opacity-50"
                 >
-                  {recording ? `Recording… (${RECORD_MS}ms)` : 'Record sample'}
+                  {recording
+                    ? `Recording… (${RECORD_MS}ms)`
+                    : (provisionActionLabel(config.backend, 'record') ?? 'Record sample')}
                 </button>
                 {samples.length >= MIN_SAMPLES && (
                   <button
@@ -1194,7 +1266,9 @@ export const KWSPanel = memo(function KWSPanel({
                     disabled={building}
                     className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
                   >
-                    {building ? 'Building…' : `Build prototype (${samples.length} samples)`}
+                    {building
+                      ? 'Building…'
+                      : `${provisionActionLabel(config.backend, 'enroll') ?? 'Build prototype'} (${samples.length} samples)`}
                   </button>
                 )}
                 {samples.length > 0 && (
@@ -1220,10 +1294,10 @@ export const KWSPanel = memo(function KWSPanel({
                 </div>
               )}
 
-              {prototype && (
+              {artifactProto && (
                 <div className="space-y-2">
                   <p className="text-xs text-success">
-                    Prototype built: {prototype.word} ({prototype.vector.length}-dim
+                    Prototype built: {artifactProto.word} ({artifactProto.vector.length}-dim
                     vector). Ready for detection.
                   </p>
                   {!afeRunning && (
@@ -1247,7 +1321,7 @@ export const KWSPanel = memo(function KWSPanel({
                       (optional — other words / background, for open-set rejection)
                     </span>
                   </h4>
-                  {prototype?.negativeVector && (
+                  {artifactProto?.negativeVector && (
                     <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
                       enrolled
                     </span>
@@ -1261,7 +1335,7 @@ export const KWSPanel = memo(function KWSPanel({
                   >
                     {recordingNeg ? `Recording… (${RECORD_MS}ms)` : 'Record non-target sample'}
                   </button>
-                  {negSamples.length >= MIN_SAMPLES && prototype && (
+                  {negSamples.length >= MIN_SAMPLES && artifactProto && (
                     <button
                       onClick={handleBuildNegative}
                       disabled={buildingNeg}
@@ -1269,9 +1343,9 @@ export const KWSPanel = memo(function KWSPanel({
                     >
                       {buildingNeg
                         ? 'Building…'
-                        : prototype.negativeVector
+                        : artifactProto.negativeVector
                           ? 'Re-enroll negative prototype'
-                          : `Build negative prototype (${negSamples.length} samples)`}
+                          : `${provisionActionLabel(config.backend, 'enroll-negative') ?? 'Build negative prototype'} (${negSamples.length} samples)`}
                     </button>
                   )}
                   {negSamples.length > 0 && (
@@ -1280,7 +1354,7 @@ export const KWSPanel = memo(function KWSPanel({
                     </span>
                   )}
                 </div>
-                {prototype && !prototype.negativeVector && negSamples.length === 0 && (
+                {artifactProto && !artifactProto.negativeVector && negSamples.length === 0 && (
                   <p className="text-[10px] text-ink-3">
                     Say other words you don't want to trigger on (e.g. "hello", "hi",
                     background conversation) — the detector then scores them against this
@@ -1325,9 +1399,10 @@ export const KWSPanel = memo(function KWSPanel({
             </div>
           )}
 
-          {/* Few-Shot detection params (from the few-shot module's spec) - shown
-              once a prototype exists so the user can tune before/while running. */}
-          {prototype && (
+          {/* Detection params (from the few-shot module's spec) - shown
+              once a prototype artifact exists so the user can tune
+              before/while running. */}
+          {artifactProto && (
             <div className="space-y-1 border-t border-line pt-3">
               <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
                 Few-Shot detection parameters
@@ -1358,7 +1433,7 @@ export const KWSPanel = memo(function KWSPanel({
           §4.1). Rendered whenever a backend is selected (even before load): the
           params come from the specs, not from the engine state, so they are
           editable up front and applied on the next Load. */}
-      {!isFewShot && (
+      {!hasProvision && (
         <div className="space-y-3">
           <h3 className="mb-4 text-sm font-semibold text-ink-1">
             Configuration{' '}

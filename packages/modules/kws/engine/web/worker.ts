@@ -167,7 +167,20 @@ async function handleLoad(
           'PLiX Few-Shot backend requires a loaded PLiX encoder (provide a plixkws URL).',
         )
       }
-      if (!prototypeVector || prototypeVector.length === 0) {
+      // The prototype arrives via backendConfig in the provisioning flow
+      // (ADR-033: the driver's apply() maps the artifact into backendConfig,
+      // so the host stays generic). The message's legacy `prototype` field is
+      // still honoured for direct callers (playground / older hosts).
+      const protoConfig = (backendConfig ?? {}) as {
+        prototype?: number[]
+        prototypeNegative?: number[]
+        windowMs?: number
+        useNegativePrototype?: boolean
+        silenceFloorDbfs?: number
+      }
+      const protoVector = protoConfig.prototype ?? prototypeVector
+      const protoNegative = protoConfig.prototypeNegative ?? prototypeNegative
+      if (!protoVector || protoVector.length === 0) {
         throw new Error(
           'PLiX Few-Shot backend requires a prototype vector in the load message.',
         )
@@ -175,12 +188,12 @@ async function handleLoad(
       const proto = {
         id: 'enrolled',
         word: 'enrolled-word',
-        vector: new Float32Array(prototypeVector),
+        vector: new Float32Array(protoVector),
         // Negative-class prototype (open-set rejection, issue #69): the user
         // enrolled other words/background; scoring subtracts this class's
         // distance so non-target speech scores low.
-        negativeVector: prototypeNegative
-          ? new Float32Array(prototypeNegative)
+        negativeVector: protoNegative
+          ? new Float32Array(protoNegative)
           : undefined,
         sampleIds: [],
         createdAtMs: Date.now(),
@@ -198,15 +211,15 @@ async function handleLoad(
             e: unknown,
             opts?: {
               windowMs?: number
-              useNegative?: boolean
+              useNegativePrototype?: boolean
               silenceFloorDbfs?: number
             },
           ) => void
         }
       ).initWithPrototype?.(proto, embedProvider, {
-        windowMs: (backendConfig as { windowMs?: number } | undefined)?.windowMs,
-        useNegative: (backendConfig as { useNegative?: boolean } | undefined)?.useNegative,
-        silenceFloorDbfs: (backendConfig as { silenceFloorDbfs?: number } | undefined)?.silenceFloorDbfs,
+        windowMs: protoConfig.windowMs,
+        useNegativePrototype: protoConfig.useNegativePrototype,
+        silenceFloorDbfs: protoConfig.silenceFloorDbfs,
       })
     } else {
       // Detection backend: only load if its required URLs are present. If only

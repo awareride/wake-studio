@@ -31,7 +31,7 @@ export interface PanelCommands {
   /** KWS-specific: load models. */
   load?: () => Promise<void>
   /** KWS-specific: read current engine state. */
-  getState?: () => { status: string; running: boolean; isFewShot: boolean }
+  getState?: () => { status: string; running: boolean; hasProvision: boolean }
 }
 
 export type PipelinePhase =

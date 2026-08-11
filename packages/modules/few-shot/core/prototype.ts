@@ -1,9 +1,13 @@
 /**
- * kws-plix driver module - Few-Shot scoring types + DSP.
+ * Few-Shot module - wake-word prototype type + scoring primitives (ADR-033).
  *
- * Owned by the plix driver: the prototype type and the squared-Euclidean /
- * plixScore rescaling are the encoder's own contract (ADR-024). The Few-Shot
- * module (§6.4) consumes these from here rather than redefining them.
+ * Owned by the few-shot capability module, NOT by any KWS driver: the
+ * prototype type and the squared-Euclidean / plixScore rescaling are the
+ * enrollment contract, and a future `train`-kind driver (openwakeword
+ * training, ADR-033) must produce the same artifact type without importing an
+ * impl module (#74 rule). The plix driver imports these from here.
+ *
+ * @see docs/modules/few-shot.md §4-§5
  */
 
 /** A stored wake-word prototype (Few-Shot enrollment output). */

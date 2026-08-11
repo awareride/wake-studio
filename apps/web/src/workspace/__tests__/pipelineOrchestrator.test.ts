@@ -48,7 +48,7 @@ function makeKws(initialStatus = 'idle'): PanelCommands & {
       running = false
       calls.stops++
     },
-    getState: () => ({ status, running, isFewShot: false }),
+    getState: () => ({ status, running, hasProvision: false }),
     calls,
   }
   return commands

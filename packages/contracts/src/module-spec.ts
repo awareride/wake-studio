@@ -42,7 +42,7 @@ export interface ModuleParam {
   validation?: ParamValidation
 }
 
-export type ActionKind = 'load' | 'start' | 'stop' | 'export' | 'train' | 'record' | 'reset'
+export type ActionKind = 'load' | 'start' | 'stop' | 'export' | 'train' | 'record' | 'reset' | 'enroll'
 
 export interface ModuleAction {
   id: string

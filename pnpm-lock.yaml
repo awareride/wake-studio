@@ -406,9 +406,6 @@ importers:
       '@wake-studio/module-kws-engine':
         specifier: workspace:^
         version: link:../kws/engine
-      '@wake-studio/module-kws-plix':
-        specifier: workspace:^
-        version: link:../kws/plix
       '@wake-studio/platform':
         specifier: workspace:^
         version: link:../../platform
@@ -529,6 +526,9 @@ importers:
       '@wake-studio/dsp':
         specifier: workspace:*
         version: link:../../../dsp
+      '@wake-studio/module-few-shot':
+        specifier: workspace:^
+        version: link:../../few-shot
       '@wake-studio/module-kws-engine':
         specifier: workspace:^
         version: link:../engine

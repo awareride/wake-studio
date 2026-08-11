@@ -13,7 +13,7 @@ import {
   getPlixEncoderVariant,
   plixVariantOnnxUrl,
 } from '../encoders/plix-encoder'
-import type { WakeWordPrototype } from '../core/prototype'
+import type { WakeWordPrototype } from '@wake-studio/module-few-shot'
 import type { EmbedProvider } from '@wake-studio/module-kws-engine'
 
 class FakeEmbedder implements EmbedProvider {

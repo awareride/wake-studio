@@ -2,7 +2,8 @@
  * User model library - index.
  *
  * IndexedDB-backed store for user-supplied KWS models (local file imports and
- * future training artifacts). See store.ts for the full contract.
+ * future training artifacts) AND provisioned artifacts (enrolled prototypes
+ * today; ADR-033) - one browsable collection.
  */
 
 export {
@@ -11,5 +12,9 @@ export {
   deleteUserModel,
   exportUserModel,
   blobUrlForModel,
+  saveProvisionArtifact,
+  listProvisionArtifacts,
+  getProvisionArtifact,
+  deleteProvisionArtifact,
 } from './store'
-export type { UserModel } from './store'
+export type { UserModel, UserArtifact } from './store'

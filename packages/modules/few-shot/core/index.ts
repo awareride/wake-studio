@@ -14,7 +14,12 @@ export {
   estimateSnrDb,
   checkSampleQuality,
 } from './quality'
-export { squaredEuclidean, plixScore, meanPool } from '@wake-studio/module-kws-plix'
+export { squaredEuclidean, plixScore, meanPool, l2Normalize } from './prototype'
+export {
+  deserializePrototype,
+  serializePrototype,
+  uid,
+} from './serialize'
 export type {
   EnrolledSample,
   FewShotConfig,
@@ -22,4 +27,4 @@ export type {
   SampleQuality,
   SerializedPrototype,
 } from './types'
-export type { WakeWordPrototype } from '@wake-studio/module-kws-plix'
+export type { WakeWordPrototype } from './prototype'

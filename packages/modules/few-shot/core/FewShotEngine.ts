@@ -18,6 +18,7 @@ import { DEFAULT_CONFIG } from './defaults'
 import { describeParameters } from './defaults'
 import { meanPool } from './quality'
 import { checkSampleQuality } from './quality'
+import { uid } from './serialize'
 import {
   savePrototype,
   listPrototypes,
@@ -25,14 +26,6 @@ import {
   saveSample,
   deleteSample,
 } from './storage'
-
-/** Generate a unique id (crypto.randomUUID with fallback). */
-function uid(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID()
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
 
 export class FewShotEngine {
   private _kws: KWSEngine

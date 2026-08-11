@@ -12,22 +12,36 @@ import {
   registerEmbedProviderFactory,
 } from '@wake-studio/module-kws-engine'
 import type { EmbedProvider } from '@wake-studio/module-kws-engine'
-import type { ModuleSpec } from '@wake-studio/contracts'
+import type { ModuleSpec, ProvisionArtifact } from '@wake-studio/contracts'
+import type { WakeWordPrototype, EnrolledSample } from '@wake-studio/module-few-shot'
+import { meanPool, serializePrototype } from '@wake-studio/module-few-shot'
 import { PlixKwsBackend } from './backend'
 import { PlixKwsEmbedProvider } from '../encoders/plixkws-embed'
 import { getPlixEncoderVariant } from '../encoders/plix-encoder'
-import type { WakeWordPrototype } from './prototype'
 import plixSpec from '../spec/module.spec.json'
+import plixProvisionSpec from '../spec/provision.spec.json'
 
 export { PlixKwsBackend } from './backend'
 export { PlixKwsEmbedProvider } from '../encoders/plixkws-embed'
-export {
-  type WakeWordPrototype,
-  meanPool,
-  plixScore,
-  squaredEuclidean,
-  l2Normalize,
-} from './prototype'
+
+/**
+ * Input shape for the plix provisioning capability's produce(): enrolled
+ * mic samples (already embedded by the host's FewShotEngine) plus optional
+ * negative-class samples for open-set rejection (issue #69).
+ */
+export interface PlixProduceInput {
+  word: string
+  samples: EnrolledSample[]
+  negativeSamples?: EnrolledSample[]
+}
+
+/** Unique id for a produced prototype (crypto.randomUUID with fallback). */
+function cryptoRandomUuid(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
 
 // Embed-provider factory: the worker hosts the embed() scaffold via this seam
 // without importing the plix module directly (ADR-024).
@@ -55,7 +69,7 @@ registerKwsBackend({
         embed: EmbedProvider,
         opts?: {
           windowMs?: number
-          useNegative?: boolean
+          useNegativePrototype?: boolean
           /** RMS (dBFS) floor below which windows score 0 (silence gate). */
           silenceFloorDbfs?: number
         },
@@ -69,7 +83,7 @@ registerKwsBackend({
         embed,
         proto,
         opts?.windowMs ?? 1500,
-        opts?.useNegative ?? false,
+        opts?.useNegativePrototype ?? false,
         opts?.silenceFloorDbfs,
       )
       // Copy state that may already exist (none before load, but stay safe).
@@ -125,6 +139,58 @@ registerKwsBackend({
     }
     return { plixkws: url, runtime: rt }
   },
+  // Provisioning capability (ADR-033): this driver produces the wake-word
+  // artifact it loads with - an enrolled prototype. The host renders the
+  // provisioning spec (record/enroll/start actions), collects mic samples,
+  // calls produce() to build the artifact, persists it to the user library,
+  // then feeds apply() into engine.load. No plix-specific code paths in the
+  // host.
+  provision: {
+    kind: 'prototype',
+    // The provisioning panel spec (separate from the driver config spec):
+    // enrollment actions + status, rendered by the panel generator.
+    spec: plixProvisionSpec as unknown as ModuleSpec,
+    // Input: enrolled mic samples (embeddings) + optional negative-class
+    // samples. Builds the prototype via mean-pooling (pure; the encoder is
+    // already embedded into the samples by the host's FewShotEngine).
+    produce: async (input) => {
+      const { word, samples, negativeSamples } = input as PlixProduceInput
+      if (samples.length === 0) {
+        throw new Error('Cannot build a prototype from zero samples.')
+      }
+      const proto: WakeWordPrototype = {
+        id: cryptoRandomUuid(),
+        word,
+        vector: meanPool(samples.map((s) => s.embedding)),
+        sampleIds: samples.map((s) => s.id),
+        createdAtMs: Date.now(),
+      }
+      if (negativeSamples && negativeSamples.length > 0) {
+        proto.negativeVector = meanPool(negativeSamples.map((s) => s.embedding))
+      }
+      return {
+        kind: 'prototype',
+        backendId: 'plixkws',
+        payload: serializePrototype(proto),
+      }
+    },
+    // Load-time mapping: the prototype vector(s) ride in backendConfig
+    // (opaque to the host; the worker's plixkws load branch reads them). The
+    // encoder URLs still come from resolveModelUrls above. The few-shot
+    // detection params (windowMs / useNegativePrototype / silenceFloorDbfs)
+    // are overlaid by the host from the few-shot module's config surface.
+    apply: (artifact: ProvisionArtifact) => {
+      if (artifact.kind !== 'prototype') {
+        throw new Error('plixkws only consumes prototype artifacts.')
+      }
+      return {
+        backendConfig: {
+          prototype: artifact.payload.vector,
+          prototypeNegative: artifact.payload.negativeVector,
+        },
+      }
+    },
+  },
   // Engine-card resources (ADR-024): the encoder model plus the persisted
   // enrollment artifacts. The data rows read the host-provided saved summary.
   resources: [
@@ -134,11 +200,14 @@ registerKwsBackend({
       label: 'Enrolled prototypes',
       kind: 'data',
       state: (ctx) => {
-        const protos = ctx.saved.prototypes as
-          | Array<{ word?: string }>
+        // The host passes the user artifact library's prototype entries
+        // (ADR-033): { artifactType: 'prototype', artifact: { payload: { word } } }.
+        const entries = ctx.saved.prototypes as
+          | Array<{ artifactType?: string; artifact?: { payload?: { word?: string } } }>
           | undefined
-        const words = (protos ?? [])
-          .map((p) => p.word)
+        const words = (entries ?? [])
+          .filter((e) => e.artifactType === 'prototype')
+          .map((e) => e.artifact?.payload?.word)
           .filter((w): w is string => Boolean(w))
         return { ready: words.length > 0, detail: words.join(', ') || 'none saved' }
       },

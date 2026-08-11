@@ -394,7 +394,8 @@ package and offers to train a clean replacement instead.
   ADR-020 (pluggable KWS backends), ADR-021 (device-side SDK), ADR-022 (data-source
   layer), ADR-023 (Colab backend), ADR-024 (3-category KWS taxonomy + decoupling
   rule + unified panel spec), ADR-025 (module platform + monorepo), ADR-026
-  (testing layers), ADR-027 (build-artifact SOP), ADR-028 (uv for train scripts);
+  (testing layers), ADR-027 (build-artifact SOP), ADR-028 (uv for train scripts),
+  ADR-032 (shared DSP package), ADR-033 (provisioning capability);
   ADR-013 amended (in-browser training removed, Cloud Providers unified, Colab
   added) and ADR-011 amended (asset pre-fetch).
 - **License matrix:** `LICENSES.md`.

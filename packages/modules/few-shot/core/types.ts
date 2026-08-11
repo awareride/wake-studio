@@ -2,11 +2,13 @@
  * Few-Shot module - shared types.
  *
  * Public API surface: see docs/modules/few-shot.md §4.
- * WakeWordPrototype is owned by the plix driver (module-migration §6.3) and
- * re-exported here for callers; this module defines its own enrollment types.
+ * WakeWordPrototype is owned by this capability module (ADR-033; moved out of
+ * the plix driver so any enrollment/training driver can produce the same
+ * artifact type) and re-exported here for callers.
  */
 
-import type { WakeWordPrototype } from '@wake-studio/module-kws-plix'
+import type { ProvisionPrototypePayload } from '@wake-studio/contracts'
+import type { WakeWordPrototype } from './prototype'
 
 export type { WakeWordPrototype }
 
@@ -28,7 +30,7 @@ export interface SampleQuality {
   acceptable: boolean
 }
 
-/** A stored wake-word prototype (owned by the plix driver, §6.3). */
+/** A stored wake-word prototype (owned by the few-shot module, ADR-033). */
 // (re-exported above)
 
 /** Few-Shot configuration (ADR-017 config panel). */
@@ -60,12 +62,6 @@ export interface ParameterDescriptor {
   description: string
 }
 
-/** Serialized form for IndexedDB (Float32Array -> number[]). */
-export interface SerializedPrototype {
-  id: string
-  word: string
-  vector: number[]
-  negativeVector?: number[]
-  sampleIds: string[]
-  createdAtMs: number
-}
+/** Serialized form for IndexedDB (Float32Array -> number[]); the contracts
+ *  provisioning payload (ADR-033) is the canonical shape. */
+export type SerializedPrototype = ProvisionPrototypePayload

@@ -48,7 +48,7 @@ export {
   squaredEuclidean,
   plixScore,
   meanPool,
-} from '@wake-studio/module-kws-plix'
+} from './prototype'
 
 /** Quality metrics for an enrollment sample. */
 export interface SampleQuality {

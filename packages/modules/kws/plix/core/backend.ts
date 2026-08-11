@@ -44,8 +44,8 @@
  */
 
 import type { EmbedProvider, KWSBackend } from '@wake-studio/module-kws-engine'
-import type { WakeWordPrototype } from './prototype'
-import { squaredEuclidean, plixScore, l2Normalize } from './prototype'
+import type { WakeWordPrototype } from '@wake-studio/module-few-shot'
+import { squaredEuclidean, plixScore, l2Normalize } from '@wake-studio/module-few-shot'
 import { rmsDbfs } from '@wake-studio/dsp'
 
 /** Detection hop in frames (80 ms / 10 ms = 8 frames at the AFE cadence). */
