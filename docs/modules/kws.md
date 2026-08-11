@@ -454,8 +454,11 @@ All Phase 2 open questions are resolved (ADR-018); the contract is locked.
   - The host's `commandRef` load/start/stop dispatch follows `provision`
     presence instead of the KWS category (`isFewShot` removed); a second
     few-shot driver or a keyword-list driver needs zero host edits.
-  - Today only the plix `prototype` kind is implemented; `list` (sherpa) and
-    `train` (Phase 5 train-runner) are declared but unimplemented.
+  - Today two kinds are implemented: plix `prototype` (enrollment) and sherpa
+    `list` (keyword list); `train` (Phase 5 train-runner) is declared but
+    unimplemented. The host branches on `provision.kind` for the panel
+    section (prototype enrollment UI vs list keyword editor) - adding a
+    driver of either kind needs zero host edits.
   - The worker's plixkws load branch reads the prototype from `backendConfig`
     (the legacy `prototype` message field remains supported).
 - **[Q-KWS-1] Demo model -> `hey-buddy`** (`benjamin-paine/hey-buddy`, CC-BY-4.0,
@@ -508,3 +511,4 @@ All Phase 2 open questions are resolved (ADR-018); the contract is locked.
 | 2026-07-31 | Add `sherpa-onnx-kws` backend (real KWS transducer, emscripten WASM, main-thread) to the backend union, `KWSBackend` optional `onDetection`/`configure`, `SherpaOnnxKwsConfig`, `BackendModelUrls.sherpaKws`, `KWSConfig.runtime`. Threading §5 amended (sherpa runs main-thread), config table + error model + testing strategy updated. Docs-only sync with ba52a61. | agent |
 | 2026-08-07 | Add the `kws-streaming` driver (§0 layout, backend-id union, `BackendModelUrls.kwsStreaming`) - `google-research/kws_streaming` external-state streaming graphs, Traditional category (#72). Contract detail lives in `docs/modules/kws-streaming.md`. | agent |
 | 2026-08-11 | ADR-033 provisioning capability: `ProvisionCapability` on the backend registration (contracts payload types + kws-engine interface), plix `prototype` capability (produce/apply), worker reads the prototype from backendConfig, host dispatch on `provision` presence (no `isFewShot`), artifacts persist in the shared user artifact library (prototypes today). | agent |
+| 2026-08-11 | sherpa `list` capability (ADR-033): produce/apply wrap the keyword-list artifact; the host's provisioning section is kind-driven (prototype enrollment UI vs list keyword editor); `commandRef` load for list-kind produces + applies + loads. | agent |

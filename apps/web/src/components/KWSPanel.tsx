@@ -412,6 +412,10 @@ export const KWSPanel = memo(function KWSPanel({
   const selectedBackend = getBackendRegistry().find((r) => r.id === config.backend)
   const provision = selectedBackend?.provision
   const hasProvision = Boolean(provision)
+  // Which provisioning kind the selected backend declares: 'prototype'
+  // (enrollment UI) vs 'list' (keyword-list editor). The panel renders the
+  // matching section; a new kind needs one branch here, never per-driver code.
+  const provisionKind = provision?.kind
   // Model-source roles come from the backend's registration (ADR-024): each
   // driver declares the roles it consumes. asr-decoding (sherpa-onnx-kws)
   // bundles its model into the wasm .data package and only takes a keyword
@@ -532,6 +536,43 @@ export const KWSPanel = memo(function KWSPanel({
       setStatus('error')
     }
   }, [ensureFsEngines, resolveModelUrlsFor, config.backend])
+
+  /**
+   * List-kind load (ADR-033): produce the keyword-list artifact from the
+   * driver's keywords param, then load through apply() -> backendConfig
+   * (merged with the live driver values, e.g. threshold).
+   */
+  const handleListLoad = useCallback(async () => {
+    setError(null)
+    const cap = provision
+    if (!cap || cap.kind !== 'list') {
+      throw new Error('This backend has no keyword-list provisioning capability.')
+    }
+    const engine = engineRef.current!
+    try {
+      setStatus('loading')
+      const produced = await cap.produce({
+        keywords: String(driverValues.keywords ?? ''),
+      })
+      const applied = cap.apply(produced)
+      engine.setConfig({ backend: config.backend, threshold: config.threshold })
+      const urls = applied.urls ?? (await resolveModelUrlsFor(config.backend))
+      // The applied keyword list + the driver's live values (threshold) ride
+      // in backendConfig, consumed by the backend's configure().
+      const backendConfig = {
+        ...applied.backendConfig,
+        ...driverValues,
+      }
+      await engine.load(urls, undefined, backendConfig)
+      setStatus(engine.status)
+      setExecutionProvider(engine.executionProvider)
+      logInfo('kws', `Keyword list loaded (backend: ${config.backend})`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+      setStatus('error')
+      logError('kws', err instanceof Error ? err.message : String(err))
+    }
+  }, [provision, driverValues, config.backend, config.threshold, resolveModelUrlsFor])
 
   /** Record a 1.5 s sample from the mic at 16 kHz into the given bucket
    *  ('pos' = wake word samples, 'neg' = other-speech/background samples for
@@ -770,20 +811,30 @@ export const KWSPanel = memo(function KWSPanel({
   // its own Load/Reload buttons.
   //
   // Dispatch on the backend's provisioning capability (ADR-033), not on its
-  // category: a provisioning backend (plixkws today, any future enrollment or
-  // keyword-list driver) boots WITH its produced artifact, so it needs its
-  // own load/start/stop. Traditional backends keep the plain load/start/stop.
-  // Adding a provisioning driver never edits this dispatch.
+  // category: a provisioning backend boots WITH its produced artifact, so it
+  // needs its own load/start/stop per kind. prototype-kind (plixkws today)
+  // loads the encoder + starts with the artifact; list-kind (sherpa today)
+  // loads with the keyword-list artifact but uses the plain start/stop.
+  // Traditional backends keep the plain load/start/stop. Adding a
+  // provisioning driver never edits this dispatch.
   useEffect(() => {
     if (commandRef) {
       commandRef.current = {
-        load: hasProvision ? handleProvisionLoad : handleLoad,
-        start: hasProvision ? handleProvisionStart : handleStart,
-        stop: hasProvision ? handleProvisionStop : handleStop,
+        load: !hasProvision
+          ? handleLoad
+          : provisionKind === 'list'
+            ? handleListLoad
+            : handleProvisionLoad,
+        start: !hasProvision || provisionKind === 'list'
+          ? handleStart
+          : handleProvisionStart,
+        stop: !hasProvision || provisionKind === 'list'
+          ? handleStop
+          : handleProvisionStop,
         getState: () => ({ status, running: running || detecting, hasProvision }),
       }
     }
-  }, [commandRef, hasProvision, handleLoad, handleProvisionLoad, handleStart, handleProvisionStart, handleStop, handleProvisionStop, status, running, detecting])
+  }, [commandRef, hasProvision, provisionKind, handleLoad, handleListLoad, handleProvisionLoad, handleStart, handleProvisionStart, handleStop, handleProvisionStop, status, running, detecting])
 
   const updateConfig = useCallback((patch: Partial<KWSConfig>) => {
     setConfig((prev) => {
@@ -905,29 +956,33 @@ export const KWSPanel = memo(function KWSPanel({
             <h3 className="text-sm font-semibold text-ink-1">Engine</h3>
             <span className="text-xs text-ink-3">
               {selectedBackend?.label ?? config.backend} ·{' '}
-              {status === 'ready' && !hasProvision
+              {status === 'ready' && provisionKind !== 'prototype'
                 ? `${executionProvider === 'webgpu' ? 'WebGPU' : 'WASM'}`
                 : status}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {!hasProvision && status === 'idle' && (
+            {provisionKind !== 'prototype' && status === 'idle' && (
               <button
-                onClick={handleLoad}
+                onClick={provisionKind === 'list' ? handleListLoad : handleLoad}
                 className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-brand-400"
               >
-                Load models
+                {provisionKind === 'list'
+                  ? (provisionActionLabel(config.backend, 'load-with-list') ?? 'Load')
+                  : 'Load models'}
               </button>
             )}
-            {!hasProvision && (status === 'ready' || status === 'error') && (
+            {provisionKind !== 'prototype' && (status === 'ready' || status === 'error') && (
               <button
-                onClick={handleLoad}
+                onClick={provisionKind === 'list' ? handleListLoad : handleLoad}
                 className="rounded-lg bg-surface-3 px-4 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-4"
               >
-                Reload models
+                {provisionKind === 'list'
+                  ? (provisionActionLabel(config.backend, 'load-with-list') ?? 'Reload')
+                  : 'Reload models'}
               </button>
             )}
-            {hasProvision && status !== 'ready' && status !== 'running' && !detecting && (
+            {provisionKind === 'prototype' && status !== 'ready' && status !== 'running' && !detecting && (
               <button
                 onClick={handleProvisionLoad}
                 disabled={status === 'loading'}
@@ -936,7 +991,7 @@ export const KWSPanel = memo(function KWSPanel({
                 {status === 'loading' ? 'Loading…' : loadActionLabel(selectedBackend)}
               </button>
             )}
-            {!hasProvision && canStart && (
+            {provisionKind !== 'prototype' && canStart && (
               <button
                 onClick={handleStart}
                 className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-emerald-500"
@@ -944,7 +999,7 @@ export const KWSPanel = memo(function KWSPanel({
                 Start detection
               </button>
             )}
-            {!hasProvision && running && (
+            {provisionKind !== 'prototype' && running && (
               <button
                 onClick={handleStop}
                 className="rounded-lg bg-danger/90 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-red-500"
@@ -952,7 +1007,7 @@ export const KWSPanel = memo(function KWSPanel({
                 Stop detection
               </button>
             )}
-            {hasProvision && artifact && !detecting && (
+            {provisionKind === 'prototype' && artifact && !detecting && (
               <button
                 onClick={handleProvisionStart}
                 disabled={!afeRunning}
@@ -961,7 +1016,7 @@ export const KWSPanel = memo(function KWSPanel({
                 {provisionActionLabel(config.backend, 'start') ?? 'Start detection'}
               </button>
             )}
-            {hasProvision && detecting && (
+            {provisionKind === 'prototype' && detecting && (
               <button
                 onClick={handleProvisionStop}
                 className="rounded-lg bg-danger/90 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-red-500"
@@ -977,7 +1032,7 @@ export const KWSPanel = memo(function KWSPanel({
           {status === 'loading' && (
             <span className="text-ink-2">Loading models…</span>
           )}
-          {status === 'ready' && !hasProvision && !afeRunning && (
+          {status === 'ready' && provisionKind !== 'prototype' && !afeRunning && (
             <span className="text-warning">
               Start the AFE microphone first
             </span>
@@ -987,16 +1042,16 @@ export const KWSPanel = memo(function KWSPanel({
               Warming up… (collecting ~2 s of audio context)
             </span>
           )}
-          {status === 'ready' && !hasProvision && (
+          {status === 'ready' && provisionKind !== 'prototype' && (
             <span>Models loaded · EP: {executionProvider === 'webgpu' ? 'WebGPU' : 'WASM'}</span>
           )}
-          {status === 'ready' && hasProvision && (
+          {status === 'ready' && provisionKind === 'prototype' && (
             <span className="text-ink-2">Encoder loaded — record samples to enroll</span>
           )}
-          {hasProvision && detecting && (
+          {provisionKind === 'prototype' && detecting && (
             <span className="text-ink-2">Detection running</span>
           )}
-          {error && status === 'error' && !hasProvision && (
+          {error && status === 'error' && provisionKind !== 'prototype' && (
             <span className="text-danger">Load failed — check the registry / assets</span>
           )}
         </div>
@@ -1204,22 +1259,25 @@ export const KWSPanel = memo(function KWSPanel({
           }
       </div>
 
-      {/* plixkws enrollment + detection (Few-Shot, Phase 3) - inline in the KWS
-          panel; the standalone Few-Shot panel was merged here. The encoder
-          variant + runtime are the plix driver's spec params (ADR-025). */}
+      {/* Provisioning (ADR-033) - the selected backend produces the wake-word
+          artifact it loads with (enrolled prototype for plixkws, keyword list
+          for sherpa). The section is kind-driven: driver params + the
+          capability's own panel; no per-driver code paths. */}
       {hasProvision && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-4">
             <h3 className="text-sm font-semibold text-ink-1">
               Provisioning{' '}
               <span className="text-xs font-normal text-ink-3">
-                (enroll a custom wake word, then detect — driven by the backend's
-                provisioning capability, ADR-033)
+                {provisionKind === 'list'
+                  ? '(keyword-list backend — edit the wake words below, then load with the list)'
+                  : '(enroll a custom wake word, then detect)'}
+                {' '}· ADR-033
               </span>
             </h3>
           </div>
 
-          {status === 'error' && !detecting && (
+          {provisionKind === 'prototype' && status === 'error' && !detecting && (
             <p className="text-sm text-danger">
               Encoder load failed: {error} — check the encoder variant/runtime
               or the exported model assets.
@@ -1227,8 +1285,10 @@ export const KWSPanel = memo(function KWSPanel({
           )}
 
           {/* Driver config (ADR-025): the driver's own params from its
-              registration spec, rendered via module-kit controls. The
-              provisioning flow below consumes these values via driverValues. */}
+              registration spec, rendered via module-kit controls. For plixkws
+              these are the encoder variant/runtime; for sherpa the keyword
+              list + threshold. The provisioning flow below consumes these
+              values via driverValues. */}
           {driverParams.length > 0 && !detecting && (
             <div className="space-y-1 border-t border-line pt-3">
               <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
@@ -1248,7 +1308,23 @@ export const KWSPanel = memo(function KWSPanel({
             </div>
           )}
 
-          {status === 'ready' && !detecting && (
+          {provisionKind === 'list' && (
+            <div className="space-y-1 border-t border-line pt-3">
+              <p className="text-xs text-ink-3">
+                The keyword list above is the wake-word artifact (ADR-033):
+                {' '}
+                {(() => {
+                  const text = String(driverValues.keywords ?? '')
+                  const count = text.split('\n').filter((l) => l.trim()).length
+                  return count > 0
+                    ? `${count} wake word(s) will be loaded with the keyword-list artifact.`
+                    : 'enter at least one wake word to load.'
+                })()}
+              </p>
+            </div>
+          )}
+
+          {provisionKind === 'prototype' && status === 'ready' && !detecting && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-3">
                 <button
@@ -1380,7 +1456,7 @@ export const KWSPanel = memo(function KWSPanel({
             </div>
           )}
 
-          {detecting && (
+          {provisionKind === 'prototype' && detecting && (
             <div className="space-y-2 border-t border-line pt-3">
               <div className="mb-2 flex items-center justify-between text-xs text-ink-3">
                 <span>Few-Shot score curve (prototype-distance similarity)</span>
@@ -1402,7 +1478,7 @@ export const KWSPanel = memo(function KWSPanel({
           {/* Detection params (from the few-shot module's spec) - shown
               once a prototype artifact exists so the user can tune
               before/while running. */}
-          {artifactProto && (
+          {provisionKind === 'prototype' && artifactProto && (
             <div className="space-y-1 border-t border-line pt-3">
               <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
                 Few-Shot detection parameters
@@ -1430,10 +1506,11 @@ export const KWSPanel = memo(function KWSPanel({
       )}
 
       {/* Config panel (ADR-017) - dual-layer: Primary + Advanced (kws-categories
-          §4.1). Rendered whenever a backend is selected (even before load): the
-          params come from the specs, not from the engine state, so they are
-          editable up front and applied on the next Load. */}
-      {!hasProvision && (
+          §4.1). Rendered for traditional + list-kind backends (prototype-kind
+          config lives in its provisioning section): the params come from the
+          specs, not from the engine state, so they are editable up front and
+          applied on the next Load. */}
+      {provisionKind !== 'prototype' && (
         <div className="space-y-3">
           <h3 className="mb-4 text-sm font-semibold text-ink-1">
             Configuration{' '}
@@ -1443,8 +1520,10 @@ export const KWSPanel = memo(function KWSPanel({
           </h3>
 
           {/* Driver params from the selected backend's registration spec
-              (ADR-025) - flat rows, no nested panel (epic #53 UX). */}
-          {driverParams.length > 0 && (
+              (ADR-025) - flat rows, no nested panel (epic #53 UX). Rendered
+              here only for non-provisioning backends; provisioning backends
+              show them in the provisioning section. */}
+          {!hasProvision && driverParams.length > 0 && (
             <div className="mt-3 border-t border-line pt-3">
               <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-ink-3">
                 {config.backend} driver
