@@ -20,6 +20,7 @@ import {
   KWSEngine,
   DEFAULT_CONFIG,
   describeParameters,
+  getBackendRegistration,
   getBackendRegistry,
 } from '@wake-studio/module-kws-engine'
 import type {
@@ -32,12 +33,9 @@ import type {
 import { MEL_WINDOW_SIZE } from '@wake-studio/module-kws-engine'
 import { loadRegistry, type ModelRegistry } from '@wake-studio/platform'
 import {
-  TRADITIONAL_MODEL_ROLES,
-  FEWSHOT_MODEL_ROLES,
-  KWS_STREAMING_MODEL_ROLES,
   driverParamsFor,
+  loadActionLabel,
   modelSourcesForRole,
-  type ModelSourceRole,
 } from '../workspace/kws-config'
 import { ParamRows, type ParamValue } from './UnifiedConfigPanel'
 import { drawScoreCurve } from './viz/ScoreCurve'
@@ -56,7 +54,6 @@ import {
 } from '@wake-studio/module-few-shot'
 import type { EnrolledSample, WakeWordPrototype } from '@wake-studio/module-few-shot'
 import { recorderWorkletUrl as recorderUrl } from '@wake-studio/module-few-shot/web'
-import { getPlixEncoderVariant } from '@wake-studio/module-kws-plix/encoders/plix-encoder'
 import {
   importModelFile,
   listUserModels,
@@ -84,44 +81,6 @@ function formatUrlDetail(value: BackendModelUrls[keyof BackendModelUrls]): strin
 // plixkws enrollment constants (mirrors the removed Few-Shot panel).
 const RECORD_MS = 1500
 const MIN_SAMPLES = 3
-
-/**
- * Resource descriptors shown in the Engine card, per backend. Each row is one
- * thing the engine loads or one piece of persistent data the user has created
- * (enrolled samples, wake-word lists). 'model' rows resolve their URL from the
- * platform registry (ADR-011); 'data' rows come from IndexedDB / driver params.
- */
-interface EngineResource {
-  id: string
-  label: string
-  kind: 'model' | 'data'
-  /** key into BackendModelUrls (kind: 'model'). */
-  urlKey?: keyof BackendModelUrls
-  /** Detail shown under the label (e.g. URL, sample count). */
-  detail?: string
-}
-
-/**
- * Static resource map per backend category. Model rows resolve their URL from
- * the engine's loaded URLs (ADR-011); 'ready' flips when the backend reports
- * loaded. 'data' rows show persisted artifacts (IndexedDB / driver params).
- */
-const ENGINE_RESOURCES: Record<string, EngineResource[]> = {
-  traditional: [
-    { id: 'melspectrogram', label: 'Mel-spectrogram front-end', kind: 'model', urlKey: 'melspectrogram' },
-    { id: 'embedding', label: 'Speech embedding backbone', kind: 'model', urlKey: 'embedding' },
-    { id: 'classifier', label: 'Wake-word classifier', kind: 'model', urlKey: 'classifier' },
-  ],
-  'asr-decoding': [
-    { id: 'wasm', label: 'sherpa-onnx KWS wasm runtime', kind: 'model' },
-    { id: 'keywords', label: 'Wake-word list', kind: 'data' },
-  ],
-  'few-shot': [
-    { id: 'encoder', label: 'PLiX encoder', kind: 'model', urlKey: 'plixkws' },
-    { id: 'prototypes', label: 'Enrolled prototypes', kind: 'data' },
-    { id: 'samples', label: 'Enrolled samples', kind: 'data' },
-  ],
-}
 
 interface Props {
   afePipeline: AFEPipeline | null
@@ -283,7 +242,7 @@ export const KWSPanel = memo(function KWSPanel({
 
   /** Import a local model file into the user model library for a role. */
   const handleImportModelFile = useCallback(
-    async (file: File | undefined, role: UserModel['role']) => {
+    async (file: File | undefined, role: string) => {
       if (!file) return
       try {
         const model = await importModelFile(file, role, `Imported from ${file.name}`)
@@ -302,7 +261,7 @@ export const KWSPanel = memo(function KWSPanel({
 
   /** Select a saved user model for a role; resolves its blob URL. */
   const handleSelectUserModel = useCallback(
-    async (role: UserModel['role'], modelId: string) => {
+    async (role: string, modelId: string) => {
       setModelSources((prev) => ({ ...prev, [role]: `user:${modelId}` }))
       const url = await blobUrlForModel(modelId)
       if (url) {
@@ -372,74 +331,33 @@ export const KWSPanel = memo(function KWSPanel({
 
   const params = describeParameters()
 
-  // plixkws enrollment: encoder variant + runtime are the driver's spec
-  // params (ADR-025). Seeded from driverValues (spec defaults) so a future
-  // few-shot driver with different options works unchanged.
-  const plixVariant =
-    (driverValues.encoder as 'base' | 'small' | undefined) ?? 'small'
-  const plixRuntime =
-    (driverValues.runtime as 'onnx' | 'transformers' | undefined) ?? 'onnx'
-
   /**
-   * Resolve the effective model URL for one role, honoring the user's
-   * selection: a registry built-in id or a custom URL. Falls back to the
-   * registry default when nothing is selected.
+   * Resolve the selected backend's model URLs through its registration
+   * (ADR-024): each driver owns its URL mapping (model sources + driver
+   * params + registry fallbacks). Backends that bundle their model (e.g.
+   * sherpa's wasm package) declare no resolver and get an empty URL set.
+   * Never hard-coded here - the UI shows the exact fetch command if absent.
    */
-  const resolveModelUrl = useCallback(
-    (
-      registry: ModelRegistry,
-      role:
-        | 'melspectrogram'
-        | 'embedding'
-        | 'classifier'
-        | 'plix-encoder'
-        | 'kws-streaming-model',
-      fallbackId: string,
-    ): string | undefined => {
-      const selected = modelSources[role]
-      const byId = new Map(registry.models.map((m) => [m.id, m.url]))
-      // User-library model: use the pre-resolved blob URL.
-      if (selected?.startsWith('user:')) {
-        return userBlobUrlRef.current[role]
+  const resolveModelUrlsFor = useCallback(
+    async (backendId: KWSConfig['backend']): Promise<BackendModelUrls> => {
+      const reg = getBackendRegistration(backendId)
+      let registry = registryModels
+      if (!registry) {
+        registry = await loadRegistry()
+        setRegistryModels(registry)
       }
-      if (selected && selected !== 'custom') {
-        return byId.get(selected)
+      if (reg?.resolveModelUrls) {
+        return reg.resolveModelUrls({
+          registry,
+          driverValues,
+          modelSources,
+          customUrls,
+          userBlobUrls: userBlobUrlRef.current,
+        })
       }
-      if (selected === 'custom') {
-        return customUrls[role]?.trim() || undefined
-      }
-      // Default: the built-in registry entry for this role.
-      return byId.get(fallbackId)
+      return {}
     },
-    [modelSources, customUrls],
-  )
-
-  /**
-   * Resolve the kws-streaming model + its sidecar manifest as a PAIR.
-   *
-   * The manifest declares the graph's tensor names, labels and window geometry,
-   * so a model must never be paired with a different model's manifest. Keeping
-   * both in one registry entry (`url` + `manifestUrl`) makes that impossible by
-   * construction; a custom URL therefore also needs its manifest alongside it,
-   * which we derive by swapping the .onnx extension for .json (what the
-   * exporter emits).
-   */
-  const resolveKwsStreamingUrls = useCallback(
-    (registry: ModelRegistry): { model: string; manifest: string } | undefined => {
-      const role = 'kws-streaming-model' as const
-      const selected = modelSources[role]
-      if (selected === 'custom') {
-        const model = customUrls[role]?.trim()
-        if (!model) return undefined
-        return { model, manifest: model.replace(/\.onnx$/i, '.json') }
-      }
-      const entry =
-        registry.models.find((m) => m.id === selected) ??
-        registry.models.find((m) => m.id === 'kws-streaming-kwt1')
-      if (!entry?.manifestUrl) return undefined
-      return { model: entry.url, manifest: entry.manifestUrl }
-    },
-    [modelSources, customUrls],
+    [registryModels, driverValues, modelSources, customUrls],
   )
 
   const handleLoad = useCallback(async () => {
@@ -450,23 +368,10 @@ export const KWSPanel = memo(function KWSPanel({
       setStatus('loading')
       // Ensure the engine has the latest backend selection before loading.
       engine.setConfig({ backend: config.backend, threshold: config.threshold })
-      // Resolve model URLs from the platform registry (ADR-011) - never
-      // hard-coded here; the UI shows the exact fetch command if absent.
-      // User-selected model sources (ModelSourceEditor) override the
-      // registry defaults: built-in pretrained models or a custom URL (e.g. a
-      // model trained with this platform).
-      const registry = await loadRegistry()
-      setRegistryModels(registry)
-      const urls: BackendModelUrls =
-        config.backend === 'plixkws'
-          ? { plixkws: resolveModelUrl(registry, 'plix-encoder', 'plixkws') }
-          : config.backend === 'kws-streaming'
-            ? { kwsStreaming: resolveKwsStreamingUrls(registry) }
-            : {
-                melspectrogram: resolveModelUrl(registry, 'melspectrogram', 'melspectrogram'),
-                embedding: resolveModelUrl(registry, 'embedding', 'speech_embedding'),
-                classifier: resolveModelUrl(registry, 'classifier', 'hey-buddy'),
-              }
+      // Model URLs come from the backend's own resolver (ADR-011/024); the
+      // user's model-source selections (built-in / saved / custom URL) are
+      // honored by the driver.
+      const urls = await resolveModelUrlsFor(config.backend)
       urlsRef.current = urls
       // Pass the driver's edited params as its backend config (unknown to the
       // engine; the driver's configure() interprets them, e.g. sherpa
@@ -483,7 +388,7 @@ export const KWSPanel = memo(function KWSPanel({
       setStatus('error')
       logError('kws', err instanceof Error ? err.message : String(err))
     }
-  }, [config.backend, config.threshold, driverValues, resolveModelUrl, resolveKwsStreamingUrls])
+  }, [config.backend, config.threshold, driverValues, resolveModelUrlsFor])
 
   // Auto-load: switching the backend selection loads that backend's models
   // automatically (registry is a local JSON, ADR-011). Initial mount keeps the
@@ -493,19 +398,12 @@ export const KWSPanel = memo(function KWSPanel({
   // (plixkws today, future drivers) get the enrollment flow automatically.
   const selectedBackend = getBackendRegistry().find((r) => r.id === config.backend)
   const isFewShot = selectedBackend?.category === 'few-shot'
-  // Model-source roles per category (ADR-024): traditional (openwakeword) and
-  // few-shot (plixkws) consume model URLs from the registry. asr-decoding
-  // (sherpa-onnx-kws) bundles its model into the wasm .data package and only
-  // takes a keyword list — it has NO registry model sources, so the section
-  // renders a note instead of the openwakeword pickers (issue #64).
-  const modelRoles: readonly ModelSourceRole[] =
-    selectedBackend?.category === 'few-shot'
-      ? FEWSHOT_MODEL_ROLES
-      : selectedBackend?.category === 'asr-decoding'
-        ? []
-        : config.backend === 'kws-streaming'
-          ? KWS_STREAMING_MODEL_ROLES
-          : TRADITIONAL_MODEL_ROLES
+  // Model-source roles come from the backend's registration (ADR-024): each
+  // driver declares the roles it consumes. asr-decoding (sherpa-onnx-kws)
+  // bundles its model into the wasm .data package and only takes a keyword
+  // list — it declares NO roles, so the section renders a note instead of the
+  // openwakeword pickers (issue #64).
+  const modelRoles = selectedBackend?.modelRoles ?? []
   // Backend switching is lightweight: it only updates the selection (and any
   // pending load state), it does NOT auto-load models. Loading a different
   // backend re-initializes the worker + model session, which is slow; the user
@@ -531,39 +429,6 @@ export const KWSPanel = memo(function KWSPanel({
   }, [config.backend, isFewShot])
 
   // --- plixkws enrollment + detection ---
-
-  /**
-   * Resolve the PLiX model locator for the selected variant + runtime.
-   * Honors the user's ModelSource selection: a custom encoder URL (e.g. a
-   * model trained with this platform) takes precedence over the variant's
-   * built-in ONNX URL. The transformers runtime always uses the locally
-   * served HF-style dir (variant.transformersLocalDir).
-   */
-  const resolvePlixLocator = useCallback((): { url: string; runtime: 'onnx' | 'transformers' } => {
-    const variant = getPlixEncoderVariant(plixVariant)
-    if (!variant) {
-      throw new Error(`Unknown PLiX variant: ${plixVariant}`)
-    }
-    const rt = plixRuntime
-    const customUrl = modelSources['plix-encoder'] === 'custom'
-      ? customUrls['plix-encoder']?.trim()
-      : undefined
-    let url: string
-    if (rt === 'transformers') {
-      url = variant.transformersLocalDir
-    } else if (modelSources['plix-encoder']?.startsWith('user:')) {
-      // User-library encoder (imported file / training artifact).
-      const blobUrl = userBlobUrlRef.current['plix-encoder']
-      if (!blobUrl) throw new Error('Selected PLiX encoder is not in the model library.')
-      url = blobUrl
-    } else if (customUrl) {
-      // User-supplied encoder URL overrides the built-in variant asset.
-      url = customUrl
-    } else {
-      url = variant.onnxUrl
-    }
-    return { url, runtime: rt }
-  }, [plixVariant, plixRuntime, modelSources, customUrls])
 
   const ensureFsEngines = useCallback(() => {
     if (!engineRef.current) {
@@ -611,16 +476,20 @@ export const KWSPanel = memo(function KWSPanel({
     const engine = ensureFsEngines()
     try {
       setStatus('loading')
+      // Embed-only boot: the few-shot detection path demands a prototype, so
+      // the engine loads the encoder through a traditional backend id. The
+      // selected few-shot driver still owns the URL resolution below.
       engine.setConfig({ ...DEFAULT_CONFIG, backend: 'openwakeword' })
-      const { url, runtime } = resolvePlixLocator()
-      await engine.load({ plixkws: url, runtime })
+      const urls = await resolveModelUrlsFor(config.backend)
+      urlsRef.current = urls
+      await engine.load(urls)
       setStatus(engine.status)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setError(msg)
       setStatus('error')
     }
-  }, [ensureFsEngines, resolvePlixLocator])
+  }, [ensureFsEngines, resolveModelUrlsFor, config.backend])
 
   /** Record a 1.5 s sample from the mic at 16 kHz into the given bucket
    *  ('pos' = wake word samples, 'neg' = other-speech/background samples for
@@ -771,9 +640,12 @@ export const KWSPanel = memo(function KWSPanel({
         vadGateEnabled: fsConfig.vadGateEnabled,
         vadThreshold: fsConfig.vadThreshold,
       })
-      const { url, runtime } = resolvePlixLocator()
+      // Resolve the encoder URLs through the plix driver's registration
+      // (ADR-024): variant + runtime + model-source selection are driver
+      // knowledge, not the panel's.
+      const urls = await resolveModelUrlsFor(config.backend)
       await fresh.load(
-        { plixkws: url, runtime },
+        urls,
         proto.vector,
         // Few-Shot detection params from the config panel (epic #53 P1):
         // windowMs + useNegativePrototype reach the plix backend via the
@@ -801,7 +673,7 @@ export const KWSPanel = memo(function KWSPanel({
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
     }
-  }, [afePipeline, afeRunning, prototype, resolvePlixLocator, setThreshold, historyRef, fsConfig.threshold, fsConfig.minDurationMs, fsConfig.cooldownMs, fsConfig.smoothingWindowFrames, fsConfig.vadGateEnabled, fsConfig.vadThreshold, fsConfig.windowMs, fsConfig.useNegativePrototype, fsConfig.silenceFloorDbfs])
+  }, [afePipeline, afeRunning, prototype, resolveModelUrlsFor, config.backend, setThreshold, historyRef, fsConfig.threshold, fsConfig.minDurationMs, fsConfig.cooldownMs, fsConfig.smoothingWindowFrames, fsConfig.vadGateEnabled, fsConfig.vadThreshold, fsConfig.windowMs, fsConfig.useNegativePrototype, fsConfig.silenceFloorDbfs])
 
   const handleStopPlix = useCallback(() => {
     engineRef.current?.stop()
@@ -963,7 +835,7 @@ export const KWSPanel = memo(function KWSPanel({
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-ink-1">Engine</h3>
             <span className="text-xs text-ink-3">
-              {isFewShot ? 'PLiX Few-Shot' : config.backend} ·{' '}
+              {selectedBackend?.label ?? config.backend} ·{' '}
               {status === 'ready' && !isFewShot
                 ? `${executionProvider === 'webgpu' ? 'WebGPU' : 'WASM'}`
                 : status}
@@ -992,7 +864,7 @@ export const KWSPanel = memo(function KWSPanel({
                 disabled={status === 'loading'}
                 className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
               >
-                {status === 'loading' ? 'Loading PLiX…' : 'Load PLiX encoder'}
+                {status === 'loading' ? 'Loading…' : loadActionLabel(selectedBackend)}
               </button>
             )}
             {!isFewShot && canStart && (
@@ -1050,7 +922,7 @@ export const KWSPanel = memo(function KWSPanel({
             <span>Models loaded · EP: {executionProvider === 'webgpu' ? 'WebGPU' : 'WASM'}</span>
           )}
           {status === 'ready' && isFewShot && (
-            <span className="text-ink-2">PLiX encoder loaded — record samples to enroll</span>
+            <span className="text-ink-2">Encoder loaded — record samples to enroll</span>
           )}
           {isFewShot && detecting && (
             <span className="text-ink-2">Few-Shot detection running</span>
@@ -1061,35 +933,35 @@ export const KWSPanel = memo(function KWSPanel({
         </div>
 
         {/* Resources this backend needs (models + persistent data). Each row
-            shows its own state: not loaded / loading / ready / error. */}
+            shows its own state: not loaded / loading / ready / error. Rows are
+            declared by the backend's registration (ADR-024) - the host renders
+            'model' rows generically and delegates 'data' rows to the driver's
+            probe. */}
         <div className="space-y-1.5 border-t border-line pt-3">
           <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
             Resources
           </div>
-          {(ENGINE_RESOURCES[isFewShot ? 'few-shot' : selectedBackend?.category ?? 'traditional'] ?? [])
+          {(selectedBackend?.resources ?? [])
             .map((res) => {
+              const isModel = res.kind === 'model'
+              const probe = res.state?.({
+                status,
+                urls: urlsRef.current,
+                driverValues,
+                saved: {
+                  prototypes: savedPrototypes,
+                  sampleCount: savedSampleCount,
+                },
+              })
               const ready =
-                res.kind === 'model'
-                  ? status === 'ready'
-                  : res.id === 'prototypes'
-                    ? savedPrototypes.length > 0
-                    : res.id === 'samples'
-                      ? savedSampleCount > 0
-                      : res.id === 'keywords'
-                        ? !!driverValues.keywords
-                        : false
+                probe?.ready ?? (isModel ? status === 'ready' : false)
               const detail =
-                res.id === 'prototypes'
-                  ? savedPrototypes.map((p) => p.word).join(', ') || 'none saved'
-                  : res.id === 'samples'
-                    ? `${savedSampleCount} sample(s) saved`
-                    : res.id === 'keywords'
-                      ? `${String(driverValues.keywords ?? '').split('\n').filter(Boolean).length} keyword(s)`
-                      : status === 'loading'
-                        ? 'loading…'
-                        : res.urlKey
-                          ? formatUrlDetail(urlsRef.current[res.urlKey])
-                          : ''
+                probe?.detail ??
+                (status === 'loading'
+                  ? 'loading…'
+                  : res.urlKey
+                    ? formatUrlDetail(urlsRef.current[res.urlKey])
+                    : '')
               return (
                 <div key={res.id} className="flex items-center gap-2 text-xs">
                   <span
@@ -1270,7 +1142,7 @@ export const KWSPanel = memo(function KWSPanel({
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-4">
             <h3 className="text-sm font-semibold text-ink-1">
-              PLiX Few-Shot enrollment{' '}
+              Few-Shot enrollment{' '}
               <span className="text-xs font-normal text-ink-3">
                 (Phase 3 · enroll a custom wake word, then detect)
               </span>

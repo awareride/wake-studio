@@ -15,6 +15,7 @@ import type { EmbedProvider } from '@wake-studio/module-kws-engine'
 import type { ModuleSpec } from '@wake-studio/contracts'
 import { PlixKwsBackend } from './backend'
 import { PlixKwsEmbedProvider } from '../encoders/plixkws-embed'
+import { getPlixEncoderVariant } from '../encoders/plix-encoder'
 import type { WakeWordPrototype } from './prototype'
 import plixSpec from '../spec/module.spec.json'
 
@@ -86,4 +87,70 @@ registerKwsBackend({
   // The driver's own spec (ADR-025): hosts render its params (encoder)
   // from the registry instead of hard-coding per-backend cases.
   spec: plixSpec as unknown as ModuleSpec,
+  // Few-Shot encoder model role (ADR-024): the Model-source editor is
+  // rendered from this; the URL mapping below lives in the driver.
+  modelRoles: [
+    { role: 'plix-encoder', label: 'PLiX encoder', fallbackId: 'plixkws' },
+  ],
+  // Few-Shot encoder URL resolution. The encoder variant + runtime are the
+  // driver's spec params (ADR-025) and the variant->asset mapping lives in
+  // the encoder module, so the host never names a PLiX variant or asset.
+  resolveModelUrls: (ctx) => {
+    const variant = getPlixEncoderVariant(
+      (ctx.driverValues.encoder as 'base' | 'small' | undefined) ?? 'small',
+    )
+    if (!variant) {
+      throw new Error(`Unknown PLiX variant: ${String(ctx.driverValues.encoder)}`)
+    }
+    const rt =
+      (ctx.driverValues.runtime as 'onnx' | 'transformers' | undefined) ?? 'onnx'
+    const selected = ctx.modelSources['plix-encoder']
+    const customUrl =
+      selected === 'custom' ? ctx.customUrls['plix-encoder']?.trim() : undefined
+    let url: string
+    if (rt === 'transformers') {
+      url = variant.transformersLocalDir
+    } else if (selected?.startsWith('user:')) {
+      // User-library encoder (imported file / training artifact).
+      const blobUrl = ctx.userBlobUrls['plix-encoder']
+      if (!blobUrl) {
+        throw new Error('Selected PLiX encoder is not in the model library.')
+      }
+      url = blobUrl
+    } else if (customUrl) {
+      // User-supplied encoder URL overrides the built-in variant asset.
+      url = customUrl
+    } else {
+      url = variant.onnxUrl
+    }
+    return { plixkws: url, runtime: rt }
+  },
+  // Engine-card resources (ADR-024): the encoder model plus the persisted
+  // enrollment artifacts. The data rows read the host-provided saved summary.
+  resources: [
+    { id: 'encoder', label: 'PLiX encoder', kind: 'model', urlKey: 'plixkws' },
+    {
+      id: 'prototypes',
+      label: 'Enrolled prototypes',
+      kind: 'data',
+      state: (ctx) => {
+        const protos = ctx.saved.prototypes as
+          | Array<{ word?: string }>
+          | undefined
+        const words = (protos ?? [])
+          .map((p) => p.word)
+          .filter((w): w is string => Boolean(w))
+        return { ready: words.length > 0, detail: words.join(', ') || 'none saved' }
+      },
+    },
+    {
+      id: 'samples',
+      label: 'Enrolled samples',
+      kind: 'data',
+      state: (ctx) => ({
+        ready: Number(ctx.saved.sampleCount) > 0,
+        detail: `${Number(ctx.saved.sampleCount) || 0} sample(s) saved`,
+      }),
+    },
+  ],
 })

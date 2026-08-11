@@ -27,4 +27,20 @@ registerKwsBackend({
   spec: sherpaSpec as unknown as ModuleSpec,
   // Main-thread backend: the classic emscripten wasm needs DOM.
   mainThreadFactory: () => new SherpaOnnxKwsBackend(),
+  // Engine-card resources (ADR-024). The wasm package bundles the model, so
+  // there are no model sources and no URL mapping; only the wasm runtime and
+  // the editable wake-word list (a driver param) are shown.
+  resources: [
+    { id: 'wasm', label: 'sherpa-onnx KWS wasm runtime', kind: 'model' },
+    {
+      id: 'keywords',
+      label: 'Wake-word list',
+      kind: 'data',
+      state: (ctx) => {
+        const text = String(ctx.driverValues.keywords ?? '')
+        const count = text.split('\n').filter(Boolean).length
+        return { ready: count > 0, detail: `${count} keyword(s)` }
+      },
+    },
+  ],
 })

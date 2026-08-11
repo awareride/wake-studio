@@ -8,6 +8,7 @@
  */
 
 import { getBackendRegistry } from '@wake-studio/module-kws-engine'
+import type { KWSBackendRegistration } from '@wake-studio/module-kws-engine'
 import { normalizeSelectOptions } from '@wake-studio/module-kit'
 import type { BackendModelUrls } from '@wake-studio/module-kws-engine'
 import type { ParameterDescriptor } from '@wake-studio/module-afe-graph'
@@ -62,6 +63,16 @@ export function driverParamsFor(backendId: string): ReadonlyArray<ParameterDescr
   return (spec?.params ?? []).map(descriptorFromParam)
 }
 
+/** Label for a backend's spec 'load' action (ADR-025); generic fallback. */
+export function loadActionLabel(
+  reg: KWSBackendRegistration | undefined,
+): string {
+  const action = (reg?.spec as ModuleSpec | undefined)?.actions?.find(
+    (a) => a.kind === 'load',
+  )
+  return action?.label ?? 'Load models'
+}
+
 /** Resolve the three openwakeword model roles from a registry, or a remote
  *  assets path (ADR-025) for local models, remote for the classifier. */
 export function modelUrlsFromRegistry(registry: ModelRegistry): BackendModelUrls {
@@ -103,7 +114,7 @@ export interface ModelSourceOption {
  */
 export function modelSourcesForRole(
   registry: ModelRegistry,
-  role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder' | 'kws-streaming-model',
+  role: string,
   current?: string,
 ): ModelSourceOption[] {
   const builtIns = registry.models
@@ -155,34 +166,4 @@ export function modelSourcesForRole(
 }
 
 /** One model role the Model-source editor offers for a backend. */
-export interface ModelSourceRole {
-  role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder' | 'kws-streaming-model'
-  label: string
-  fallbackId: string
-}
-
-/** Model roles for the traditional (openwakeword) backend. */
-export const TRADITIONAL_MODEL_ROLES: ModelSourceRole[] = [
-  { role: 'melspectrogram', label: 'Mel front-end', fallbackId: 'melspectrogram' },
-  { role: 'embedding', label: 'Embedding backbone', fallbackId: 'speech_embedding' },
-  { role: 'classifier', label: 'Wake-word classifier', fallbackId: 'hey-buddy' },
-]
-
-/** Model roles for the few-shot (plixkws) backend. */
-export const FEWSHOT_MODEL_ROLES: ModelSourceRole[] = [
-  { role: 'plix-encoder', label: 'PLiX encoder', fallbackId: 'plixkws' },
-]
-
-/**
- * Model roles for the kws-streaming backend (ADR-024 Traditional).
- *
- * One role: the exported graph. Its sidecar manifest travels with it via the
- * registry's `manifestUrl`, so the user picks a model, not a pair of files.
- */
-export const KWS_STREAMING_MODEL_ROLES: ModelSourceRole[] = [
-  {
-    role: 'kws-streaming-model',
-    label: 'kws_streaming model',
-    fallbackId: 'kws-streaming-kwt1',
-  },
-]
+export type { ModelSourceRole } from '@wake-studio/module-kws-engine'

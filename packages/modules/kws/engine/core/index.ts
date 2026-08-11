@@ -21,11 +21,16 @@ export {
   getBackendRegistry,
   registerEmbedProviderFactory,
   registerKwsBackend,
+  resolveRoleUrl,
 } from './backend'
 export type { KWSBackendRegistration, EmbedProviderFactory } from './backend'
 
 export type {
+  BackendModelResolveContext,
   BackendModelUrls,
+  BackendResourceDescriptor,
+  BackendResourceState,
+  BackendResourceStateContext,
   EmbedProvider,
   KWSBackend,
   KWSBackendCategory,
@@ -34,6 +39,7 @@ export type {
   KWSScoreSample,
   KWSTriggerEvent,
   KWSStatus,
+  ModelSourceRole,
   ParameterDescriptor,
   SherpaOnnxKwsConfig,
 } from './types'
