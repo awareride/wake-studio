@@ -185,12 +185,30 @@ export interface EmbedProviderFactory {
 }
 
 let embedProviderFactory: EmbedProviderFactory | null = null
+/**
+ * Which key of {@link BackendModelUrls} the registered embed provider reads
+ * its encoder URL from (ADR-034). The URL bag is driver-opaque, so the
+ * worker cannot assume a plix-named key - the driver declares it here.
+ */
+let embedProviderUrlKey: string | undefined
 
-/** Register the embed-provider factory (called by the plix driver). */
+/**
+ * Register the embed-provider factory (called by the plix driver).
+ *
+ * @param urlKey the BackendModelUrls key the embed encoder URL lives under
+ *   (e.g. 'plixkws'); the worker boots the embed provider from `urls[urlKey]`.
+ */
 export function registerEmbedProviderFactory(
   factory: EmbedProviderFactory,
+  opts?: { urlKey?: string },
 ): void {
   embedProviderFactory = factory
+  embedProviderUrlKey = opts?.urlKey
+}
+
+/** The BackendModelUrls key the embed encoder URL lives under, if any. */
+export function getEmbedProviderUrlKey(): string | undefined {
+  return embedProviderUrlKey
 }
 
 /** Create an embed provider (or null if no driver registered one). */

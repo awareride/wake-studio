@@ -1,15 +1,16 @@
 /**
- * kws-engine - worker assembly runtime test (issue #23 regression).
+ * kws-engine - worker wire runtime test (issue #23 regression, ADR-034).
  *
  * The worker bundle gets the driver registration side-effects only because
- * web/worker.ts (and web/worker-assembly.ts) import the driver modules. This
- * test imports the assembly in a Node process and asserts the registry is
- * actually populated — the exact failure mode of #23 ("Unknown KWS backend:
- * openwakeword") would surface here as an empty registry.
+ * web/worker.ts imports the worker composition root (web/worker-wire.ts),
+ * which imports the driver modules. This test imports the wire in a Node
+ * process and asserts the registry is actually populated — the exact failure
+ * mode of #23 ("Unknown KWS backend: openwakeword") would surface here as an
+ * empty registry.
  *
- * Note: this test intentionally imports the assembly (which imports the
- * drivers), so it must run in a context where the engine->driver package cycle
- * is resolvable (workspace links, established by pnpm install).
+ * Note: this test intentionally imports the wire (which imports the drivers),
+ * so it must run in a context where the engine->driver package cycle is
+ * resolvable (workspace links, established by pnpm install).
  */
 
 import { describe, it, expect, beforeAll } from 'vitest'
@@ -19,9 +20,13 @@ import {
 } from '../web/worker-assembly'
 import { getBackendRegistry, getBackendRegistration } from '../core/backend'
 
-describe('worker assembly wires drivers into the registry', () => {
+// The worker composition root (generated, ADR-034) — importing it runs the
+// driver registration side-effects, exactly as web/worker.ts does.
+import '../web/worker-wire'
+
+describe('worker wire wires drivers into the registry', () => {
   beforeAll(() => {
-    // Importing the assembly runs the driver registration side-effects.
+    // The assembly only creates the worker; the wire does the registration.
     void KWSWorker
     void createKwsWorker
   })

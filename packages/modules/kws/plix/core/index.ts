@@ -44,10 +44,15 @@ function cryptoRandomUuid(): string {
 }
 
 // Embed-provider factory: the worker hosts the embed() scaffold via this seam
-// without importing the plix module directly (ADR-024).
-registerEmbedProviderFactory((url, runtime) => {
-  return Promise.resolve(new PlixKwsEmbedProvider(url, runtime as never))
-})
+// without importing the plix module directly (ADR-024). The urlKey declares
+// which BackendModelUrls key holds the encoder URL (ADR-034: the URL bag is
+// driver-opaque; the worker boots the embed provider from `urls[urlKey]`).
+registerEmbedProviderFactory(
+  (url, runtime) => {
+    return Promise.resolve(new PlixKwsEmbedProvider(url, runtime as never))
+  },
+  { urlKey: 'plixkws' },
+)
 
 // Detection backend: created on demand, configured with the prototype at load.
 registerKwsBackend({

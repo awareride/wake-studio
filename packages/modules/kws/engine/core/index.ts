@@ -19,6 +19,7 @@ export {
   createMainThreadBackend,
   getBackendRegistration,
   getBackendRegistry,
+  getEmbedProviderUrlKey,
   registerEmbedProviderFactory,
   registerKwsBackend,
   resolveRoleUrl,
