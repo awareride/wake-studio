@@ -2,10 +2,14 @@
 /**
  * Generic artifact fetch (ADR-027 SOP §6.7).
  *
- * Downloads a built artifact (from a GitHub Actions run, or a local dir) into
- * the owning module's assets/ directory. The module's spec `build` block
- * declares artifactName + registryEntry; the fetch is the counterpart of the
- * module's build script.
+ * Downloads a module's binary assets into its assets/ directory from one of:
+ *   - a GitHub Actions run artifact (default; spec build.artifactName), or
+ *   - a GitHub Release (spec build.fetch.source = "release", ADR-027 §6.7
+ *     for static, non-CI-built models like the openwakeword/hey-buddy onnx),
+ *   - a local dir (--from).
+ * The module's spec `build` block declares artifactName/registryEntry (or
+ * fetch.releaseTag); the fetch is the counterpart of the module's build
+ * script.
  *
  * Usage:
  *   node scripts/fetch-artifact.mjs <module-id> [--from <local-dir>]
@@ -14,14 +18,14 @@
  *   GITHUB_REPO  owner/name to pull the artifact from (default: git remote)
  *   ARTIFACT_DIR override target dir (default: <module>/assets/)
  *
- * The artifact name comes from the module spec (build.artifactName).
- *
  * Unpacking honors the module spec's `build.fetch` block (ADR-025):
  *   - build.fetch.subdir  copy into <assets>/<subdir> (default: assets/ root)
  *   - build.fetch.include file whitelist (basenames); only these files are
  *     copied, so demo extras (app.js, index.html, README) are dropped.
  *   - Nested directories in the artifact are flattened: the whitelist is
  *     matched by basename anywhere under the artifact root.
+ *   - Release assets may be a .tar.gz that preserves the module's asset
+ *     layout; the archive is extracted first, then copied as a tree.
  */
 
 import { existsSync, mkdirSync, copyFileSync, readdirSync, statSync, rmSync } from 'node:fs'
@@ -64,11 +68,14 @@ function main() {
   if (!found) die(`no module spec for '${moduleId}'`)
   const { spec, dir } = found
   const build = spec.build
+  const fetchCfg = build?.fetch
+  const isRelease = fetchCfg?.source === 'release'
   const artifactName = build?.artifactName
-  if (!artifactName) die(`module '${moduleId}' has no build.artifactName`)
+  if (!isRelease && !artifactName) {
+    die(`module '${moduleId}' has no build.artifactName (and no fetch.source=release)`)
+  }
 
   const targetDir = process.env.ARTIFACT_DIR || resolve(dir, 'assets')
-  const fetchCfg = build?.fetch
   const destDir = fetchCfg?.subdir ? resolve(targetDir, fetchCfg.subdir) : targetDir
   mkdirSync(destDir, { recursive: true })
 
@@ -88,9 +95,30 @@ function main() {
   }
 
   const repo = process.env.GITHUB_REPO || defaultRepo()
-  console.log(`[fetch-artifact] gh run download ${artifactName} from ${repo}`)
   const tmp = join(repoRoot, '.tmp-artifact')
   mkdirSync(tmp, { recursive: true })
+
+  if (isRelease) {
+    // Static, non-CI-built models hosted on a GitHub Release (ADR-027 §6.7):
+    // e.g. openwakeword/hey-buddy onnx assets. A .tar.gz asset may preserve
+    // the module's asset layout; extract before unpacking.
+    const tag = fetchCfg.releaseTag
+    if (!tag) die(`module '${moduleId}' fetch.source=release needs build.fetch.releaseTag`)
+    console.log(`[fetch-artifact] gh release download ${tag} from ${repo}`)
+    const out = spawnSync(
+      'gh',
+      ['release', 'download', tag, '--repo', repo, '--pattern', fetchCfg.pattern ?? '*', '--dir', tmp, '--clobber'],
+      { stdio: 'inherit' },
+    )
+    if (out.status !== 0) die(`gh release download failed (${out.status})`)
+    extractArchiveIfNeeded(tmp)
+    unpack(tmp)
+    rmSync(tmp, { recursive: true, force: true }) // scratch dir; never commit
+    console.log(`[fetch-artifact] done -> ${destDir}`)
+    return
+  }
+
+  console.log(`[fetch-artifact] gh run download ${artifactName} from ${repo}`)
   const out = spawnSync('gh', ['run', 'download', '--repo', repo, '--name', artifactName, '--dir', tmp], {
     stdio: 'inherit',
   })
@@ -98,6 +126,24 @@ function main() {
   unpack(tmp)
   rmSync(tmp, { recursive: true, force: true }) // scratch dir; never commit
   console.log(`[fetch-artifact] done -> ${destDir}`)
+}
+
+/**
+ * If the download contains a single .tar.gz/.tgz (release mode), extract it
+ * in place so the copy helpers see the preserved asset layout, then drop the
+ * archive itself (never copied into assets/).
+ */
+function extractArchiveIfNeeded(tmp) {
+  for (const entry of readdirSafe(tmp)) {
+    if (entry.endsWith('.tar.gz') || entry.endsWith('.tgz')) {
+      const archive = resolve(tmp, entry)
+      console.log(`[fetch-artifact] extract ${entry}`)
+      const out = spawnSync('tar', ['-xzf', archive, '-C', tmp], { stdio: 'inherit' })
+      if (out.status !== 0) die(`tar extraction failed (${out.status}): ${archive}`)
+      rmSync(archive, { force: true })
+      return
+    }
+  }
 }
 
 /** Recursively copy a tree, flattening into dest. */

@@ -34,6 +34,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Fetch L2 test artifacts (sherpa + openwakeword, ADR-027)
+        # The L2 wasm/onnx boot tests exercise the gitignored artifacts
+        # (ADR-011). Non-fatal: each L2 suite skips when its asset is absent
+        # (tests/wasm-runtime.test.ts in kws-sherpa / kws-openwakeword), so a
+        # missing artifact degrades coverage instead of red.
+        run: |
+          node scripts/fetch-artifact.mjs kws-sherpa || echo "sherpa artifact fetch failed; sherpa L2 skips"
+          node scripts/fetch-artifact.mjs kws-openwakeword || echo "openwakeword assets fetch failed; openwakeword L2 skips"
+
       - name: Lint
         run: pnpm lint
 
@@ -85,12 +94,14 @@ jobs:
         # child-package bins - P0-2).
         run: pnpm --filter @wake-studio/web exec playwright install --with-deps chromium
 
-      - name: Fetch runtime assets (sherpa wasm for e2e)
-        # The sherpa-kws e2e boots the 53 MB wasm; fetch it into the module
-        # assets dir (gitignored). Non-fatal: the spec skips if the file is
-        # absent (see sherpa-kws.spec.ts).
+      - name: Fetch runtime assets (sherpa wasm + openwakeword onnx for e2e)
+        # The sherpa-kws e2e boots the 53 MB wasm; the openwakeword e2e loads
+        # the mel/embedding/classifier onnx. Fetched into the module assets
+        # dirs (gitignored). Non-fatal: the specs skip if the files are absent
+        # (see sherpa-kws.spec.ts / openwakeword-kws.spec.ts).
         run: |
           node scripts/fetch-artifact.mjs kws-sherpa || echo "sherpa wasm fetch failed; sherpa-kws spec will be skipped"
+          node scripts/fetch-artifact.mjs kws-openwakeword || echo "openwakeword assets fetch failed; openwakeword spec will be skipped"
 
       - name: Build PWA (for preview server)
         # `pnpm preview` serves dist/; the e2e job must build it first (the
