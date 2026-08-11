@@ -227,8 +227,16 @@ async function handleLoad(
           backendConfig ?? {},
         )
         await backend.load(urls, actualExecutionProvider)
-        // OpenWakeWord (and similar) actually exercise the WebGPU EP.
-        gpuBackendLoaded = true
+        // Whether the GPU was really used is the BACKEND's fact, not an
+        // assumption: some drivers pin WASM regardless of the request (e.g.
+        // kws-streaming, whose graph hits a WebGPU/jsep Squeeze bug; plix's
+        // embedder likewise). A backend may expose `effectiveExecutionProvider`
+        // to report what it actually created the session with; otherwise we
+        // trust the requested provider.
+        const backendEp = (
+          backend as KWSBackend & { effectiveExecutionProvider?: 'webgpu' | 'wasm' }
+        ).effectiveExecutionProvider
+        gpuBackendLoaded = (backendEp ?? actualExecutionProvider) === 'webgpu'
       }
     }
 

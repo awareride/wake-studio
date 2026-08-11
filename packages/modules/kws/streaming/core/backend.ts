@@ -62,6 +62,12 @@ export class KWSStreamingBackend implements KWSBackend {
 
   private _session: ort.InferenceSession | null = null
   private _manifest: KwsStreamingManifest | null = null
+  /**
+   * The EP the session was actually created with. Always 'wasm' once loaded
+   * (see load()); the engine reads this so the UI reports the truth instead of
+   * the requested provider.
+   */
+  private _effectiveEp: 'webgpu' | 'wasm' | null = null
   private _states = new Map<string, Float32Array>()
   private _packets: PacketBuffer | null = null
   private _window: SlidingWindow | null = null
@@ -79,6 +85,11 @@ export class KWSStreamingBackend implements KWSBackend {
   /** The loaded manifest (dev panel / label selector). Null before load. */
   get manifest(): KwsStreamingManifest | null {
     return this._manifest
+  }
+
+  /** The EP actually in use (read by the engine for the UI's EP badge). */
+  get effectiveExecutionProvider(): 'webgpu' | 'wasm' | null {
+    return this._effectiveEp
   }
 
   /** State-bag size in bytes (dev panel, §8). */
@@ -112,7 +123,28 @@ export class KWSStreamingBackend implements KWSBackend {
     // Manifest first: a bad manifest must never reach the graph.
     const manifest = validateManifest(await fetchJson(source.manifest))
 
-    const session = await createSession(source.model, provider)
+    // WASM only, regardless of the requested provider.
+    //
+    // The kws_streaming graphs extract the CLS token with Slice -> Squeeze.
+    // onnxruntime-web's WebGPU (jsep) EP mis-executes that Squeeze - it ignores
+    // the `axes` input and squeezes the wrong dimension, failing at run() with:
+    //   "Dimension of input 2 must be 1 instead of 64. shape={1,1,64}"
+    // even though squeezing axis 1 of {1,1,64} is perfectly valid (verified: the
+    // identical graph runs correctly on the wasm EP).
+    //
+    // These models are also tiny (10K-750K params) on a 1 s window every 100 ms,
+    // so WebGPU's dispatch overhead would dominate anyway - there is no
+    // performance argument for fighting this. The plix driver pins wasm for the
+    // same class of jsep op bug (see encoders/plix-onnx.ts).
+    const effectiveProvider = 'wasm' as const
+    if (provider === 'webgpu') {
+      console.warn(
+        '[kws-streaming] forcing the WASM execution provider: the WebGPU (jsep) ' +
+          'EP mis-executes this graph\'s Slice->Squeeze (CLS token extraction).',
+      )
+    }
+
+    const session = await createSession(source.model, effectiveProvider)
 
     // Guard the manifest against the actual graph. A mis-paired state tensor
     // degrades accuracy silently, so every declared name must exist.
@@ -120,6 +152,7 @@ export class KWSStreamingBackend implements KWSBackend {
 
     this._session = session
     this._manifest = manifest
+    this._effectiveEp = effectiveProvider
     this._states = createStateBag(manifest)
     this._packets =
       manifest.mode === 'streaming-external-state'
@@ -185,6 +218,7 @@ export class KWSStreamingBackend implements KWSBackend {
     await this._session?.release?.()
     this._session = null
     this._manifest = null
+    this._effectiveEp = null
     this._states.clear()
     this._packets = null
     this._window = null

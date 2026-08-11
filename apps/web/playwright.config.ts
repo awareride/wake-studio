@@ -30,9 +30,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm preview',
+    // Build with the e2e harness page included (E2E_HARNESS=1), then preview.
+    // The L3 inference spec needs a bundled page to import the real driver;
+    // the default `build` omits it so test scaffolding never ships (the spec
+    // skips itself if the page is absent, so a plain preview still works).
+    command: 'E2E_HARNESS=1 pnpm build:e2e && pnpm preview',
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 180_000,
   },
 })

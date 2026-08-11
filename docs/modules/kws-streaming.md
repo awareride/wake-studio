@@ -311,7 +311,7 @@ is preserved.
 | `wantedWord` | primary | `yes` | the 10 real labels | Which label column is the wake word (`_silence_`/`_unknown_` excluded). |
 | `threshold` | primary | 0.5 | 0-1 | Detection threshold on the selected posterior (engine-applied). |
 | `resetOnTrigger` | advanced | false | - | false = upstream `reset0` (states kept, the paper's streaming setting); true = `reset1`. |
-| `executionProvider` | advanced | `wasm` | `webgpu` \| `wasm` | WASM by default: these graphs are tiny (10K-75K params), so WebGPU dispatch overhead dominates. |
+| `executionProvider` | advanced | `wasm` | `wasm` only | **WASM only, enforced by the driver.** onnxruntime-web's WebGPU (jsep) EP mis-executes this graph's CLS-token `Slice`→`Squeeze`: it ignores the `axes` input and fails at `run()` with `Dimension of input 2 must be 1 instead of 64. shape={1,1,64}` — even though squeezing axis 1 of `{1,1,64}` is valid, and the identical graph runs correctly on WASM. The driver forces WASM even when the engine asks for WebGPU, and reports `wasm` as its effective EP. These graphs are tiny, so WebGPU dispatch overhead would dominate anyway. |
 
 ### 6.2 Fixed constants
 
@@ -409,6 +409,9 @@ a silence check asserting `_silence_` wins on zeros.
 - **`featureExtractor: 'external'`:** `load()` rejects with "not supported yet
   (Q-KS-2); re-export with `--preprocess raw`". Better an explicit gap than a
   half-correct MFCC front-end.
+- **WebGPU requested:** silently downgraded to WASM (with a `console.warn`), not
+  an error - see §6.1. The alternative was every `run()` throwing a `Squeeze`
+  shape error while the engine reported `ready`.
 - **Non-streamable topology** (`att_rnn`, `att_mh_rnn`, `tc_resnet`,
   `mobilenet*`, `xception`, `inception*`): upstream cannot convert these to
   streaming, so no manifest can exist for them. The training panel filters the
@@ -455,9 +458,22 @@ a silence check asserting `_silence_` wins on zeros.
   Structural conversion is not correctness — a graph can convert cleanly, pass a
   zeros-input smoke test, and still be numerically wrong (bad weight layout,
   dropped transform, permuted outputs). The build fails below `min_accuracy`.
-- **L3 (Playwright, `apps/web/e2e/kws-streaming.spec.ts`):** selects the backend
-  in the real UI and asserts the engine reaches `ready` — which happens only if
-  the manifest validated and matched the graph.
+- **L3 (Playwright, `apps/web/e2e/kws-streaming-inference.spec.ts`):** drives the
+  REAL driver in a real browser and asserts it **infers** — a score actually
+  comes out — and that it pins WASM even when WebGPU is requested.
+
+  > **Why inference, not loading.** The first L3 spec only asserted the engine
+  > reached `ready`. It passed while EVERY `run()` threw the jsep `Squeeze`
+  > error, because "ready" only means a session was created. Node's L2 could not
+  > catch it either: onnxruntime-**node** has no jsep EP, so the same graph ran
+  > fine there. A load-only browser test plus a Node inference test leaves
+  > exactly this hole. The spec runs against a bundled harness page
+  > (`apps/web/e2e-fixtures/`, built only with `E2E_HARNESS=1`) so it exercises
+  > the shipped driver rather than a re-implementation, and it was verified to
+  > FAIL when the WASM pin is reverted.
+
+  `apps/web/e2e/kws-streaming.spec.ts` still covers the UI path (backend
+  selectable, models listed, dropdown labels non-empty).
 - **Manual:** once trained — speak the wanted word, confirm the score rises and
   a trigger fires; confirm the score curve is continuous across packet
   boundaries (a state-carry bug shows up as a sawtooth).
@@ -516,3 +532,4 @@ a silence check asserting `_silence_` wins on zeros.
 |---|---|---|
 | 2026-08-07 | Initial draft (docs-first, pending human review) — Traditional-category driver for `google-research/kws_streaming` external-state streaming graphs (#72). | agent |
 | 2026-08-10 | Add `sliding-window` mode (the published ARM checkpoints are non-streamable and ship only `tflite_non_stream/`, so external-state alone could load nothing). CI TFLite→ONNX export + real-audio validation; 4 pretrained models registered and working in the web console; L2 + L3 now real (were declared gaps). Q-KS-3 answered (convert to ONNX); Q-KS-1 partly answered. | agent |
+| 2026-08-11 | Fix inference failing in the browser: pin the WASM EP (WebGPU/jsep mis-executes the CLS-token `Slice`→`Squeeze`); report the effective EP so the UI stops claiming WebGPU. L3 replaced with an INFERENCE spec after the load-only one passed while every `run()` threw. | agent |

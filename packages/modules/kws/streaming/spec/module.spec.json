@@ -56,8 +56,10 @@
       "group": "advanced",
       "type": "select",
       "default": "wasm",
-      "options": ["wasm", "webgpu"],
-      "description": "WASM by default: these graphs are 10K-75K parameters, so WebGPU dispatch overhead dominates the step time."
+      "options": [
+        "wasm"
+      ],
+      "description": "WASM only. The WebGPU (jsep) EP mis-executes this graph's Slice->Squeeze (CLS-token extraction), failing at run() with \"Dimension of input 2 must be 1 instead of 64\"; the driver forces WASM regardless of the engine-level setting. These graphs are tiny, so WebGPU dispatch overhead would dominate anyway."
     }
   ],
   "actions": [
@@ -72,7 +74,9 @@
       "id": "start",
       "label": "Start detection",
       "kind": "start",
-      "requires": ["platform.mic"]
+      "requires": [
+        "platform.mic"
+      ]
     },
     {
       "id": "stop",
@@ -130,7 +134,11 @@
         "--train"
       ]
     },
-    "invocation": ["subprocess", "ci", "colab"],
+    "invocation": [
+      "subprocess",
+      "ci",
+      "colab"
+    ],
     "outputs": {
       "checkpoint": "tflite_stream_state_external/stream_state_external.tflite",
       "metrics": "tflite_stream_state_external/tflite_stream_state_external_model_accuracy_reset0.txt"
@@ -225,15 +233,23 @@
   "tests": {
     "l1": "packages/modules/kws/streaming/tests/streaming-state.test.ts",
     "l2": "packages/modules/kws/streaming/tests/onnx-runtime.test.ts",
-    "l3": "apps/web/e2e/kws-streaming.spec.ts",
-    "required": ["l1", "l2", "l3"]
+    "l3": "apps/web/e2e/kws-streaming-inference.spec.ts",
+    "required": [
+      "l1",
+      "l2",
+      "l3"
+    ]
   },
   "playground": {
     "route": "/playground/kws/streaming",
     "entry": "packages/modules/kws/streaming/web/playground.tsx"
   },
   "interfaces": {
-    "provides": ["KWSBackend"],
-    "consumes": ["AFEOutputFrame"]
+    "provides": [
+      "KWSBackend"
+    ],
+    "consumes": [
+      "AFEOutputFrame"
+    ]
   }
 }

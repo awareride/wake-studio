@@ -36,9 +36,14 @@ describe('kws-streaming module spec', () => {
     expect(ids).toContain('resetOnTrigger')
   })
 
-  it('defaults to WASM (these graphs are 10K-75K params)', () => {
+  it('offers WASM ONLY (the WebGPU/jsep EP mis-executes this graph)', () => {
+    // Regression guard for the reported Squeeze failure: onnxruntime-web's jsep
+    // EP ignores the `axes` input of the CLS-token Slice->Squeeze and throws
+    // "Dimension of input 2 must be 1 instead of 64". Offering webgpu here
+    // would advertise a setting the driver overrides anyway.
     const ep = spec.params.find((p) => p.id === 'executionProvider')
     expect(ep?.default).toBe('wasm')
+    expect(ep?.options).toEqual(['wasm'])
   })
 
   it('defaults resetOnTrigger to false (upstream reset0, the reported setting)', () => {
@@ -85,7 +90,9 @@ describe('kws-streaming module spec', () => {
   it('requires all three test layers (pretrained artifact exists, ADR-026)', () => {
     expect(spec.tests.required).toEqual(['l1', 'l2', 'l3'])
     expect(spec.tests.l2).toContain('onnx-runtime.test.ts')
-    expect(spec.tests.l3).toContain('e2e/kws-streaming.spec.ts')
+    // L3 must be the INFERENCE spec, not a load-only one: a load-only test
+    // passed while every run() threw (the jsep Squeeze bug).
+    expect(spec.tests.l3).toContain('e2e/kws-streaming-inference.spec.ts')
   })
 
   it('offers the 12-label wake words, excluding the non-word labels', () => {
