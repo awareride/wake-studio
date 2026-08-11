@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client'
 import * as openWakeWordDriver from '@wake-studio/module-kws-openwakeword'
 import * as sherpaDriver from '@wake-studio/module-kws-sherpa'
 import * as plixDriver from '@wake-studio/module-kws-plix'
+import * as streamingDriver from '@wake-studio/module-kws-streaming'
 import App from './App'
 import './index.css'
 
@@ -14,6 +15,7 @@ import './index.css'
 void openWakeWordDriver.OpenWakeWordBackend
 void sherpaDriver.SherpaOnnxKwsBackend
 void plixDriver.PlixKwsBackend
+void streamingDriver.KWSStreamingBackend
 
 const root = document.getElementById('root')
 if (!root) {

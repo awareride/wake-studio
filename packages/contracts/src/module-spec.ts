@@ -29,7 +29,16 @@ export interface ModuleParam {
   step?: number
   unit?: string
   description: string
-  options?: ReadonlyArray<{ value: string; label: string }>
+  /**
+   * Allowed values for `select` / `enum` params.
+   *
+   * Two forms are accepted on purpose: the JSON schema declares a plain
+   * `string[]` (concise, and what most specs use), while `{ value, label }`
+   * lets a spec give a human-readable label. Renderers must handle both -
+   * use `normalizeSelectOptions` from `@wake-studio/module-kit` rather than
+   * assuming a shape (assuming objects rendered blank dropdowns).
+   */
+  options?: ReadonlyArray<string | { value: string; label: string }>
   validation?: ParamValidation
 }
 

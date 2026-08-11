@@ -23,6 +23,18 @@ workflows are `workflow_dispatch` and never push.
    (e.g. `packages/modules/kws/sherpa/scripts/build-sherpa-kws.mjs`). The
    bespoke `build-sherpa-onnx-kws-wasm.yml` / `export-plixkws.yml` were folded
    into this skeleton (2026-08-05).
+
+   **Passing module inputs at dispatch (2026-08-10).** GitHub Actions has no
+   dynamic `workflow_dispatch` inputs, so a module's `build.inputs` cannot each
+   become a form field. The workflow takes an `inputs_json` object and expands it
+   into the `INPUT_<ID>` env vars `build-module.mjs` already reads:
+
+   ```bash
+   gh workflow run build.yaml -f module=kws-streaming \
+     -f inputs_json='{"checkpoints":"kwt1","validate":"true"}'
+   ```
+
+   Omitted keys fall back to the spec defaults.
 2. **Fetch script** — `scripts/fetch-artifact.mjs <module-id>` (shared, generic;
    reads the module spec's `build.artifactName`) downloads the artifact into
    the owning module's `assets/`, or copies from a local dir
@@ -66,6 +78,12 @@ node scripts/fetch-<artifact>.mjs [--force] [--version <v>]
 - [ ] Registry entry in `model-registry.json`
 - [ ] `pnpm fetch:<artifact>` wired; `fetch:all` updated
 - [ ] Module L2 test (ADR-026) loads the artifact in Node and asserts boot
+- [ ] **The artifact is validated, not just built.** A build that only proves
+      "the file exists and the graph loads" can still ship a numerically wrong
+      model (bad weight layout, dropped transform, permuted outputs). Where a
+      ground truth exists, assert it in the build: `kws-streaming` runs its
+      export over real Speech Commands clips and fails below a minimum argmax
+      accuracy (`scripts/validate-kws-streaming.py`).
 - [ ] Missing-asset error message present in the UI
 
 ## 5. Current inventory
@@ -74,6 +92,7 @@ node scripts/fetch-<artifact>.mjs [--force] [--version <v>]
 |---|---|---|---|---|
 | sherpa-onnx-kws wasm | `kws-sherpa` (`.github/workflows/build.yaml` + `scripts/build-sherpa-kws.mjs`) | `scripts/fetch-artifact.mjs kws-sherpa` | `packages/modules/kws/sherpa/assets/` | `kws-sherpa` |
 | PLiX ONNX encoder | `kws-plix` (`.github/workflows/build.yaml` + `scripts/build-plix.mjs`) | `scripts/fetch-artifact.mjs kws-plix` | `packages/modules/kws/plix/assets/` | `kws-plix` |
+| kws-streaming ONNX (Keyword Transformer / att_mh_rnn) | `kws-streaming` (`.github/workflows/build.yaml` + `scripts/build-kws-streaming.mjs`) | `scripts/fetch-artifact.mjs kws-streaming` | `packages/modules/kws/streaming/assets/kws-streaming/` | `kws-streaming-*` |
 | RNNoise wasm (pilot) | embedded base64 in `web/vendor/`; standalone CI build planned | (not needed while embedded) | `packages/modules/afe/rnnoise/assets/` | `rnnoise` |
 
 > **Asset placement rule (ADR-025):** new artifacts go into the owning module's

@@ -34,6 +34,7 @@ import { loadRegistry, type ModelRegistry } from '@wake-studio/platform'
 import {
   TRADITIONAL_MODEL_ROLES,
   FEWSHOT_MODEL_ROLES,
+  KWS_STREAMING_MODEL_ROLES,
   driverParamsFor,
   modelSourcesForRole,
   type ModelSourceRole,
@@ -66,6 +67,19 @@ import {
 import type { UserModel } from '../model-library'
 
 const HISTORY_MAX = 300 // ~3 s at ~100 fps
+
+/**
+ * Render a `BackendModelUrls` entry as one line of detail text.
+ *
+ * Most entries are a plain URL string, but some drivers group several files
+ * under one key (e.g. kws-streaming's `{ model, manifest }`), so the object
+ * shape has to be flattened before it reaches JSX.
+ */
+function formatUrlDetail(value: BackendModelUrls[keyof BackendModelUrls]): string {
+  if (value === undefined || value === null) return 'not loaded'
+  if (typeof value === 'string') return value
+  return Object.values(value).filter(Boolean).join(', ') || 'not loaded'
+}
 
 // plixkws enrollment constants (mirrors the removed Few-Shot panel).
 const RECORD_MS = 1500
@@ -374,7 +388,12 @@ export const KWSPanel = memo(function KWSPanel({
   const resolveModelUrl = useCallback(
     (
       registry: ModelRegistry,
-      role: 'melspectrogram' | 'embedding' | 'classifier' | 'plix-encoder',
+      role:
+        | 'melspectrogram'
+        | 'embedding'
+        | 'classifier'
+        | 'plix-encoder'
+        | 'kws-streaming-model',
       fallbackId: string,
     ): string | undefined => {
       const selected = modelSources[role]
@@ -391,6 +410,34 @@ export const KWSPanel = memo(function KWSPanel({
       }
       // Default: the built-in registry entry for this role.
       return byId.get(fallbackId)
+    },
+    [modelSources, customUrls],
+  )
+
+  /**
+   * Resolve the kws-streaming model + its sidecar manifest as a PAIR.
+   *
+   * The manifest declares the graph's tensor names, labels and window geometry,
+   * so a model must never be paired with a different model's manifest. Keeping
+   * both in one registry entry (`url` + `manifestUrl`) makes that impossible by
+   * construction; a custom URL therefore also needs its manifest alongside it,
+   * which we derive by swapping the .onnx extension for .json (what the
+   * exporter emits).
+   */
+  const resolveKwsStreamingUrls = useCallback(
+    (registry: ModelRegistry): { model: string; manifest: string } | undefined => {
+      const role = 'kws-streaming-model' as const
+      const selected = modelSources[role]
+      if (selected === 'custom') {
+        const model = customUrls[role]?.trim()
+        if (!model) return undefined
+        return { model, manifest: model.replace(/\.onnx$/i, '.json') }
+      }
+      const entry =
+        registry.models.find((m) => m.id === selected) ??
+        registry.models.find((m) => m.id === 'kws-streaming-kwt1')
+      if (!entry?.manifestUrl) return undefined
+      return { model: entry.url, manifest: entry.manifestUrl }
     },
     [modelSources, customUrls],
   )
@@ -413,11 +460,13 @@ export const KWSPanel = memo(function KWSPanel({
       const urls: BackendModelUrls =
         config.backend === 'plixkws'
           ? { plixkws: resolveModelUrl(registry, 'plix-encoder', 'plixkws') }
-          : {
-              melspectrogram: resolveModelUrl(registry, 'melspectrogram', 'melspectrogram'),
-              embedding: resolveModelUrl(registry, 'embedding', 'speech_embedding'),
-              classifier: resolveModelUrl(registry, 'classifier', 'hey-buddy'),
-            }
+          : config.backend === 'kws-streaming'
+            ? { kwsStreaming: resolveKwsStreamingUrls(registry) }
+            : {
+                melspectrogram: resolveModelUrl(registry, 'melspectrogram', 'melspectrogram'),
+                embedding: resolveModelUrl(registry, 'embedding', 'speech_embedding'),
+                classifier: resolveModelUrl(registry, 'classifier', 'hey-buddy'),
+              }
       urlsRef.current = urls
       // Pass the driver's edited params as its backend config (unknown to the
       // engine; the driver's configure() interprets them, e.g. sherpa
@@ -434,7 +483,7 @@ export const KWSPanel = memo(function KWSPanel({
       setStatus('error')
       logError('kws', err instanceof Error ? err.message : String(err))
     }
-  }, [config.backend, config.threshold, driverValues, resolveModelUrl])
+  }, [config.backend, config.threshold, driverValues, resolveModelUrl, resolveKwsStreamingUrls])
 
   // Auto-load: switching the backend selection loads that backend's models
   // automatically (registry is a local JSON, ADR-011). Initial mount keeps the
@@ -454,7 +503,9 @@ export const KWSPanel = memo(function KWSPanel({
       ? FEWSHOT_MODEL_ROLES
       : selectedBackend?.category === 'asr-decoding'
         ? []
-        : TRADITIONAL_MODEL_ROLES
+        : config.backend === 'kws-streaming'
+          ? KWS_STREAMING_MODEL_ROLES
+          : TRADITIONAL_MODEL_ROLES
   // Backend switching is lightweight: it only updates the selection (and any
   // pending load state), it does NOT auto-load models. Loading a different
   // backend re-initializes the worker + model session, which is slow; the user
@@ -1037,7 +1088,7 @@ export const KWSPanel = memo(function KWSPanel({
                       : status === 'loading'
                         ? 'loading…'
                         : res.urlKey
-                          ? urlsRef.current[res.urlKey] ?? 'not loaded'
+                          ? formatUrlDetail(urlsRef.current[res.urlKey])
                           : ''
               return (
                 <div key={res.id} className="flex items-center gap-2 text-xs">

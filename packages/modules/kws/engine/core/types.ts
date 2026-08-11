@@ -30,6 +30,7 @@ export type KWSBackendId =
   | 'microwakeword' // TFLite-Micro streaming CNN (MCU; not browser-feasible v1)
   | 'plixkws' // PLiX Few-Shot (compact CNN encoder + prototype distance; edge-friendly)
   | 'sherpa-onnx-kws' // Direct keyword spotting via sherpa-onnx KWS wasm (transducer)
+  | 'kws-streaming' // google-research/kws_streaming external-state streaming graph (Traditional)
   | 'pocketsphinx' // lightweight HMM/GMM (MCU+; WASM port pending)
 
 /** One score sample emitted per inference frame (~every 10 ms). */
@@ -122,6 +123,17 @@ export interface BackendModelUrls {
   embedding?: string
   classifier?: string
   plixkws?: string
+  /**
+   * kws-streaming driver: an exported `kws_streaming` external-state streaming
+   * graph plus its sidecar manifest (which declares tensor names, state
+   * shapes, packet size and labels). @see docs/modules/kws-streaming.md §4.2
+   */
+  kwsStreaming?: {
+    /** The external-state streaming graph (.onnx). */
+    model: string
+    /** The sidecar manifest (model.json). */
+    manifest: string
+  }
   /** Model-runtime hint for the model(s) addressed by these URLs. @see ModelRuntime */
   runtime?: ModelRuntime
 }

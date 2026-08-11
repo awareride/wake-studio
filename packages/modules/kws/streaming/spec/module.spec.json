@@ -1,0 +1,255 @@
+{
+  "$schema": "../../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "kws-streaming",
+    "name": "kws_streaming (Traditional streaming-aware driver)",
+    "category": "kws",
+    "version": "0.1.0",
+    "maturity": "pilot",
+    "owner": "WakeStudio team",
+    "license": "Apache-2.0 (google-research/kws_streaming + ARM keyword-transformer) + MIT (integration)",
+    "status": "proposed"
+  },
+  "params": [
+    {
+      "id": "wantedWord",
+      "label": "Wake word (label)",
+      "group": "primary",
+      "type": "select",
+      "default": "yes",
+      "options": [
+        "yes",
+        "no",
+        "up",
+        "down",
+        "left",
+        "right",
+        "on",
+        "off",
+        "stop",
+        "go"
+      ],
+      "description": "Which class label of the loaded model is treated as the wake word. Defaults match the 12-label Speech Commands models (the two remaining labels, _silence_ and _unknown_, are never wake words)."
+    },
+    {
+      "id": "threshold",
+      "label": "Trigger threshold",
+      "group": "primary",
+      "type": "slider",
+      "default": 0.5,
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "description": "Detection threshold on the selected label's posterior."
+    },
+    {
+      "id": "resetOnTrigger",
+      "label": "Reset streaming state after a trigger",
+      "group": "advanced",
+      "type": "boolean",
+      "default": false,
+      "description": "false = upstream 'reset0' (states kept across utterances; the setting the paper reports streaming accuracy for). true = 'reset1' (states cleared per utterance, equivalent to non-streaming inference)."
+    },
+    {
+      "id": "executionProvider",
+      "label": "Execution provider",
+      "group": "advanced",
+      "type": "select",
+      "default": "wasm",
+      "options": [
+        "wasm"
+      ],
+      "description": "WASM only. The WebGPU (jsep) EP mis-executes this graph's Slice->Squeeze (CLS-token extraction), failing at run() with \"Dimension of input 2 must be 1 instead of 64\"; the driver forces WASM regardless of the engine-level setting. These graphs are tiny, so WebGPU dispatch overhead would dominate anyway."
+    }
+  ],
+  "actions": [
+    {
+      "id": "load",
+      "label": "Load kws_streaming model",
+      "kind": "load",
+      "progress": "determinate",
+      "requires": []
+    },
+    {
+      "id": "start",
+      "label": "Start detection",
+      "kind": "start",
+      "requires": [
+        "platform.mic"
+      ]
+    },
+    {
+      "id": "stop",
+      "label": "Stop detection",
+      "kind": "stop"
+    },
+    {
+      "id": "reset",
+      "label": "Reset streaming state",
+      "kind": "reset"
+    }
+  ],
+  "status": [
+    {
+      "id": "score",
+      "label": "Wake-word score",
+      "renderer": "curve",
+      "source": "event:score",
+      "refreshMs": 100
+    },
+    {
+      "id": "trigger",
+      "label": "Trigger events",
+      "renderer": "badge",
+      "source": "event:trigger",
+      "refreshMs": 500
+    }
+  ],
+  "runtime": {
+    "web": {
+      "engine": "KWSStreamingBackend",
+      "worker": true
+    },
+    "cloud": {
+      "workflowRef": ".github/workflows/build.yaml",
+      "artifact": "kws-streaming-onnx"
+    }
+  },
+  "train": {
+    "script": {
+      "repo": "https://github.com/google-research/google-research",
+      "path": "kws_streaming/train/model_train_eval.py",
+      "ref": "master",
+      "language": "python",
+      "entrypoint": "python -m kws_streaming.train.model_train_eval",
+      "args": [
+        "--data_dir",
+        "--wanted_words",
+        "--train_dir",
+        "--split_data",
+        "--preprocess",
+        "--feature_type",
+        "--how_many_training_steps",
+        "--learning_rate",
+        "--train"
+      ]
+    },
+    "invocation": [
+      "subprocess",
+      "ci",
+      "colab"
+    ],
+    "outputs": {
+      "checkpoint": "tflite_stream_state_external/stream_state_external.tflite",
+      "metrics": "tflite_stream_state_external/tflite_stream_state_external_model_accuracy_reset0.txt"
+    },
+    "adapter": "standardize-results",
+    "adapterOptions": {
+      "modelRegex": "stream_state_external\\.tflite$",
+      "labelsFile": "labels.txt",
+      "flagsFile": "flags.json"
+    }
+  },
+  "build": {
+    "recipe": "workflow",
+    "workflowRef": ".github/workflows/build.yaml",
+    "script": "scripts/build-kws-streaming.mjs",
+    "artifactName": "kws-streaming-onnx",
+    "registryEntry": "public/model-registry.json#kws-streaming",
+    "fetch": {
+      "subdir": "kws-streaming"
+    },
+    "toolchains": {
+      "python": "3.11"
+    },
+    "inputs": [
+      {
+        "id": "checkpoint_repo",
+        "label": "Checkpoint repo (publishes kws_streaming-family checkpoints)",
+        "type": "string",
+        "default": "https://github.com/ARM-software/keyword-transformer",
+        "required": false
+      },
+      {
+        "id": "checkpoint_ref",
+        "label": "Checkpoint repo ref (branch/tag/commit)",
+        "type": "string",
+        "default": "master",
+        "required": false
+      },
+      {
+        "id": "checkpoint_root",
+        "label": "Directory holding the checkpoint dirs",
+        "type": "string",
+        "default": "models_data_v2_12_labels",
+        "required": false
+      },
+      {
+        "id": "checkpoints",
+        "label": "Comma-separated checkpoint dirs to convert",
+        "type": "string",
+        "default": "kwt1,kwt2,kwt3,att_mh_rnn_1",
+        "required": false,
+        "description": "ARM keyword-transformer publishes kwt1/kwt2/kwt3 (Keyword Transformer, 97.6-98.5%) and att_mh_rnn_1. All are non-streamable topologies, so they export in sliding-window mode."
+      },
+      {
+        "id": "opset",
+        "label": "ONNX opset for the TFLite -> ONNX conversion",
+        "type": "string",
+        "default": "17",
+        "required": false
+      },
+      {
+        "id": "hop_ms",
+        "label": "Sliding-window re-evaluation period (ms)",
+        "type": "string",
+        "default": "100",
+        "required": false
+      },
+      {
+        "id": "validate",
+        "label": "Validate each export against real Speech Commands audio",
+        "type": "boolean",
+        "default": "false",
+        "required": false,
+        "description": "Downloads Speech Commands V2 (~2.3 GB) and asserts argmax accuracy + a silence sanity check. Structural conversion is not correctness, so this must pass for any artifact we register."
+      },
+      {
+        "id": "min_accuracy",
+        "label": "Minimum argmax accuracy when validating",
+        "type": "string",
+        "default": "0.8",
+        "required": false
+      },
+      {
+        "id": "per_label",
+        "label": "Clips per label when validating",
+        "type": "string",
+        "default": "10",
+        "required": false
+      }
+    ]
+  },
+  "tests": {
+    "l1": "packages/modules/kws/streaming/tests/streaming-state.test.ts",
+    "l2": "packages/modules/kws/streaming/tests/onnx-runtime.test.ts",
+    "l3": "apps/web/e2e/kws-streaming-inference.spec.ts",
+    "required": [
+      "l1",
+      "l2",
+      "l3"
+    ]
+  },
+  "playground": {
+    "route": "/playground/kws/streaming",
+    "entry": "packages/modules/kws/streaming/web/playground.tsx"
+  },
+  "interfaces": {
+    "provides": [
+      "KWSBackend"
+    ],
+    "consumes": [
+      "AFEOutputFrame"
+    ]
+  }
+}

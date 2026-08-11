@@ -295,11 +295,11 @@ export class AFEPipeline {
       case 'frame':
         for (const f of msg.frames) {
           // Measure latency: difference between when the frame was captured
-          // (in AudioContext time) and the current AudioContext time.
+          // (AudioContext time, converted to ms by the worklet) and now.
           if (this._ctx) {
             this._latencyMs = Math.max(
               0,
-              (this._ctx.currentTime - f.capturedAtMs) * 1000,
+              this._ctx.currentTime * 1000 - f.capturedAtMs,
             )
           }
           this._frameCallbacks.forEach((cb) => cb(f))

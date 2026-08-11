@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>kws-streaming inference harness (e2e only)</title>
+  </head>
+  <body>
+    <!--
+      Test-only harness page (ADR-026 L3).
+
+      `page.evaluate` cannot resolve bare module specifiers ('onnxruntime-web',
+      '@wake-studio/module-kws-streaming') because it runs raw script in the
+      page, not through the bundler. This page IS bundled, so it can import the
+      real driver and the real runtime - which is the point: the test must
+      exercise the same code the app ships, not a re-implementation.
+
+      Not linked from the app; it exists so e2e can assert INFERENCE, after a
+      load-only test let a total inference failure (the WebGPU/jsep Squeeze bug)
+      pass unnoticed.
+    -->
+    <pre id="out">loading…</pre>
+    <script type="module" src="/e2e-fixtures/kws-streaming-harness.ts"></script>
+  </body>
+</html>

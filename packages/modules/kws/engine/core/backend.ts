@@ -8,7 +8,12 @@
  * @see docs/modules/kws.md §4 (KWSBackend), §6 (backend config)
  */
 
-import type { KWSBackend, KWSBackendId, KWSBackendCategory } from './types'
+import type {
+  KWSBackend,
+  KWSBackendId,
+  KWSBackendCategory,
+  BackendModelUrls,
+} from './types'
 import type { ModuleSpec } from '@wake-studio/contracts'
 
 /** A registry entry for a KWS backend. */
@@ -37,6 +42,15 @@ export interface KWSBackendRegistration {
    * registry - no hard-coded per-backend cases in the host.
    */
   spec?: ModuleSpec
+  /**
+   * Optional: does this backend have the model URLs it needs to load?
+   *
+   * Each driver needs a different URL subset of {@link BackendModelUrls}, and
+   * the worker must not hard-code per-backend cases (ADR-024). A driver that
+   * omits this is assumed to need the openwakeword triple (the historical
+   * default).
+   */
+  hasRequiredUrls?: (urls: BackendModelUrls) => boolean
   /**
    * Optional: a main-thread-only backend factory (e.g. sherpa-onnx-kws runs
    * on the main thread - its classic emscripten wasm needs DOM, ADR-018).
@@ -86,6 +100,22 @@ export function createMainThreadBackend(
   const reg = getBackendRegistration(id)
   if (!reg?.mainThreadFactory) return null
   return reg.mainThreadFactory()
+}
+
+/**
+ * Does the registered backend have the model URLs it needs?
+ *
+ * Drivers declare this via `hasRequiredUrls` so adding a backend with a new
+ * URL shape never edits the worker (ADR-024). The fallback is the openwakeword
+ * triple, which is what every pre-`hasRequiredUrls` driver expected.
+ */
+export function backendHasRequiredUrls(
+  id: KWSBackendId,
+  urls: BackendModelUrls,
+): boolean {
+  const reg = getBackendRegistration(id)
+  if (reg?.hasRequiredUrls) return reg.hasRequiredUrls(urls)
+  return Boolean(urls.melspectrogram && urls.embedding && urls.classifier)
 }
 
 // ---------------------------------------------------------------------------

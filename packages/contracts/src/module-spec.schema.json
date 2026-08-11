@@ -126,8 +126,28 @@
           },
           "options": {
             "type": "array",
+            "description": "Allowed values for select/enum params. Either a plain string (value used as its own label) or an explicit {value,label} pair. Renderers must accept both (see normalizeSelectOptions in @wake-studio/module-kit).",
             "items": {
-              "type": "string"
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "value"
+                  ],
+                  "properties": {
+                    "value": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
             }
           },
           "validation": {

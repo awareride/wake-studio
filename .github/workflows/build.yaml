@@ -24,11 +24,18 @@ on:
         description: 'Module id to build (from spec meta.id, e.g. kws-sherpa)'
         required: true
         type: string
-      # Dynamic per-module inputs are appended by the composite action at
-      # dispatch time; the skeleton itself only declares the module selector.
-      # (GitHub Actions has no dynamic workflow_dispatch inputs - the module
-      # build inputs are passed via repository_dispatch payload or by the
-      # generated dispatch. See the action README.)
+      inputs_json:
+        description: >-
+          Optional JSON object of module build inputs overriding the spec
+          defaults, e.g. {"checkpoints":"kwt1"}. Keys are the module spec's
+          build.inputs ids. Omit to build with every declared default.
+        required: false
+        type: string
+        default: ''
+      # GitHub Actions has no dynamic workflow_dispatch inputs, so a module's
+      # build.inputs cannot each become their own form field. `inputs_json` is
+      # the generic escape hatch: it is expanded into INPUT_<ID> env vars below,
+      # which is exactly what scripts/build-module.mjs already reads.
 
 permissions:
   contents: read # artifacts only; no push
@@ -64,14 +71,39 @@ jobs:
         if: ${{ steps.spec.outputs.uv == 'true' }}
         uses: astral-sh/setup-uv@v4
 
+      - name: Expand module build inputs into INPUT_* env vars
+        if: ${{ github.event.inputs.inputs_json != '' }}
+        env:
+          INPUTS_JSON: ${{ github.event.inputs.inputs_json }}
+        run: |
+          node -e '
+            const raw = process.env.INPUTS_JSON || "";
+            let obj;
+            try { obj = JSON.parse(raw); } catch (e) {
+              console.error("::error::inputs_json is not valid JSON: " + e.message);
+              process.exit(1);
+            }
+            if (typeof obj !== "object" || obj === null || Array.isArray(obj)) {
+              console.error("::error::inputs_json must be a JSON object");
+              process.exit(1);
+            }
+            const fs = require("fs");
+            for (const [k, v] of Object.entries(obj)) {
+              const key = "INPUT_" + k.toUpperCase().replace(/-/g, "_");
+              const delim = "EOF_" + Math.random().toString(36).slice(2);
+              fs.appendFileSync(process.env.GITHUB_ENV, key + "<<" + delim + "\n" + v + "\n" + delim + "\n");
+              console.log("forwarding " + key);
+            }
+          '
+
       - name: Run module build script
         env:
           # Forward the dispatch inputs to the driver (INPUT_<ID>).
           MODULE_ID: ${{ github.event.inputs.module }}
           ARTIFACT_DIR: ${{ runner.temp }}/artifact
-          # github.event.inputs is available to env? no - pass via a step
-          # that maps it. The driver reads INPUT_* env vars; the module
-          # build script also accepts --input-<id> flags (primary interface).
+          # Per-module INPUT_* vars (when given) are set by the expand step
+          # above via $GITHUB_ENV; build-module.mjs turns them into the
+          # --input-<id> flags the module build script documents.
         run: |
           node scripts/build-module.mjs "$MODULE_ID"
 

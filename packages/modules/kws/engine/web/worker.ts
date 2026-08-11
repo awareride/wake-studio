@@ -24,9 +24,11 @@
 import * as openWakeWordDriver from '@wake-studio/module-kws-openwakeword'
 import * as sherpaDriver from '@wake-studio/module-kws-sherpa'
 import * as plixDriver from '@wake-studio/module-kws-plix'
+import * as streamingDriver from '@wake-studio/module-kws-streaming'
 void openWakeWordDriver.OpenWakeWordBackend
 void sherpaDriver.SherpaOnnxKwsBackend
 void plixDriver.PlixKwsBackend
+void streamingDriver.KWSStreamingBackend
 
 import type {
   BackendModelUrls,
@@ -39,6 +41,7 @@ import type {
 } from '../core/types'
 import { DEFAULT_MODEL_RUNTIME } from '@wake-studio/platform'
 import {
+  backendHasRequiredUrls,
   createBackend,
   createEmbedProvider,
 } from '../core/backend'
@@ -57,6 +60,16 @@ let actualExecutionProvider: 'webgpu' | 'wasm' = 'wasm'
 
 // Generic inference state (backend-agnostic).
 let smoother = new ScoreSmoother(config.smoothingWindowFrames)
+/**
+ * Last real score from the backend (sample-and-hold).
+ *
+ * Backends score at their own cadence, slower than the 10 ms AFE frame rate
+ * (kws-streaming: once per 100 ms hop; openwakeword: once per 1280-sample
+ * chunk). Between scores `processFrame` returns null, which means "no new
+ * score" - NOT "zero". Holding the last value keeps the smoothed signal
+ * continuous so the min-duration trigger can actually accumulate.
+ */
+let lastScore: number | null = null
 const trigger = new TriggerDetector(
   config.threshold,
   config.minDurationMs,
@@ -199,13 +212,31 @@ async function handleLoad(
       // Detection backend: only load if its required URLs are present. If only
       // plixkws is provided (Few-Shot enrollment / embed-only mode), skip the
       // detection backend - embed() still works via the PLiX provider above.
-      const hasDetectionUrls =
-        urls.melspectrogram && urls.embedding && urls.classifier
+      //
+      // Each driver needs a different URL set, so "do we have what this
+      // backend needs?" is answered by the driver's own registration
+      // (`hasRequiredUrls`, ADR-024) rather than by assuming the openwakeword
+      // triple - that assumption silently skipped loading for any other
+      // driver, leaving the engine ready-but-deaf.
+      const hasDetectionUrls = backendHasRequiredUrls(backendId, urls)
       if (hasDetectionUrls) {
         backend = createBackend(backendId)
+        // Drivers with their own params (e.g. kws-streaming's wantedWord)
+        // consume them through the optional configure() capability before load.
+        ;(backend as KWSBackend & { configure?: (c: unknown) => void }).configure?.(
+          backendConfig ?? {},
+        )
         await backend.load(urls, actualExecutionProvider)
-        // OpenWakeWord (and similar) actually exercise the WebGPU EP.
-        gpuBackendLoaded = true
+        // Whether the GPU was really used is the BACKEND's fact, not an
+        // assumption: some drivers pin WASM regardless of the request (e.g.
+        // kws-streaming, whose graph hits a WebGPU/jsep Squeeze bug; plix's
+        // embedder likewise). A backend may expose `effectiveExecutionProvider`
+        // to report what it actually created the session with; otherwise we
+        // trust the requested provider.
+        const backendEp = (
+          backend as KWSBackend & { effectiveExecutionProvider?: 'webgpu' | 'wasm' }
+        ).effectiveExecutionProvider
+        gpuBackendLoaded = (backendEp ?? actualExecutionProvider) === 'webgpu'
       }
     }
 
@@ -227,6 +258,7 @@ function handleConfig(newConfig: KWSConfig): void {
   // Rebuild the smoother only if the window size actually changed.
   if (newConfig.smoothingWindowFrames !== oldWindow) {
     smoother = new ScoreSmoother(newConfig.smoothingWindowFrames)
+    lastScore = null
   }
   trigger.configure(
     newConfig.threshold,
@@ -272,20 +304,38 @@ async function handleAudio(
   }
 
   if (score === null) {
-    // Warmup (backend accumulating mel frames / embeddings). Post a 0 so the
-    // score curve renders from the start rather than gaping for ~2 s.
-    const smoothed = smoother.push(0)
-    post({
-      type: 'score',
-      sample: {
-        capturedAtMs,
-        rawScore: 0,
-        smoothedScore: smoothed,
-        triggered: false,
-        vadProbability,
-      },
-    })
-    return
+    // `null` means "no NEW score this frame", not "the score is zero".
+    //
+    // Backends score at their own cadence, slower than the 10 ms AFE frame
+    // rate: the kws-streaming sliding-window driver evaluates once per hop
+    // (100 ms = every 10th frame), openwakeword once per 1280-sample chunk.
+    //
+    // This is NOT the cause of the never-triggers bug (that was a seconds/ms
+    // unit mismatch in `capturedAtMs` - see tests/score-cadence.test.ts): the
+    // early `return` below means the trigger detector never advanced on these
+    // frames at all. But pushing a hard 0 made the SCORE CURVE sawtooth
+    // between 0 and the real score, which reads as a broken detector and hides
+    // the actual confidence. Carry the last value forward instead
+    // (sample-and-hold), so the curve shows what the backend actually last
+    // reported. Before the first score (true warmup) emit 0 so the curve
+    // renders from the start rather than gaping.
+    if (lastScore === null) {
+      const smoothed = smoother.push(0)
+      post({
+        type: 'score',
+        sample: {
+          capturedAtMs,
+          rawScore: 0,
+          smoothedScore: smoothed,
+          triggered: false,
+          vadProbability,
+        },
+      })
+      return
+    }
+    score = lastScore
+  } else {
+    lastScore = score
   }
 
   const smoothed = smoother.push(score)
@@ -375,6 +425,9 @@ self.onmessage = async (e: MessageEvent<KWSWorkerMessage>) => {
         await backend?.reset()
         smoother.reset()
         trigger.reset()
+        // Drop the held score too, or the next session would start by holding a
+        // stale (possibly above-threshold) value from the previous run.
+        lastScore = null
         break
     }
   } catch (err) {

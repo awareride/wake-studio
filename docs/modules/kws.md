@@ -17,6 +17,7 @@ module):
 | `kws-engine` | KWSEngine, worker loop, `KWSBackend` interface, registry seam | `packages/modules/kws/engine/` |
 | `kws-openwakeword` | mel→embedding→classifier driver | `packages/modules/kws/openwakeword/` |
 | `kws-sherpa` | main-thread transducer driver (wasm in module assets) | `packages/modules/kws/sherpa/` |
+| `kws-streaming` | `kws_streaming`-family graphs: external-state streaming + sliding-window (ARM Keyword Transformer pretrained) | `packages/modules/kws/streaming/` |
 | `kws-plix` | EmbedProvider + prototype-distance + encoder variants | `packages/modules/kws/plix/` |
 
 Drivers self-register via `registerKwsBackend` (sherpa via `mainThreadFactory`,
@@ -119,6 +120,7 @@ export type KWSBackendId =
   | 'microwakeword'  // TFLite-Micro streaming CNN (MCU; not browser-feasible v1)
   | 'plixkws'        // PLiX embedding + prototype-distance (app-class; Phase 3)
   | 'sherpa-onnx-kws' // Direct keyword spotting via sherpa-onnx KWS wasm (transducer)
+  | 'kws-streaming'   // google-research/kws_streaming external-state graph (Traditional)
   | 'pocketsphinx'   // lightweight HMM/GMM (MCU+; WASM port pending)
 
 /** One score sample emitted per inference frame (~every 10 ms). */
@@ -232,6 +234,11 @@ export interface BackendModelUrls {
     js: string
     wasm: string
     data: string
+  }
+  /** kws-streaming: external-state graph + sidecar manifest (see docs/modules/kws-streaming.md §4.2). */
+  kwsStreaming?: {
+    model: string
+    manifest: string
   }
 }
 
@@ -462,7 +469,8 @@ All Phase 2 open questions are resolved (ADR-018); the contract is locked.
   openwakeword-alexa, plixkws, silero-vad).
 - Related module docs: `docs/modules/afe.md` (Phase 1, upstream provider - AFE
   output is KWS input); `docs/modules/few-shot.md` (Phase 3, downstream consumer
-  of `embed(audio)` - not yet written).
+  of `embed(audio)` - not yet written);
+  `docs/modules/kws-streaming.md` (the `kws-streaming` Traditional driver).
 
 ## 13. Change log
 
@@ -476,3 +484,4 @@ All Phase 2 open questions are resolved (ADR-018); the contract is locked.
 | 2026-07-28 | VAD gate now suppresses triggers, not inference. The old gate dropped audio frames during VAD-off, losing wake-word onset (RNNoise VAD is conservative) and making triggering difficult. Inference always runs so the audio window stays current. | agent |
 | 2026-07-28 | Migrate the Few-Shot encoder from WavLM-base-plus to **PLiX** (`aaqibsaeed/plixkws`, Apache-2.0). WavLM-base-plus was too heavy for end-side devices; PLiX is a compact CNN (EfficientNet-v2 "base" / TinyNet-E "small") with Prototypical-Network scoring (embedding -> mean prototype -> distance). New `plixkws` backend id + `PlixKwsEmbedProvider` (log-Mel front-end, WASM-pinned). Scoring uses squared-Euclidean distance to the prototype, rescaled to [0,1] via `1/(1+d^2)`. Replaces `wavlm-few-shot` / `WavLMEmbedProvider`. | agent |
 | 2026-07-31 | Add `sherpa-onnx-kws` backend (real KWS transducer, emscripten WASM, main-thread) to the backend union, `KWSBackend` optional `onDetection`/`configure`, `SherpaOnnxKwsConfig`, `BackendModelUrls.sherpaKws`, `KWSConfig.runtime`. Threading §5 amended (sherpa runs main-thread), config table + error model + testing strategy updated. Docs-only sync with ba52a61. | agent |
+| 2026-08-07 | Add the `kws-streaming` driver (§0 layout, backend-id union, `BackendModelUrls.kwsStreaming`) - `google-research/kws_streaming` external-state streaming graphs, Traditional category (#72). Contract detail lives in `docs/modules/kws-streaming.md`. | agent |

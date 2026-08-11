@@ -219,6 +219,16 @@ export default defineConfig({
   build: {
     rollupOptions: {
       external: ['@huggingface/transformers', 'executorch'],
+      // The e2e inference harness (ADR-026 L3) is an extra entry, included ONLY
+      // when E2E_HARNESS=1. It must be bundled (it imports the real driver +
+      // onnxruntime-web, which `page.evaluate` cannot resolve), but it must not
+      // ship to users - so it is opt-in rather than a permanent extra page.
+      input: process.env.E2E_HARNESS
+        ? {
+            index: 'index.html',
+            'kws-streaming-harness': 'e2e-fixtures/kws-streaming-harness.html',
+          }
+        : undefined,
     },
   },
   plugins: [

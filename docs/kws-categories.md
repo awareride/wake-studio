@@ -37,15 +37,18 @@ Each category has an explicit **functional scope** (what is supported today) and
 
 - **Representative projects:** `ARM-software/ML-KWS-for-MCU`,
   `swagshaw/TorchKWS`, `wenet-e2e/WeKws`, `hongfeixue/KWS_pytorch`,
-  `micro-wake-word`.
+  `micro-wake-word`, **`google-research/kws_streaming`**.
 - **Feature:** New keywords require a full model retraining. Supports model
   quantization and export to TFLite / ONNX.
 - **Functional scope (this platform):** Fully support the **complete training &
   inference pipelines**.
 - **In the repo today:** inference is implemented via the OpenWakeWord driver
-  (`packages/modules/kws/openwakeword/core/backend.ts`); a Traditional
+  (`packages/modules/kws/openwakeword/core/backend.ts`) and the **kws_streaming
+  driver** (`packages/modules/kws/streaming/`, streaming-aware graphs from
+  `google-research/kws_streaming`, Apache-2.0 - the first Traditional driver
+  that also brings its own upstream training script per ADR-031). A Traditional
   **training** panel is reserved (§4.2) and implemented in Phase 5.
-- **Extensibility reserve:** none required — training is already in scope.
+- **Extensibility reserve:** none required - training is already in scope.
 
 ### 2.2 ASR Decoding KWS (Inference Only)
 
@@ -195,19 +198,32 @@ parameter descriptors differ per type.
 ### P0 — Core mandatory
 
 - [ ] **Traditional:** `ARM-software/ML-KWS-for-MCU`, `swagshaw/TorchKWS`
-- [ ] **ASR Decoding:** `k2-fsa/sherpa-onnx`
-- [ ] **Few-Shot:** `plixkws` (`FewshotML/plix`)
+- [x] **Traditional:** `google-research/kws_streaming` — driver module
+      `packages/modules/kws/streaming/` (`kws-streaming`), spec'd in
+      `docs/modules/kws-streaming.md` ([#72](https://github.com/awareride/wake-studio/issues/72)).
+      Two inference modes over onnxruntime-web: external-state streaming for the
+      streamable topologies, and sliding-window for the attention ones. **Four
+      pretrained 12-label models ship and work in the browser** (ARM Keyword
+      Transformer kwt1-3 + att_mh_rnn, converted TFLite→ONNX in CI and
+      re-validated on real Speech Commands audio at 99.2-100%). Training wraps
+      the unpatched upstream `model_train_eval.py` (ADR-031).
+- [x] **ASR Decoding:** `k2-fsa/sherpa-onnx` — driver module
+      `packages/modules/kws/sherpa/` (`kws-sherpa`).
+- [x] **Few-Shot:** `plixkws` (`FewshotML/plix`) — driver module
+      `packages/modules/kws/plix/` (`kws-plix`).
 
-> **Note:** `plixkws` is already integrated as the Few-Shot backend (Phase 3).
-> The P0 Traditional and ASR-Decoding entries are not yet implemented in the
-> browser and are the next driver-module + panel additions under the decoupling
-> rule (§1). No new projects in this list are fetched or bundled yet — they are
-> enumerated here as integration intent only (see ADR-024).
+> **Note:** all three categories now have at least one integrated driver, so
+> §2.4's scope matrix is fully covered in the repo. The remaining Traditional
+> entries (ML-KWS-for-MCU, TorchKWS) are additional model families, not missing
+> capability — each would be a new driver module + panel under the decoupling
+> rule (§1). No projects in this list are fetched or bundled beyond what the
+> shipped driver modules declare in their specs (see ADR-024).
 
 ## 7. References
 
 - `docs/architecture.md` §4 (model selection), §6 (target matrix).
 - `docs/modules/kws.md` (Traditional/Few-Shot `KWSBackend` contract, ADR-020).
+- `docs/modules/kws-streaming.md` (Traditional `kws_streaming` driver, ADR-024 §2.1).
 - `docs/modules/few-shot.md` (Few-Shot enrollment + PLiX encoder, ADR-002).
 - `DECISIONS.md` ADR-011, ADR-017, ADR-020, ADR-021, ADR-022, ADR-024.
 
@@ -216,3 +232,4 @@ parameter descriptors differ per type.
 | Date | Change | Author |
 |---|---|---|
 | 2026-07-28 | Initial draft (docs-first). Codifies the 3-category taxonomy, decoupling rule, scope matrix, modular architecture, dual-layer panel spec, and P0 integration TODO. | agent |
+| 2026-08-07 | §2.1 + §6: `google-research/kws_streaming` integrated as a Traditional driver (`kws-streaming`, #72); §6 P0 list marked up to reflect the shipped sherpa/plix drivers. | agent |

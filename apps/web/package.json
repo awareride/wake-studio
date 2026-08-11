@@ -12,8 +12,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
-    "test:e2e": "playwright install chromium && playwright test",
-    "test": "vitest run && pnpm test:e2e"
+    "test:e2e": "playwright install chromium && E2E_HARNESS=1 playwright test",
+    "test": "vitest run && pnpm test:e2e",
+    "build:e2e": "E2E_HARNESS=1 vite build"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
@@ -27,6 +28,7 @@
     "@wake-studio/module-kws-openwakeword": "workspace:^",
     "@wake-studio/module-kws-plix": "workspace:^",
     "@wake-studio/module-kws-sherpa": "workspace:^",
+    "@wake-studio/module-kws-streaming": "workspace:^",
     "@wake-studio/module-few-shot": "workspace:^",
     "@wake-studio/module-rnnoise": "workspace:^",
     "@wake-studio/module-training": "workspace:^",
