@@ -13,6 +13,9 @@ import type {
   KWSBackendId,
   KWSBackendCategory,
   BackendModelUrls,
+  BackendModelResolveContext,
+  BackendResourceDescriptor,
+  ModelSourceRole,
 } from './types'
 import type { ModuleSpec } from '@wake-studio/contracts'
 
@@ -51,6 +54,27 @@ export interface KWSBackendRegistration {
    * default).
    */
   hasRequiredUrls?: (urls: BackendModelUrls) => boolean
+  /**
+   * Model-source roles this backend consumes (ADR-024). The host renders the
+   * Model-source editor from this; a backend that bundles its model (e.g.
+   * sherpa's wasm package) declares none. Defaults to [].
+   */
+  modelRoles?: ModelSourceRole[]
+  /**
+   * Resolve this backend's model URLs (ADR-011/024) from the user's model
+   * sources + driver params. Backends own their URL mapping, so the host
+   * never branches per backend id. Omitted for backends that load no model
+   * URLs (e.g. sherpa bundles its model in the wasm package).
+   */
+  resolveModelUrls?: (
+    ctx: BackendModelResolveContext,
+  ) => BackendModelUrls | Promise<BackendModelUrls>
+  /**
+   * Resource rows for the host's Engine card (models + persistent data).
+   * Declared per driver (ADR-024); the host renders them generically.
+   * Defaults to [].
+   */
+  resources?: BackendResourceDescriptor[]
   /**
    * Optional: a main-thread-only backend factory (e.g. sherpa-onnx-kws runs
    * on the main thread - its classic emscripten wasm needs DOM, ADR-018).
@@ -116,6 +140,29 @@ export function backendHasRequiredUrls(
   const reg = getBackendRegistration(id)
   if (reg?.hasRequiredUrls) return reg.hasRequiredUrls(urls)
   return Boolean(urls.melspectrogram && urls.embedding && urls.classifier)
+}
+
+/**
+ * Resolve one model role's URL from the user's selection, honoring:
+ *  - a user-library model ('user:<id>') -> its pre-resolved blob URL
+ *  - a registry model id -> the registry's URL for that id
+ *  - 'custom' -> the user-supplied custom URL
+ *  - nothing selected -> the built-in registry entry for `fallbackId`
+ *
+ * Shared by drivers that consume registry-backed model roles, so the
+ * selection semantics live in ONE place (ADR-024).
+ */
+export function resolveRoleUrl(
+  ctx: BackendModelResolveContext,
+  role: string,
+  fallbackId: string,
+): string | undefined {
+  const selected = ctx.modelSources[role]
+  const byId = new Map(ctx.registry.models.map((m) => [m.id, m.url]))
+  if (selected?.startsWith('user:')) return ctx.userBlobUrls[role]
+  if (selected && selected !== 'custom') return byId.get(selected)
+  if (selected === 'custom') return ctx.customUrls[role]?.trim() || undefined
+  return byId.get(fallbackId)
 }
 
 // ---------------------------------------------------------------------------

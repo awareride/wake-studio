@@ -9,7 +9,7 @@
 // Public API types (docs/modules/kws.md §4)
 // ---------------------------------------------------------------------------
 
-import type { ModelRuntime } from '@wake-studio/platform'
+import type { ModelRegistry, ModelRuntime } from '@wake-studio/platform'
 import { DEFAULT_MODEL_RUNTIME } from '@wake-studio/platform'
 /**
  * Pluggable KWS backend identifiers (ADR-020). The engine delegates inference
@@ -136,6 +136,80 @@ export interface BackendModelUrls {
   }
   /** Model-runtime hint for the model(s) addressed by these URLs. @see ModelRuntime */
   runtime?: ModelRuntime
+}
+
+// ---------------------------------------------------------------------------
+// Backend registration extras (ADR-024/025): host-facing declarations.
+//
+// Drivers declare these at registration time so the host panel renders the
+// Model-source editor, the Engine-card resources and the load URL mapping
+// generically - adding a backend never edits the host.
+// ---------------------------------------------------------------------------
+
+/** One model role the Model-source editor offers for a backend. */
+export interface ModelSourceRole {
+  /** Role key; also the modelSources/customUrls map key in the host. */
+  role: string
+  /** Label shown in the Model-source editor. */
+  label: string
+  /** Registry model id used when the user has not selected anything. */
+  fallbackId: string
+}
+
+/** Context handed to a backend's resolveModelUrls() (ADR-024). */
+export interface BackendModelResolveContext {
+  /** The loaded platform model registry (ADR-011). */
+  registry: ModelRegistry
+  /** The driver's own param values (spec params), keyed by id. */
+  driverValues: Record<string, unknown>
+  /** User model-source selection per role: registry id | 'custom' | 'user:<id>'. */
+  modelSources: Record<string, string | undefined>
+  /** Custom URLs per role (when the user selected 'custom'). */
+  customUrls: Record<string, string>
+  /** Blob URLs for user-library models (role -> blob URL). */
+  userBlobUrls: Record<string, string>
+}
+
+/** Readiness/detail computed by a driver's resource-row probe. */
+export interface BackendResourceState {
+  ready: boolean
+  /** Detail line shown under the row label (e.g. URL, sample count). */
+  detail?: string
+}
+
+/** Context handed to a backend's resource-row state() probe. */
+export interface BackendResourceStateContext {
+  /** Current engine status (idle | loading | ready | running | error). */
+  status: KWSStatus
+  /** Model URLs of the current load (BackendModelUrls). */
+  urls: BackendModelUrls
+  /** The driver's own param values (spec params), keyed by id. */
+  driverValues: Record<string, unknown>
+  /**
+   * Persisted artifacts the host has loaded (e.g. few-shot prototypes and
+   * sample counts). Shape is driver-defined; the probe reads what it
+   * declared. Empty when the host has no artifacts for this backend.
+   */
+  saved: Record<string, unknown>
+}
+
+/**
+ * One resource row in the host's Engine card: a model the backend loads or
+ * persistent data the user has created. Declared per driver at registration
+ * so adding a backend never edits the host panel.
+ */
+export interface BackendResourceDescriptor {
+  id: string
+  label: string
+  kind: 'model' | 'data'
+  /** 'model' rows: key into BackendModelUrls whose loaded URL is shown. */
+  urlKey?: keyof BackendModelUrls
+  /**
+   * 'data' rows (or custom model rows): driver-owned readiness/detail. When
+   * absent on a 'model' row, the host derives readiness from engine status
+   * and detail from the loaded URL.
+   */
+  state?: (ctx: BackendResourceStateContext) => BackendResourceState
 }
 
 /**

@@ -42,4 +42,39 @@ registerKwsBackend({
   hasRequiredUrls: (urls) =>
     Boolean(urls.kwsStreaming?.model && urls.kwsStreaming?.manifest),
   spec: kwsStreamingSpec as unknown as ModuleSpec,
+  // One model role: the exported graph. Its sidecar manifest travels with it
+  // via the registry's manifestUrl, so the user picks a model, not a pair.
+  modelRoles: [
+    { role: 'kws-streaming-model', label: 'kws_streaming model', fallbackId: 'kws-streaming-kwt1' },
+  ],
+  // The graph + manifest must stay paired by construction; a custom URL
+  // therefore also needs its manifest, derived by swapping .onnx -> .json
+  // (what the exporter emits).
+  resolveModelUrls: (ctx) => {
+    const role = 'kws-streaming-model'
+    const selected = ctx.modelSources[role]
+    if (selected === 'custom') {
+      const model = ctx.customUrls[role]?.trim()
+      if (!model) return {}
+      return {
+        kwsStreaming: { model, manifest: model.replace(/\.onnx$/i, '.json') },
+      }
+    }
+    const entry =
+      ctx.registry.models.find((m) => m.id === selected) ??
+      ctx.registry.models.find((m) => m.id === 'kws-streaming-kwt1')
+    if (!entry?.manifestUrl) return {}
+    return {
+      kwsStreaming: { model: entry.url, manifest: entry.manifestUrl },
+    }
+  },
+  // Engine-card resource: the graph + its sidecar manifest as one row.
+  resources: [
+    {
+      id: 'kws-streaming-model',
+      label: 'kws_streaming model + manifest',
+      kind: 'model',
+      urlKey: 'kwsStreaming',
+    },
+  ],
 })

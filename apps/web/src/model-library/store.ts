@@ -24,17 +24,7 @@ const MODEL_STORE = 'models'
 export interface UserModel {
   id: string
   /** Role this model was imported for (classifier / melspectrogram / ...). */
-  role:
-    | 'melspectrogram'
-    | 'embedding'
-    | 'classifier'
-    | 'plix-encoder'
-    /**
-     * An exported kws_streaming graph. Note it needs a sidecar manifest to be
-     * usable, which the library does not store - so an imported file of this
-     * role only works when its manifest is reachable next to the model URL.
-     */
-    | 'kws-streaming-model'
+  role: string
   /** Original file name (e.g. my-wakeword-classifier.onnx). */
   name: string
   /** File size in bytes. */
@@ -85,7 +75,7 @@ function tx<T>(
 /** Import a local File into the user model library. */
 export async function importModelFile(
   file: File,
-  role: UserModel['role'],
+  role: string,
   notes?: string,
 ): Promise<UserModel> {
   const model: UserModel = {
