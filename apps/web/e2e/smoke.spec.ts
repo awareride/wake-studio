@@ -126,8 +126,11 @@ test('Few-Shot enrollment lives in the KWS panel plixkws branch (Phase 3)', asyn
 
   // Select the plixkws backend; the KWS panel shows the enrollment controls
   // (encoder variant + runtime + Load PLiX encoder) instead of a dead button.
+  // The section renders generically from the backend's provisioning
+  // capability (ADR-033): 'Provisioning' heading + enroll hint + the driver's
+  // load action label (plixkws: 'Load PLiX encoder').
   await page.getByLabel('Backend').selectOption('plixkws')
-  await expect(page.getByText(/PLiX Few-Shot enrollment/)).toBeVisible()
+  await expect(page.getByText(/enroll a custom wake word/)).toBeVisible()
   await expect(page.getByRole('button', { name: /Load PLiX encoder/i })).toBeVisible()
   // The generic KWS config panel is hidden for plixkws (enrollment replaces it).
   await expect(page.getByText('Tunable parameters')).toBeHidden()
