@@ -186,6 +186,46 @@ e2e/<module>.spec.ts             # L3 browser tests
 > live in the owning module's `assets/` (Q-K2). Artifacts that ship embedded
 > in source (e.g. RNNoise's base64 wasm glue) need no `assets/` entry.
 
+## 5a. Dependency rules (ADR-034)
+
+Modules split into **capability** and **impl** (implementation) classes, and
+imports are strictly one-directional:
+
+- **Capability modules** (contracts, kws-engine, few-shot, module-kit,
+  platform) define the seams (`registerKwsBackend`, specs, artifact types)
+  and may be imported freely by hosts and by each other.
+- **Impl modules** (the KWS drivers: openwakeword, plix, sherpa, streaming)
+  self-register into those seams at import time. They may be imported ONLY by
+  a **composition root** (a wire).
+
+Direction: `contracts ← capability modules ← impl modules`; the only arrow
+pointing at an impl module comes from a wire file.
+
+**Wires (generated, committed):**
+
+| Bundle context | Wire file | Imported by |
+|---|---|---|
+| Host (PWA) | `apps/web/src/module-wire.ts` | `main.tsx` |
+| KWS worker | `packages/modules/kws/engine/web/worker-wire.ts` | `web/worker.ts` |
+
+Both wires are generated from the module specs by
+`node scripts/gen-module-wires.mjs --update` (a driver = kws category + spec
+`runtime.web.worker`, excluding the engine itself); `--check` fails when they
+are stale. Adding a driver = adding its spec; the wires regenerate, no host
+or capability edits.
+
+**Enforcement:**
+- The engine's decoupling test scans `core/` + `web/` (except the worker
+  wire) and fails on any driver import; the app's module-wire test does the
+  same for `apps/web/src` (except the host wire). Both also run the
+  generator's `--check`.
+- Cheap grep guard (CI backup):
+  `rg "module-kws-(openwakeword|plix|sherpa|streaming)" apps packages --files-with-matches | grep -v -E 'wire'`
+  must be empty (test fixtures under `e2e-fixtures/` and `tests/` are
+  allowed - they exercise drivers directly).
+- The rule is generic: it extends to any future capability/impl split (e.g.
+  a second AFE stage implementation) with the same wire pattern.
+
 ## 6. Train scripts (ADR-028)
 
 - Every module that needs training ships a `train/` directory:

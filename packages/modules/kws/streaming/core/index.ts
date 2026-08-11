@@ -40,7 +40,12 @@ registerKwsBackend({
   // model triple. Declaring it here keeps the worker free of per-backend
   // cases (ADR-024).
   hasRequiredUrls: (urls) =>
-    Boolean(urls.kwsStreaming?.model && urls.kwsStreaming?.manifest),
+    Boolean(
+      (urls as { kwsStreaming?: { model?: string; manifest?: string } })
+        .kwsStreaming?.model &&
+        (urls as { kwsStreaming?: { model?: string; manifest?: string } })
+          .kwsStreaming?.manifest,
+    ),
   spec: kwsStreamingSpec as unknown as ModuleSpec,
   // One model role: the exported graph. Its sidecar manifest travels with it
   // via the registry's manifestUrl, so the user picks a model, not a pair.

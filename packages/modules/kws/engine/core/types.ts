@@ -124,23 +124,21 @@ export interface EmbedProvider {
 }
 
 export interface BackendModelUrls {
-  melspectrogram?: string
-  embedding?: string
-  classifier?: string
-  plixkws?: string
   /**
-   * kws-streaming driver: an exported `kws_streaming` external-state streaming
-   * graph plus its sidecar manifest (which declares tensor names, state
-   * shapes, packet size and labels). @see docs/modules/kws-streaming.md §4.2
+   * Model-runtime hint for the model(s) addressed by these URLs.
+   * @see ModelRuntime
    */
-  kwsStreaming?: {
-    /** The external-state streaming graph (.onnx). */
-    model: string
-    /** The sidecar manifest (model.json). */
-    manifest: string
-  }
-  /** Model-runtime hint for the model(s) addressed by these URLs. @see ModelRuntime */
   runtime?: ModelRuntime
+  /**
+   * Driver-opaque URL bag (ADR-034): each driver owns its URL shape and
+   * interprets its keys at the load boundary - its `resolveModelUrls` returns
+   * this shape and its `backend.load` reads the keys it declared (e.g.
+   * openwakeword reads `melspectrogram`/`embedding`/`classifier`, plix reads
+   * `plixkws`, kws-streaming reads `kwsStreaming`). The engine never reads a
+   * driver-named key; the only engine-known field is `runtime` above. Adding
+   * a driver never edits this type (ADR-024/034).
+   */
+  [key: string]: unknown
 }
 
 // ---------------------------------------------------------------------------
@@ -207,8 +205,12 @@ export interface BackendResourceDescriptor {
   id: string
   label: string
   kind: 'model' | 'data'
-  /** 'model' rows: key into BackendModelUrls whose loaded URL is shown. */
-  urlKey?: keyof BackendModelUrls
+  /**
+   * 'model' rows: key into BackendModelUrls whose loaded URL is shown. The
+   * bag is driver-opaque (ADR-034), so the key is a plain string the driver
+   * declared.
+   */
+  urlKey?: string
   /**
    * 'data' rows (or custom model rows): driver-owned readiness/detail. When
    * absent on a 'model' row, the host derives readiness from engine status

@@ -950,6 +950,85 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
 
 ---
 
+## ADR-034 — Composition roots: impl modules are imported only by wires
+
+- **Status:** Accepted (2026-08-11; all recommendations confirmed by human - issue #74)
+- **Origin:** Issue #74 (follow-up to the ADR-024 seam pattern; continues the
+  #75/#76 decoupling series)
+- **Decision:**
+  1. **Capability/impl import rule (one-directional).** Capability modules
+     (contracts, kws-engine, few-shot, kit, platform) define the seams
+     (`registerKwsBackend`, specs, artifact types) and may be imported
+     freely; impl modules (the KWS drivers: openwakeword, plix, sherpa,
+     streaming) self-register into those seams and may be imported ONLY by a
+     composition root (a wire). Direction: `contracts ← capability ← impl`;
+     the only arrow pointing at an impl module comes from a wire file.
+  2. **Two wires, plain files (Q1).** The host wire is
+     `apps/web/src/module-wire.ts` (the ONLY file in `apps/` that imports
+     drivers; `main.tsx` becomes `import './module-wire'`). The worker wire
+     is `packages/modules/kws/engine/web/worker-wire.ts` (`worker.ts` imports
+     it; `worker-assembly.ts` keeps only `createKwsWorker` and stops importing
+     drivers). The `wire-web` package variant (moves the driver deps out of
+     `apps/web`/engine `package.json` for package-level enforcement) is
+     deferred - plain files are the simpler shape while apps/web is the only
+     host bundle; revisit if a second host bundle appears.
+  3. **Wires are generated from specs and committed (Q2).**
+     `scripts/gen-module-wires.mjs` emits both wire files from the kws module
+     specs (via the shared `discoverModules`; kws category; spec has
+     `runtime.web.worker`; `meta.id ≠ kws-engine` - the engine is the
+     capability module, not a wire target). The generated files are committed
+     (reviewable diffs); the script's `--check` mode fails when they are
+     stale, run as a repo-level guard. Adding a driver = adding its spec; the
+     wires regenerate - no host edits. (Engine exclusion list grows only when
+     a new capability module joins the kws category, an ADR-level event.)
+  4. **Lazy driver loading is a v1.x follow-up (Q3).** The manifest + dynamic
+     `import(manifest[id].entry)` endgame is deferred; the static wires are
+     the v1 mechanism (all driver chunks in both bundles today, as now).
+  5. **AFE extension (Q4).** The rule's text is generic (any capability/impl
+     split). Enforcement currently covers the KWS drivers; it extends to AFE
+     stage modules when a second implementation of a stage interface lands
+     (e.g. a second NS beyond rnnoise).
+  6. **Enforcement.** (a) The engine's decoupling test is extended: engine
+     core AND web target never import a driver package except `worker-wire`;
+     the wires import every registered driver. (b) The generation script's
+     `--check` is the repo-level staleness guard (CI step when the P0 delivery
+     chain fixes land). (c) `rg "module-kws-(openwakeword|plix|sherpa|streaming)"
+     apps packages --files-with-matches | grep -v -E 'wire'` stays empty.
+  7. **Remaining #74 §5 inversion: `BackendModelUrls` shrinks to a
+     driver-opaque bag.** The engine type becomes
+     `{ runtime?: ModelRuntime } & Record<string, unknown>`; driver URL keys
+     (plixkws / kwsStreaming / melspectrogram / ...) live in the drivers. The
+     worker's plixkws embed boot moves to a driver-declared URL key on the
+     embed-provider factory seam (`registerEmbedProviderFactory(factory,
+     { urlKey })`). Drivers cast the bag to their own URL type at the load
+     boundary. (The other #74 §5 inversion - `WakeWordPrototype` + scoring
+     out of plix - already landed in ADR-033 / #76.)
+- **Rationale:** today the host (`main.tsx`) and the engine (`worker.ts`,
+  `worker-assembly.ts`) import all four drivers directly; the engine (an
+  abstraction) depending on its implementations inverts ADR-024 and grows
+  with every new backend. A single composition root per bundle context makes
+  the dependency direction explicit, enforces it mechanically, and keeps
+  "adding a driver = adding a spec" true (#74 goal: zero edits in `apps/` or
+  capability packages).
+- **Open questions resolved in this ADR (flagged for human):**
+  1. *Wire location* - plain files in `apps/web/src` + `engine/web` (the
+     issue's primary proposal); the `wire-web` package variant deferred.
+  2. *Generated-file policy* - generate from specs, commit the output,
+     `--check` guards staleness (specs stay the single fact source, ADR-025).
+  3. *Lazy loading* - out of scope for v1 (follow-up).
+  4. *AFE extension* - rule generic; enforcement extends when the AFE split
+     lands.
+- **Consequences:**
+  - `main.tsx` / `worker.ts` / `worker-assembly.ts` stop importing drivers;
+    the wires are the only importers. The generated wire files are committed
+    and regenerated by `scripts/gen-module-wires.mjs`.
+  - `BackendModelUrls` loses its driver-named keys; drivers own their URL
+    shape. The worker's embed boot reads the driver-declared URL key.
+  - Rule lands in `docs/module-spec.md` ("Dependency rules") + this ADR;
+    the engine decoupling test enforces it.
+  - Follow-ups: lazy driver chunks + backend manifest (v1.x), optional CI rg
+    step once P0 fixes land, wire-web package if a second host appears.
+
 _Open questions still pending human input: Q10 (self-hosted training engine) is
 open for Phase 5. Q9 (training backends) is ADR-013 (amended: in-browser training
 removed, Cloud Providers unified, Colab added as ADR-023); targets are ADR-019

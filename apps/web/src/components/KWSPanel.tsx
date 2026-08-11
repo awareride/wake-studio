@@ -75,12 +75,19 @@ const HISTORY_MAX = 300 // ~3 s at ~100 fps
  *
  * Most entries are a plain URL string, but some drivers group several files
  * under one key (e.g. kws-streaming's `{ model, manifest }`), so the object
- * shape has to be flattened before it reaches JSX.
+ * shape has to be flattened before it reaches JSX. The bag is driver-opaque
+ * (ADR-034), so the value is `unknown` here.
  */
-function formatUrlDetail(value: BackendModelUrls[keyof BackendModelUrls]): string {
+function formatUrlDetail(value: unknown): string {
   if (value === undefined || value === null) return 'not loaded'
   if (typeof value === 'string') return value
-  return Object.values(value).filter(Boolean).join(', ') || 'not loaded'
+  if (typeof value === 'object') {
+    return (
+      Object.values(value as Record<string, unknown>).filter(Boolean).join(', ') ||
+      'not loaded'
+    )
+  }
+  return String(value)
 }
 
 // plixkws enrollment constants (mirrors the removed Few-Shot panel).

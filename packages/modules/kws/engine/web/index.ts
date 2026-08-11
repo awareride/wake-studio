@@ -12,7 +12,8 @@ export type { KWSConfig, KWSBackend, KWSBackendId } from '../core'
 // need the worker constructor (the engine imports it internally).
 export { default as KWSWorker } from './worker?worker'
 
-// Worker assembly seam (ADR-024, issue #23): imports the driver modules so
-// their registration side-effects run inside the worker bundle. Hosts that
-// construct the worker via `createKwsWorker()` get all registered backends.
+// Worker assembly seam (ADR-024/034, issue #23): creates the KWS worker. The
+// worker bundle gets its driver registrations from the worker composition
+// root (web/worker-wire.ts, generated); hosts that construct the worker via
+// `createKwsWorker()` get all registered backends.
 export { createKwsWorker } from './worker-assembly'

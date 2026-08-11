@@ -108,14 +108,20 @@ export class OpenWakeWordBackend implements KWSBackend {
   }
 
   async load(urls: BackendModelUrls, provider: 'webgpu' | 'wasm'): Promise<void> {
-    if (!urls.melspectrogram || !urls.embedding || !urls.classifier) {
+    // The URL bag is driver-opaque (ADR-034); this driver owns its three keys.
+    const modelUrls = urls as {
+      melspectrogram?: string
+      embedding?: string
+      classifier?: string
+    }
+    if (!modelUrls.melspectrogram || !modelUrls.embedding || !modelUrls.classifier) {
       throw new Error(
         'OpenWakeWord backend requires melspectrogram, embedding, and classifier model URLs.',
       )
     }
-    this._melSession = await loadModel(urls.melspectrogram, provider)
-    this._embedSession = await loadModel(urls.embedding, provider)
-    this._classifierSession = await loadModel(urls.classifier, provider)
+    this._melSession = await loadModel(modelUrls.melspectrogram, provider)
+    this._embedSession = await loadModel(modelUrls.embedding, provider)
+    this._classifierSession = await loadModel(modelUrls.classifier, provider)
   }
 
   async processFrame(samples: Float32Array): Promise<number | null> {

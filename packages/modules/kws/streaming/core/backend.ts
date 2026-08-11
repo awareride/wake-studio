@@ -111,7 +111,10 @@ export class KWSStreamingBackend implements KWSBackend {
   }
 
   async load(urls: BackendModelUrls, provider: 'webgpu' | 'wasm'): Promise<void> {
-    const source = urls.kwsStreaming
+    // The URL bag is driver-opaque (ADR-034); this driver owns the
+    // kwsStreaming key (model + manifest pair).
+    const source = (urls as { kwsStreaming?: { model: string; manifest: string } })
+      .kwsStreaming
     if (!source?.model || !source?.manifest) {
       throw new Error(
         'kws-streaming requires a model + manifest URL. Upstream ships no ' +

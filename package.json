@@ -10,16 +10,18 @@
     "node": ">=18.0.0"
   },
   "scripts": {
+    "build": "pnpm --filter @wake-studio/web build",
     "dev": "pnpm --filter @wake-studio/web dev",
     "dev:service": "pnpm --filter @wake-studio/studio-backend dev",
-    "build": "pnpm --filter @wake-studio/web build",
-    "preview": "pnpm --filter @wake-studio/web preview",
+    "fetch:all": "pnpm -r fetch:all",
+    "gen:wires": "node scripts/gen-module-wires.mjs --update",
+    "gen:wires:check": "node scripts/gen-module-wires.mjs --check",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm -r typecheck",
-    "test:unit": "pnpm -r test:unit",
-    "test:e2e": "pnpm --filter @wake-studio/web test:e2e",
+    "preview": "pnpm --filter @wake-studio/web preview",
     "test": "pnpm test:unit && pnpm test:e2e",
-    "fetch:all": "pnpm -r fetch:all"
+    "test:e2e": "pnpm --filter @wake-studio/web test:e2e",
+    "test:unit": "pnpm -r test:unit",
+    "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
     "typescript": "~5.6.3"

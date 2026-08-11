@@ -9,26 +9,18 @@
  *
  * Pure logic (ScoreSmoother, TriggerDetector, VAD gate) is in ./logic.
  *
- * Driver registration (issue #23): this worker runs in a SEPARATE bundle
- * (Vite `?worker`), so driver modules must be imported HERE for their
+ * Driver registration (issue #23, ADR-034): this worker runs in a SEPARATE
+ * bundle (Vite `?worker`), so driver modules must be imported HERE for their
  * registration side-effects (`registerKwsBackend` / `registerEmbedProviderFactory`)
- * to run inside the worker. The engine core (core/) still never imports a
- * driver module (ADR-024); this file is in the web target, not core. New
- * drivers only need to be added to the import list below (or by the host via
- * the worker-assembly seam).
+ * to run inside the worker. The worker composition root (web/worker-wire.ts)
+ * is the ONLY file that imports driver modules; it is imported here BEFORE
+ * any message handler can run. New drivers only need to be added to the
+ * worker wire (regenerated from specs) - worker.ts never changes.
  */
 
-// Driver registration side-effects (must run once, before any load message).
-// Imported as namespaces and referenced via `void` so Vite cannot tree-shake
-// the side-effect imports out of the worker bundle.
-import * as openWakeWordDriver from '@wake-studio/module-kws-openwakeword'
-import * as sherpaDriver from '@wake-studio/module-kws-sherpa'
-import * as plixDriver from '@wake-studio/module-kws-plix'
-import * as streamingDriver from '@wake-studio/module-kws-streaming'
-void openWakeWordDriver.OpenWakeWordBackend
-void sherpaDriver.SherpaOnnxKwsBackend
-void plixDriver.PlixKwsBackend
-void streamingDriver.KWSStreamingBackend
+// Worker composition root (ADR-034): driver registration side-effects, must
+// run once, before any load message.
+import './worker-wire'
 
 import type {
   BackendModelUrls,
@@ -44,6 +36,7 @@ import {
   backendHasRequiredUrls,
   createBackend,
   createEmbedProvider,
+  getEmbedProviderUrlKey,
 } from '../core/backend'
 import { DEFAULT_CONFIG } from '../core/defaults'
 import { ScoreSmoother, TriggerDetector, shouldGateByVad } from '../core/logic'
@@ -133,21 +126,27 @@ async function handleLoad(
   const globalRuntime = urls.runtime ?? config.runtime ?? DEFAULT_MODEL_RUNTIME
 
   try {
-    // PLiX encoder is required for the plixkws backend AND for the embed()
-    // scaffold. Load it first. A load failure here is a hard error - we do NOT
-    // swallow it (silencing it would only surface later as the cryptic
-    // "PLiX encoder not loaded; embed() unavailable" from handleEmbed). If the
-    // requested PLiX URL/runtime cannot load, fail loudly so the UI can show
-    // the real reason (e.g. a missing ONNX graph or external-data file).
-    if (urls.plixkws) {
+    // The few-shot embed encoder (PLiX) is required for the plixkws backend
+    // AND for the embed() scaffold. The URL bag is driver-opaque (ADR-034):
+    // which key holds the encoder URL is declared by the embed-provider
+    // factory's registration (`registerEmbedProviderFactory(factory, {
+    // urlKey })`), never assumed by the worker. Load it first. A load failure
+    // here is a hard error - we do NOT swallow it (silencing it would only
+    // surface later as the cryptic "PLiX encoder not loaded; embed()
+    // unavailable" from handleEmbed). If the requested encoder URL/runtime
+    // cannot load, fail loudly so the UI can show the real reason (e.g. a
+    // missing ONNX graph or external-data file).
+    const embedUrlKey = getEmbedProviderUrlKey()
+    const embedUrl = embedUrlKey ? urls[embedUrlKey] : undefined
+    if (typeof embedUrl === 'string' && embedUrl) {
       const runtime = globalRuntime
       embedProvider = (await createEmbedProvider(
-        urls.plixkws,
+        embedUrl,
         runtime,
       )) as EmbedProvider | null
       if (embedProvider) {
         await (embedProvider as unknown as { load: (u: string, p: string) => Promise<void> }).load(
-          urls.plixkws,
+          embedUrl,
           actualExecutionProvider,
         )
       }
