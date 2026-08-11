@@ -5,16 +5,17 @@
  * wasm boots + a KeywordSpotter can be created (the "artifact boots" gate that
  * runs on every PR without a browser).
  *
- * STATUS (2026-08-07): the browser-targeted emscripten build does NOT boot in
- * a plain Node process — the main glue's runtime waits on browser APIs
- * (`fetch` for the .data package, `document`/DOM shims are absent) and times
- * out after 120 s instead of failing fast. ADR-026 said "the glue supports
- * ENVIRONMENT=node" but that applies to the sherpa-onnx NPM/Node build, not
- * this browser wasm bundle. See issue #49 for the follow-up (load the .wasm
- * via the sherpa-onnx Node binding, or build a Node-targeted glue).
+ * STATUS (2026-08-08, #49 fixed): the browser-targeted emscripten build boots
+ * in Node once the vm context provides the globals the glue branches on.
+ * Root cause: ENVIRONMENT_IS_NODE keys off the bare `process` identifier;
+ * the sandbox did not provide it, so the glue took the browser path and hung
+ * on fetch() for the .data package. With `process` (+ performance/
+ * TextDecoder/TextEncoder/URL) in the sandbox, the glue's isNode path reads
+ * the wasm + .data via fs.readFileSync — the same artifact the browser uses.
  *
- * To keep CI green, this suite is SKIPPED by default; set
- * `SHERPA_L2_RUN=1` to attempt the Node boot anyway (for debugging).
+ * The suite runs whenever the artifact is present (gitignored per ADR-011;
+ * fetch with `pnpm fetch:all`) and skips otherwise, so CI stays green even
+ * when the artifact has not been fetched.
  */
 
 import { describe, it, expect, beforeAll } from 'vitest'
@@ -30,9 +31,30 @@ const gluePath = resolve(bundleDir, 'sherpa-onnx-kws.js')
 const mainPath = resolve(bundleDir, 'sherpa-onnx-wasm-kws-main.js')
 
 const ASSETS_PRESENT = existsSync(gluePath) && existsSync(mainPath)
-// Off by default (issue #49): the browser emscripten build does not boot in
-// Node today; opt in with SHERPA_L2_RUN=1 to debug.
-const RUN = ASSETS_PRESENT && process.env.SHERPA_L2_RUN === '1'
+// #49 fixed: runs whenever the artifact is present (see header).
+
+// Mirror the browser backend's config (core/backend.ts load()): the .data
+// package mounts the epoch-13 model files + tokens.txt at the FS root, so the
+// relative './...' paths resolve against cwd '/' in the emscripten FS. #49.
+const SHERPA_CONFIG = {
+  featConfig: { sampleRate: 16000, featureDim: 80 },
+  modelConfig: {
+    transducer: {
+      encoder: './encoder-epoch-13-avg-2-chunk-16-left-64.onnx',
+      decoder: './decoder-epoch-13-avg-2-chunk-16-left-64.onnx',
+      joiner: './joiner-epoch-13-avg-2-chunk-16-left-64.onnx',
+    },
+    tokens: './tokens.txt',
+    provider: 'cpu',
+    numThreads: 1,
+    debug: 0,
+  },
+  maxActivePaths: 4,
+  numTrailingBlanks: 1,
+  keywordsScore: 1.0,
+  keywordsThreshold: 0.25,
+  keywords: 'x iǎo ài t óng x ué @小爱同学',
+}
 
 // The emscripten glue is CommonJS-flavored (references `module`/`require` at
 // eval time). vitest runs ESM, so bare eval would hit `ReferenceError: module
@@ -55,6 +77,15 @@ const vmContext = vm.createContext({
   clearTimeout,
   setInterval,
   clearInterval,
+  // Node globals the emscripten glue branches on or calls at runtime. The
+  // bare `process` identifier selects the ENVIRONMENT_IS_NODE path (fs-based
+  // readAsync + .data load); without it the glue hangs on the browser
+  // fetch() path. The rest are runtime calls (clock, string codecs). #49.
+  process,
+  performance,
+  TextDecoder,
+  TextEncoder,
+  URL,
 })
 
 /** Evaluate an emscripten glue file in the vm context (Node). */
@@ -64,9 +95,15 @@ function evalGlobal(src: string): void {
 
 /** Boot the wasm in Node and resolve with a ready KeywordSpotter. */
 async function bootSpotter(): Promise<unknown> {
-  // Step 1: the createKws glue (defines globalThis.createKws).
+  // Step 1: the createKws glue. In a browser script the top-level function
+  // declaration lands on the global scope; in the vm context it attaches to
+  // the sandbox global, and its CJS branch (typeof process == 'object') also
+  // sets module.exports. Read from both. #49.
   evalGlobal(readFileSync(gluePath, 'utf8'))
-  const createKws = (globalThis as Record<string, unknown>).createKws
+  const sandbox = vmContext as Record<string, unknown>
+  const createKws =
+    (cjsGlobals.module.exports as Record<string, unknown>).createKws ??
+    sandbox.createKws
   if (typeof createKws !== 'function') {
     throw new Error('sherpa-onnx-kws glue (createKws) not found after eval')
   }
@@ -80,10 +117,14 @@ async function bootSpotter(): Promise<unknown> {
     return `${bundleDir}/${name}`
   }
   g.Module = existing
+  // The glue reads the bare `Module` identifier, which resolves against the
+  // vm sandbox global (not the outer globalThis), so mirror the browser
+  // backend by putting Module on the sandbox as well. #49.
+  sandbox.Module = existing
 
   // Step 3: attach onRuntimeInitialized, then run the main glue (auto-runs).
   const ready = new Promise<unknown>((resolveReady, reject) => {
-    const timer = setTimeout(() => reject(new Error('sherpa boot timed out')), 120_000)
+    const timer = setTimeout(() => reject(new Error('sherpa boot timed out')), 25_000)
     const attach = (): void => {
       // Explicit annotation: `g.Module` is unknown; narrow to the emscripten
       // Module shape (has onRuntimeInitialized). A plain `as` cast on an
@@ -95,7 +136,12 @@ async function bootSpotter(): Promise<unknown> {
         mod.onRuntimeInitialized = () => {
           clearTimeout(timer)
           try {
-            resolveReady((createKws as (m: unknown, c: Record<string, unknown>) => unknown)(mod, {}))
+            resolveReady(
+              (createKws as (m: unknown, c: Record<string, unknown>) => unknown)(
+                mod,
+                SHERPA_CONFIG,
+              ),
+            )
           } catch (err) {
             reject(err instanceof Error ? err : new Error(String(err)))
           }
@@ -104,19 +150,19 @@ async function bootSpotter(): Promise<unknown> {
     }
     attach()
     const iv = setInterval(attach, 5)
-    setTimeout(() => clearInterval(iv), 120_000)
+    setTimeout(() => clearInterval(iv), 25_000)
   })
 
   evalGlobal(readFileSync(mainPath, 'utf8'))
   return ready
 }
 
-describe.skipIf(!RUN)('sherpa-onnx-kws wasm runtime (L2, Node)', () => {
+describe.skipIf(!ASSETS_PRESENT)('sherpa-onnx-kws wasm runtime (L2, Node)', () => {
   let spotter: { createStream: () => unknown; isReady: (s: unknown) => boolean; decode: (s: unknown) => void; getResult: (s: unknown) => { keyword?: string } } | null = null
 
   beforeAll(async () => {
     spotter = (await bootSpotter()) as typeof spotter
-  }, 150_000)
+  }, 40_000)
 
   it('boots the wasm and creates a KeywordSpotter', () => {
     expect(spotter).toBeTruthy()
@@ -125,13 +171,22 @@ describe.skipIf(!RUN)('sherpa-onnx-kws wasm runtime (L2, Node)', () => {
 
   it('accepts a synthetic 16 kHz clip and decodes without throwing', () => {
     const stream = spotter!.createStream()
-    const samples = new Float32Array(1600)
+    // 0.5 s of a 440 Hz sine: longer than one encoder chunk (chunk-16 =
+    // 160 ms @ 10 ms/frame), so the stream becomes ready. The browser backend
+    // only decodes ready chunks (core/backend.ts processFrame loop).
+    const samples = new Float32Array(8000)
     for (let i = 0; i < samples.length; i++) {
       samples[i] = Math.sin((2 * Math.PI * 440 * i) / 16000) * 0.5
     }
-    // The KeywordSpotter API: acceptWaveform(sampleRate, samples).
     ;(stream as { acceptWaveform: (sr: number, s: Float32Array) => void }).acceptWaveform(16000, samples)
-    expect(() => spotter!.decode(stream)).not.toThrow()
+    let decodedChunks = 0
+    while (spotter!.isReady(stream)) {
+      expect(() => spotter!.decode(stream)).not.toThrow()
+      decodedChunks += 1
+    }
+    // The stream actually produced ready chunks (guard against a silent
+    // no-op where nothing was ever decoded).
+    expect(decodedChunks).toBeGreaterThan(0)
     const result = spotter!.getResult(stream)
     // No wake word in a pure sine; keyword should be empty, not an error.
     expect(result).toBeTruthy()
