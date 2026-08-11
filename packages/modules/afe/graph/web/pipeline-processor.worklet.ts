@@ -197,7 +197,11 @@ class PipelineProcessor extends AudioWorkletProcessor {
       this._post({
         type: 'output',
         samples: out160,
-        capturedAtMs: currentTime,
+        // `currentTime` is AudioContext time in SECONDS; the field is named
+        // ...Ms and consumers (e.g. the KWS trigger's minDurationMs /
+        // cooldownMs comparisons) treat it as milliseconds. Convert here, at
+        // the single source, so the name is honest downstream.
+        capturedAtMs: currentTime * 1000,
         vad,
       })
 
@@ -289,7 +293,9 @@ class PipelineProcessor extends AudioWorkletProcessor {
   }
 
   private _postVizData(rawInput: Float32Array): void {
-    const capturedAtMs = currentTime
+    // AudioContext time is in seconds; this field is milliseconds (see the
+    // `output` message above).
+    const capturedAtMs = currentTime * 1000
     const vizPoints = 128
     const frames: StageFrameData[] = []
 

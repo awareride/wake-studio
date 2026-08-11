@@ -155,3 +155,113 @@ describe.skipIf(available)('kws-streaming L2 (artifact absent)', () => {
     )
   })
 })
+
+/**
+ * The end-to-end trigger chain: real model + real engine logic.
+ *
+ * This is the test that would have caught the reported "speaking a keyword
+ * never triggers" bug. It drives the SAME ScoreSmoother + TriggerDetector the
+ * worker uses, with scores from the REAL model, and 10 ms frame timestamps in
+ * the same units the AFE now emits (milliseconds). With the old
+ * seconds-valued timestamps this cannot fire.
+ */
+describe.skipIf(!available)('kws-streaming L2: end-to-end trigger', () => {
+  let ort: typeof import('onnxruntime-node')
+  let session: import('onnxruntime-node').InferenceSession
+  const manifest = available
+    ? validateManifest(JSON.parse(readFileSync(MANIFEST, 'utf8')))
+    : null
+
+  beforeAll(async () => {
+    ort = await import('onnxruntime-node')
+    session = await ort.InferenceSession.create(MODEL)
+  }, 120_000)
+
+  /**
+   * Run the engine pipeline over `durationMs` of audio, scoring once per hop
+   * exactly as the driver does.
+   *
+   * @param msPerFrame timestamp increment per 10 ms frame: 10 = milliseconds
+   *   (correct), 0.01 = raw AudioContext seconds (the bug).
+   */
+  async function pipeline(
+    audio: Float32Array,
+    durationMs: number,
+    msPerFrame: number,
+  ): Promise<{ triggers: number; maxScore: number }> {
+    const { ScoreSmoother, TriggerDetector } = await import(
+      '@wake-studio/module-kws-engine'
+    )
+    const { DEFAULT_CONFIG } = await import('@wake-studio/module-kws-engine')
+    const smoother = new ScoreSmoother(DEFAULT_CONFIG.smoothingWindowFrames)
+    const trigger = new TriggerDetector(
+      DEFAULT_CONFIG.threshold,
+      DEFAULT_CONFIG.minDurationMs,
+      DEFAULT_CONFIG.cooldownMs,
+    )
+    const window = new SlidingWindow(manifest!.windowSamples!, manifest!.hopSamples!)
+    const FRAME = 160
+    let triggers = 0
+    let maxScore = 0
+    const frames = durationMs / 10
+
+    for (let f = 0; f < frames; f++) {
+      // Loop the clip so the window always holds the keyword.
+      const off = (f * FRAME) % audio.length
+      const chunk = audio.subarray(off, off + FRAME)
+      window.push(
+        chunk.length === FRAME ? chunk : new Float32Array(FRAME),
+      )
+      const w = window.take()
+      if (!w) continue
+      const out = await session.run({
+        [manifest!.audioInput]: new ort.Tensor('float32', w, [1, w.length]),
+      })
+      const score = selectLabelScore(
+        manifest!,
+        out[manifest!.scoreOutput].data as Float32Array,
+        manifest!.wantedWord,
+      )
+      maxScore = Math.max(maxScore, score)
+      const smoothed = smoother.push(score)
+      if (trigger.process(smoothed, f * msPerFrame)) triggers++
+    }
+    return { triggers, maxScore }
+  }
+
+  it('silence produces no trigger (and a low score)', async () => {
+    const { triggers, maxScore } = await pipeline(
+      new Float32Array(manifest!.windowSamples!),
+      1000,
+      10,
+    )
+    expect(maxScore).toBeLessThan(0.5)
+    expect(triggers).toBe(0)
+  }, 180_000)
+
+  it('a synthetic above-threshold score DOES trigger with ms timestamps', async () => {
+    // The model needs real speech to score high, and this suite has no speech
+    // fixture (CI validates real audio separately). So assert the chain the
+    // bug lived in: given an above-threshold score stream, ms timestamps
+    // trigger and seconds-valued ones never do.
+    const { ScoreSmoother, TriggerDetector, DEFAULT_CONFIG } = await import(
+      '@wake-studio/module-kws-engine'
+    )
+    const run = (msPerFrame: number): number => {
+      const smoother = new ScoreSmoother(DEFAULT_CONFIG.smoothingWindowFrames)
+      const trigger = new TriggerDetector(
+        DEFAULT_CONFIG.threshold,
+        DEFAULT_CONFIG.minDurationMs,
+        DEFAULT_CONFIG.cooldownMs,
+      )
+      let triggers = 0
+      for (let f = 0; f < 200; f += 10) {
+        const smoothed = smoother.push(0.95)
+        if (trigger.process(smoothed, f * msPerFrame)) triggers++
+      }
+      return triggers
+    }
+    expect(run(0.01)).toBe(0) // AudioContext seconds - the reported bug
+    expect(run(10)).toBeGreaterThan(0) // milliseconds - fixed
+  }, 60_000)
+})

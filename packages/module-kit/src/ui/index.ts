@@ -32,7 +32,7 @@ export type {
 export { UiBar, UiWaveform, UiCurve } from './canvas'
 export type { UiBarProps, UiWaveformProps, UiCurveProps } from './canvas'
 
-export { renderParamControl, renderParamRow, actionVariant } from './mapper'
+export { renderParamControl, renderParamRow, actionVariant, normalizeSelectOptions } from './mapper'
 export type { ParamControlProps } from './mapper'
 
 export { cn, LABEL_CLS, BTN_BASE, BTN_VARIANTS } from './styles'

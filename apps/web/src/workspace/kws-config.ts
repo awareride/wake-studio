@@ -8,10 +8,25 @@
  */
 
 import { getBackendRegistry } from '@wake-studio/module-kws-engine'
+import { normalizeSelectOptions } from '@wake-studio/module-kit'
 import type { BackendModelUrls } from '@wake-studio/module-kws-engine'
 import type { ParameterDescriptor } from '@wake-studio/module-afe-graph'
 import type { ModelRegistry } from '@wake-studio/platform'
 import type { ModuleSpec, ModuleParam } from '@wake-studio/contracts'
+
+/**
+ * Normalize a spec param's `options` into the panel's `{value,label}` shape.
+ *
+ * Delegates to module-kit's shared normalizer so there is ONE place that knows
+ * both option shapes (the JSON schema's `string[]` and the explicit
+ * `{value,label}`). Getting this wrong rendered blank dropdown entries.
+ */
+function normalizeOptions(
+  options: ModuleParam['options'],
+): ParameterDescriptor['options'] {
+  if (!options) return undefined
+  return normalizeSelectOptions(options)
+}
 
 /** Build a ParameterDescriptor from a ModuleSpec param (spec -> panel).
  *  ModuleParam.type has extra kinds (enum/secret/slider); map to the panel's
@@ -35,7 +50,7 @@ function descriptorFromParam(param: ModuleParam): ParameterDescriptor {
     step: param.step,
     unit: param.unit,
     description: param.description,
-    options: param.options as ParameterDescriptor['options'],
+    options: normalizeOptions(param.options),
   }
 }
 

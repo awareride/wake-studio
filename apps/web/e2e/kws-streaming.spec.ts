@@ -81,3 +81,38 @@ test('kws-streaming backend loads a pretrained Keyword Transformer model', async
     failures.filter((f) => /kws-streaming|manifest|onnx/i.test(f)),
   ).toEqual([])
 })
+
+/**
+ * Regression: every spec-driven dropdown rendered BLANK entries.
+ *
+ * The ModuleSpec JSON schema declares `params[].options` as a plain `string[]`,
+ * but the renderer read `.label` off each entry - so `"yes"` became `undefined`.
+ * The wake-word selector was the visible symptom; `executionProvider` (and the
+ * afe-graph / training selects) had it too.
+ */
+test('driver param dropdowns render non-empty labels', async ({ page }) => {
+  test.skip(Boolean(SKIP_REASON), SKIP_REASON ?? '')
+  test.setTimeout(180_000)
+
+  await page.goto('/')
+  await enableKws(page)
+  await page
+    .locator('select')
+    .filter({ has: page.locator('option[value="kws-streaming"]') })
+    .selectOption('kws-streaming')
+
+  // The wake-word row comes from the driver spec (options: ["yes", "no", ...]).
+  await expect(page.getByText('Wake word (label)')).toBeVisible()
+
+  // Radix renders selects as comboboxes; every rendered option must have text.
+  const labels = await page
+    .getByRole('combobox')
+    .evaluateAll((els) => els.map((e) => (e as HTMLElement).innerText.trim()))
+  expect(labels.length).toBeGreaterThan(0)
+  for (const label of labels) {
+    expect(label, 'a dropdown rendered with no visible label').not.toBe('')
+  }
+
+  // Specifically: the wake word shows its value, not an empty string.
+  expect(labels.some((l) => /\byes\b/.test(l))).toBe(true)
+})

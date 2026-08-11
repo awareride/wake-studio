@@ -61,6 +61,8 @@ export class KWSEngine {
   // backends run in the worker. When set, AFE frames are processed here.
   private _mainThreadBackend: KWSBackend | null = null
   private _smoother: ScoreSmoother | null = null
+  /** Last real score from a main-thread backend (sample-and-hold, see worker). */
+  private _lastScore: number | null = null
   private _trigger: TriggerDetector | null = null
 
   // ---- public readonly state ----
@@ -199,6 +201,8 @@ export class KWSEngine {
       this._mainThreadBackend.reset()
       this._smoother?.reset()
       this._trigger?.reset()
+      // Drop the held score so the next run cannot start on a stale value.
+      this._lastScore = null
     } else if (this._worker) {
       this._send({ type: 'stop' })
     }
@@ -346,7 +350,15 @@ export class KWSEngine {
       console.error('[KWS sherpa-onnx-kws]', err)
       return
     }
-    if (score === null) score = 0
+    if (score === null) {
+      // No NEW score this frame (see the worker's handleAudio for the full
+      // reasoning): hold the last value so the curve does not sawtooth, and
+      // skip the frame entirely until the first real score arrives.
+      if (this._lastScore === null) return
+      score = this._lastScore
+    } else {
+      this._lastScore = score
+    }
 
     const smoothed = smoother.push(score)
     const vadSuppressed = shouldGateByVad(

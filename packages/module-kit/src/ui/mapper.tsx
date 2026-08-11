@@ -17,6 +17,30 @@ export interface ParamControlProps {
   disabled?: boolean
 }
 
+/**
+ * Normalize a param's `options` into `{ value, label }[]`.
+ *
+ * Two shapes exist in the wild and BOTH must render: the ModuleSpec JSON
+ * schema declares `options` as `string[]`, while `ModuleParam` types it as
+ * `{ value, label }[]`. Specs written to the schema (afe-graph topology,
+ * kws-engine executionProvider, training target/backend, kws-streaming
+ * wantedWord) produced blank dropdown entries because the renderer read
+ * `.label` off a string.
+ */
+export function normalizeSelectOptions(
+  options: ModuleParam['options'] | undefined,
+): Array<{ value: string; label: string }> {
+  if (!options) return []
+  return (options as ReadonlyArray<unknown>).flatMap((o) => {
+    if (typeof o === 'string') return [{ value: o, label: o }]
+    if (o && typeof o === 'object' && 'value' in o) {
+      const { value, label } = o as { value: string; label?: string }
+      return [{ value, label: label ?? value }]
+    }
+    return []
+  })
+}
+
 /** Render one parameter as its control. */
 export function renderParamControl({ param, value, onChange, disabled }: ParamControlProps) {
   switch (param.type) {
@@ -46,7 +70,12 @@ export function renderParamControl({ param, value, onChange, disabled }: ParamCo
       )
     case 'select':
     case 'enum': {
-      const options = (param.options ?? []).map((o) => ({ value: o.value, label: o.label }))
+      // The ModuleSpec JSON schema declares `options` as a plain string[]
+      // ("wasm", "webgpu", ...) while ModuleParam types it as {value,label}[].
+      // Specs written to the schema rendered BLANK entries here, because we
+      // read `.label` off a string. Accept both shapes so every spec-driven
+      // select works, whichever form the spec used.
+      const options = normalizeSelectOptions(param.options)
       return (
         <UiSelect
           value={typeof value === 'string' ? value : String(param.default ?? '')}

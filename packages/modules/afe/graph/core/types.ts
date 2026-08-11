@@ -93,7 +93,7 @@ export interface SpectrogramData {
 export interface StageFrameData {
   stageId: string
   kind: AFEStageKind
-  /** AudioContext.currentTime at capture, for end-to-end latency measurement. */
+  /** Capture time in MILLISECONDS (AudioContext.currentTime * 1000). */
   capturedAtMs: number
   /** Downsampled time-domain samples for the waveform display. */
   waveform?: Float32Array
@@ -116,6 +116,13 @@ export interface StageFrameData {
 export interface AFEOutputFrame {
   /** 16 kHz mono samples for one 10 ms frame (160 samples). */
   samples: Float32Array
+  /**
+   * Capture time in MILLISECONDS (`AudioContext.currentTime * 1000`).
+   *
+   * Milliseconds, not seconds: the KWS trigger compares this against
+   * `minDurationMs` / `cooldownMs`. It used to carry raw seconds, which meant
+   * the trigger needed 300 *seconds* of continuous speech and so never fired.
+   */
   capturedAtMs: number
   vadActive: boolean
 }

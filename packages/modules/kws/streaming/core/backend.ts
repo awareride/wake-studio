@@ -269,11 +269,36 @@ export class KWSStreamingBackend implements KWSBackend {
 async function fetchJson(url: string): Promise<unknown> {
   const response = await fetch(url)
   if (!response.ok) {
-    throw new Error(
-      `kws-streaming: failed to fetch manifest ${url}: ${response.status} ${response.statusText}`,
-    )
+    throw new Error(missingAssetMessage('manifest', url, response))
   }
   return response.json()
+}
+
+/**
+ * Build an actionable message for a missing artifact.
+ *
+ * The ONNX graphs are gitignored (ADR-011) and fetched per build, so a 404 here
+ * usually means "this particular model was not in the artifact you downloaded"
+ * - which is easy to hit, because the build takes a `checkpoints` list and a
+ * single-checkpoint build only ships one model. Say so, instead of surfacing a
+ * bare 404.
+ */
+function missingAssetMessage(
+  kind: 'manifest' | 'model',
+  url: string,
+  response: Response,
+): string {
+  const name = url.split('/').pop() ?? url
+  if (response.status === 404) {
+    return (
+      `kws-streaming: ${kind} '${name}' is not present (404). The ONNX models are ` +
+      'not committed (ADR-011): run `node scripts/fetch-artifact.mjs kws-streaming`. ' +
+      'If other models load but this one 404s, the artifact was built for a subset ' +
+      'of checkpoints - rebuild with all of them: `gh workflow run build.yaml ' +
+      `-f module=kws-streaming -f inputs_json='{"checkpoints":"kwt1,kwt2,kwt3,att_mh_rnn_1"}'\``
+    )
+  }
+  return `kws-streaming: failed to fetch ${kind} ${url}: ${response.status} ${response.statusText}`
 }
 
 /** Fetch a graph and create an InferenceSession. */
@@ -283,9 +308,7 @@ async function createSession(
 ): Promise<ort.InferenceSession> {
   const response = await fetch(url)
   if (!response.ok) {
-    throw new Error(
-      `kws-streaming: failed to fetch model ${url}: ${response.status} ${response.statusText}`,
-    )
+    throw new Error(missingAssetMessage('model', url, response))
   }
   const buffer = await response.arrayBuffer()
   return ort.InferenceSession.create(buffer, {
