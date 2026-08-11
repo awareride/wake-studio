@@ -374,20 +374,21 @@ in `sliding-window` mode:
 
 | Registry id | Model | ONNX size | Upstream top-1 | CI re-validation |
 |---|---|---|---|---|
-| `kws-streaming-kwt1` | Keyword Transformer (1 head) | 3.7 MB | 97.61% | 100.0% (120/120) |
-| `kws-streaming-kwt2` | Keyword Transformer (wider) | 11.0 MB | 98.24% | 100.0% (120/120) |
-| `kws-streaming-kwt3` | Keyword Transformer (largest) | 22.9 MB | 98.65% | 99.2% (119/120) |
-| `kws-streaming-att-mh-rnn` | att_mh_rnn (CNN+biLSTM+MHA) | 6.0 MB | 98.48% | 99.2% (119/120) |
+| `kws-streaming-kwt1` | Keyword Transformer (1 head) | 3.5 MiB | 97.61% | 100.0% (120/120) |
+| `kws-streaming-kwt2` | Keyword Transformer (wider) | 10.5 MiB | 98.24% | 100.0% (120/120) |
+| `kws-streaming-kwt3` | Keyword Transformer (largest) | 21.8 MiB | 98.65% | 99.2% (119/120) |
+| `kws-streaming-att-mh-rnn` | att_mh_rnn (CNN+biLSTM+MHA) | 5.7 MiB | 98.48% | 99.2% (119/120) |
 
 "Upstream top-1" is each checkpoint's own `accuracy_last.txt`; "CI re-validation"
 is our own measurement on real Speech Commands clips after conversion (§9), with
 a silence check asserting `_silence_` wins on zeros.
 
-> **`sha256` is `null` on purpose.** `tf2onnx` output is not byte-reproducible
-> across runs (the same checkpoint produced 3 713 927 bytes locally and
-> 3 713 945 in CI), so recording a hash would fail the next rebuild. Nothing
-> verifies the field at runtime today; when hash pinning matters, the build must
-> first be made deterministic.
+> **`sha256` is `null` and `sizeBytes` is nominal, on purpose.** `tf2onnx` output
+> is not byte-reproducible: the same kwt1 checkpoint produced 3 713 927 bytes
+> locally, 3 713 945 and 3 713 930 in two CI runs. A recorded hash would fail the
+> next rebuild, and an exact byte count would simply be wrong; `sizeBytes` is
+> display-only ("3.5 MiB"), so it is stored rounded. Hash pinning requires making
+> the build deterministic first.
 
 ## 7. Error model & failure modes
 
