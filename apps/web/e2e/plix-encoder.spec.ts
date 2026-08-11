@@ -58,9 +58,9 @@ test('plixkws encoder loads in the browser (worker registration works)', async (
   await expect(loadButton).toBeVisible()
   await loadButton.click()
 
-  // Success: engine reaches 'ready' and the "PLiX encoder loaded — record
-  // samples to enroll" hint renders.
-  const readyHint = page.getByText(/PLiX encoder loaded/i)
+  // Success: engine reaches 'ready' and the "Encoder loaded — record
+  // samples to enroll" hint renders (ADR-033 provisioning panel).
+  const readyHint = page.getByText(/Encoder loaded — record samples to enroll/)
   await expect(readyHint).toBeVisible({ timeout: 150_000 })
 
   // Any load failure surfaces an error instead.
@@ -89,7 +89,7 @@ test('switching backend after a load re-boots with the new backend', async ({ pa
   const loadEncoder = page.getByRole('button', { name: /Load PLiX encoder/i })
   await expect(loadEncoder).toBeVisible()
   await loadEncoder.click()
-  await expect(page.getByText(/PLiX encoder loaded/i)).toBeVisible({ timeout: 150_000 })
+  await expect(page.getByText(/Encoder loaded — record samples to enroll/)).toBeVisible({ timeout: 150_000 })
 
   const errorText = page.getByText(/Failed to load|not found/i)
   await expect(errorText).toBeHidden()
