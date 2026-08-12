@@ -4,8 +4,12 @@ This directory holds the sherpa-onnx KWS WebAssembly runtime (the ~53 MB
 bundle) **at runtime only** - it is gitignored (ADR-011) and never committed.
 
 The wasm glue + `.wasm` + `.data` are produced by the generic build workflow
-(`.github/workflows/build.yaml` + `scripts/build-module.mjs kws-sherpa`,
-ADR-027 §6.7) and published as the `sherpa-onnx-kws-wasm` artifact.
+(`.github/workflows/build.yaml` + `scripts/build-sherpa-kws.mjs`, ADR-027
+§6.7). The bundle is hosted as the GitHub Release `models-sherpa-wasm-v1`;
+the module spec's `build.fetch.source=release` points there, and
+`scripts/fetch-artifact.mjs kws-sherpa` downloads it (CI does this on every
+PR so the L2 suite + e2e run for real). The build script remains the
+regeneration path when a fresh build is needed.
 
 The build pins sherpa-onnx **master** (default `sherpa_version` input) - NOT
 a release tag - because upstream commit `dcf56735` (#3836, 2026-08-04)
@@ -18,7 +22,8 @@ latest bilingual one, `sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20`
 ## Fetch locally (dev / preview)
 
 ```bash
-# generic path (reads the module spec's build.artifactName):
+# generic path (reads the module spec's build.fetch — Actions artifact or
+# GitHub Release):
 node scripts/fetch-artifact.mjs kws-sherpa
 ```
 
