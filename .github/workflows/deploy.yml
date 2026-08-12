@@ -61,7 +61,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          # The web app's vite root is apps/web -> build emits apps/web/dist.
+          path: apps/web/dist
 
       - name: Deploy to GitHub Pages
         id: deployment
@@ -107,5 +108,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # ADR-014: the project name is wake-studio (was wave-studio).
-          command: pages deploy dist --project-name=wake-studio
+          # ADR-014: the project name is wake-studio (was wave-studio). The
+          # web app's vite root is apps/web -> build emits apps/web/dist.
+          command: pages deploy apps/web/dist --project-name=wake-studio
