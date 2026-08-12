@@ -80,11 +80,24 @@ as exportable (unlike openWakeWord's CC BY-NC-SA pre-trained models, which are
 never bundled). Verify the licenses of any dataset/TTS sources you swap in
 before commercial deployment.
 
-## Upstream refs pinned
+## Upstream refs
 
-- `OPENWAKEWORD_REF = "368c03716d1e92591906a84949bc477f3a834455"` — the
-  openWakeWord commit the upstream `automatic_model_training_simple` notebook
-  is validated against (reads `config["max_negative_weight"]`).
+- `OPENWAKEWORD_REF = "main"` — the openWakeWord default branch (mirrors the
+  upstream simple notebook, which clones at HEAD).
 - piper-sample-generator pinned to commit `213d4d5` (the simple notebook's
   pairing).
-- Bump deliberately and re-run the notebook to confirm.
+- Bumping the openWakeWord ref to `main` means the notebook tracks upstream
+  by default; if you need a reproducible pin, set `OPENWAKEWORD_REF` to a
+  specific commit and re-run the notebook to confirm.
+
+## Opening the notebook without GitHub
+
+The standard path opens the notebook from this repo
+(`colab.research.google.com/github/...`), which always loads the **`main`**
+branch copy. If you want to run a notebook that isn't merged to `main` yet
+(e.g. this one on a feature branch), open it directly instead:
+
+- **Upload:** download `train.ipynb`, then in Colab choose
+  **File → Upload notebook** and pick the file. No GitHub involved.
+- **Google Drive:** upload `train.ipynb` to Drive, then open it from
+  `colab.research.google.com` (Drive files appear in the file picker).
