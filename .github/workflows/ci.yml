@@ -33,6 +33,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check generated model registry is fresh (#77)
+        # model-registry.json is generated from module-owned spec/models.json
+        # fragments; fail CI if they drift (hand-edit or stale fragment).
+        run: pnpm gen:registry:check
+
       - name: Fetch L2 test artifacts (sherpa + openwakeword, ADR-027)
         # The L2 wasm/onnx boot tests exercise the gitignored artifacts
         # (ADR-011). Non-fatal: each L2 suite skips when its asset is absent
