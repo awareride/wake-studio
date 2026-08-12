@@ -319,10 +319,17 @@ function WorkspaceInner({
           form state survive the switch to Live — unmounting would dispose
           the engine mid load (epic #53 KWS fix). */}
       <div className={previewVisible ? 'hidden' : ''}>
-        <section className="rounded-2xl border border-line bg-surface-1 p-4">
+        {/* No outer box: the workspace page is flat — the sticky header and
+            inner cards carry their own surfaces. */}
+        <div>
           {/* Sticky unit: section header + stage cards pin to the workspace top
               while the active module panel scrolls underneath (blurred). */}
-          <div className="sticky top-0 z-20 -mx-2 rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
+          {/* Sticky unit: the wrapper pins flush (top-0) with a solid
+              page-surface strip above the floating card, so scrolled content
+              never shows through the margin (top-3 alone would leave a
+              see-through gap). */}
+          <div className="sticky top-0 z-20 bg-surface pt-3">
+            <div className="rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
             <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-line pb-2">
               <span className="rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
                 Setup
@@ -337,6 +344,7 @@ function WorkspaceInner({
               onSelect={setActiveTab}
               cards={stageCards}
             />
+            </div>
           </div>
           <div className="mt-4">
 
@@ -439,13 +447,14 @@ function WorkspaceInner({
             </StageModuleShell>
           </div>
           </div>
-        </section>
+        </div>
       </div>
 
       {/* ============ LIVE dashboard (after Start) ============ */}
       {previewVisible && (
-        <section className="rounded-2xl border border-line bg-surface-1 p-4">
-          <div className="sticky top-0 z-20 -mx-2 rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
+        <div>
+          <div className="sticky top-0 z-20 bg-surface pt-3">
+            <div className="rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
             <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-line pb-2">
               <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-emerald-300">
                 Live
@@ -488,12 +497,15 @@ function WorkspaceInner({
                 preview={<MiniScoreCurve />}
               />
             </div>
+            </div>
           </div>
 
           <div className="mt-4 space-y-4">
             <PipelineLevelCurve frameData={frameData} running={runState.afeRunning} />
-            {/* Detailed per-stage cards (waveform + level + metric + spectrum). */}
-            <div className="mx-auto grid max-w-5xl gap-5 sm:grid-cols-3 items-stretch">
+            {/* Detailed per-stage cards (waveform + level + metric + spectrum).
+                Full width, like the chart above — no centered max-w cap that
+                would leave side gutters. */}
+            <div className="grid gap-4 sm:grid-cols-3 items-stretch">
               {(['aec', 'bss', 'ns'] as const).map((id) => (
                 <StagePanel
                   key={id}
@@ -511,7 +523,7 @@ function WorkspaceInner({
               config={persistence}
             />
           </div>
-        </section>
+        </div>
       )}
     </div>
   )
