@@ -11,8 +11,8 @@ Python — NO separate Python 3.10 venv needed:
   - `onnx2tf` for TFLite export instead of the broken `onnx_tf` +
     `tensorflow-cpu==2.8.1` path;
   - modern `torch==2.5.0` from the pytorch cu121 index;
-  - openwakeword pinned to `368c037` (reads `config["max_negative_weight"]`),
-    piper-sample-generator pinned to `213d4d5`.
+  - openwakeword at `main` (upstream default branch), piper-sample-generator
+    pinned to `213d4d5`.
 
 The notebook keeps WakeStudio's additions on top: Step 0 params, the standard
 artifact bundle + zip, and the "Import Colab results" flow.
@@ -166,8 +166,9 @@ if not os.path.exists("./piper-sample-generator"):
 if "piper-sample-generator/" not in sys.path:
     sys.path.insert(0, "piper-sample-generator/")
 
-# 2) openWakeWord (full install to support training) — pinned ref (C-3).
-OPENWAKEWORD_REF = "368c03716d1e92591906a84949bc477f3a834455"
+# 2) openWakeWord (full install to support training) — upstream default
+#    branch (mirrors the upstream simple notebook, which clones at HEAD).
+OPENWAKEWORD_REF = "main"
 if not os.path.exists("./openwakeword"):
     !git clone --quiet https://github.com/dscripka/openwakeword
     !cd openwakeword && git checkout --quiet {OPENWAKEWORD_REF}
