@@ -23,9 +23,9 @@ test('recent projects: create via menu, switch from another view', async ({ page
   // The trigger now shows the current project name.
   await expect(page.getByRole('button', { name: /Recent Word/ })).toBeVisible()
 
-  // Navigate away to the model library — the workspace (and its menu) is
+  // Navigate away to the model registry — the workspace (and its menu) is
   // kept alive but hidden.
-  await page.locator('aside').getByRole('button', { name: 'Model Library' }).click()
+  await page.locator('aside').getByRole('button', { name: 'Model Registry' }).click()
   await expect(page).toHaveURL(/#\/library/)
   await expect(page.getByRole('button', { name: /Recent Word/ })).toBeHidden()
 

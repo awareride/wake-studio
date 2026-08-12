@@ -1,5 +1,5 @@
 /**
- * Model Library view (Phase 3).
+ * Model Registry view (Phase 3).
  *
  * Renders the model registry (`model-registry.json`) as cards with:
  *  - search + tier/format filter
@@ -158,7 +158,7 @@ export function ModelLibraryView() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-lg font-semibold text-ink-1">Model Library</h2>
+        <h2 className="text-lg font-semibold text-ink-1">Model Registry</h2>
         <p className="mt-1 max-w-2xl text-sm text-ink-2">
           Models are never bundled with the app (ADR-011) — they are fetched
           lazily from the registry. License + commercial flags drive the export

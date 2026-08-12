@@ -33,7 +33,7 @@ export interface SettingsNavItem {
 
 export const PRIMARY_NAV: NavItem[] = [
   { route: 'workspace', label: 'Workspace', icon: IconWorkspace },
-  { route: 'library', label: 'Model Library', icon: IconLibrary },
+  { route: 'library', label: 'Model Registry', icon: IconLibrary },
   { route: 'projects', label: 'Projects', icon: IconFolder },
   { route: 'console', label: 'Console', icon: IconConsole },
 ]
