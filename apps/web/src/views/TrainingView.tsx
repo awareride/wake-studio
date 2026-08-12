@@ -14,6 +14,13 @@ import { ImportColabResults } from '../training/ImportColabResults'
 /** The kws-openwakeword module-owned notebook (ADR-035) this view trains with. */
 const OPENWAKEWORD_NOTEBOOK =
   'packages/modules/kws/openwakeword/train/colab/train.ipynb'
+/**
+ * The notebook's Step 0 params cell id (set in train.ipynb). Deep-linking
+ * with #scrollTo lands the user directly on the editable params — Colab
+ * cannot be embedded (X-Frame-Options: SAMEORIGIN), so this is the closest
+ * "in-panel" experience we can offer.
+ */
+const OPENWAKEWORD_STEP0_CELL = 'params'
 
 export function TrainingView() {
   return (
@@ -27,7 +34,7 @@ export function TrainingView() {
           then import it here to test and export.
         </p>
         <a
-          href={buildColabUrl(OPENWAKEWORD_NOTEBOOK)}
+          href={`${buildColabUrl(OPENWAKEWORD_NOTEBOOK)}#scrollTo=${OPENWAKEWORD_STEP0_CELL}`}
           target="_blank"
           rel="noreferrer"
           className="mt-2 inline-block text-sm text-brand-400 underline hover:text-brand-300"
