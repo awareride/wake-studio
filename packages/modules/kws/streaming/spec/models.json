@@ -1,0 +1,76 @@
+{
+  "models": [
+    {
+      "id": "kws-streaming-kwt1",
+      "name": "Keyword Transformer KWT-1 (Speech Commands V2, 12 labels)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
+      "url": "/modules/kws/streaming/assets/kws-streaming/kwt1.onnx",
+      "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/kwt1.json",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": null,
+      "sizeBytes": 3714000,
+      "accuracy": 97.61,
+      "notes": "ARM Keyword Transformer, 1 head. Sliding-window (non-streamable topology): 1 s window re-evaluated every 100 ms; the MFCC front-end is inside the graph (preprocess=raw, feature_type=mfcc_tf). Labels: _silence_/_unknown_/yes/no/up/down/left/right/on/off/stop/go. Upstream-reported top-1 97.61% (accuracy_last.txt); CI re-validated on real Speech Commands clips at 100.0% (120/120) argmax with silence -> _silence_ (build run 31385112437). sha256 is null and sizeBytes is nominal (rounded): tf2onnx output is not byte-reproducible across runs, so exact values would be wrong after any rebuild."
+    },
+    {
+      "id": "kws-streaming-kwt2",
+      "name": "Keyword Transformer KWT-2 (Speech Commands V2, 12 labels)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
+      "url": "/modules/kws/streaming/assets/kws-streaming/kwt2.onnx",
+      "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/kwt2.json",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": null,
+      "sizeBytes": 10963000,
+      "accuracy": 98.24,
+      "notes": "ARM Keyword Transformer, wider than KWT-1. Same sliding-window geometry and labels as kws-streaming-kwt1. Upstream-reported top-1 98.24% (accuracy_last.txt); CI re-validated on real Speech Commands clips at 100.0% (120/120) argmax with silence -> _silence_ (build run 31385112437). sha256 is null and sizeBytes is nominal (rounded): tf2onnx output is not byte-reproducible across runs, so exact values would be wrong after any rebuild."
+    },
+    {
+      "id": "kws-streaming-kwt3",
+      "name": "Keyword Transformer KWT-3 (Speech Commands V2, 12 labels)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
+      "url": "/modules/kws/streaming/assets/kws-streaming/kwt3.onnx",
+      "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/kwt3.json",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": null,
+      "sizeBytes": 22852000,
+      "accuracy": 98.65,
+      "notes": "ARM Keyword Transformer, largest variant. Same sliding-window geometry and labels as kws-streaming-kwt1; best accuracy, heaviest download. Upstream-reported top-1 98.65% (accuracy_last.txt); CI re-validated on real Speech Commands clips at 99.2% (119/120) argmax with silence -> _silence_ (build run 31385112437). sha256 is null and sizeBytes is nominal (rounded): tf2onnx output is not byte-reproducible across runs, so exact values would be wrong after any rebuild."
+    },
+    {
+      "id": "kws-streaming-att-mh-rnn",
+      "name": "att_mh_rnn (multi-head attention RNN, Speech Commands V2, 12 labels)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
+      "url": "/modules/kws/streaming/assets/kws-streaming/att_mh_rnn_1.onnx",
+      "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/att_mh_rnn_1.json",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": null,
+      "sizeBytes": 5998000,
+      "accuracy": 98.48,
+      "notes": "google-research/kws_streaming att_mh_rnn (CNN + biLSTM + multi-head attention). Non-streamable by design (attends over the whole sequence), so it runs in sliding-window mode. Upstream-reported top-1 98.48% (accuracy_last.txt); CI re-validated on real Speech Commands clips at 99.2% (119/120) argmax with silence -> _silence_ (build run 31385112437). sha256 is null and sizeBytes is nominal (rounded): tf2onnx output is not byte-reproducible across runs, so exact values would be wrong after any rebuild."
+    }
+  ]
+}

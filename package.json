@@ -16,6 +16,8 @@
     "fetch:all": "pnpm -r fetch:all",
     "gen:wires": "node scripts/gen-module-wires.mjs --update",
     "gen:wires:check": "node scripts/gen-module-wires.mjs --check",
+    "gen:registry": "node scripts/build-model-registry.mjs --update",
+    "gen:registry:check": "node scripts/build-model-registry.mjs --check",
     "lint": "pnpm -r lint",
     "preview": "pnpm --filter @wake-studio/web preview",
     "test": "pnpm test:unit && pnpm test:e2e",
