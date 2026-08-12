@@ -256,13 +256,40 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,wasm,json}'],
-        // The onnxruntime-web WASM files are large (13-27 MB); we load them from
-        // a CDN at runtime (ADR-018), so exclude them from the precache.
+        // The onnxruntime-web WASM files are large (13-27 MB); they are served
+        // same-origin from /ort/ (P0-4 vendored the pinned npm artifact, no
+        // CDN) but excluded from the precache to keep the SW install lean.
+        // Runtime caching (CacheFirst) below makes them offline-capable after
+        // first load.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globIgnores: ['**/ort-wasm-*', '**/sherpa-onnx-kws/**'],
         // Keep the service worker out of the precache so a broken network on
         // first load doesn't deadlock updates.
         navigateFallback: 'index.html',
+        // P0-4 offline: CacheFirst for the vendored onnxruntime-web wasm
+        // runtime and the module-owned binary assets, so the model runtime
+        // works with no network after first load. pathname checks are
+        // base-path aware (ADR-012).
+        runtimeCaching: [
+          {
+            // onnxruntime-web wasm pair (/ort/*.wasm + *.mjs loaders)
+            urlPattern: ({ url }) => url.pathname.includes('/ort/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ort-runtime',
+              expiration: { maxEntries: 32, maxAgeSeconds: 365 * 24 * 60 * 60 },
+            },
+          },
+          {
+            // Module-owned artifacts: /modules/<category>/<module>/assets/...
+            urlPattern: ({ url }) => url.pathname.includes('/modules/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'module-assets',
+              expiration: { maxEntries: 64, maxAgeSeconds: 365 * 24 * 60 * 60 },
+            },
+          },
+        ],
       },
       // COEP requires that the SW script and everything it fetches are
       // CORP-compliant. We serve the SW same-origin (exempt) and exclude the
