@@ -247,6 +247,7 @@ credential (ADR-023).
 
 | Date | Change | Author |
 |---|---|---|
+| 2026-08-12 | Deliverable 4 notebook rewritten to the **upstream `automatic_model_training_simple` stack** (runs on current Colab's Python 3.11/3.12): `piper-phonemize-cross` + `onnx2tf` instead of the legacy `piper-phonemize` / `tensorflow-cpu==2.8.1` (wheels only to 3.10). openwakeword pin bumped to `368c037`, piper-sample-generator to `213d4d5`. Issue #97. | agent |
 | 2026-08-11 | Initial review draft — Colab-first training backend (openWakeWord, synthetic Piper data, standard bundle import). | agent |
 | 2026-08-11 | Notebook moved into the owning module (`train/colab/`, ADR-025 module-ownership); advertised via new `spec.train.notebookLocal` (spec-driven panel, no hand-written registration) — §4/§5, questions C-5/C-6. | agent |
 | 2026-08-11 | **C-6 resolved:** separate fields (`notebook` vs `notebookLocal`). **C-7 added & resolved:** optional notebook keys (Google API / TTS) are user-set in the Settings panel security section (issue #52), client-side only, passed as job params/env — new §5.3. | agent |
