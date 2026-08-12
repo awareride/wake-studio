@@ -179,6 +179,8 @@ if not os.path.exists("./openwakeword"):
     audiomentations==0.33.0 torch-audiomentations==0.11.0 acoustics==0.2.6 \\
     onnxruntime==1.22.1 ai-edge-litert==2.1.6 onnxsim onnx2tf onnx==1.19.1 \\
     onnx_graphsurgeon sng4onnx pronouncing==0.2.0 datasets==2.14.6 deep-phonemizer==0.0.19
+# openwakeword main requires speexdsp-ns on Linux (skipped by --no-deps).
+!pip install -q "speexdsp-ns>=0.1.2,<1"
 
 # 4) Download the frozen feature models (Colab workaround, upstream notebook).
 os.makedirs("./openwakeword/openwakeword/resources/models", exist_ok=True)
