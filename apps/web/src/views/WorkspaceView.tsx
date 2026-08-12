@@ -494,8 +494,10 @@ function WorkspaceInner({
 
           <div className="mt-4 space-y-4">
             <PipelineLevelCurve frameData={frameData} running={runState.afeRunning} />
-            {/* Detailed per-stage cards (waveform + level + metric + spectrum). */}
-            <div className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-3 items-stretch">
+            {/* Detailed per-stage cards (waveform + level + metric + spectrum).
+                Full width, like the chart above — no centered max-w cap that
+                would leave side gutters. */}
+            <div className="grid gap-4 sm:grid-cols-3 items-stretch">
               {(['aec', 'bss', 'ns'] as const).map((id) => (
                 <StagePanel
                   key={id}
