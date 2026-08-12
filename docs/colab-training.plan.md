@@ -197,6 +197,14 @@ Reuse the existing `TrainingJob` interface (ADR-013) + `manifest.ts` importer:
 No WakeStudio server is involved; the user's Google account is the only
 credential (ADR-023).
 
+> **Status (issue #97): implemented.** `importColabBundle` (fflate, typed
+> `BundleImportError` codes) + hardened `validateBundle` live in
+> `packages/modules/training/core/manifest.ts`; the app's **Training** view
+> hosts the import section, registers the model into the user library
+> (classifier role) + a `train` artifact (ADR-033), and updates the KWS
+> model-source default. L1 tests cover the importer (module) and the
+> registration glue (app). Docs-synced with `docs/modules/training.md` §7.1.
+
 ---
 
 ## 8. Deferred (noted, not built now)

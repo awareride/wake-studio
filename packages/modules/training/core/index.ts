@@ -13,4 +13,9 @@ export {
   type ArtifactProvenance,
   type ResultsAdapter,
   validateBundle,
+  hasBundleModel,
+  importColabBundle,
+  BundleImportError,
+  type BundleImportErrorCode,
+  BUNDLE_IMPORT_ERROR_MESSAGES,
 } from './manifest'
