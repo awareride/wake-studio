@@ -59,7 +59,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dist
-          path: dist
+          # The web app's vite root is apps/web, so the build emits
+          # apps/web/dist (not ./dist). Upload that (P0-3).
+          path: apps/web/dist
           retention-days: 7
 
   e2e:
@@ -117,5 +119,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: playwright-report
+          path: apps/web/playwright-report
           retention-days: 7
