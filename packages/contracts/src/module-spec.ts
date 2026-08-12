@@ -92,6 +92,14 @@ export interface ModuleRuntime {
 export interface ModuleTrain {
   /** Local uv script (ADR-028), e.g. "train/train.py". */
   entry?: string
+  /**
+   * Repo-relative path to the module-owned Colab notebook (e.g.
+   * "packages/modules/kws/openwakeword/train/colab/train.ipynb"). Distinct
+   * from `notebook` (upstream ref): the notebook lives in this repo; the
+   * generated panel renders an "Open in Colab" action from it (ADR-035).
+   * Repo-relative to match `playground.entry` / `tests.*` path conventions.
+   */
+  notebookLocal?: string
   python?: string
   deps?: string
   /** Who may invoke: "subprocess" (studio-backend), "ci", "colab". */

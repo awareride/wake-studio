@@ -47,6 +47,14 @@
       "worker": true
     }
   },
+  "train": {
+    "notebookLocal": "packages/modules/kws/openwakeword/train/colab/train.ipynb",
+    "invocation": ["colab"],
+    "outputs": {
+      "checkpoint": "out/model.onnx",
+      "metrics": "out/metrics.json"
+    }
+  },
   "build": {
     "recipe": "none",
     "registryEntry": "public/model-registry.json#kws-openwakeword",

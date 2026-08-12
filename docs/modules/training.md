@@ -129,6 +129,12 @@ stays byte-identical; WakeStudio wraps it.
     "paramsCell": 3,                     // cell index whose code maps to job params
     "outputsCell": "last"                // where the notebook writes results
   },
+  "notebookLocal": "packages/modules/kws/openwakeword/train/colab/train.ipynb",
+                                          // NEW (ADR-035): a MODULE-OWNED Colab
+                                          // notebook (repo-relative path). Distinct
+                                          // from "notebook" (upstream): this one
+                                          // lives in this repo; the generated panel
+                                          // renders an "Open in Colab" action from it.
   // HOW to normalize the output into the standard bundle (single importer):
   "outputs": {                           // (existing) declared outputs
     "checkpoint": "out/model.onnx",
@@ -193,11 +199,20 @@ license if the training wrapped a restricted model.
 ## 7. Google Colab (ADR-023) - output-retrieval convention
 
 Colab is the fourth backend: the PWA opens a notebook, the user runs it in
-their own Colab session, and **imports the results back**. Per §4, we **do not
-rewrite** an upstream notebook - we adapt to it:
+their own Colab session, and **imports the results back**. There are two
+notebook kinds (ADR-035):
 
-1. Upstream notebooks stay byte-identical; the module's `spec/train.notebook`
-   declares which cell maps job params and which cell writes results.
+- **Upstream** notebooks (third-party) — we **never rewrite**; we adapt to
+  them. The module's `spec/train.notebook` declares which cell maps job params
+  and which cell writes results.
+- **Module-owned** notebooks (ours) — declared via `spec/train.notebookLocal`
+  (repo-relative path). The **generated panel** renders an "Open in Colab"
+  action (module-kit `buildColabUrl`, ADR-035); the user opens it directly
+  from GitHub and runs it under their own account.
+
+Common flow (both kinds):
+
+1. The user opens/runs the notebook in their own Colab session.
 2. A **WakeStudio-provided adapter cell** (prepended by the studio-backend / CI
    path, or the user pastes it into Colab) normalizes the notebook's output
    dir into the standard bundle (§6) via `standardize-results`.
@@ -207,7 +222,9 @@ rewrite** an upstream notebook - we adapt to it:
    and registers the model for in-browser testing + export.
 
 No WakeStudio server is involved; the user's Google account is the only
-credential (ADR-023).
+credential (ADR-023). Optional notebook keys (Google API / TTS token) are
+user-set in the Settings panel security section (issue #52), client-side only
+(ADR-013), passed to the notebook as job params/env — never embedded.
 
 ## 8. Cloud Providers (ADR-013)
 
