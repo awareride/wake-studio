@@ -324,7 +324,7 @@ function WorkspaceInner({
         <div>
           {/* Sticky unit: section header + stage cards pin to the workspace top
               while the active module panel scrolls underneath (blurred). */}
-          <div className="sticky top-0 z-20 rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
+          <div className="sticky top-3 z-20 rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
             <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-line pb-2">
               <span className="rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
                 Setup
@@ -447,7 +447,7 @@ function WorkspaceInner({
       {/* ============ LIVE dashboard (after Start) ============ */}
       {previewVisible && (
         <div>
-          <div className="sticky top-0 z-20 rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
+          <div className="sticky top-3 z-20 rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
             <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-line pb-2">
               <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-emerald-300">
                 Live
