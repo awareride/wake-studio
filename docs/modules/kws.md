@@ -407,19 +407,31 @@ All parameters are surfaced in the **Studio config panel** with the defaults bel
   threshold + min-duration trigger logic, cooldown, VAD gate. These are extracted
   to a testable module (`kws/engine/core/logic.ts`, with numeric DSP in
   `@wake-studio/dsp` ADR-032) with no ONNX dependency.
-- **WASM runtime test (L2, Node):** load the sherpa-onnx-kws emscripten bundle in
-  a Node process (the glue supports `ENVIRONMENT=node`), instantiate the
-  `KeywordSpotter`, and run one inference pass over a synthetic clip. Fast, runs
-  on every PR; catches wasm/model regressions before the slow browser e2e.
+- **WASM/ONNX runtime test (L2, Node):** one suite per driver, running on
+  every PR (ADR-026; the gitignored artifacts are fetched in CI, ADR-027):
+  - `kws-sherpa` — boots the browser emscripten bundle in a Node vm (the
+    glue's `ENVIRONMENT_IS_NODE` path reads the wasm + .data via fs once the
+    sandbox provides `process`), creates a `KeywordSpotter`, decodes a
+    synthetic clip.
+  - `kws-openwakeword` — loads melspectrogram → speech_embedding → hey-buddy
+    classifier via onnxruntime-web, runs one synthetic pass, asserts finite
+    outputs and a classifier score in [0,1].
+  - `kws-plix` — loads the small ONNX encoder + the shared mel front-end,
+    embeds a clip into a finite 1280-dim vector.
+  Each suite skips when its artifact is absent, so CI stays green on a bare
+  checkout.
 - **Integration (browser):** load a real model in Playwright; feed a test audio
   clip and assert the score rises on the wake word and stays low on silence.
 - **Manual / on-device:** speak the demo wake word -> confirm a trigger fires
   with < 500 ms latency; adjust threshold/min-duration sliders -> confirm
   behavior changes predictably; confirm VAD silences KWS during silence.
-- **e2e (Playwright):** `e2e/sherpa-kws.spec.ts` asserts the sherpa-onnx-kws
-  backend boots in the browser (wasm initializes + KeywordSpotter created,
-  status becomes `ready`, `EP: WASM` label renders). Slow (~55 MB wasm fetch),
-  so it runs at a lower cadence than L1/L2 (see testing ADR).
+- **e2e (Playwright):** per-backend load specs assert each backend boots in
+  the browser to `ready` — `sherpa-kws.spec.ts` (wasm + KeywordSpotter),
+  `openwakeword-kws.spec.ts` (worker registration, EP label),
+  `plix-encoder.spec.ts` (onnx) and `plix-transformers.spec.ts` (transformers
+  runtime via CDN + local HF dir). `smoke.spec.ts` pins the panel branches.
+  The sherpa spec is slow (~55 MB wasm), so it runs at a lower cadence than
+  L1/L2 (see testing ADR).
 
 ## 10. Security & privacy
 

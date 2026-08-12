@@ -51,20 +51,28 @@
     "recipe": "none",
     "registryEntry": "public/model-registry.json#kws-openwakeword",
     "fetch": {
-      "subdir": "openWakeWord"
+      "source": "release",
+      "releaseTag": "models-openwakeword-v1",
+      "pattern": "*.tar.gz"
     },
-    "notes": "Third-party openWakeWord models (melspectrogram / speech_embedding / silero-vad / demo classifiers) are copied into assets/openWakeWord/ from the upstream release; not CI-built. Registry entries point at /modules/kws/openwakeword/assets/openWakeWord/ (ADR-025)."
+    "notes": "melspectrogram/embedding (Apache-2.0, upstream openWakeWord) + hey-buddy classifier (CC-BY-4.0) hosted as a GitHub Release (ADR-027 §6.7); fetched via scripts/fetch-artifact.mjs. The tar.gz preserves the module asset layout (openWakeWord/ + hey-buddy/models/)."
   },
   "tests": {
     "l1": "packages/modules/kws/openwakeword/tests/backend.test.ts",
-    "required": ["l1"]
+    "required": [
+      "l1"
+    ]
   },
   "playground": {
     "route": "/playground/kws/openwakeword",
     "entry": "packages/modules/kws/openwakeword/web/playground.tsx"
   },
   "interfaces": {
-    "provides": ["KWSBackend"],
-    "consumes": ["AFEOutputFrame"]
+    "provides": [
+      "KWSBackend"
+    ],
+    "consumes": [
+      "AFEOutputFrame"
+    ]
   }
 }

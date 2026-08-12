@@ -16,7 +16,7 @@
       "label": "Wake words (comma-separated)",
       "group": "primary",
       "type": "string",
-      "default": "n \u01d0 h \u01ceo j \u016bn g \u0113 @\u4f60\u597d\u519b\u54e5\nn \u01d0 h \u01ceo w \u00e8n w \u00e8n @\u4f60\u597d\u95ee\u95ee\nx i\u01ceo \u00e0i t \u00f3ng x u\u00e9 @\u5c0f\u7231\u540c\u5b66",
+      "default": "n ǐ h ǎo j ūn g ē @你好军哥\nn ǐ h ǎo w èn w èn @你好问问\nx iǎo ài t óng x ué @小爱同学",
       "description": "Editable text wake-word list for ASR-Decoding KWS (ADR-024). One keyword per line: spaced tokens @label (sherpa-onnx text2token; the 2025-12-20 zh-en model uses ppinyin tokens + @display label, no score/threshold suffixes). Defaults match the model test keywords."
     },
     {
@@ -83,6 +83,9 @@
     "artifactName": "sherpa-onnx-kws-wasm",
     "registryEntry": "public/model-registry.json#kws-sherpa",
     "fetch": {
+      "source": "release",
+      "releaseTag": "models-sherpa-wasm-v1",
+      "pattern": "*.tar.gz",
       "subdir": "sherpa-onnx-kws",
       "include": [
         "sherpa-onnx-wasm-kws-main.js",
@@ -116,7 +119,8 @@
         "default": "sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20.tar.bz2",
         "required": false
       }
-    ]
+    ],
+    "notes": "The wasm runtime (built by scripts/build-sherpa-kws.mjs, ADR-027) is hosted as a GitHub Release and fetched via scripts/fetch-artifact.mjs; regenerate with the build script if a new build is required."
   },
   "tests": {
     "l1": "packages/modules/kws/sherpa/tests/spec.test.ts",

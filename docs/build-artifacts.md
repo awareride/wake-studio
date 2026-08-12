@@ -67,8 +67,11 @@ node scripts/fetch-<artifact>.mjs [--force] [--version <v>]
 
 - Reads the expected version/hash from `public/model-registry.json`
   (single source of truth).
-- Downloads via the GitHub Actions artifact REST API (or a pinned release URL
-  for third-party assets), extracts into the target dir, verifies sha256.
+- Downloads via the GitHub Actions artifact REST API (default;
+  `build.artifactName`), or from a GitHub Release when the module spec's
+  `build.fetch.source = "release"` (`build.fetch.releaseTag` + `pattern`;
+  for static, non-CI-built models — see the `kws-openwakeword` / `kws-plix`
+  rows below), extracts into the target dir, verifies sha256.
 - Exits non-zero with a clear message if the artifact is missing/expired.
 
 ## 4. Checklist for adding a new artifact
@@ -91,7 +94,8 @@ node scripts/fetch-<artifact>.mjs [--force] [--version <v>]
 | Artifact | Build (module build block) | Fetch | Dest | Registry key |
 |---|---|---|---|---|
 | sherpa-onnx-kws wasm | `kws-sherpa` (`.github/workflows/build.yaml` + `scripts/build-sherpa-kws.mjs`) | `scripts/fetch-artifact.mjs kws-sherpa` | `packages/modules/kws/sherpa/assets/` | `kws-sherpa` |
-| PLiX ONNX encoder | `kws-plix` (`.github/workflows/build.yaml` + `scripts/build-plix.mjs`) | `scripts/fetch-artifact.mjs kws-plix` | `packages/modules/kws/plix/assets/` | `kws-plix` |
+| openwakeword + hey-buddy onnx | `kws-openwakeword` (static; hosted on Release `models-openwakeword-v1`, `build.fetch.source=release`) | `scripts/fetch-artifact.mjs kws-openwakeword` | `packages/modules/kws/openwakeword/assets/` | `melspectrogram`, `speech_embedding`, `silero-vad`, `openwakeword-*`, `hey-buddy` |
+| PLiX ONNX encoder | `kws-plix` (export script `scripts/build-plix.mjs`; hosted on Release `models-plix-v1`, `build.fetch.source=release`) | `scripts/fetch-artifact.mjs kws-plix` | `packages/modules/kws/plix/assets/` | `plixkws`, `plixkws-small` |
 | kws-streaming ONNX (Keyword Transformer / att_mh_rnn) | `kws-streaming` (`.github/workflows/build.yaml` + `scripts/build-kws-streaming.mjs`) | `scripts/fetch-artifact.mjs kws-streaming` | `packages/modules/kws/streaming/assets/kws-streaming/` | `kws-streaming-*` |
 | RNNoise wasm (pilot) | embedded base64 in `web/vendor/`; standalone CI build planned | (not needed while embedded) | `packages/modules/afe/rnnoise/assets/` | `rnnoise` |
 

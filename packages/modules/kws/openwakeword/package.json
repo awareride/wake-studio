@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
-    "fetch:all": "echo 'models live in assets/openWakeWord/ (copied from the openWakeWord release, ADR-025); see assets/README.md'"
+    "fetch:all": "node ../../../../scripts/fetch-artifact.mjs kws-openwakeword"
   },
   "dependencies": {
     "@wake-studio/contracts": "workspace:*",

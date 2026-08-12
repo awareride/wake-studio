@@ -52,7 +52,10 @@ test('sherpa-onnx-kws backend loads (wasm boots + spotter created)', async ({
   await expect(backendSelect).toBeVisible()
   await backendSelect.selectOption('sherpa-onnx-kws')
 
-  const loadButton = page.getByRole('button', { name: /Load models/i })
+  // The sherpa driver is a list-kind provisioning backend (ADR-033): the
+  // Engine card shows its list-load action ('Load with keyword list') instead
+  // of the generic 'Load models' (KWSPanel, #79 rewrite).
+  const loadButton = page.getByRole('button', { name: /Load with keyword list/i })
   await expect(loadButton).toBeVisible()
 
   await loadButton.click()

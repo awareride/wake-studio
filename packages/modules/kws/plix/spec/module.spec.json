@@ -111,7 +111,13 @@
         "default": "18",
         "required": false
       }
-    ]
+    ],
+    "fetch": {
+      "source": "release",
+      "releaseTag": "models-plix-v1",
+      "pattern": "*.tar.gz"
+    },
+    "notes": "The ONNX export (small variant, both flat + HF-style layouts) is hosted as a GitHub Release (ADR-027); fetched via scripts/fetch-artifact.mjs. Regenerate with scripts/build-plix.mjs (needs the .pt weights) if a new export is required."
   },
   "tests": {
     "l1": "packages/modules/kws/plix/tests/params.test.ts",
