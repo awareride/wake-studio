@@ -18,7 +18,7 @@ test('console shell renders: sidebar + workspace default view', async ({ page })
   const sidebar = page.locator('aside')
   await expect(sidebar).toBeVisible()
   await expect(sidebar.getByRole('button', { name: 'Workspace' })).toBeVisible()
-  await expect(sidebar.getByRole('button', { name: 'Model Library' })).toBeVisible()
+  await expect(sidebar.getByRole('button', { name: 'Model Registry' })).toBeVisible()
   await expect(sidebar.getByRole('button', { name: 'Projects' })).toBeVisible()
 
   // Default view is the workspace (h1 in the top bar + main heading). Root
@@ -29,8 +29,8 @@ test('console shell renders: sidebar + workspace default view', async ({ page })
 test('hash routing navigates between views', async ({ page }) => {
   await page.goto('/')
 
-  // Model Library: registry-driven view.
-  await sidebarNav(page, 'Model Library')
+  // Model Registry: registry-driven view.
+  await sidebarNav(page, 'Model Registry')
   await expect(page).toHaveURL(/#\/library/)
   await expect(page.getByRole('heading', { name: /Models \(\d+ of \d+\)/ })).toBeVisible()
 
