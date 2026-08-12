@@ -177,8 +177,10 @@ if not os.path.exists("./openwakeword"):
 # 3) Training dependencies (upstream simple notebook pins — no legacy TF).
 !pip install -q mutagen==1.47.0 torchinfo==1.8.0 torchmetrics==1.2.0 speechbrain==0.5.14 \\
     audiomentations==0.33.0 torch-audiomentations==0.11.0 acoustics==0.2.6 \\
-    onnxruntime==1.22.1 ai_edge_litert==1.4.0 onnxsim onnx2tf onnx==1.19.1 \\
+    onnxruntime==1.22.1 ai-edge-litert==2.1.6 onnxsim onnx2tf onnx==1.19.1 \\
     onnx_graphsurgeon sng4onnx pronouncing==0.2.0 datasets==2.14.6 deep-phonemizer==0.0.19
+# openwakeword main requires speexdsp-ns on Linux (skipped by --no-deps).
+!pip install -q "speexdsp-ns>=0.1.2,<1"
 
 # 4) Download the frozen feature models (Colab workaround, upstream notebook).
 os.makedirs("./openwakeword/openwakeword/resources/models", exist_ok=True)
