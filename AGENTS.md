@@ -37,22 +37,21 @@ Three layers, each with its own reader and role. Do not blur them:
 
 | Layer | Where | Reader | Role | Nature |
 |---|---|---|---|---|
-| **Agent guidance** | `.agents/plan/*.plan` (gitignored) | agent | vision, constraints, ADR index, working agreements, issue index | static (low churn) |
+| **Agent guidance** | `AGENTS.md`, `CONTRIBUTING.md`, `docs/roadmap.md` (all tracked) | agent | vision, constraints, roadmap/phase history, working agreements, issue index | static (low churn) |
 | **Work state** | GitHub Issues + `WakeStudio Delivery` project (org `awareride`) | human + cross-session | who/what/when/blocked | dynamic (live) |
 | **Durable knowledge** | `docs/`, `DECISIONS.md`, `docs/modules/*.md` | human + agent | ADRs, architecture, module specs | versioned with code |
 
-### Plan files (`.agents/plan/`) — read, don't maintain state
+### Roadmap doc (`docs/roadmap.md`) — read, don't maintain state
 
-Plan files are **agent-only context**: vision, phase history, ADR index, and
-pointers to issues. They are gitignored on purpose — they are not for GitHub
-readers and never enter PR diffs. Rules:
+The roadmap is **static guidance**: vision, requirements, phase history, and
+pointers to issues. It is tracked on purpose (reviewable on GitHub). Rules:
 
-- Read plan files for **static guidance** at session start (alongside the
-  board). They are the fastest way to load the project's shape.
-- Plan files do **not** hold live state. Do not edit P0/phase/question status
-  tables in them — state lives in GitHub.
-- The only plan-file edits allowed are **static-pointer fixes** (e.g. an issue
-  index line whose number went stale).
+- Read `docs/roadmap.md` for **static guidance** at session start (alongside
+  the board). It is the fastest way to load the project's shape.
+- The roadmap does **not** hold live state. Do not edit phase/status tables
+  in it — state lives in GitHub.
+- The only roadmap edits allowed are **static-pointer fixes** (e.g. an issue
+  number that went stale) and new phase entries once a phase ships.
 
 ### GitHub Issues + Projects — the live state source
 
@@ -61,7 +60,7 @@ project** (org `awareride`), driven through the `gh` CLI. See
 `CONTRIBUTING.md` (Issues & Projects section) for the full model.
 
 - **Session start:** load live state with `gh project item-list 2 --owner
-  awareride` (or `gh issue list`). Prefer this over reading plan state.
+  awareride` (or `gh issue list`). Prefer this over reading doc/roadmap state.
 - Before starting any non-trivial task, confirm the corresponding issue exists
   (create it with `gh issue create` using the task/bug template if not) and
   move it to `In progress` in the project.

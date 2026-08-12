@@ -2,7 +2,7 @@
 
 - **Status:** Draft (awaiting human review - the train integration contract)
 - **Owner:** WakeStudio team
-- **Plan phase:** module-migration §6.5 (goal.plan Phase 5)
+- **Plan phase:** ADR-013 + docs/roadmap.md Phase 5
 - **Related ADRs:** ADR-005 (self-hosted service), ADR-013 (training backends:
   Self-hosted / Cloud Providers / Colab), ADR-022 (data-source layer),
   ADR-023 (Colab backend), ADR-028 (uv train scripts)
@@ -16,7 +16,7 @@ Define the **training integration contract** before any code: how the PWA
 submits a training job to each backend (Self-hosted Service, Cloud Providers,
 Google Colab), how status is polled, and how the trained artifacts are
 retrieved. This contract is locked **before** the training module's spec +
-panel are built (§6.5 Step B). Backend implementations land in goal.plan
+panel are built (§6.5 Step B). Backend implementations land in docs/roadmap.md
 Phase 5.
 
 > **Design principle (human, 2026-08-05): preserve upstream train scripts /
@@ -186,7 +186,7 @@ wake-studio-results/<job-id>/
 }
 ```
 
-`provenance.json` is the **license-gate input** (goal.plan Phase 4): it declares
+`provenance.json` is the **license-gate input** (docs/roadmap.md Phase 4): it declares
 the model commercially clean (trained = user-owned) or carries the third-party
 license if the training wrapped a restricted model.
 
@@ -229,16 +229,16 @@ for every provider. Capability labels: train-capable vs inference-only.
 
 | ID | Question | Recommended default |
 |---|---|---|
-| T-1 | **studio-backend train: synchronous (current skeleton) vs async job + streaming** | Keep the synchronous skeleton for the module scaffolding (§6.5 Step B); add async queue + SSE streaming in goal.plan Phase 5. The PWA polls `GET /status`; a job id is added when the queue lands. |
+| T-1 | **studio-backend train: synchronous (current skeleton) vs async job + streaming** | Keep the synchronous skeleton for the module scaffolding (§6.5 Step B); add async queue + SSE streaming in docs/roadmap.md Phase 5. The PWA polls `GET /status`; a job id is added when the queue lands. |
 | T-2 | **Colab import: zip upload vs Drive picker** | Start with zip upload (no Drive API dependency); Drive picker as an enhancement. |
 | T-3 | **Artifact serving auth on a deployed self-hosted service** | Deferred to Phase 5 (per-deployment concern); localhost has no auth. |
 | T-4 | **Where the bundle manifest lives in the PWA** | `packages/modules/training/core/manifest.ts` - the single importer used by all backends. |
-| T-5 | **Which modules have a `train/` target in v1** | kws drivers (sherpa: transduce model frozen, so NO train - it's inference-only per ADR-024 ASR-Decoding; openwakeword: traditional train in Phase 5; plix: encoder is frozen). Training targets land with goal.plan Phase 5 backends. |
+| T-5 | **Which modules have a `train/` target in v1** | kws drivers (sherpa: transduce model frozen, so NO train - it's inference-only per ADR-024 ASR-Decoding; openwakeword: traditional train in Phase 5; plix: encoder is frozen). Training targets land with docs/roadmap.md Phase 5 backends. |
 | T-6 | **Upstream-script adapters (§4): preserve scripts/notebooks as-is vs rewrite** | ✅ **RESOLVED (human, 2026-08-05): preserve.** WakeStudio adapts to the upstream artifact (declare invocation + normalize outputs), never rewrites it. Spec `train` gains `script`/`notebook` + `adapter`/`adapterOptions` fields. |
 
 > T-5 note: per ADR-024, ASR-Decoding (sherpa) is **inference-only** - it has no
 > train target. The training module's first real `train/` targets are the
-> Traditional/MCU path (openWakeWord-style training, goal.plan Phase 5).
+> Traditional/MCU path (openWakeWord-style training, docs/roadmap.md Phase 5).
 
 ## 11. Change log
 
