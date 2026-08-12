@@ -52,7 +52,7 @@
       "class": "redistributable",
       "sha256": "TODO-phase2",
       "sizeBytes": 1186048,
-      "notes": "Browser-first wake-word model. Commercially clean (CC-BY-4.0). Replaces the CC BY-NC-SA openWakeWord alexa demo model. Now vendored locally under the module assets (user-provided 2026-08-07); no remote fetch."
+      "notes": "Browser-first wake-word model. Commercially clean (CC-BY-4.0). Replaces the CC BY-NC-SA openWakeWord alexa demo model. Fetched from the GitHub Release models-openwakeword-v1 (ADR-027; `pnpm fetch:all`)."
     },
     {
       "id": "plixkws",

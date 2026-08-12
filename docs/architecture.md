@@ -3,7 +3,8 @@
 > Status: Accepted (durable overview)
 > Scope: High-level architecture of WakeStudio. This document describes *what the
 > system is* and *how the pieces fit*, not phase-by-phase status (see
-> `.agents/plan/goal.plan` for that). It is kept in sync with `DECISIONS.md` (ADR
+> [`docs/roadmap.md`](roadmap.md) for that). It is kept in sync with
+> `DECISIONS.md` (ADR
 > log) and `LICENSES.md` (third-party license matrix).
 >
 > Companion docs: `docs/module-template.md` (convention for per-module specs),
@@ -400,10 +401,10 @@ package and offers to train a clean replacement instead.
   ADR-013 amended (in-browser training removed, Cloud Providers unified, Colab
   added) and ADR-011 amended (asset pre-fetch).
 - **License matrix:** `LICENSES.md`.
-- **Living plan & phased roadmap:** `.agents/plan/goal.plan` (gitignored; the source
-  of truth for phase status and open questions).
+- **Roadmap & phased status:** `docs/roadmap.md` (static phase history; live
+  status lives in the GitHub project).
 - **Per-module specs:** `docs/modules/*.md`, each written just-in-time at its
-  phase's start using `docs/module-template.md` (see plan §11).
+  phase's start using `docs/module-template.md` (see `docs/roadmap.md`).
 - **KWS categories spec:** `docs/kws-categories.md` — the 3-category taxonomy
   (Traditional / ASR-Decoding / Few-Shot), the decoupling rule, the dual-layer
   unified panel spec, and the P0 integration TODO (ADR-024).

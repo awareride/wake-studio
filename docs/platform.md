@@ -2,7 +2,7 @@
 
 - **Status:** Draft (docs-first; migration §6.1)
 - **Owner:** WakeStudio team
-- **Plan phase:** Module migration (module-migration.plan §6.1); consumed by all modules
+- **Plan phase:** Module migration (ADR-025, completed); consumed by all modules
 - **Related ADRs:** ADR-011 (lazy model registry), ADR-012 (base path),
   ADR-016 (AFE), ADR-021 (device SDK), ADR-025 (module platform),
   ADR-027 (build artifacts)
@@ -113,7 +113,7 @@ export interface AudioSource { start(): Promise<void>; stop(): void }
 
 ## 12. References
 
-- ADR-011/012/025/027; module-migration.plan §6.1; `docs/architecture.md` §3.
+- ADR-011/012/025/027; `docs/roadmap.md` §3; `docs/architecture.md` §3.
 - Legacy homes (migrated 2026-08-05): `apps/web/src/config.ts`,
   `apps/web/src/data/registry.ts` → `packages/platform/src/`.
 - **Sibling platform package:** `@wake-studio/dsp` (ADR-032, `packages/dsp/`)

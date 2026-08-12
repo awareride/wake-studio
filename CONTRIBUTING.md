@@ -135,12 +135,13 @@ and `gh issue close` on merge.
 
 ## Documentation-first (docs-first)
 
-WakeStudio follows a **documentation-first** workflow (see plan §11):
+WakeStudio follows a **documentation-first** workflow (see `docs/roadmap.md`):
 
 - **Durable design lives in `docs/`.** The high-level architecture is in
   `docs/architecture.md`; the ADR log is `DECISIONS.md`; the license matrix is
-  `LICENSES.md`. The `.agents/plan/goal.plan` is the *living* planning doc and is
-  gitignored - promote durable design out of it into `docs/`.
+  `LICENSES.md`; the phased roadmap (vision, phases, model selection, target
+  matrix) is `docs/roadmap.md`. Promote durable design there — never into
+  untracked notes.
 - **Module specs are written just-in-time, before code.** At the start of each
   phase (Phase 1+), copy `docs/module-template.md` to `docs/modules/<name>.md`
   and fill in the contract (purpose, scope, public API/types, data flow,

@@ -642,13 +642,14 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
     browser-only semantics (this is exactly the pitfall noted in the
     sherpa-onnx-kws commit).
 - **Status of this ADR:** Accepted. Implemented: rnnoise L2 wasm-runtime test;
-  per-module L1 suites (10 modules, ~158 tests). L2 for sherpa wasm is
-  deferred — the browser-targeted emscripten bundle does not boot in a plain
-  Node process (waits on `fetch`/DOM shims; hangs to the 120 s timeout, see
-  issue #49). The sherpa L2 test ships as a `SHERPA_L2_RUN=1`-gated scaffold;
-  the follow-up is a Node-targeted glue or the sherpa-onnx NPM binding.
-  openwakeword/plix onnx assets are gitignored, so their L2/e2e run only
-  where the assets are present (issue #50).
+  per-module L1 suites (10 modules, ~158 tests). Sherpa, openwakeword and
+  plix L2 boot suites now run on every PR (2026-08-11): sherpa — the browser
+  emscripten bundle boots in a Node vm once the sandbox provides the Node
+  globals the glue branches on (issue #49 fixed; wasm + .data read via fs);
+  openwakeword — mel → embedding → classifier; plix — 1280-dim embed. The
+  wasm/onnx assets stay gitignored but are hosted as GitHub Releases and
+  fetched in CI (ADR-027 §6.7, issues #50/#48), so the L2/e2e suites execute
+  for real instead of skipping.
 
 ---
 

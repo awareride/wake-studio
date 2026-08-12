@@ -26,10 +26,14 @@ Python step required at deploy time.
 
 ## ONNX route (default)
 
-What goes here:
+Assets are fetched from the GitHub Release `models-plix-v1` (ADR-027;
+`pnpm fetch:all` — the spec's `build.fetch.source=release`). What goes here:
 
 - `plixkws-base.onnx` — the **base** encoder (EfficientNet-v2-M, 1280-dim).
-- `plixkws-small.onnx` — the **small** encoder (TinyNet-E, 1280-dim).
+  **Not vendored** (the base export is not in the release); select it via a
+  custom encoder URL or export with `scripts/build-plix.mjs`.
+- `plixkws-small.onnx` — the **small** encoder (TinyNet-E, 1280-dim) — the
+  vendored/registry default.
 - `plixkws-small.onnx.data` — **external weights** for the `small` export
   (ONNX external-data format). Must sit **next to** `plixkws-small.onnx` so
   onnxruntime-web can resolve it. (The `base` export is a single self-contained
