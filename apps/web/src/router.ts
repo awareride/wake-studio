@@ -11,6 +11,7 @@ import * as React from 'react'
 export type ConsoleRoute =
   | 'workspace'
   | 'library'
+  | 'training'
   | 'projects'
   | 'console'
   | 'playground-rnnoise'
@@ -29,6 +30,7 @@ export const DEFAULT_ROUTE: ConsoleRoute = 'workspace'
 const ROUTE_BY_HASH: Record<string, ConsoleRoute> = {
   '/workspace': 'workspace',
   '/library': 'library',
+  '/training': 'training',
   '/projects': 'projects',
   '/console': 'console',
   '/playground/rnnoise': 'playground-rnnoise',
@@ -71,6 +73,8 @@ export function routeToHash(route: ConsoleRoute): string {
       return '/workspace'
     case 'library':
       return '/library'
+    case 'training':
+      return '/training'
     case 'projects':
       return '/projects'
     case 'console':

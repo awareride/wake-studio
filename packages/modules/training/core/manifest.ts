@@ -1,3 +1,4 @@
+import { unzipSync } from 'fflate'
 import type { TrainingJob } from './job'
 
 type TrainingJobBackend = TrainingJob['backend']
@@ -30,6 +31,9 @@ export interface ArtifactProvenance {
 /** The standard bundle layout (wake-studio-results/<job-id>/). */
 export interface ArtifactBundle {
   jobId: string
+  /** Which model file the bundle carries ('onnx' | 'tflite'). Undefined for
+   *  inference-only / pre-model bundles. */
+  modelFormat?: 'onnx' | 'tflite'
   files: {
     /** model.onnx | model.tflite */
     model?: Uint8Array
@@ -61,11 +65,200 @@ export interface ResultsAdapter {
   standardize(runDir: string, options?: Record<string, unknown>): Promise<ArtifactBundle>
 }
 
-/** Validate an imported bundle against the manifest shape. */
+/**
+ * Validate an imported bundle against the manifest shape (docs/modules/training.md §6).
+ *
+ * Shared by every backend (ADR-013): the PWA has ONE importer that validates
+ * any trained model. Checks the fields the producers write and the consumers
+ * read:
+ *   - a non-empty job id
+ *   - a metadata block with a job id + a known backend
+ *   - a provenance block carrying a license (the Phase 4 export-gate input)
+ *
+ * No model file is required here — an inference-only bundle (e.g. a metrics/
+ * provenance-only run) is still a structurally valid bundle. Callers that need
+ * a model (the 'Import Colab results' flow) check `hasBundleModel` after.
+ */
 export function validateBundle(bundle: Partial<ArtifactBundle>): bundle is ArtifactBundle {
+  const meta = bundle.files?.metadata
+  const prov = bundle.files?.provenance
   return (
     typeof bundle.jobId === 'string' &&
-    !!bundle.files?.metadata &&
-    !!bundle.files?.provenance
+    bundle.jobId.trim().length > 0 &&
+    !!meta &&
+    typeof meta.jobId === 'string' &&
+    meta.jobId.trim().length > 0 &&
+    (meta.backend === 'self-hosted' || meta.backend === 'cloud' || meta.backend === 'colab') &&
+    !!prov &&
+    typeof prov.license === 'string' &&
+    prov.license.trim().length > 0
   )
+}
+
+/** Whether a bundle carries a model file (model.onnx | model.tflite). */
+export function hasBundleModel(bundle: ArtifactBundle): boolean {
+  return !!bundle.files.model
+}
+
+/**
+ * Error raised by {@link importColabBundle} when a picked zip is not a valid
+ * Colab artifact bundle. `code` lets the UI show a precise, human-readable
+ * message instead of a generic "import failed".
+ */
+export class BundleImportError extends Error {
+  /** Stable machine-readable code (surfaced in the UI + tests). */
+  readonly code: BundleImportErrorCode
+
+  constructor(code: BundleImportErrorCode, message: string) {
+    super(message)
+    this.name = 'BundleImportError'
+    this.code = code
+  }
+}
+
+export type BundleImportErrorCode =
+  | 'no-zip'
+  | 'empty-zip'
+  | 'missing-metadata'
+  | 'missing-provenance'
+  | 'invalid-metadata'
+  | 'invalid-provenance'
+  | 'missing-model'
+
+/** Messages shown to the user for each {@link BundleImportErrorCode}. */
+export const BUNDLE_IMPORT_ERROR_MESSAGES: Record<BundleImportErrorCode, string> = {
+  'no-zip': "That file isn't a zip archive — pick the downloaded wake-studio-results.zip.",
+  'empty-zip': 'The zip is empty — it should contain metadata.json, provenance.json and a model.',
+  'missing-metadata': 'metadata.json is missing from the zip (the artifact bundle manifest).',
+  'missing-provenance': 'provenance.json is missing — the license gate needs it.',
+  'invalid-metadata':
+    'metadata.json is invalid — it must declare jobId, moduleId and backend: "colab".',
+  'invalid-provenance':
+    'provenance.json is invalid — it must declare a license (e.g. “user-owned”).',
+  'missing-model': 'No model found — the zip should contain model.onnx or model.tflite.',
+}
+
+/**
+ * Parse a `File` (or node Buffer) that is a Colab results zip into an
+ * {@link ArtifactBundle}. Client-side only — no WakeStudio server involved.
+ *
+ * The zip layout (produced by the module-owned notebook, ADR-035):
+ *
+ * ```
+ * wake-studio-results/<job-id>/
+ *   model.onnx | model.tflite
+ *   metrics.json
+ *   metadata.json   (jobId, moduleId, backend='colab', params, trainedAtMs)
+ *   provenance.json (license: user-owned → Phase 4 export gate)
+ *   config.json
+ * ```
+ *
+ * @throws {BundleImportError} with a stable `code` on any invalid/missing part.
+ */
+export async function importColabBundle(
+  input: File | ArrayBuffer | Uint8Array,
+): Promise<ArtifactBundle> {
+  const data = input instanceof Uint8Array ? input : await readZipBytes(input)
+  if (data.byteLength === 0) throw new BundleImportError('no-zip', BUNDLE_IMPORT_ERROR_MESSAGES['no-zip'])
+
+  let entries: Record<string, Uint8Array>
+  try {
+    entries = unzipSync(data)
+  } catch {
+    throw new BundleImportError('no-zip', BUNDLE_IMPORT_ERROR_MESSAGES['no-zip'])
+  }
+
+  const names = Object.keys(entries)
+  if (names.length === 0) {
+    throw new BundleImportError('empty-zip', BUNDLE_IMPORT_ERROR_MESSAGES['empty-zip'])
+  }
+
+  // Match backing files by basename (the zip prefixes entries with the job id).
+  const byName = new Map<string, Uint8Array>()
+  for (const name of names) {
+    const base = name.split('/').pop() ?? name
+    if (!byName.has(base)) byName.set(base, entries[name])
+  }
+
+  const decoder = new TextDecoder()
+  const readJson = (name: string): unknown => {
+    const bytes = byName.get(name)
+    if (!bytes) return undefined
+    try {
+      return JSON.parse(decoder.decode(bytes))
+    } catch {
+      return undefined
+    }
+  }
+
+  const metadata = readJson('metadata.json') as Partial<ArtifactBundleMetadata> | undefined
+  if (!metadata) {
+    throw new BundleImportError('missing-metadata', BUNDLE_IMPORT_ERROR_MESSAGES['missing-metadata'])
+  }
+  const provenance = readJson('provenance.json') as Partial<ArtifactProvenance> | undefined
+  if (!provenance) {
+    throw new BundleImportError('missing-provenance', BUNDLE_IMPORT_ERROR_MESSAGES['missing-provenance'])
+  }
+
+  const jobId = metadata.jobId
+  const moduleId = metadata.moduleId
+  const backend = metadata.backend
+  if (
+    !jobId ||
+    typeof jobId !== 'string' ||
+    jobId.trim().length === 0 ||
+    !moduleId ||
+    typeof moduleId !== 'string' ||
+    moduleId.trim().length === 0 ||
+    backend !== 'colab'
+  ) {
+    throw new BundleImportError('invalid-metadata', BUNDLE_IMPORT_ERROR_MESSAGES['invalid-metadata'])
+  }
+
+  const license = provenance.license
+  if (typeof license !== 'string' || license.trim().length === 0) {
+    throw new BundleImportError('invalid-provenance', BUNDLE_IMPORT_ERROR_MESSAGES['invalid-provenance'])
+  }
+
+  const modelOnnx = byName.get('model.onnx')
+  const model = modelOnnx ?? byName.get('model.tflite')
+  if (!model) {
+    throw new BundleImportError('missing-model', BUNDLE_IMPORT_ERROR_MESSAGES['missing-model'])
+  }
+
+  const metrics = readJson('metrics.json') as Record<string, number> | undefined
+  const config = readJson('config.json') as Record<string, unknown> | undefined
+
+  const bundle: ArtifactBundle = {
+    jobId,
+    modelFormat: modelOnnx ? 'onnx' : 'tflite',
+    files: {
+      model,
+      metrics,
+      metadata: {
+        jobId,
+        moduleId,
+        backend,
+        provider: metadata.provider,
+        params: metadata.params ?? {},
+        trainedAtMs: metadata.trainedAtMs ?? 0,
+      },
+      provenance: {
+        license,
+        sourceData: provenance.sourceData,
+        notes: provenance.notes,
+      },
+      configSnapshot: config,
+    },
+  }
+
+  if (!validateBundle(bundle) || !hasBundleModel(bundle)) {
+    throw new BundleImportError('invalid-metadata', BUNDLE_IMPORT_ERROR_MESSAGES['invalid-metadata'])
+  }
+  return bundle
+}
+
+async function readZipBytes(input: File | ArrayBuffer): Promise<Uint8Array> {
+  if (input instanceof ArrayBuffer) return new Uint8Array(input)
+  return new Uint8Array(await input.arrayBuffer())
 }

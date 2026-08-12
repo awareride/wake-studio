@@ -5,5 +5,5 @@
  */
 
 export { type TrainingJob, type ArtifactBundleRef } from '../core'
-export { validateBundle } from '../core'
+export { validateBundle, importColabBundle, BundleImportError } from '../core'
 export { TrainingModulePanel, default } from './panel'

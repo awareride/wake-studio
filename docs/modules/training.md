@@ -226,6 +226,36 @@ credential (ADR-023). Optional notebook keys (Google API / TTS token) are
 user-set in the Settings panel security section (issue #52), client-side only
 (ADR-013), passed to the notebook as job params/env — never embedded.
 
+### 7.1 Import Colab results — the PWA importer (issue #97)
+
+The import half of the loop lives in `packages/modules/training/`:
+
+- **`core/manifest.ts` → `importColabBundle(file)`** — the single client-side
+  importer. It unzips the picked `wake-studio-results.zip` (via `fflate`, no
+  server), matches files by basename (the zip prefixes entries with the job
+  id), parses `metadata.json` + `provenance.json`, and returns an
+  `ArtifactBundle`. On any invalid/missing part it throws a typed
+  `BundleImportError` with a stable `code` (`missing-metadata`,
+  `missing-provenance`, `invalid-metadata`, `invalid-provenance`,
+  `missing-model`, `no-zip`, `empty-zip`) so the UI shows a precise message.
+- **Validation** — `validateBundle` checks a non-empty job id, a metadata
+  block with a known backend, and a provenance block carrying a license (the
+  Phase 4 export-gate input). The Colab flow additionally requires
+  `backend === 'colab'` and a model file (`hasBundleModel`).
+- **Registration** (app layer, `apps/web/src/training/`) — on success the
+  model binary is saved into the user model library under the `classifier`
+  role (the existing KWS load path, ADR-024, consumes it for in-browser
+  test), and a `train` provisioning artifact (ADR-033) persists the bundle
+  metadata + provenance for the Phase 4 export gate. The app-level KWS
+  model-source default for the classifier role is updated to point at the
+  imported model, so the next Load in the KWS panel tests it immediately.
+- **UI** — the PWA's new **Training** view hosts the training module's
+  spec-driven panel plus the "Import Colab results" section (zip picker,
+  clear errors, success summary).
+
+Client-side only: the zip is parsed and validated entirely in the browser; no
+WakeStudio server and no credentials are involved (ADR-013/023).
+
 ## 8. Cloud Providers (ADR-013)
 
 Per-provider adapters (AWS / GCP / HF / Alibaba / Tencent / Volcengine) behind

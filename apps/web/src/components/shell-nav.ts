@@ -10,6 +10,7 @@ import { settingsRoute } from '../router'
 import {
   IconWorkspace,
   IconLibrary,
+  IconTrain,
   IconFolder,
   IconSettings,
   IconChip,
@@ -34,6 +35,7 @@ export interface SettingsNavItem {
 export const PRIMARY_NAV: NavItem[] = [
   { route: 'workspace', label: 'Workspace', icon: IconWorkspace },
   { route: 'library', label: 'Model Registry', icon: IconLibrary },
+  { route: 'training', label: 'Training', icon: IconTrain },
   { route: 'projects', label: 'Projects', icon: IconFolder },
   { route: 'console', label: 'Console', icon: IconConsole },
 ]

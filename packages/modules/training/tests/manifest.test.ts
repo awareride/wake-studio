@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { validateBundle } from '../core/manifest'
+import { zipSync, strToU8 } from 'fflate'
+import {
+  validateBundle,
+  hasBundleModel,
+  importColabBundle,
+  BundleImportError,
+  BUNDLE_IMPORT_ERROR_MESSAGES,
+} from '../core/manifest'
 import type { ArtifactBundle } from '../core/manifest'
 
 function meta(jobId: string) {
@@ -40,5 +47,169 @@ describe('training artifact bundle manifest (contract, docs/modules/training.md 
       },
     }
     expect(validateBundle(bundle)).toBe(false)
+  })
+
+  it('rejects a bundle with an unknown backend', () => {
+    const bundle: Partial<ArtifactBundle> = {
+      jobId: 'job-1',
+      files: {
+        metadata: { ...meta('job-1'), backend: 'quantum' as never },
+        provenance: { license: 'user-owned' },
+      },
+    }
+    expect(validateBundle(bundle)).toBe(false)
+  })
+
+  it('rejects a bundle whose provenance has no license (license-gate input)', () => {
+    const bundle: Partial<ArtifactBundle> = {
+      jobId: 'job-1',
+      files: {
+        metadata: meta('job-1'),
+        provenance: { license: '' },
+      },
+    }
+    expect(validateBundle(bundle)).toBe(false)
+  })
+
+  it('hasBundleModel is false when no model file is present', () => {
+    const bundle: Partial<ArtifactBundle> = {
+      jobId: 'job-1',
+      files: {
+        metadata: meta('job-1'),
+        provenance: { license: 'user-owned' },
+      },
+    }
+    expect(hasBundleModel(bundle as ArtifactBundle)).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// importColabBundle — the 'Import Colab results' flow (docs/modules/training.md §7)
+// ---------------------------------------------------------------------------
+
+function colabZip(opts: {
+  jobId?: string
+  backend?: string
+  license?: string
+  withModel?: boolean
+  withProvenance?: boolean
+  withMetadata?: boolean
+  prefix?: boolean
+} = {}): Uint8Array {
+  const {
+    jobId = 'kws-openwakeword-123',
+    backend = 'colab',
+    license = 'user-owned',
+    withModel = true,
+    withProvenance = true,
+    withMetadata = true,
+    prefix = true,
+  } = opts
+  const files: Record<string, Uint8Array> = {}
+  const put = (name: string, obj: unknown) => {
+    const key = prefix ? `${jobId}/${name}` : name
+    files[key] = obj instanceof Uint8Array ? obj : strToU8(JSON.stringify(obj))
+  }
+  if (withMetadata) {
+    put('metadata.json', {
+      jobId,
+      moduleId: 'kws-openwakeword',
+      backend,
+      provider: 'colab',
+      params: { wakePhrase: 'hey studio', target: 'app-class', epochs: '10000' },
+      trainedAtMs: 42,
+    })
+  }
+  if (withProvenance) {
+    put('provenance.json', {
+      license,
+      sourceData: [{ name: 'piper-sample-generator synthetic speech', license: 'MIT', source: 'https://github.com/rhasspy/piper-sample-generator' }],
+      notes: 'Trained from synthetic TTS audio.',
+    })
+  }
+  if (withModel) {
+    put('model.onnx', strToU8('fake-onnx-bytes'))
+    put('model.tflite', strToU8('fake-tflite-bytes'))
+  }
+  put('metrics.json', { recall: 0.9, accuracy: 0.8, steps: 10000 })
+  put('config.json', { wakePhrase: 'hey studio', target: 'app-class' })
+  return zipSync(files, { level: 0 })
+}
+
+describe('importColabBundle (the PWA Colab-results importer)', () => {
+  it('imports a well-formed notebook bundle (job-id-prefixed entries)', async () => {
+    const zip = colabZip()
+
+    const bundle = await importColabBundle(zip)
+
+    expect(validateBundle(bundle)).toBe(true)
+    expect(hasBundleModel(bundle)).toBe(true)
+    expect(bundle.jobId).toBe('kws-openwakeword-123')
+    expect(bundle.files.metadata.backend).toBe('colab')
+    expect(bundle.files.metadata.params.wakePhrase).toBe('hey studio')
+    expect(bundle.files.provenance.license).toBe('user-owned')
+    expect(bundle.files.metrics?.accuracy).toBe(0.8)
+    expect(bundle.files.configSnapshot?.target).toBe('app-class')
+    expect(bundle.files.model?.byteLength).toBe('fake-onnx-bytes'.length)
+  })
+
+  it('tolerates entries NOT prefixed by the job id (flat layout)', async () => {
+    const zip = colabZip({ prefix: false })
+    const bundle = await importColabBundle(zip)
+    expect(bundle.jobId).toBe('kws-openwakeword-123')
+  })
+
+  it('rejects a zip without metadata.json (missing-metadata)', async () => {
+    const zip = colabZip({ withMetadata: false })
+    await expect(importColabBundle(zip)).rejects.toMatchObject({
+      name: 'BundleImportError',
+      code: 'missing-metadata',
+      message: BUNDLE_IMPORT_ERROR_MESSAGES['missing-metadata'],
+    })
+  })
+
+  it('rejects a zip without provenance.json (missing-provenance)', async () => {
+    const zip = colabZip({ withProvenance: false })
+    await expect(importColabBundle(zip)).rejects.toMatchObject({ code: 'missing-provenance' })
+  })
+
+  it('rejects metadata whose backend is not colab (invalid-metadata)', async () => {
+    const zip = colabZip({ backend: 'self-hosted' })
+    await expect(importColabBundle(zip)).rejects.toMatchObject({ code: 'invalid-metadata' })
+  })
+
+  it('rejects metadata without a job id (invalid-metadata)', async () => {
+    const zip = colabZip({ jobId: '' })
+    await expect(importColabBundle(zip)).rejects.toMatchObject({ code: 'invalid-metadata' })
+  })
+
+  it('rejects provenance without a license (invalid-provenance)', async () => {
+    const zip = colabZip({ license: '' })
+    await expect(importColabBundle(zip)).rejects.toMatchObject({ code: 'invalid-provenance' })
+  })
+
+  it('rejects a bundle with no model file (missing-model)', async () => {
+    const zip = colabZip({ withModel: false })
+    await expect(importColabBundle(zip)).rejects.toMatchObject({ code: 'missing-model' })
+  })
+
+  it('rejects a non-zip input (no-zip)', async () => {
+    const notAZip = new Uint8Array([1, 2, 3, 4, 5])
+    await expect(importColabBundle(notAZip)).rejects.toMatchObject({ code: 'no-zip' })
+  })
+
+  it('rejects an empty input (no-zip)', async () => {
+    await expect(importColabBundle(new Uint8Array(0))).rejects.toMatchObject({ code: 'no-zip' })
+  })
+
+  it('throws a typed BundleImportError instance', async () => {
+    const zip = colabZip({ withProvenance: false })
+    try {
+      await importColabBundle(zip)
+      expect.unreachable('should have thrown')
+    } catch (err) {
+      expect(err).toBeInstanceOf(BundleImportError)
+      expect((err as BundleImportError).code).toBe('missing-provenance')
+    }
   })
 })

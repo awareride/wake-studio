@@ -197,6 +197,14 @@ Reuse the existing `TrainingJob` interface (ADR-013) + `manifest.ts` importer:
 No WakeStudio server is involved; the user's Google account is the only
 credential (ADR-023).
 
+> **Status (issue #97): implemented.** `importColabBundle` (fflate, typed
+> `BundleImportError` codes) + hardened `validateBundle` live in
+> `packages/modules/training/core/manifest.ts`; the app's **Training** view
+> hosts the import section, registers the model into the user library
+> (classifier role) + a `train` artifact (ADR-033), and updates the KWS
+> model-source default. L1 tests cover the importer (module) and the
+> registration glue (app). Docs-synced with `docs/modules/training.md` §7.1.
+
 ---
 
 ## 8. Deferred (noted, not built now)
@@ -239,6 +247,7 @@ credential (ADR-023).
 
 | Date | Change | Author |
 |---|---|---|
+| 2026-08-12 | Deliverable 4 notebook rewritten to the **upstream `automatic_model_training_simple` stack** (runs on current Colab's Python 3.11/3.12): `piper-phonemize-cross` + `onnx2tf` instead of the legacy `piper-phonemize` / `tensorflow-cpu==2.8.1` (wheels only to 3.10). openwakeword pin bumped to `368c037`, piper-sample-generator to `213d4d5`. Issue #97. | agent |
 | 2026-08-11 | Initial review draft — Colab-first training backend (openWakeWord, synthetic Piper data, standard bundle import). | agent |
 | 2026-08-11 | Notebook moved into the owning module (`train/colab/`, ADR-025 module-ownership); advertised via new `spec.train.notebookLocal` (spec-driven panel, no hand-written registration) — §4/§5, questions C-5/C-6. | agent |
 | 2026-08-11 | **C-6 resolved:** separate fields (`notebook` vs `notebookLocal`). **C-7 added & resolved:** optional notebook keys (Google API / TTS) are user-set in the Settings panel security section (issue #52), client-side only, passed as job params/env — new §5.3. | agent |

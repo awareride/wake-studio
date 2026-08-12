@@ -17,6 +17,7 @@ import {
 const VIEW_TITLES: Record<ConsoleRoute, string> = {
   workspace: 'Workspace',
   library: 'Model Registry',
+  training: 'Training',
   projects: 'Projects',
   console: 'Session Console',
   'playground-rnnoise': 'RNNoise Playground',

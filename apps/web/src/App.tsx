@@ -18,6 +18,7 @@ import { LogProvider } from "./log";
 import { SettingsProvider } from "./settings";
 import { WorkspaceView } from "./views/WorkspaceView";
 import { ModelLibraryView } from "./views/ModelLibraryView";
+import { TrainingView } from "./views/TrainingView";
 import { SessionConsoleView } from "./views/SessionConsoleView";
 import { SettingsView } from "./views/SettingsView";
 import { ComingSoonView, ProjectsView } from "./views/placeholders";
@@ -83,6 +84,7 @@ function AppShell() {
             <WorkspaceView />
           </div>
           {route === "library" && <ModelLibraryView />}
+          {route === "training" && <TrainingView />}
           {route === "projects" && <ProjectsView />}
           {route === "console" && <SessionConsoleView />}
           {route === "playground-rnnoise" && <RnnoisePlayground />}
