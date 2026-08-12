@@ -66,8 +66,15 @@ export function validateModuleSpec(raw: unknown): SpecValidationResult {
     errors.push('playground.route must start with "/"')
 
   if (spec.train) {
-    if (!spec.train.entry) errors.push('train.entry required')
-    if (!spec.train.deps) errors.push('train.deps required (pyproject.toml or requirements.txt)')
+    const hasSource = Boolean(
+      spec.train.entry || spec.train.script || spec.train.notebook || spec.train.notebookLocal,
+    )
+    if (!hasSource)
+      errors.push('train must declare one of: entry, script, notebook, or notebookLocal')
+    // entry+deps are required only for the local uv path (ADR-028); a
+    // notebook/notebookLocal target has no local script to run (ADR-035).
+    if (spec.train.entry && !spec.train.deps)
+      errors.push('train.deps required when train.entry is set (pyproject.toml or requirements.txt)')
     if (!spec.train.invocation?.length) errors.push('train.invocation must be non-empty')
   }
 

@@ -10,7 +10,12 @@ import { describe, it, expect } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { ModuleSpec } from '@wake-studio/contracts'
 import { validateModuleSpec } from '../src/validator'
-import { defaultsFromSpec, renderPanel, ModulePanel } from '../src/panel-generator'
+import {
+  defaultsFromSpec,
+  renderPanel,
+  ModulePanel,
+  buildColabUrl,
+} from '../src/panel-generator'
 
 // A minimal but complete spec (mirrors rnnoise/module.spec.json shape).
 const MINIMAL_SPEC: ModuleSpec = {
@@ -80,12 +85,43 @@ describe('validateModuleSpec', () => {
     expect(res.ok).toBe(false)
     expect(res.errors.some((e) => e.includes('group'))).toBe(true)
   })
+
+  it('rejects a train block with no invocation source', () => {
+    const bad = structuredClone(MINIMAL_SPEC)
+    bad.train = { invocation: ['colab'], outputs: {} }
+    const res = validateModuleSpec(bad)
+    expect(res.ok).toBe(false)
+    expect(res.errors.some((e) => e.includes('notebookLocal'))).toBe(true)
+  })
+
+  it('accepts a colab-only train block (notebookLocal, no local entry) (ADR-035)', () => {
+    const ok = structuredClone(MINIMAL_SPEC)
+    ok.train = {
+      notebookLocal: 'packages/modules/kws/openwakeword/train/colab/train.ipynb',
+      invocation: ['colab'],
+      outputs: { checkpoint: 'out/model.onnx' },
+    }
+    const res = validateModuleSpec(ok)
+    expect(res.ok).toBe(true)
+    expect(res.errors).toEqual([])
+  })
 })
 
 describe('defaultsFromSpec', () => {
   it('maps every param to its default', () => {
     const d = defaultsFromSpec(MINIMAL_SPEC)
     expect(d).toEqual({ strength: 1, enabled: true })
+  })
+})
+
+describe('buildColabUrl', () => {
+  it('builds the GitHub→Colab URL from a repo-relative notebook path (ADR-035)', () => {
+    const url = buildColabUrl(
+      'packages/modules/kws/openwakeword/train/colab/train.ipynb',
+    )
+    expect(url).toBe(
+      'https://colab.research.google.com/github/awareride/wake-studio/blob/main/packages/modules/kws/openwakeword/train/colab/train.ipynb',
+    )
   })
 })
 
@@ -120,5 +156,37 @@ describe('renderPanel', () => {
   it('ModulePanel is a named component from the spec', () => {
     const Panel = renderPanel(MINIMAL_SPEC)
     expect(Panel.displayName).toBe('ModulePanel(test-module)')
+  })
+
+  it('renders an Open in Colab link when spec.train.notebookLocal is set (ADR-035)', () => {
+    const withNotebook = structuredClone(MINIMAL_SPEC)
+    withNotebook.train = {
+      notebookLocal: 'packages/modules/kws/openwakeword/train/colab/train.ipynb',
+      invocation: ['colab'],
+      outputs: { checkpoint: 'out/model.onnx' },
+    }
+    const html = renderToStaticMarkup(
+      <ModulePanel spec={withNotebook} controller={{
+        values: defaultsFromSpec(withNotebook),
+        setValue: () => {},
+        runAction: () => {},
+      }} />,
+    )
+    expect(html).toContain('Open in Colab')
+    expect(html).toContain(
+      'https://colab.research.google.com/github/awareride/wake-studio/blob/main/packages/modules/kws/openwakeword/train/colab/train.ipynb',
+    )
+    expect(html).toContain('target="_blank"')
+  })
+
+  it('does not render an Open in Colab link without notebookLocal', () => {
+    const html = renderToStaticMarkup(
+      <ModulePanel spec={MINIMAL_SPEC} controller={{
+        values: defaultsFromSpec(MINIMAL_SPEC),
+        setValue: () => {},
+        runAction: () => {},
+      }} />,
+    )
+    expect(html).not.toContain('Open in Colab')
   })
 })

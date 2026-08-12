@@ -26,6 +26,39 @@ import { UiBar, UiWaveform, UiCurve } from './ui/canvas'
 import { renderParamControl } from './ui/mapper'
 
 // ---------------------------------------------------------------------------
+// Colab notebook seam (ADR-035)
+// ---------------------------------------------------------------------------
+
+/**
+ * The source repo where module-owned Colab notebooks live. The generated
+ * panel opens a notebook via the GitHub→Colab URL builder below; no server
+ * and no credentials are involved (the user runs it in their own Colab
+ * session, ADR-023).
+ */
+export const SOURCE_REPO = {
+  org: 'awareride',
+  repo: 'wake-studio',
+  /** Notebooks are opened from the default branch; feature branches are out of scope. */
+  ref: 'main',
+} as const
+
+/**
+ * Build the GitHub→Colab URL for a module-owned notebook.
+ *
+ * `notebookLocal` is repo-relative (e.g.
+ * "packages/modules/kws/openwakeword/train/colab/train.ipynb"), matching the
+ * `playground.entry` / `tests.*` path convention, so no module-directory
+ * derivation is needed.
+ */
+export function buildColabUrl(
+  notebookLocal: string,
+  source: typeof SOURCE_REPO = SOURCE_REPO,
+): string {
+  const path = notebookLocal.replace(/^\.?\//, '')
+  return `https://colab.research.google.com/github/${source.org}/${source.repo}/blob/${source.ref}/${path}`
+}
+
+// ---------------------------------------------------------------------------
 // Panel controller contract (host-provided)
 // ---------------------------------------------------------------------------
 
@@ -175,6 +208,26 @@ export function ModulePanel({ spec, controller, title }: GeneratedPanelProps) {
                 onClick={() => controller.runAction(action.id)}
               />
             ))}
+          </div>
+        )}
+
+        {/*
+          Module-owned Colab notebook (ADR-035): when the module declares
+          spec.train.notebookLocal, the generated panel renders an "Open in
+          Colab" action. It is a plain external link — no server, no
+          credentials; the user runs the notebook in their own Colab session.
+        */}
+        {spec.train?.notebookLocal && (
+          <div className="flex flex-wrap gap-3 pt-2">
+            <a
+              href={buildColabUrl(spec.train.notebookLocal)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-surface-3"
+            >
+              <span aria-hidden>☁️</span>
+              Open in Colab
+            </a>
           </div>
         )}
 

@@ -336,6 +336,10 @@
         "entry": {
           "type": "string"
         },
+        "notebookLocal": {
+          "type": "string",
+          "description": "Repo-relative path to the module-owned Colab notebook (e.g. \"packages/modules/kws/openwakeword/train/colab/train.ipynb\"). Distinct from \"notebook\" (upstream ref): the notebook lives in this repo and the generated panel renders an \"Open in Colab\" action from it (ADR-035). Repo-relative to match playground.entry / tests paths."
+        },
         "python": {
           "type": "string"
         },

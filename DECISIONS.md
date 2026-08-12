@@ -1044,3 +1044,45 @@ per-backend drivers (ADR-030), and training adapts to upstream scripts/notebooks
 design is ADR-016; the config panel is ADR-017; KWS Phase 2 design is ADR-018
 (resumes against the `KWSBackend` interface). Defaults from Q2/Q3/Q4/Q7 are
 applied per this log and may be overridden._
+
+## ADR-035 — Module-owned Colab notebooks: `train.notebookLocal` + spec-driven "Open in Colab"
+
+- **Status:** Accepted
+- **Origin:** Human product-direction update (Phase 5 Colab-first training,
+  `docs/colab-training.plan.md`, decisions C-5/C-6/C-7, 2026-08-11)
+- **Decision:** A module advertises its **own** Colab training notebook via a
+  new `spec.train.notebookLocal` field (a **repo-relative** path, matching the
+  existing `playground.entry` / `tests.*` path convention). The notebook lives
+  inside the owning module (module-ownership, ADR-025), e.g.
+  `packages/modules/kws/openwakeword/train/colab/train.ipynb`. When the field
+  is present, the **generated panel** (module-kit, ADR-025) renders an "Open in
+  Colab" action — a plain external link built from the repo + path via the
+  GitHub→Colab URL (`https://colab.research.google.com/github/<org>/<repo>/blob/<ref>/<path>`).
+  No WakeStudio server and no provider credentials are involved; the user runs
+  the notebook in their own Colab session under their own Google account
+  (ADR-023).
+- **Rationale:** The training module's `spec.train` already distinguishes
+  **upstream** `notebook` (third-party, we adapt to it, ADR-031) from a local
+  `entry` (uv, ADR-028). A module-owned notebook is a third, distinct case that
+  needs no server: it is versioned in the module, opened directly from GitHub,
+  and executes in the user's Colab. Rendering it from spec (not per-driver
+  registration, ADR-030/033) keeps "panels are generated, never hand-written"
+  true and the module spec the single fact source (ADR-025).
+- **Open questions resolved in this ADR (flagged for human):**
+  1. *Path convention:* repo-relative (matches `playground.entry`/`tests.*`),
+     not module-relative — the GitHub URL builder needs the repo path and cannot
+     derive the module dir from `meta.id` reliably.
+  2. *Spec vs registration:* spec field + generated panel action; no per-driver
+     registration (ADR-030 is for runtime capabilities).
+  3. *Separate fields:* `notebook` (upstream) vs `notebookLocal` (module-owned)
+     stay distinct; no `source` discriminator.
+- **Consequences:**
+  - `module-spec.schema.json` + `ModuleTrain` gain `notebookLocal`; the
+    validator accepts a colab-only train block (no local `entry`/`deps`).
+  - module-kit exports `buildColabUrl` + `SOURCE_REPO`; the generated panel
+    auto-renders "Open in Colab" when `train.notebookLocal` is set.
+  - Optional notebook keys (Google API / TTS token) are user-provided in the
+    Settings panel security section (issue #52), client-side only (ADR-013),
+    passed to the notebook as job params/env — never embedded.
+  - `kws-openwakeword` declares its notebook; the notebook itself lands in
+    `packages/modules/kws/openwakeword/train/colab/train.ipynb` (issue #96).
