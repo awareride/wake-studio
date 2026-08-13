@@ -79,3 +79,8 @@ export async function updateJobStatus(
 export async function clearJobs(): Promise<void> {
   await tx('readwrite', (store) => store.clear())
 }
+
+/** Delete one job from history (per-train delete, issue #105). */
+export async function deleteJob(id: string): Promise<void> {
+  await tx('readwrite', (store) => store.delete(id))
+}

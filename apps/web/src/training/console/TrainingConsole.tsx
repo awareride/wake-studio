@@ -23,7 +23,7 @@ import {
   type HistoryJob,
   type TrainMethodId,
 } from '@wake-studio/module-training'
-import { clearJobs, listJobs, saveJob } from '@wake-studio/module-training'
+import { deleteJob, listJobs, saveJob } from '@wake-studio/module-training'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui'
 import { IconMenu, IconWand } from '../../components/icons'
 import { NewTrainWizard } from './NewTrainWizard'
@@ -44,7 +44,6 @@ export function TrainingConsole() {
   const [modules, setModules] = useState<TrainableModule[]>([])
   const [modulesError, setModulesError] = useState<string | null>(null)
   const [view, setView] = useState<View>({ kind: 'empty' })
-  const [confirmingClear, setConfirmingClear] = useState(false)
 
   // Unsaved-progress guard: leaving the wizard via another menu asks first.
   const wizardDirtyRef = useRef(false)
@@ -150,19 +149,6 @@ export function TrainingConsole() {
     [recordJob],
   )
 
-  const handleClear = useCallback(() => {
-    if (!confirmingClear) {
-      setConfirmingClear(true)
-      setTimeout(() => setConfirmingClear(false), 2500)
-      return
-    }
-    setConfirmingClear(false)
-    void clearJobs().then(() => {
-      setJobs([])
-      setView({ kind: 'empty' })
-    })
-  }, [confirmingClear])
-
   const openTrain = useCallback((jobId: string) => setView({ kind: 'details', jobId }), [])
 
   // Rail visibility: desktop collapses the inline rail horizontally; on
@@ -175,6 +161,16 @@ export function TrainingConsole() {
     if (isDesktop) setRailCollapsed((c) => !c)
     else setDrawerOpen(true)
   }, [isDesktop])
+
+  /** Per-train delete (details → Operations → Delete, issue #105). */
+  const handleDeleteJob = useCallback(
+    (jobId: string) => {
+      setJobs((prev) => prev.filter((j) => j.id !== jobId))
+      void deleteJob(jobId)
+      setView((v) => (v.kind === 'details' && v.jobId === jobId ? { kind: 'empty' } : v))
+    },
+    [],
+  )
 
   return (
     <div className="flex h-[calc(100dvh-7.5rem)] min-h-[24rem] flex-col gap-6">
@@ -223,40 +219,28 @@ export function TrainingConsole() {
                 jobs={jobs}
                 selectedId={selectedJob?.id ?? null}
                 onSelect={openTrain}
-                onClear={handleClear}
-                confirmingClear={confirmingClear}
+                onToggle={handleRailToggle}
               />
             </aside>
           )}
 
           {/* Right pane: details or empty state — its own scroll. */}
           <div className="flex min-w-0 flex-1 flex-col">
-            {/* Rail toggle (sidebar-trigger style): desktop collapses the
-                inline rail; mobile opens the train-list drawer. */}
-            <div className="mb-4 flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={handleRailToggle}
-                aria-label={
-                  isDesktop
-                    ? railCollapsed
-                      ? 'Show train list'
-                      : 'Hide train list'
-                    : 'Open train list'
-                }
-                aria-expanded={isDesktop ? !railCollapsed : undefined}
-                className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
-              >
-                <IconMenu className="h-4 w-4" />
-              </button>
-              <span className="text-[11px] text-ink-3">
-                {isDesktop
-                  ? railCollapsed
-                    ? 'Train list hidden — details are full-width'
-                    : 'Train list'
-                  : 'Train list'}
-              </span>
-            </div>
+            {/* Re-open the train list when it is not visible: the primary
+                toggle lives in the TRAINS header (issue #105). */}
+            {(!isDesktop || railCollapsed) && (
+              <div className="mb-2 flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRailToggle}
+                  aria-label={isDesktop ? 'Show train list' : 'Open train list'}
+                  className="rounded-md p-1 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
+                >
+                  <IconMenu className="h-4 w-4" />
+                </button>
+                <span className="text-[11px] text-ink-3">Train list</span>
+              </div>
+            )}
             {/* The details content scrolls independently of the train list. */}
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               {view.kind === 'details' &&
@@ -267,10 +251,11 @@ export function TrainingConsole() {
                     modules={modules}
                     onImported={handleImported}
                     onTunnelUrlChange={(url) => patchJob(selectedJob.id, { tunnelUrl: url })}
+                    onDelete={() => handleDeleteJob(selectedJob.id)}
                   />
                 ) : (
                   <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
-                    This train is no longer in the list (cleared?). Pick another from the rail.
+                    This train is no longer in the list (deleted?). Pick another from the rail.
                   </div>
                 ))}
 
@@ -326,8 +311,7 @@ export function TrainingConsole() {
                 openTrain(id)
                 setDrawerOpen(false)
               }}
-              onClear={handleClear}
-              confirmingClear={confirmingClear}
+              onToggle={() => setDrawerOpen(false)}
             />
           </div>
         </DialogContent>

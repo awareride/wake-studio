@@ -65,6 +65,7 @@ export {
   saveJob,
   updateJobStatus,
   clearJobs,
+  deleteJob,
 } from './history-store'
 export {
   personalizeNotebook,
