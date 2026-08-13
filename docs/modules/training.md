@@ -277,7 +277,8 @@ The PWA's Training view is a list-detail console around the spec-driven panel
   **details pane** (right) showing the selected train's status, results, and
   inputs review. **New train** opens the wizard; starting a train opens its
   review immediately.
-- **Wizard (4 steps, guide mixed into each panel):**
+- **Wizard (4 steps, guide mixed into each panel, MODAL dialog so the left
+  rail cannot interrupt it):**
   1. **Choose model type** — the trainable modules from the generated
      catalog `apps/web/public/train-modules.json` (spec-driven, ADR-025; built
      by `scripts/build-model-registry.mjs` from every `spec.train`).
@@ -289,17 +290,26 @@ The PWA's Training view is a list-detail console around the spec-driven panel
      params (e.g. frozen-weight rnnoise) → an empty form.
   3. **Choose train method** — the methods the module declares in
      `spec.train.invocation` (`methodsFor` in `core/methods.ts`): Google
-     Colab / Self-hosted service / CI, each with its specific config
-     (Colab → tunnel URL, ADR-023 amendment; client-side only).
-  4. **Ready to start** — the train summary + the train input file shown for
-     review: for Colab the module-owned `.ipynb` notebook **previewed on the
-     panel** (cells rendered read-only) with download + Open in Colab
-     (ADR-035); for scripts/entries the upstream/local train file.
+     Colab / Self-hosted service / CI. Connection details (the Colab tunnel
+     URL) are NOT asked here — they are generated when the train runs.
+  4. **Ready to start** — the train summary (param labels from the module's
+     spec) + the train input file shown for review: for Colab the
+     module-owned `.ipynb` **previewed on the panel** (markdown rendered,
+     code with line numbers, chapter outline) with download. The CTA is
+     honest per method: Colab = **Save train** (the run happens in the user's
+     Colab session; results come back in the details pane), subprocess/ci =
+     Start train.
 - **Notebooks come from the app, not GitHub:** module-owned train files
   (`spec.train.notebookLocal` / `entry`) are copied into
   `apps/web/public/train/<module-id>/` by the registry script and served
-  from the app's own origin — users never fetch them from the WakeStudio
-  repo (issue #105, human feedback).
+  from the app's own origin — the WakeStudio repo only provides the
+  template, never fetched at runtime (issue #105, human feedback).
+- **Colab finish flow (details pane, per job):** the tunnel URL is entered
+  here once the notebook prints it (generated at run time; auto-detected on
+  import when the notebook wrote it — Cloudflare API in Settings), or the
+  user finishes manually by submitting the results zip. A tip switches
+  between "tunnel set → status trackable" and "no tunnel → download + submit
+  manually".
 - **History model** — jobs recorded on Start (`core/history.ts` `startedJob`,
   with module + method) and on Colab import (`importedJob`); persisted in
   IndexedDB (`core/history-store.ts`). Step/state logic is pure and headless
@@ -348,3 +358,4 @@ for every provider. Capability labels: train-capable vs inference-only.
 | 2026-08-13 | Q15 resolved (human): tunnel adopted — ADR-023 amended (issue #106). §7.3 added: Training console (stepper + history rail + guide, issue #105). | agent |
 | 2026-08-13 | §7.3 reworked (human design feedback, issue #105): list-detail layout (train list + news + details pane) with a New-train wizard — model type (from `train-modules.json`) → config → method (spec.train.invocation) → ready (.ipynb review + download); guide mixed into each step; starting opens the train's review. | agent |
 | 2026-08-13 | §7.3 refined (human feedback, issue #105): (1) train configs come from each module's own `spec.train.params` (schema extension; `trainPanelSpec`; training module no longer hard-codes params); (2) module-owned notebooks are copied to `public/train/<module-id>/` and served from the app — no GitHub fetch; (3) the .ipynb is previewed on the panel (cells rendered read-only). | agent |
+| 2026-08-13 | §7.3 polished (human feedback round 2, issue #105): wizard is a modal dialog (left rail can't break it); `target` param removed from openwakeword (app-class only); tunnel URL moved out of the wizard into the per-job details pane (generated at run time, auto-detected on import); module-owned "Open in Colab" removed (repo = template only); Colab CTA renamed to "Save train" (honest — no real start yet); manual-submit tips when the tunnel can't be traced; notebook reviewer upgraded (markdown rendering, code line numbers, chapter outline). | agent |

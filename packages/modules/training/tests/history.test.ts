@@ -105,6 +105,20 @@ describe('importedJob', () => {
     })
     expect(job.license).toBe('CC BY-NC-SA 4.0')
   })
+
+  it('auto-detects a tunnel URL the notebook wrote into the bundle params', () => {
+    const job = importedJob({
+      jobId: 'job-t',
+      metadata: {
+        ...METADATA,
+        params: { wakePhrase: 'hey studio', tunnelUrl: 'https://abc.trycloudflare.com' },
+      },
+      provenance: USER_OWNED,
+      classifierRef: 'user:m',
+      importedAtMs: 2_000,
+    })
+    expect(job.tunnelUrl).toBe('https://abc.trycloudflare.com')
+  })
 })
 
 describe('sortJobsNewestFirst / upsertJob', () => {

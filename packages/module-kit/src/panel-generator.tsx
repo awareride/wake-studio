@@ -126,6 +126,11 @@ export interface GeneratedPanelProps {
   controller: ModulePanelController
   /** Override panel heading (defaults to spec.meta.name). */
   title?: string
+  /** Hide the panel header (meta name/license) — used when the panel is
+   *  embedded in a host that already introduces the module (issue #105). */
+  hideHeader?: boolean
+  /** Compact layout: no outer page padding/centering (embedded contexts). */
+  compact?: boolean
   /**
    * Scope which generated sections render (training console stepper,
    * issue #105). Undefined = all sections (today's behavior).
@@ -146,7 +151,7 @@ export type PanelSection = 'params' | 'actions' | 'status'
  * collapse under an "Advanced" section (ADR-024 dual layer). With
  * `sections`, only the listed sections render.
  */
-export function ModulePanel({ spec, controller, title, sections }: GeneratedPanelProps) {
+export function ModulePanel({ spec, controller, title, hideHeader, compact, sections }: GeneratedPanelProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false)
 
   const show = (section: PanelSection) => !sections || sections.includes(section)
@@ -156,17 +161,19 @@ export function ModulePanel({ spec, controller, title, sections }: GeneratedPane
   const disabled = controller.disabled ?? busy
 
   return (
-    <section className="mx-auto max-w-5xl px-6 py-12">
-      {/* Panel header from spec.meta. */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-ink-1">
-          {title ?? spec.meta.name}
-        </h2>
-        <p className="mt-1 text-sm text-ink-2">
-          {spec.meta.category} module · v{spec.meta.version} ·{' '}
-          <span className="text-ink-3">{spec.meta.license}</span>
-        </p>
-      </div>
+    <section className={compact ? '' : 'mx-auto max-w-5xl px-6 py-12'}>
+      {/* Panel header from spec.meta (hidden when embedded, issue #105). */}
+      {!hideHeader && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-ink-1">
+            {title ?? spec.meta.name}
+          </h2>
+          <p className="mt-1 text-sm text-ink-2">
+            {spec.meta.category} module · v{spec.meta.version} ·{' '}
+            <span className="text-ink-3">{spec.meta.license}</span>
+          </p>
+        </div>
+      )}
 
       <div className="space-y-4 rounded-xl border border-line bg-surface-2 p-5">
         {/* Primary params. */}
@@ -309,6 +316,10 @@ export interface GeneratedModulePanelProps {
   controller: ModulePanelController
   /** Override panel heading. */
   title?: string
+  /** Hide the panel header (embedded contexts). */
+  hideHeader?: boolean
+  /** Compact layout: no outer page padding/centering. */
+  compact?: boolean
   /** Scope which generated sections render (undefined = all). */
   sections?: PanelSection[]
 }
@@ -321,8 +332,15 @@ export interface GeneratedModulePanelProps {
  * mounted against different module instances.
  */
 export function renderPanel(spec: ModuleSpec) {
-  const Panel = ({ controller, title, sections }: GeneratedModulePanelProps) => (
-    <ModulePanel spec={spec} controller={controller} title={title} sections={sections} />
+  const Panel = ({ controller, title, hideHeader, compact, sections }: GeneratedModulePanelProps) => (
+    <ModulePanel
+      spec={spec}
+      controller={controller}
+      title={title}
+      hideHeader={hideHeader}
+      compact={compact}
+      sections={sections}
+    />
   )
   Panel.displayName = `ModulePanel(${spec.meta.id})`
   return Panel

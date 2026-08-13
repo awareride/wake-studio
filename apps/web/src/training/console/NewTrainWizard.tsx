@@ -2,10 +2,15 @@
  * Training wizard — New train (issue #105).
  *
  * Four steps: Choose model type → Configure → Choose train method → Ready.
- * The guide is mixed into each step panel (inline). The training module's
- * generated panel stays mounted across steps (params survive navigation);
- * it renders its params on the Configure step and is hidden elsewhere. The
- * Ready step's Start button creates the job and opens its review.
+ * The guide is mixed into each step panel (inline). The selected module's
+ * OWN train params (spec.train.params) are rendered spec-driven by
+ * TrainParamsPanel (kept mounted so values survive step navigation).
+ *
+ * The wizard runs in a modal dialog (TrainingConsole) so left-rail train
+ * clicks cannot interrupt it. The Ready step's CTA is honest per method:
+ * Colab cannot be started from here — the button saves/confirms the train
+ * (the run happens in the user's Colab session; results come back via the
+ * details pane); subprocess/ci label it "Start train" for the future.
  */
 
 import { useCallback, useMemo, useState } from 'react'
@@ -32,25 +37,12 @@ import { ReadyStep } from './ReadyStep'
 
 export interface NewTrainWizardProps {
   modules: TrainableModule[]
-  /** Persisted method urls (client-side only) — colab tunnel / endpoint. */
-  tunnelUrl: string
-  onChangeTunnelUrl: (url: string) => void
-  endpointUrl: string
-  onChangeEndpointUrl: (url: string) => void
-  /** Called with the finalized train when the user presses Start. */
+  /** Called with the finalized train when the user confirms (Start/Save). */
   onStarted: (moduleId: string, method: TrainMethodId, params: Record<string, string>) => void
   onCancel: () => void
 }
 
-export function NewTrainWizard({
-  modules,
-  tunnelUrl,
-  onChangeTunnelUrl,
-  endpointUrl,
-  onChangeEndpointUrl,
-  onStarted,
-  onCancel,
-}: NewTrainWizardProps) {
+export function NewTrainWizard({ modules, onStarted, onCancel }: NewTrainWizardProps) {
   const [step, setStep] = useState<TrainingStepId>('model')
   const [moduleId, setModuleId] = useState<string | null>(null)
   const [method, setMethod] = useState<TrainMethodId | null>(null)
@@ -89,23 +81,11 @@ export function NewTrainWizard({
     setMethod(null) // a different module may not support the same method
   }, [])
 
-  const selectMethod = useCallback((id: TrainMethodId) => {
-    setMethod(id)
-  }, [])
-
   const handleStart = useCallback(() => {
     if (!module || !method) return
     setStarting(true)
     onStarted(module.id, method, params)
   }, [module, method, params, onStarted])
-
-  const urlValue = method === 'colab' ? tunnelUrl : method === 'subprocess' ? endpointUrl : ''
-  const urlChange =
-    method === 'colab'
-      ? onChangeTunnelUrl
-      : method === 'subprocess'
-        ? onChangeEndpointUrl
-        : () => {}
 
   return (
     <div className="space-y-5">
@@ -173,13 +153,7 @@ export function NewTrainWizard({
       {step === 'config' && module && <ConfigStep module={module} />}
 
       {step === 'method' && module && (
-        <MethodStep
-          module={module}
-          selected={method}
-          onSelect={selectMethod}
-          urlValue={urlValue}
-          onChangeUrl={urlChange}
-        />
+        <MethodStep module={module} selected={method} onSelect={setMethod} />
       )}
 
       {step === 'ready' && module && method && (

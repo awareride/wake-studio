@@ -14,16 +14,6 @@ export interface TrainMethod {
   label: string
   /** Short pitch for the method card. */
   blurb: string
-  /**
-   * Method-specific config the user may set (client-side only, ADR-013).
-   * `urlLabel` names the field; `placeholder` hints the value.
-   */
-  urlConfig?: {
-    key: string
-    urlLabel: string
-    placeholder: string
-    hint: string
-  }
 }
 
 export const TRAIN_METHOD_ORDER: readonly TrainMethodId[] = [
@@ -37,25 +27,13 @@ export const TRAIN_METHODS: Record<TrainMethodId, TrainMethod> = {
     id: 'colab',
     label: 'Google Colab',
     blurb:
-      'Free GPU under your Google account (ADR-023). Open the module-owned notebook, run it, download the bundle — or paste the Cloudflare tunnel URL for direct control (ADR-023 amendment, issue #106).',
-    urlConfig: {
-      key: 'tunnelUrl',
-      urlLabel: 'Colab tunnel URL',
-      placeholder: 'https://xxxx.trycloudflare.com',
-      hint: 'Optional for v1. With the tunnel the PWA drives Colab like the self-hosted backend (same polling + artifact download).',
-    },
+      'Free GPU under your Google account (ADR-023). Run the module-owned notebook in your own Colab session, then bring results back in the train details pane — paste the Cloudflare tunnel URL the notebook prints (ADR-023 amendment, issue #106), or download the results zip and submit it. The URL is generated at run time, not here.',
   },
   subprocess: {
     id: 'subprocess',
     label: 'Self-hosted service',
     blurb:
-      'Your own studio-backend endpoint (ADR-005/013). The module\'s train script (spec.train.script / entry) runs locally via uv (ADR-028).',
-    urlConfig: {
-      key: 'endpointUrl',
-      urlLabel: 'studio-backend endpoint',
-      placeholder: 'http://localhost:8787',
-      hint: 'The self-hosted backend URL (train-runner.ts). Lands in a later Phase 5 slice.',
-    },
+      'Your own studio-backend endpoint (ADR-005/013). The module\'s train script (spec.train.script / entry) runs locally via uv (ADR-028). Lands in a later Phase 5 slice.',
   },
   ci: {
     id: 'ci',

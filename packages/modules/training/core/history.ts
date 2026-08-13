@@ -31,6 +31,12 @@ export interface HistoryJob {
   finishedAtMs?: number
   /** Artifact reference for in-browser test (`user:<modelId>` classifier ref). */
   artifactRef?: string
+  /**
+   * The Colab tunnel URL for this run (generated when the notebook runs,
+   * issue #105). User-pasted in the details pane or picked up on import when
+   * the notebook wrote it (Cloudflare API in Settings → auto-detect).
+   */
+  tunnelUrl?: string
   /** Trained-model metrics (recall/accuracy/…) from the bundle. */
   metrics?: Record<string, number>
   /** Provenance license of the produced model ('user-owned' = exportable). */
@@ -101,6 +107,9 @@ export function importedJob(input: ImportedJobInput): HistoryJob {
     artifactRef: input.classifierRef,
     metrics: input.metrics,
     license: input.provenance.license,
+    // Auto-detect: the notebook may have written the tunnel URL into the
+    // bundle params (user-provided Cloudflare API in Settings).
+    ...(input.metadata.params.tunnelUrl ? { tunnelUrl: input.metadata.params.tunnelUrl } : {}),
   }
 }
 

@@ -24,6 +24,8 @@ export interface TrainDetailsProps {
   job: HistoryJob
   modules: TrainableModule[]
   onImported: (result: ColabImportResult) => void
+  /** Persist a change to the job's Colab tunnel URL. */
+  onTunnelUrlChange: (url: string) => void
 }
 
 function formatTime(ms: number | undefined): string {
@@ -31,7 +33,7 @@ function formatTime(ms: number | undefined): string {
   return new Date(ms).toLocaleString()
 }
 
-export function TrainDetails({ job, modules, onImported }: TrainDetailsProps) {
+export function TrainDetails({ job, modules, onImported, onTunnelUrlChange }: TrainDetailsProps) {
   const module = findTrainableModule(modules, job.moduleId)
   const exportable = job.license === 'user-owned'
   const metrics = job.metrics ?? {}
@@ -160,16 +162,59 @@ export function TrainDetails({ job, modules, onImported }: TrainDetailsProps) {
 
       {/* Import / run step for Colab trains. */}
       {isColab && (
-        <section className="rounded-xl border border-line bg-surface-2 p-4">
+        <section className="space-y-3 rounded-xl border border-line bg-surface-2 p-4">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
             {needsImport ? 'Run & import' : 'Re-import'}
           </h4>
-          <p className="mt-1.5 text-xs leading-relaxed text-ink-2">
+
+          {/* Colab connection: the tunnel URL is generated when the notebook
+              runs — it cannot exist at wizard time (issue #105). */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor={`tunnel-${job.id}`}
+              className="block text-xs font-medium text-ink-2"
+            >
+              Colab tunnel URL{' '}
+              <span className="font-normal text-ink-3">(generated when the notebook runs)</span>
+            </label>
+            <input
+              id={`tunnel-${job.id}`}
+              type="url"
+              placeholder="https://xxxx.trycloudflare.com"
+              value={job.tunnelUrl ?? ''}
+              onChange={(e) => onTunnelUrlChange(e.target.value)}
+              className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-xs text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-400"
+            />
+            <p className="text-[11px] leading-relaxed text-ink-3">
+              The notebook prints this URL while running (cloudflared, ADR-023 amendment). With
+              it, WakeStudio can poll status and pull results. Auto-detect: if you set a
+              Cloudflare API key in Settings, the notebook writes the URL into the results
+              bundle and it is picked up on import.
+            </p>
+          </div>
+
+          {/* Status-traceability tip (issue #105): manual submit when the
+              tunnel cannot be traced. */}
+          {job.tunnelUrl ? (
+            <p className="rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-[11px] leading-relaxed text-success">
+              ✓ Tunnel URL set — this run's status can be tracked and results pulled
+              automatically (polling lands with the Phase 5 backend adapter).
+            </p>
+          ) : (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] leading-relaxed text-amber-700">
+              No tunnel URL — WakeStudio cannot trace this Colab run's status. Finish the
+              train manually: download{' '}
+              <code className="font-mono">wake-studio-results.zip</code> from Colab and
+              submit it below.
+            </p>
+          )}
+
+          <p className="text-xs leading-relaxed text-ink-2">
             {needsImport
               ? 'Run the notebook in Colab (free GPU, your Google account), download wake-studio-results.zip, and import it below — this train\'s results update here.'
               : 'This train was already imported. You can import an updated bundle below if you retrained.'}
           </p>
-          <div className="mt-3">
+          <div className="mt-1">
             <ImportColabResults onImported={onImported} />
           </div>
         </section>

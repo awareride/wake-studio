@@ -11,7 +11,6 @@
  *    train entry (spec.train.entry).
  */
 
-import { SOURCE_REPO, buildColabUrl } from '@wake-studio/module-kit'
 import { resolveAsset } from '@wake-studio/platform'
 import type { TrainMethodId } from '@wake-studio/module-training'
 import type { TrainableModule } from '../train-modules'
@@ -74,10 +73,8 @@ export function trainInputFile(
         title: 'Training notebook (module-owned)',
         fileName,
         rawUrl: moduleOwnedUrl(module.id, fileName),
-        openUrl: buildColabUrl(t.notebookLocal),
-        openLabel: 'Open in Colab',
         description:
-          'WakeStudio-owned wrapper notebook (ADR-035): generates synthetic data (Piper), runs the pinned upstream trainer, and writes the standard result bundle. Served from this app — download it and upload it to Colab, or open it directly.',
+          'WakeStudio-owned template notebook (ADR-035): generates synthetic data (Piper), runs the pinned upstream trainer, and writes the standard result bundle. Download it and upload it to Google Colab — the repo only provides the template, your run is your own.',
       }
     }
     if (t.notebook) {
@@ -112,12 +109,6 @@ export function trainInputFile(
       title: 'Train script (module-owned)',
       fileName,
       rawUrl: moduleOwnedUrl(module.id, fileName),
-      openUrl: githubBlobUrl(
-        `${SOURCE_REPO.org}/${SOURCE_REPO.repo}`,
-        SOURCE_REPO.ref,
-        t.entry,
-      ),
-      openLabel: 'View source',
       description: `Module-owned train entry — ${t.python ?? 'python'} runtime, deps in ${t.deps ?? 'train/pyproject.toml'}.`,
     }
   }

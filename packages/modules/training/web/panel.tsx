@@ -8,7 +8,7 @@
  * the current values via `onValuesChange` (defaults announced on mount).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   defaultsFromSpec,
   renderPanel,
@@ -41,14 +41,14 @@ export function TrainParamsPanel({ spec, onValuesChange }: TrainParamsPanelProps
     defaultsFromSpec(spec as ModuleSpec),
   )
 
-  // Announce the initial (default) values once, on mount (the ref guards
-  // against re-announcing when values change later).
-  const announced = useRef(false)
+  // Re-initialize from defaults when the module (spec) changes — e.g. the
+  // user goes back and picks a different model type — and announce the
+  // defaults on mount / module change (issue #105).
   useEffect(() => {
-    if (announced.current) return
-    announced.current = true
-    onValuesChange?.(stringifyValues(values))
-  }, [onValuesChange, values])
+    const defaults = defaultsFromSpec(spec as ModuleSpec)
+    setValues(defaults)
+    onValuesChange?.(stringifyValues(defaults))
+  }, [spec, onValuesChange])
 
   const setValue = useCallback(
     (id: string, value: unknown) => {
@@ -70,7 +70,7 @@ export function TrainParamsPanel({ spec, onValuesChange }: TrainParamsPanelProps
     status: {},
   }
 
-  return <Panel controller={controller} sections={['params']} />
+  return <Panel controller={controller} sections={['params']} hideHeader compact />
 }
 
 export default TrainParamsPanel

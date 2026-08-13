@@ -1,16 +1,16 @@
 /**
- * Training console — train file card + notebook preview (issue #105).
+ * Training console — train file card (issue #105).
  *
- * Shows a train input file for review. For a Colab notebook (.ipynb, served
- * from this app's own origin — no GitHub fetch) the cells are rendered
- * read-only on the panel; for scripts a plain card with download/link is
- * shown. Used in the wizard's "Ready to start" step and the train details
- * pane ("inputs review").
+ * Header + actions (download / link) for a train input file; for notebooks
+ * the read-only NotebookPreview renders the cells below. Module-owned files
+ * are served from the app's own origin (public/train/<module-id>/) — the
+ * WakeStudio repo only provides the template, never fetched at runtime.
  */
 
 import { useEffect, useState } from 'react'
 import { cn } from '../../components/cn'
 import { IconSpinner } from '../../components/icons'
+import { NotebookPreview } from './NotebookPreview'
 
 export interface FileReviewCardProps {
   title: string
@@ -19,37 +19,25 @@ export interface FileReviewCardProps {
   kind: 'notebook' | 'script'
   /** URL the file is fetched from (the app's own origin for module files). */
   rawUrl?: string
-  /** Primary open link (e.g. "Open in Colab"). */
+  /** Optional secondary open link (upstream notebooks/scripts only). */
   openUrl?: string
   openLabel?: string
   description?: string
   className?: string
 }
 
-interface NotebookCell {
-  cell_type: 'markdown' | 'code' | 'raw'
-  source?: string[] | string
-}
-
-function formatBytes(bytes: number): string {
+function formatBytes(bytes: number | null): string {
+  if (bytes === null) return ''
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`
   return `${bytes} B`
 }
 
-async function fetchNotebook(rawUrl: string): Promise<{ cells: NotebookCell[]; sizeBytes: number }> {
+async function fetchSize(rawUrl: string): Promise<number> {
   const res = await fetch(rawUrl)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const bytes = await res.arrayBuffer()
-  const text = new TextDecoder().decode(bytes)
-  let cells: NotebookCell[] = []
-  try {
-    const nb = JSON.parse(text) as { cells?: NotebookCell[] }
-    cells = Array.isArray(nb.cells) ? nb.cells : []
-  } catch {
-    /* not a notebook JSON — cells stay empty, size still shown */
-  }
-  return { cells, sizeBytes: bytes.byteLength }
+  return bytes.byteLength
 }
 
 function downloadFile(rawUrl: string, fileName: string) {
@@ -68,10 +56,6 @@ function downloadFile(rawUrl: string, fileName: string) {
     })
 }
 
-function cellSource(cell: NotebookCell): string {
-  return Array.isArray(cell.source) ? cell.source.join('') : (cell.source ?? '')
-}
-
 export function FileReviewCard({
   title,
   fileName,
@@ -82,29 +66,21 @@ export function FileReviewCard({
   description,
   className,
 }: FileReviewCardProps) {
-  const [cells, setCells] = useState<NotebookCell[]>([])
   const [sizeBytes, setSizeBytes] = useState<number | null>(null)
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let alive = true
-    setCells([])
     setSizeBytes(null)
     setFailed(false)
     if (!rawUrl) return
-    fetchNotebook(rawUrl)
-      .then((nb) => {
-        if (!alive) return
-        setCells(kind === 'notebook' ? nb.cells : [])
-        setSizeBytes(nb.sizeBytes)
-      })
+    fetchSize(rawUrl)
+      .then((bytes) => alive && setSizeBytes(bytes))
       .catch(() => alive && setFailed(true))
     return () => {
       alive = false
     }
-  }, [rawUrl, kind])
-
-  const showCells = kind === 'notebook' && cells.length > 0
+  }, [rawUrl])
 
   return (
     <div className={cn('rounded-xl border border-line bg-surface-2', className)}>
@@ -119,10 +95,7 @@ export function FileReviewCard({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {sizeBytes !== null ? (
-              <span className="text-[11px] text-ink-3">
-                {showCells ? `${cells.length} cells · ` : ''}
-                {formatBytes(sizeBytes)}
-              </span>
+              <span className="text-[11px] text-ink-3">{formatBytes(sizeBytes)}</span>
             ) : rawUrl && !failed ? (
               <IconSpinner className="h-3.5 w-3.5 text-ink-3" />
             ) : null}
@@ -160,39 +133,8 @@ export function FileReviewCard({
         )}
       </div>
 
-      {/* Notebook cells (read-only preview). */}
-      {showCells && (
-        <div className="max-h-96 overflow-y-auto border-t border-line">
-          {cells.map((cell, i) => {
-            const src = cellSource(cell)
-            const isCode = cell.cell_type === 'code'
-            return (
-              <div
-                key={i}
-                className="border-b border-line last:border-b-0"
-              >
-                <div className="flex items-center gap-2 bg-surface-3 px-4 py-1 text-[10px] text-ink-3">
-                  <span className="font-mono">[{i}]</span>
-                  <span className="uppercase tracking-wide">{cell.cell_type}</span>
-                </div>
-                {src.trim() && (
-                  <div className="px-4 py-2">
-                    {isCode ? (
-                      <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-ink-1">
-                        {src}
-                      </pre>
-                    ) : (
-                      <div className="whitespace-pre-wrap text-xs leading-relaxed text-ink-2">
-                        {src}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {/* Read-only notebook preview (cells). */}
+      {kind === 'notebook' && rawUrl && <NotebookPreview rawUrl={rawUrl} />}
     </div>
   )
 }

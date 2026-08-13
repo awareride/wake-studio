@@ -60,15 +60,6 @@
         "description": "The wake phrase to train (notebook env WAKE_PHRASE). Spell phonetically with underscores if the default pronunciation is off, e.g. \"hey siri\" → \"hey_seer_e\"."
       },
       {
-        "id": "target",
-        "label": "Target tier",
-        "group": "primary",
-        "type": "select",
-        "default": "app-class",
-        "options": ["mc", "app-class"],
-        "description": "App-class ONNX model (notebook env WAKE_TARGET). MCU/TFLite-Micro is a separate micro-wake-word notebook later."
-      },
-      {
         "id": "nSamples",
         "label": "Synthetic samples",
         "group": "advanced",

@@ -22,12 +22,6 @@ describe('TRAIN_METHODS', () => {
       expect(TRAIN_METHODS[id].blurb.length).toBeGreaterThan(0)
     }
   })
-
-  it('gives Colab and Self-hosted a url config, CI none', () => {
-    expect(TRAIN_METHODS.colab.urlConfig?.key).toBe('tunnelUrl')
-    expect(TRAIN_METHODS.subprocess.urlConfig?.key).toBe('endpointUrl')
-    expect(TRAIN_METHODS.ci.urlConfig).toBeUndefined()
-  })
 })
 
 describe('methodsFor', () => {

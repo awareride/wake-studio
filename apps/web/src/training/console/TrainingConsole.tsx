@@ -3,11 +3,13 @@
  *
  *   Header: Training · [New train]
  *   Left rail:  Train news (tips)  ·  Train list (persistent, IndexedDB)
- *   Right pane: the New Train wizard, or the selected train's details
- *               (status / results / inputs review), or an empty state.
+ *   Right pane: the selected train's details (status / results / inputs
+ *               review), or an empty state.
  *
- * The wizard records a job on Start and opens its review immediately.
- * Colab imports record/update the job and open its review too.
+ * The New-train wizard runs in a MODAL dialog so clicking trains in the left
+ * rail cannot interrupt the steps. Confirming a train records the job and
+ * opens its review immediately; Colab imports record/update the job and open
+ * its review too.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -22,6 +24,7 @@ import {
   type TrainMethodId,
 } from '@wake-studio/module-training'
 import { clearJobs, listJobs, saveJob } from '@wake-studio/module-training'
+import { Dialog, DialogContent, DialogTitle } from '../../components/ui'
 import { NewTrainWizard } from './NewTrainWizard'
 import { TrainDetails } from './TrainDetails'
 import { TrainList } from './TrainList'
@@ -29,29 +32,14 @@ import { TrainNews } from './TrainNews'
 import { fetchTrainableModules, type TrainableModule } from '../train-modules'
 import type { ColabImportResult } from '../colab-import'
 
-type View =
-  | { kind: 'empty' }
-  | { kind: 'wizard'; from: string | null }
-  | { kind: 'details'; jobId: string }
-
-const TUNNEL_URL_KEY = 'wake-studio:train:tunnelUrl'
-const ENDPOINT_URL_KEY = 'wake-studio:train:endpointUrl'
-
-function loadUrl(key: string): string {
-  try {
-    return window.localStorage.getItem(key) ?? ''
-  } catch {
-    return ''
-  }
-}
+type View = { kind: 'empty' } | { kind: 'details'; jobId: string }
 
 export function TrainingConsole() {
   const [jobs, setJobs] = useState<HistoryJob[]>([])
   const [modules, setModules] = useState<TrainableModule[]>([])
   const [modulesError, setModulesError] = useState<string | null>(null)
   const [view, setView] = useState<View>({ kind: 'empty' })
-  const [tunnelUrl, setTunnelUrl] = useState(() => loadUrl(TUNNEL_URL_KEY))
-  const [endpointUrl, setEndpointUrl] = useState(() => loadUrl(ENDPOINT_URL_KEY))
+  const [wizardOpen, setWizardOpen] = useState(false)
   const [confirmingClear, setConfirmingClear] = useState(false)
 
   // Load the persistent train list + the trainable-modules catalog once.
@@ -62,17 +50,11 @@ export function TrainingConsole() {
     })
     fetchTrainableModules()
       .then((mods) => alive && setModules(mods))
-      .catch((err: unknown) => alive && setModulesError(err instanceof Error ? err.message : String(err)))
+      .catch((err: unknown) =>
+        alive && setModulesError(err instanceof Error ? err.message : String(err)),
+      )
     return () => {
       alive = false
-    }
-  }, [])
-
-  const persistUrl = useCallback((key: string) => (value: string) => {
-    try {
-      window.localStorage.setItem(key, value)
-    } catch {
-      /* private mode — fine, session-only */
     }
   }, [])
 
@@ -81,6 +63,20 @@ export function TrainingConsole() {
     void saveJob(job)
   }, [])
 
+  /** Patch one field of a recorded job (e.g. the Colab tunnel URL). */
+  const patchJob = useCallback(
+    (jobId: string, patch: Partial<HistoryJob>) => {
+      setJobs((prev) => {
+        const target = prev.find((j) => j.id === jobId)
+        if (!target) return prev
+        const next = upsertJob(prev, { ...target, ...patch })
+        void saveJob({ ...target, ...patch })
+        return next
+      })
+    },
+    [],
+  )
+
   const selectedJob = useMemo(() => {
     if (view.kind !== 'details') return null
     return jobs.find((j) => j.id === view.jobId) ?? null
@@ -88,7 +84,7 @@ export function TrainingConsole() {
 
   const news = useMemo(() => deriveNews(jobs), [jobs])
 
-  // Wizard "Start": record the job, open its review (issue #105).
+  // Wizard "Save/Start": record the job, open its review (issue #105).
   const handleWizardStarted = useCallback(
     (moduleId: string, method: TrainMethodId, params: Record<string, string>) => {
       const job = startedJob({
@@ -99,6 +95,7 @@ export function TrainingConsole() {
         params,
       })
       recordJob(job)
+      setWizardOpen(false)
       setView({ kind: 'details', jobId: job.id })
     },
     [recordJob],
@@ -149,7 +146,7 @@ export function TrainingConsole() {
         </div>
         <button
           type="button"
-          onClick={() => setView((v) => ({ kind: 'wizard', from: v.kind === 'details' ? v.jobId : null }))}
+          onClick={() => setWizardOpen(true)}
           className="shrink-0 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-400"
         >
           + New train
@@ -169,29 +166,16 @@ export function TrainingConsole() {
           />
         </aside>
 
-        {/* Right pane. */}
+        {/* Right pane: details or empty state. */}
         <div className="min-w-0 flex-1">
-          {view.kind === 'wizard' && (
-            <NewTrainWizard
-              modules={modules}
-              tunnelUrl={tunnelUrl}
-              onChangeTunnelUrl={(u) => {
-                setTunnelUrl(u)
-                persistUrl(TUNNEL_URL_KEY)(u)
-              }}
-              endpointUrl={endpointUrl}
-              onChangeEndpointUrl={(u) => {
-                setEndpointUrl(u)
-                persistUrl(ENDPOINT_URL_KEY)(u)
-              }}
-              onStarted={handleWizardStarted}
-              onCancel={() => setView(view.from ? { kind: 'details', jobId: view.from } : { kind: 'empty' })}
-            />
-          )}
-
           {view.kind === 'details' &&
             (selectedJob ? (
-              <TrainDetails job={selectedJob} modules={modules} onImported={handleImported} />
+              <TrainDetails
+                job={selectedJob}
+                modules={modules}
+                onImported={handleImported}
+                onTunnelUrlChange={(url) => patchJob(selectedJob.id, { tunnelUrl: url })}
+              />
             ) : (
               <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
                 This train is no longer in the list (cleared?). Pick another from the rail.
@@ -204,18 +188,33 @@ export function TrainingConsole() {
               <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
                 Press <span className="font-medium text-ink-2">+ New train</span> to pick a
                 trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure it,
-                choose a train method, and start. Past trains stay in the left rail.
+                choose a train method, and confirm. Past trains stay in the left rail.
               </p>
             </div>
           )}
 
-          {modulesError && view.kind !== 'details' && (
+          {modulesError && (
             <div className="mt-4 rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
               Could not load the trainable-modules catalog: {modulesError}
             </div>
           )}
         </div>
       </div>
+
+      {/* The New-train wizard as a modal — left-rail clicks cannot break it. */}
+      <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
+        <DialogContent
+          centered={false}
+          className="fixed left-1/2 top-1/2 max-h-[85vh] w-[min(94vw,46rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl p-6"
+        >
+          <DialogTitle className="sr-only">New train</DialogTitle>
+          <NewTrainWizard
+            modules={modules}
+            onStarted={handleWizardStarted}
+            onCancel={() => setWizardOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
