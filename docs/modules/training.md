@@ -256,6 +256,15 @@ The import half of the loop lives in `packages/modules/training/`:
 Client-side only: the zip is parsed and validated entirely in the browser; no
 WakeStudio server and no credentials are involved (ADR-013/023).
 
+### 7.2 Colab runtime tunnel (proposal — Q15)
+
+An alternative to the manual zip round-trip: the notebook exposes the
+studio-backend HTTP contract (§3) via a Cloudflare tunnel (`cloudflared`;
+trycloudflare default, named tunnel opt-in), so the PWA drives Colab exactly
+like the self-hosted backend. **This collapses the Colab backend into the
+self-hosted API shape** — one HTTP client, N backends. Full design in
+`docs/training-console.plan.md` §2; tracked as Q15 (issue #106).
+
 ## 8. Cloud Providers (ADR-013)
 
 Per-provider adapters (AWS / GCP / HF / Alibaba / Tencent / Volcengine) behind
@@ -293,3 +302,4 @@ for every provider. Capability labels: train-capable vs inference-only.
 |---|---|---|
 | 2026-08-05 | Initial draft (docs-first, §6.5 Step A). | agent |
 | 2026-08-05 | **§4 upstream-script adapters** (human decision: preserve upstream train.py/ipynb; adapt to them). Spec `train` gains `script`/`notebook`/`adapter` fields; `standardize-results` is the single importer. Sections renumbered. | agent |
+| 2026-08-13 | §7.2 Colab runtime tunnel (proposal, Q15 issue #106): collapse Colab into the self-hosted API shape. | agent |
