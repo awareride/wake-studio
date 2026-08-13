@@ -241,7 +241,7 @@ export function TrainingConsole() {
                     : 'Open train list'
                 }
                 aria-expanded={isDesktop ? !railCollapsed : undefined}
-                className="rounded-md border border-line bg-surface-2 p-1.5 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
+                className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
               >
                 <IconMenu className="h-4 w-4" />
               </button>
@@ -287,12 +287,12 @@ export function TrainingConsole() {
           </div>
         </div>
       )}
-      {/* Mobile train-list drawer (shell-sidebar pattern, issue #105). */}
+      {/* Mobile train-list drawer — matches the shell's mobile sidebar
+          exactly (drawer-content, slide-in animation, default overlay). */}
       <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
         <DialogContent
           centered={false}
-          overlayClassName="bg-slate-900/40"
-          className="left-0 top-0 h-full w-[min(80vw,18rem)] max-w-[calc(100vw-2rem)] rounded-r-xl border-l border-t-0 border-r-0 border-b-0 p-0"
+          className="drawer-content left-0 top-0 h-screen w-[min(80vw,18rem)] max-w-[calc(100vw-2rem)] rounded-r-xl border-l border-t-0 border-r-0 border-b-0 p-0 data-[state=open]:animate-[drawer-in_180ms_ease-out] data-[state=closed]:animate-[drawer-out_160ms_ease-in]"
         >
           <DialogTitle className="sr-only">Train list</DialogTitle>
           <DialogDescription className="sr-only">
