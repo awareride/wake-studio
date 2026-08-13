@@ -297,7 +297,7 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange, onDe
             onClick={() => setConfirmDelete(true)}
             className="rounded-lg border border-danger/40 bg-surface-3 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/10"
           >
-            Delete train
+            Delete
           </button>
         </div>
       </section>
