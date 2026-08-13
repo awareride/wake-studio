@@ -101,9 +101,10 @@ manual zip round-trip).
    removes it.
 3. trycloudflare rate-limits/ToS on heavy use → named tunnel for serious use.
 
-**Decision gate:** adopting this amends ADR-023 ("the Colab runtime exposes the
-studio-backend HTTP contract via an ephemeral Cloudflare tunnel"). Tracked as
-Q15, issue #106.
+**Decision gate:** amended ADR-023 ("the Colab runtime exposes the
+studio-backend HTTP contract via an ephemeral Cloudflare tunnel"). ✅ **RESOLVED
+(human, 2026-08-13): adopt — trycloudflare default, named tunnel opt-in**
+(Q15, issue #106; recorded as an ADR-023 amendment).
 
 ## 3. D2 — Hugging Face is complementary, not a replacement
 
@@ -147,10 +148,11 @@ The backend selector (Step 2) presents them honestly:
 |---|---|---|
 | T-7 | Panel: stepper auto-advance on job completion, or manual "Next"? | Auto-advance to Review on success; manual otherwise. |
 | T-8 | History persistence: IndexedDB only, or also sync to backend when connected? | IndexedDB only for v1. |
-| Q15 | Colab tunnel: adopt cloudflared (trycloudflare default, named tunnel opt-in)? | Yes — amends ADR-023 (issue #106). |
+| Q15 | Colab tunnel: adopt cloudflared (trycloudflare default, named tunnel opt-in)? | ✅ **RESOLVED (human, 2026-08-13): Yes — ADR-023 amended** (issue #106 closed). |
 
 ## 6. Change log
 
 | Date | Change | Author |
 |---|---|---|
 | 2026-08-13 | Initial review draft — panel layout (stepper + history rail), Colab cloudflared tunnel (Q15, issue #106), HF complementary role (issue #107). | agent |
+| 2026-08-13 | Q15 resolved (human): cloudflared tunnel adopted — trycloudflare default, named tunnel opt-in; recorded as an ADR-023 amendment (issue #106). | agent |
