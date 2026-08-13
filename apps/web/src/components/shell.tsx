@@ -66,7 +66,7 @@ function NavButton({
           aria-current={active ? 'page' : undefined}
           variant={active ? 'soft' : 'ghost'}
           size="2"
-          className={cn('w-full justify-start gap-2.5 px-2.5', !active && 'text-ink-2')}
+          className={cn('nav-row w-full justify-start', !active && 'text-ink-2')}
         >
           <Icon className="h-[18px] w-[18px] shrink-0" />
           <span className="flex-1 truncate text-left">{item.label}</span>
@@ -125,7 +125,7 @@ function SettingsNav({
         aria-label={`Settings menu ${open ? 'collapsed' : 'expanded'}`}
         variant="ghost"
         size="2"
-        className="w-full justify-start gap-2.5 px-2.5 text-ink-2"
+        className="nav-row w-full justify-start text-ink-2"
       >
         <Icon className="h-[18px] w-[18px] shrink-0" />
         <span className="flex-1 truncate text-left">{item.label}</span>
@@ -147,7 +147,7 @@ function SettingsNav({
                 aria-current={childActive ? 'page' : undefined}
                 variant={childActive ? 'soft' : 'ghost'}
                 size="1"
-                className={cn('w-full justify-start px-2', !childActive && 'text-ink-3')}
+                className={cn('nav-row w-full justify-start', !childActive && 'text-ink-3')}
               >
                 <span className="flex-1 truncate text-left">{child.label}</span>
               </Button>
@@ -166,7 +166,7 @@ function SettingsNav({
                 aria-current={active ? 'page' : undefined}
                 variant={active ? 'soft' : 'ghost'}
                 size="1"
-                className={cn('w-full justify-start px-2', !active && 'text-ink-3')}
+                className={cn('nav-row w-full justify-start', !active && 'text-ink-3')}
               >
                 <span className="flex-1 truncate text-left">{d.label}</span>
               </Button>

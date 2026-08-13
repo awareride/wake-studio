@@ -73,3 +73,20 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/*
+ * Nav row buttons: Radix Themes' ghost variant uses content-box + negative
+ * margins (padding compensation), so inactive nav items render narrower,
+ * offset and shorter than the active soft item - clicking a nav item made
+ * the whole row visually jump. Normalize the box so every nav row item is
+ * identical regardless of variant (this file loads after themes' styles, and
+ * the two-class selector beats the themes one-class rule).
+ */
+.rt-Button.nav-row {
+  box-sizing: border-box;
+  margin: 0;
+  height: var(--base-button-height);
+  padding-left: 10px;
+  padding-right: 10px;
+  gap: 10px;
+}
