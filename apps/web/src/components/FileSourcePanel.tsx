@@ -167,7 +167,7 @@ export function FileSourcePanel({ files, onChange, disabled }: Props) {
                         onChange={(e) =>
                           updateChannel(fi, ci, { loop: e.target.checked })
                         }
-                        className="h-3.5 w-3.5 rounded accent-brand-500"
+                        className="h-3.5 w-3.5 rounded accent-brand-9"
                       />
                       <span className="text-ink-2">Loop</span>
                     </label>
@@ -183,7 +183,7 @@ export function FileSourcePanel({ files, onChange, disabled }: Props) {
                         onChange={(e) =>
                           updateChannel(fi, ci, { offsetMs: Number(e.target.value) })
                         }
-                        className="w-32 accent-brand-500"
+                        className="w-32 accent-brand-9"
                       />
                       <span className="w-14 text-right font-mono text-ink-2">
                         {(ch.offsetMs / 1000).toFixed(1)}s

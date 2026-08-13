@@ -7,6 +7,7 @@
  */
 
 import type { PersistStageId, WorkspaceConfig } from '../workspace/types'
+import { Checkbox, TextField } from '@radix-ui/themes'
 
 interface Props {
   stageId: PersistStageId
@@ -41,23 +42,22 @@ export function PersistenceStageToggle({ stageId, label, config, onChange }: Pro
 
   return (
     <label className="flex flex-wrap items-center gap-2 text-sm">
-      <input
-        type="checkbox"
+      <Checkbox
         checked={enabled}
-        onChange={(e) => setEnabled(e.target.checked)}
-        className="h-3.5 w-3.5 rounded accent-brand-500"
+        onCheckedChange={(v) => setEnabled(v === true)}
+        size="1"
       />
       <span className="text-ink-2">{label}</span>
       {enabled && (
         <span className="flex items-center gap-1 text-xs text-ink-3">
           max
-          <input
+          <TextField.Root
             type="number"
             min={0}
             placeholder="∞"
             value={maxSeconds ?? ''}
             onChange={(e) => setMax(e.target.value)}
-            className="h-6 w-14 rounded border border-line bg-surface-3 px-1.5 font-mono text-xs text-ink-1"
+            className="h-6 w-14 font-mono text-xs"
           />
           s
         </span>

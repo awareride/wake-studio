@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from './ui'
 import { NewProjectDialog } from './NewProjectDialog'
+import { Button } from '@radix-ui/themes'
 import { ChevronDownIcon, ListBulletIcon } from '@radix-ui/react-icons'
 
 /** Relative "updated …" caption for the recent-projects menu. */
@@ -46,14 +47,16 @@ export function RecentProjectsMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
-            className="flex max-w-48 items-center gap-1.5 rounded-lg border border-line bg-surface-3 px-2.5 py-1.5 text-sm font-medium text-ink-1 hover:bg-surface-4"
+          <Button
+            variant="outline"
+            size="2"
+            className="max-w-48 gap-1.5 font-medium"
             title="Recent projects"
           >
             <ListBulletIcon className="h-3.5 w-3.5 shrink-0 text-ink-3" />
             <span className="truncate">{label}</span>
             <ChevronDownIcon className="h-3 w-3 shrink-0 text-ink-3" />
-          </button>
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-60">
           {recent.length === 0 && (
@@ -68,13 +71,13 @@ export function RecentProjectsMenu() {
                 </span>
               </span>
               {current?.id === p.id && (
-                <span className="text-brand-600">✓</span>
+                <span className="text-brand-11">✓</span>
               )}
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => setCreateOpen(true)}>
-            <span className="text-brand-600">+ New project…</span>
+            <span className="text-brand-11">+ New project…</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -150,7 +150,7 @@ export function FileReviewCard({
           <button
             type="button"
             onClick={onReview}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-ink-1 transition-colors hover:bg-brand-400"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-9 px-3 py-1.5 text-xs font-semibold text-ink-1 transition-colors hover:bg-brand-10"
           >
             Review
           </button>

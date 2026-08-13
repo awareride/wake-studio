@@ -162,7 +162,7 @@ export function SettingsView({
         <button
           onClick={handleSave}
           disabled={!dirty}
-          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-400 disabled:opacity-40"
+          className="rounded-lg bg-brand-9 px-4 py-2 text-sm font-medium text-white hover:bg-brand-10 disabled:opacity-40"
         >
           Save
         </button>

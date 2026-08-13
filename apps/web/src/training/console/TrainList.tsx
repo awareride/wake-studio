@@ -72,7 +72,7 @@ export function TrainList({ jobs, selectedId, onSelect, onToggle }: TrainListPro
                   className={cn(
                     'w-full rounded-lg border px-3 py-2 text-left transition-colors',
                     selected
-                      ? 'border-brand-500/50 bg-brand-500/5'
+                      ? 'border-brand-9/50 bg-brand-9/5'
                       : 'border-transparent hover:border-line hover:bg-surface-2',
                   )}
                 >

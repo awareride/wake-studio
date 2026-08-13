@@ -972,7 +972,7 @@ export const KWSPanel = memo(function KWSPanel({
             {provisionKind !== 'prototype' && status === 'idle' && (
               <button
                 onClick={provisionKind === 'list' ? handleListLoad : handleLoad}
-                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-brand-400"
+                className="rounded-lg bg-brand-9 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-brand-10"
               >
                 {provisionKind === 'list'
                   ? (provisionActionLabel(config.backend, 'load-with-list') ?? 'Load')
@@ -993,7 +993,7 @@ export const KWSPanel = memo(function KWSPanel({
               <button
                 onClick={handleProvisionLoad}
                 disabled={status === 'loading'}
-                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
+                className="rounded-lg bg-brand-9 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-10 disabled:opacity-50"
               >
                 {status === 'loading' ? 'Loading…' : loadActionLabel(selectedBackend)}
               </button>
@@ -1216,7 +1216,7 @@ export const KWSPanel = memo(function KWSPanel({
                         </span>
                         <button
                           onClick={() => void exportUserModel(selectedModel)}
-                          className="text-brand-400 underline hover:text-brand-300"
+                          className="text-brand-11 underline hover:text-brand-10"
                         >
                           Export
                         </button>
@@ -1347,7 +1347,7 @@ export const KWSPanel = memo(function KWSPanel({
                   <button
                     onClick={handleBuildPrototype}
                     disabled={building}
-                    className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
+                    className="rounded-lg bg-brand-9 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-10 disabled:opacity-50"
                   >
                     {building
                       ? 'Building…'
@@ -1422,7 +1422,7 @@ export const KWSPanel = memo(function KWSPanel({
                     <button
                       onClick={handleBuildNegative}
                       disabled={buildingNeg}
-                      className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
+                      className="rounded-lg bg-brand-9 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-10 disabled:opacity-50"
                     >
                       {buildingNeg
                         ? 'Building…'

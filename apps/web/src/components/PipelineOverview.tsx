@@ -189,7 +189,7 @@ function FlowArrow({ active }: { active: boolean }) {
     <div
       className={`h-0.5 w-8 rounded ${
         active
-          ? 'animate-pulse bg-gradient-to-r from-transparent via-brand-400 to-transparent'
+          ? 'animate-pulse bg-gradient-to-r from-transparent via-brand-8 to-transparent'
           : 'bg-slate-700'
       }`}
     />

@@ -9,9 +9,9 @@
 
 import { SourceSelector } from './SourceSelector'
 import { FileSourcePanel } from './FileSourcePanel'
+import { Button } from '@radix-ui/themes'
 import { FileIcon } from '@radix-ui/react-icons'
 import type { SourceState, SourceActions } from '../workspace/useSourceConfig'
-import { cn } from './cn'
 
 interface Props {
   source: SourceState
@@ -23,15 +23,12 @@ export function SourceConfigSection({ source, actions, disabled }: Props) {
   return (
     <div className="space-y-3">
       <div className="inline-flex items-center gap-1 rounded-xl border border-line bg-surface-3 p-1">
-        <button
+        <Button
           onClick={() => actions.updateKind('mic')}
           disabled={disabled}
-          className={cn(
-            'flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-50',
-            source.kind === 'mic'
-              ? 'bg-brand-500 text-ink-1 shadow-sm'
-              : 'text-ink-2 hover:bg-surface-4',
-          )}
+          variant={source.kind === 'mic' ? 'solid' : 'ghost'}
+          size="2"
+          className="gap-1.5"
         >
           {/* Mic: Radix UI has no mic glyph, so this stays hand-drawn. */}
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -39,20 +36,17 @@ export function SourceConfigSection({ source, actions, disabled }: Props) {
             <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8" />
           </svg>
           Microphone
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => actions.updateKind('file')}
           disabled={disabled}
-          className={cn(
-            'flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-50',
-            source.kind === 'file'
-              ? 'bg-brand-500 text-ink-1 shadow-sm'
-              : 'text-ink-2 hover:bg-surface-4',
-          )}
+          variant={source.kind === 'file' ? 'solid' : 'ghost'}
+          size="2"
+          className="gap-1.5"
         >
           <FileIcon className="h-4 w-4" />
           Audio files
-        </button>
+        </Button>
       </div>
       {source.kind === 'mic' ? (
         <SourceSelector

@@ -179,7 +179,7 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange, onDe
                   m.kind === 'failed' || m.kind === 'canceled'
                     ? 'bg-danger'
                     : m.kind === 'started'
-                      ? 'bg-brand-500'
+                      ? 'bg-brand-9'
                       : 'bg-emerald-500',
                 )}
                 aria-hidden
@@ -241,7 +241,7 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange, onDe
               placeholder="https://xxxx.trycloudflare.com"
               value={job.tunnelUrl ?? ''}
               onChange={(e) => onTunnelUrlChange(e.target.value)}
-              className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-xs text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-400"
+              className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-xs text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-8"
             />
             <p className="text-[11px] leading-relaxed text-ink-3">
               The notebook prints this URL while running (cloudflared, ADR-023 amendment). With

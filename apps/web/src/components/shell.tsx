@@ -21,6 +21,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from './ui'
+import { Button, IconButton } from '@radix-ui/themes'
 import {
   ChevronRightIcon,
   Cross2Icon,
@@ -60,15 +61,12 @@ function NavButton({
   return (
     <Tooltip delayDuration={400}>
       <TooltipTrigger asChild>
-        <button
+        <Button
           onClick={onClick}
           aria-current={active ? 'page' : undefined}
-          className={cn(
-            'group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
-            active
-              ? 'bg-brand-500/10 text-brand-700'
-              : 'text-ink-2 hover:bg-surface-3 hover:text-ink-1',
-          )}
+          variant={active ? 'soft' : 'ghost'}
+          size="2"
+          className={cn('w-full justify-start gap-2.5 px-2.5', !active && 'text-ink-2')}
         >
           <Icon className="h-[18px] w-[18px] shrink-0" />
           <span className="flex-1 truncate text-left">{item.label}</span>
@@ -77,7 +75,7 @@ function NavButton({
               {item.badge}
             </span>
           )}
-        </button>
+        </Button>
       </TooltipTrigger>
       <TooltipContent side="right">{item.label}</TooltipContent>
     </Tooltip>
@@ -121,42 +119,38 @@ function SettingsNav({
   return (
     <div>
       {/* Parent: toggles open/closed only, no navigation. */}
-      <button
+      <Button
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-label={`Settings menu ${open ? 'collapsed' : 'expanded'}`}
-        className={cn(
-          'group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
-          'text-ink-2 hover:bg-surface-3 hover:text-ink-1',
-        )}
+        variant="ghost"
+        size="2"
+        className="w-full justify-start gap-2.5 px-2.5 text-ink-2"
       >
         <Icon className="h-[18px] w-[18px] shrink-0" />
         <span className="flex-1 truncate text-left">{item.label}</span>
         <ChevronRightIcon
           className={cn(
-            'h-3.5 w-3.5 shrink-0 text-ink-3 transition-transform group-hover:text-ink-1',
+            'h-3.5 w-3.5 shrink-0 text-ink-3 transition-transform',
             open && 'rotate-90',
           )}
         />
-      </button>
+      </Button>
 
       {open && (
         <div className="ml-3 mt-0.5 space-y-0.5 border-l border-line pl-2">          {sections.map((child) => {
             const childActive = activeSection === settingsSectionOf(child.route)
             return (
-              <button
+              <Button
                 key={child.route}
                 onClick={() => onNavigate(child.route)}
                 aria-current={childActive ? 'page' : undefined}
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors',
-                  childActive
-                    ? 'bg-brand-500/10 text-brand-700'
-                    : 'text-ink-3 hover:bg-surface-3 hover:text-ink-1',
-                )}
+                variant={childActive ? 'soft' : 'ghost'}
+                size="1"
+                className={cn('w-full justify-start px-2', !childActive && 'text-ink-3')}
               >
                 <span className="flex-1 truncate text-left">{child.label}</span>
-              </button>
+              </Button>
             )
           })}
 
@@ -164,21 +158,18 @@ function SettingsNav({
           {drivers.map((d) => {
             const active = driversActive && d.backendId === settingsBackend
             return (
-              <button
+              <Button
                 key={d.backendId}
                 onClick={() => {
                   window.location.hash = settingsHash('modules', d.backendId)
                 }}
                 aria-current={active ? 'page' : undefined}
-                className={cn(
-                  'flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-[13px] transition-colors',
-                  active
-                    ? 'bg-brand-500/10 text-brand-700'
-                    : 'text-ink-3 hover:bg-surface-3 hover:text-ink-1',
-                )}
+                variant={active ? 'soft' : 'ghost'}
+                size="1"
+                className={cn('w-full justify-start px-2', !active && 'text-ink-3')}
               >
                 <span className="flex-1 truncate text-left">{d.label}</span>
-              </button>
+              </Button>
             )
           })}
         </div>
@@ -242,13 +233,15 @@ export function Sidebar({
           <span className="text-[11px] text-ink-3">on-device KWS studio</span>
         </div>
         {onClose && (
-          <button
+          <IconButton
             onClick={onClose}
             aria-label="Close navigation"
-            className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
+            variant="ghost"
+            size="1"
+            className="text-ink-3"
           >
             <Cross2Icon className="h-4 w-4" />
-          </button>
+          </IconButton>
         )}
       </div>
 
@@ -312,13 +305,15 @@ export function TopBar({
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface-2/90 px-4 backdrop-blur">
-      <button
+      <IconButton
         onClick={onToggleSidebar}
-        className="rounded-md p-1.5 text-ink-3 hover:bg-surface-3 hover:text-ink-1 lg:hidden"
+        variant="ghost"
+        size="2"
+        className="text-ink-3 lg:hidden"
         aria-label="Toggle navigation"
       >
         <HamburgerMenuIcon className="h-5 w-5" />
-      </button>
+      </IconButton>
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <h1 className="truncate text-sm font-semibold text-ink-1">{title}</h1>
       </div>
@@ -423,20 +418,25 @@ function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => vo
           </React.Fragment>
         ))}
         <span className="mx-1 h-4 w-px shrink-0 bg-line-2" />
-        <button
+        <IconButton
           onClick={stopPipeline}
           aria-label="Stop pipeline"
-          className="shrink-0 rounded p-1 text-danger hover:bg-danger/10"
+          variant="ghost"
+          color="red"
+          size="1"
+          className="shrink-0"
         >
           <StopIcon className="h-3 w-3" />
-        </button>
-        <button
+        </IconButton>
+        <IconButton
           onClick={onToggle}
           aria-label="Minimize pipeline status"
-          className="shrink-0 rounded p-1 text-ink-3 hover:bg-surface-3 hover:text-ink-1"
+          variant="ghost"
+          size="1"
+          className="shrink-0 text-ink-3"
         >
           <ChevronRightIcon className="h-3 w-3" />
-        </button>
+        </IconButton>
       </div>
 
       {/* Minimized: the circle itself is colored by the wake indicator.

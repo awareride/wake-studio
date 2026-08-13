@@ -82,7 +82,7 @@ export function SessionConsoleView() {
           <button
             onClick={handleExportCsv}
             disabled={triggers.length === 0}
-            className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-40"
+            className="rounded-lg bg-brand-9 px-3 py-1.5 text-sm font-medium text-ink-1 hover:bg-brand-10 disabled:opacity-40"
           >
             Export triggers CSV
           </button>
@@ -97,7 +97,7 @@ export function SessionConsoleView() {
             onClick={() => setView(v)}
             className={cn(
               'rounded-md px-3 py-1 text-sm font-medium',
-              view === v ? 'bg-brand-500/10 text-brand-700' : 'text-ink-3 hover:text-ink-1',
+              view === v ? 'bg-brand-9/10 text-brand-11' : 'text-ink-3 hover:text-ink-1',
             )}
           >
             {v === 'log' ? 'Event log' : `Triggers (${triggers.length})`}

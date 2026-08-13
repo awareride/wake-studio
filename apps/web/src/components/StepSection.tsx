@@ -8,6 +8,7 @@
 
 import * as React from 'react'
 import { ChevronRightIcon } from '@radix-ui/react-icons'
+import { Button } from '@radix-ui/themes'
 import { cn } from './cn'
 
 interface Props {
@@ -31,16 +32,18 @@ export function StepSection({
 }: Props) {
   return (
     <section className="overflow-hidden rounded-xl border border-line bg-surface-2">
-      <button
+      <Button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-3"
+        variant="ghost"
+        size="2"
+        className="w-full justify-start gap-3 px-4 text-left"
       >
         <span
           className={cn(
             'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold',
-            open ? 'bg-brand-500 text-ink-1' : 'bg-surface-4 text-ink-3',
+            open ? 'bg-brand-9 text-ink-1' : 'bg-surface-4 text-ink-3',
           )}
         >
           {step}
@@ -59,7 +62,7 @@ export function StepSection({
             open && 'rotate-90',
           )}
         />
-      </button>
+      </Button>
       {open && <div className="space-y-4 px-4 pb-5 pt-1">{children}</div>}
     </section>
   )

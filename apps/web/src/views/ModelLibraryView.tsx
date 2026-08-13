@@ -149,7 +149,7 @@ export function ModelLibraryView() {
   if (!registry) {
     return (
       <div className="flex items-center gap-3 py-16 text-sm text-ink-2">
-        <IconSpinner className="h-4 w-4 text-brand-600" />
+        <IconSpinner className="h-4 w-4 text-brand-11" />
         Loading model registry…
       </div>
     )
@@ -173,7 +173,7 @@ export function ModelLibraryView() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search models…"
           aria-label="Search models"
-          className="w-64 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-sm text-ink-1 placeholder:text-ink-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+          className="w-64 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-sm text-ink-1 placeholder:text-ink-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-8"
         />
         <div className="flex gap-1 rounded-lg border border-line bg-surface-2 p-1">
           {(['all', 'low-power', 'high-performance'] as const).map((t) => (
@@ -182,7 +182,7 @@ export function ModelLibraryView() {
               onClick={() => setTier(t)}
               className={cn(
                 'rounded-md px-2.5 py-1 text-xs font-medium',
-                tier === t ? 'bg-brand-500/10 text-brand-700' : 'text-ink-3 hover:text-ink-1',
+                tier === t ? 'bg-brand-9/10 text-brand-11' : 'text-ink-3 hover:text-ink-1',
               )}
             >
               {t === 'all' ? 'All' : t === 'low-power' ? 'MCU' : 'High-perf'}

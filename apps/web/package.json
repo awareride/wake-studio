@@ -22,6 +22,7 @@
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-toast": "^1.2.23",
     "@radix-ui/react-tooltip": "^1.2.16",
+    "@radix-ui/themes": "^3.3.0",
     "@wake-studio/contracts": "workspace:*",
     "@wake-studio/module-afe-graph": "workspace:^",
     "@wake-studio/module-few-shot": "workspace:^",

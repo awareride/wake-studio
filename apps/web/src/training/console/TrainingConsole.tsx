@@ -190,7 +190,7 @@ export function TrainingConsole() {
           <button
             type="button"
             onClick={() => setView({ kind: 'wizard', from: view })}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-400"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-9 px-4 py-2 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-10"
           >
             <IconWand className="h-4 w-4" />
             New

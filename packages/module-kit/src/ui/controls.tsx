@@ -91,7 +91,7 @@ export function UiNumber({ value, min, max, step = 1, unit, onChange, disabled }
           if (Number.isFinite(n)) onChange(n)
         }}
         disabled={disabled}
-        className="h-8 w-24 rounded-lg border border-line bg-surface-3 px-2.5 text-right font-mono text-sm text-ink-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-40"
+        className="h-8 w-24 rounded-lg border border-line bg-surface-3 px-2.5 text-right font-mono text-sm text-ink-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-8 disabled:opacity-40"
       />
       {unit && <span className="text-xs text-ink-3">{unit}</span>}
     </div>
@@ -135,7 +135,7 @@ export function UiSelect({ value, options, onChange, disabled, placeholder = 'Se
             {options.map((opt) => (
               <SelectPrimitive.Item key={opt.value} value={opt.value} className={SELECT_CLS.item}>
                 <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
-                <SelectPrimitive.ItemIndicator className="ml-2 inline-flex text-brand-400">
+                <SelectPrimitive.ItemIndicator className="ml-2 inline-flex text-brand-11">
                   <Check className="h-3.5 w-3.5" />
                 </SelectPrimitive.ItemIndicator>
               </SelectPrimitive.Item>
@@ -219,7 +219,7 @@ export function UiProgress({ value, indeterminate }: UiProgressProps) {
     >
       <ProgressPrimitive.Indicator
         className={cn(
-          'h-full w-full bg-brand-500 transition-transform',
+          'h-full w-full bg-brand-9 transition-transform',
           indeterminate && 'animate-pulse',
         )}
         style={{ transform: `translateX(-${100 - (indeterminate ? 40 : value)}%)` }}

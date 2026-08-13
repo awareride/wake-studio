@@ -16,51 +16,48 @@
 }
 
 /*
- * WakeStudio semantic design tokens (light theme, v1).
+ * WakeStudio semantic design tokens - backed by Radix Colors
+ * (https://www.radix-ui.com/colors, the same scales @radix-ui/themes uses).
  *
  * Components use semantic utilities (bg-surface, text-ink-2, border-line...)
  * instead of raw slate-xxx/white classes, so a dark theme is a token swap, not
  * a component sweep. Defined here as CSS variables + mapped in
- * tailwind.config.ts.
+ * tailwind.config.ts. Values are rgb() TRIPLES so Tailwind's <alpha-value>
+ * can compose opacity modifiers (e.g. bg-surface-2/90).
  *
- * Palette rationale:
- *   - ink-1  : primary text (near-black, high contrast)
- *   - ink-2  : secondary text (60% ink)
- *   - ink-3  : tertiary / captions (45% ink)
- *   - surface: page background (very light cool gray)
- *   - surface-2: card background (white)
- *   - surface-3: inset / input background (slightly gray)
- *   - line   : hairline borders
- *   - line-2 : stronger borders (focus rings, active)
- *   - brand  : the sky-blue accent (unchanged from dark theme)
+ * Scale mapping (light theme):
+ *   - surface-*   : Radix slate 1-4 (page, subtle, card/inset, hover)
+ *   - ink-*       : Radix slate 10-12 (tertiary, secondary, primary text)
+ *   - line*       : Radix slate 6-7 (hairlines, stronger borders)
+ *   - brand-*     : Radix sky 1-12 (brand scale; 9=accent, 11-12=text)
+ *   - status      : Radix green/amber/red step 11 (text on light)
  */
 
 /* CSS variables live OUTSIDE @layer so they always exist at :root (Tailwind
-   drops unlayered custom props inside @layer base in some purge paths).
-   Colors are rgb() TRIPLES so Tailwind's <alpha-value> can compose
-   opacity modifiers (e.g. bg-surface-2/90). */
+   drops unlayered custom props inside @layer base in some purge paths). */
 :root {
   color-scheme: light;
 
-  /* Surfaces. */
-  --ws-surface: 248 250 252;    /* slate-50  - page bg */
-  --ws-surface-2: 255 255 255;  /* white     - card bg */
-  --ws-surface-3: 241 245 249;  /* slate-100 - inset/input bg */
-  --ws-surface-4: 226 232 240;  /* slate-200 - hover/active bg */
+  /* Surfaces (Radix slate). */
+  --ws-surface: 252 252 253;    /* slate-1 - page bg */
+  --ws-surface-1: 249 249 251;  /* slate-2 - subtle bg (floating panels) */
+  --ws-surface-2: 255 255 255;  /* white    - card bg */
+  --ws-surface-3: 240 240 243;  /* slate-3 - inset/input bg */
+  --ws-surface-4: 232 232 236;  /* slate-4 - hover/active bg */
 
-  /* Ink (text). */
-  --ws-ink-1: 15 23 42;         /* slate-900 - primary text */
-  --ws-ink-2: 71 85 105;        /* slate-600 - secondary text */
-  --ws-ink-3: 100 116 139;      /* slate-500 - tertiary/captions */
+  /* Ink (Radix slate). */
+  --ws-ink-1: 28 32 36;         /* slate-12 - primary text */
+  --ws-ink-2: 96 100 108;       /* slate-11 - secondary text */
+  --ws-ink-3: 128 131 141;      /* slate-10 - tertiary/captions */
 
-  /* Lines. */
-  --ws-line: 226 232 240;       /* slate-200 - hairlines */
-  --ws-line-2: 203 213 225;     /* slate-300 - stronger borders */
+  /* Lines (Radix slate). */
+  --ws-line: 217 217 224;       /* slate-6 - hairlines */
+  --ws-line-2: 205 206 214;     /* slate-7 - stronger borders */
 
-  /* Semantic (status). */
-  --ws-success: 5 150 105;      /* emerald-600 */
-  --ws-warning: 217 119 6;      /* amber-600 */
-  --ws-danger: 220 38 38;       /* red-600 */
+  /* Semantic (Radix status scales, step 11 = text on light). */
+  --ws-success: 33 131 88;      /* green-11 */
+  --ws-warning: 171 100 0;      /* amber-11 */
+  --ws-danger: 206 44 49;       /* red-11 */
 }
 
 /* Always show the scrollbar: prevents a feedback loop where content height

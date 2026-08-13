@@ -33,8 +33,8 @@ export function MethodStep({ module, selected, onSelect }: MethodStepProps) {
             className={cn(
               'flex w-full items-start justify-between gap-3 rounded-xl border p-4 text-left transition-colors',
               active
-                ? 'border-brand-500/60 bg-brand-500/5'
-                : 'border-line bg-surface-2 hover:border-brand-500/30 hover:bg-surface-3',
+                ? 'border-brand-9/60 bg-brand-9/5'
+                : 'border-line bg-surface-2 hover:border-brand-9/30 hover:bg-surface-3',
             )}
           >
             <div className="min-w-0">
@@ -44,7 +44,7 @@ export function MethodStep({ module, selected, onSelect }: MethodStepProps) {
             <span
               className={cn(
                 'mt-0.5 h-4 w-4 shrink-0 rounded-full border-2',
-                active ? 'border-brand-500 bg-brand-500/20' : 'border-ink-3/50',
+                active ? 'border-brand-9 bg-brand-9/20' : 'border-ink-3/50',
               )}
               aria-hidden
             />

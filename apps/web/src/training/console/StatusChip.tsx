@@ -7,7 +7,7 @@ import { cn } from '../../components/cn'
 
 export const STATUS_STYLE: Record<HistoryJob['status'], string> = {
   queued: 'bg-amber-500/15 text-amber-700',
-  running: 'bg-brand-500/15 text-brand-600',
+  running: 'bg-brand-9/15 text-brand-11',
   succeeded: 'bg-emerald-500/15 text-emerald-700',
   failed: 'bg-danger/15 text-danger',
   canceled: 'bg-surface-3 text-ink-3',

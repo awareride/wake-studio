@@ -43,8 +43,8 @@ export function ModelTypeStep({ modules, selectedId, onSelect }: ModelTypeStepPr
             className={cn(
               'w-full rounded-xl border p-4 text-left transition-colors',
               selected
-                ? 'border-brand-500/60 bg-brand-500/5'
-                : 'border-line bg-surface-2 hover:border-brand-500/30 hover:bg-surface-3',
+                ? 'border-brand-9/60 bg-brand-9/5'
+                : 'border-line bg-surface-2 hover:border-brand-9/30 hover:bg-surface-3',
             )}
           >
             <div className="flex items-center justify-between gap-2">

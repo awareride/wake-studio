@@ -8,6 +8,7 @@
  */
 
 import { memo, useEffect, useRef } from 'react'
+import { Button } from '@radix-ui/themes'
 import type { StageFrameData } from '@wake-studio/module-afe-graph'
 import { WebGLSpectrogram } from '../spectrogram/WebGLSpectrogram'
 
@@ -44,16 +45,15 @@ export const StagePanel = memo(function StagePanel({
         >
           {id}
         </span>
-        <button
+        <Button
           onClick={() => onToggleBypass(id)}
-          className={`rounded px-2 py-0.5 text-[10px] font-medium uppercase ${
-            isBypassed
-              ? 'bg-surface-4 text-ink-2'
-              : 'bg-emerald-500/20 text-emerald-300'
-          }`}
+          variant={isBypassed ? 'soft' : 'outline'}
+          color={isBypassed ? 'gray' : 'green'}
+          size="1"
+          className="px-2 text-[10px] font-medium uppercase"
         >
           {isBypassed ? 'Bypassed' : 'Active'}
-        </button>
+        </Button>
       </div>
 
       {/* Waveform - flex-1 absorbs the height difference between stages so

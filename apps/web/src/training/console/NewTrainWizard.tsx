@@ -153,7 +153,7 @@ export function NewTrainWizard({
                 className={cn(
                   'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium',
                   active
-                    ? 'border-brand-500/60 bg-brand-500/10 text-brand-400'
+                    ? 'border-brand-9/60 bg-brand-9/10 text-brand-11'
                     : done
                       ? 'border-line bg-surface-2 text-ink-2'
                       : 'border-line bg-surface-1 text-ink-3',
@@ -163,7 +163,7 @@ export function NewTrainWizard({
                   className={cn(
                     'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
                     active
-                      ? 'bg-brand-500 text-ink-1'
+                      ? 'bg-brand-9 text-ink-1'
                       : done
                         ? 'bg-success/20 text-success'
                         : 'bg-surface-3 text-ink-3',
@@ -225,7 +225,7 @@ export function NewTrainWizard({
               type="button"
               onClick={() => setStep(advanceStep(step) ?? step)}
               disabled={!canNext}
-              className="rounded-lg bg-brand-500 px-5 py-1.5 text-sm font-medium text-ink-1 transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-brand-9 px-5 py-1.5 text-sm font-medium text-ink-1 transition-colors hover:bg-brand-10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Next
             </button>
@@ -234,7 +234,7 @@ export function NewTrainWizard({
               type="button"
               onClick={handleStart}
               disabled={starting}
-              className="rounded-lg bg-brand-500 px-5 py-1.5 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-brand-9 px-5 py-1.5 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {starting ? 'Saving…' : method === 'colab' ? 'Save' : 'Start train'}
             </button>

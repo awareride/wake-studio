@@ -331,7 +331,7 @@ function WorkspaceInner({
           <div className="sticky top-0 z-20 bg-surface pt-3">
             <div className="rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
             <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-line pb-2">
-              <span className="rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
+              <span className="rounded bg-brand-9/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-11">
                 Setup
               </span>
               <span className="text-xs text-ink-3">configure each module, then Start — Stop returns here</span>
@@ -411,7 +411,7 @@ function WorkspaceInner({
                         setKwsPreloadOnStart(e.target.checked)
                         persistWs({ kwsPreloadOnStart: e.target.checked })
                       }}
-                      className="h-3.5 w-3.5 rounded accent-brand-500"
+                      className="h-3.5 w-3.5 rounded accent-brand-9"
                     />
                     <span className="text-ink-2">Preload KWS models on Start</span>
                     <span className="text-xs text-ink-3">
