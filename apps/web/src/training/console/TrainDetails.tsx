@@ -18,6 +18,7 @@ import { cn } from '../../components/cn'
 import { ImportColabResults } from '../ImportColabResults'
 import type { ColabImportResult } from '../colab-import'
 import { findTrainableModule, type TrainableModule } from '../train-modules'
+import { ConfirmDialog } from './ConfirmDialog'
 import { FileReviewCard } from './FileReviewCard'
 import { NotebookReviewView } from './NotebookReviewView'
 import { StatusChip } from './StatusChip'
@@ -29,6 +30,8 @@ export interface TrainDetailsProps {
   onImported: (result: ColabImportResult) => void
   /** Persist a change to the job's Colab tunnel URL. */
   onTunnelUrlChange: (url: string) => void
+  /** Delete this train from history (confirmed by the details pane). */
+  onDelete: () => void
 }
 
 function formatTime(ms: number | undefined): string {
@@ -36,7 +39,7 @@ function formatTime(ms: number | undefined): string {
   return new Date(ms).toLocaleString()
 }
 
-export function TrainDetails({ job, modules, onImported, onTunnelUrlChange }: TrainDetailsProps) {
+export function TrainDetails({ job, modules, onImported, onTunnelUrlChange, onDelete }: TrainDetailsProps) {
   const module = findTrainableModule(modules, job.moduleId)
   const exportable = job.license === 'user-owned'
   const metrics = job.metrics ?? {}
@@ -47,6 +50,7 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange }: Tr
 
   // Full-panel notebook review (Back preserves the details state, #105).
   const [reviewing, setReviewing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const personalizable = useMemo(
     () =>
       module && file?.kind === 'notebook'
@@ -280,6 +284,35 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange }: Tr
           later Phase 5 slice — this train is recorded for now.
         </p>
       )}
+
+      {/* Operations: delete this train (issue #105). */}
+      <section className="rounded-xl border border-danger/25 bg-surface-2 p-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Operations</h4>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-ink-3">
+            Remove this train from the list. The imported model stays in your model library.
+          </p>
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            className="rounded-lg border border-danger/40 bg-surface-3 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/10"
+          >
+            Delete
+          </button>
+        </div>
+      </section>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete this train?"
+        message="This removes the train from your list (IndexedDB). The imported model in your model library is not affected."
+        confirmLabel="Delete"
+        onConfirm={() => {
+          setConfirmDelete(false)
+          onDelete()
+        }}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   )
 }

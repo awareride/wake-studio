@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { listJobs, saveJob, getJob, updateJobStatus, clearJobs } from '../core/history-store'
+import { listJobs, saveJob, getJob, updateJobStatus, clearJobs, deleteJob } from '../core/history-store'
 import type { HistoryJob } from '../core/history'
 
 class MemoryObjectStore {
@@ -40,6 +40,10 @@ class MemoryObjectStore {
   }
   getAll() {
     return this.req([...this.map.values()])
+  }
+  delete(id: string) {
+    this.map.delete(id)
+    return this.req(undefined)
   }
   clear() {
     this.map.clear()
@@ -128,5 +132,19 @@ describe('training history store', () => {
     await saveJob(makeJob({ id: 'b' }))
     await clearJobs()
     expect(await listJobs()).toHaveLength(0)
+  })
+
+  it('deletes a single job', async () => {
+    await saveJob(makeJob({ id: 'a' }))
+    await saveJob(makeJob({ id: 'b' }))
+    await deleteJob('a')
+    expect(await listJobs()).toHaveLength(1)
+    expect((await getJob('a'))).toBeUndefined()
+  })
+
+  it('is a no-op for unknown ids', async () => {
+    await saveJob(makeJob({ id: 'a' }))
+    await deleteJob('nope')
+    expect(await listJobs()).toHaveLength(1)
   })
 })

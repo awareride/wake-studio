@@ -40,7 +40,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             className="rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs text-ink-2 transition-colors hover:bg-surface-3"
           >
-            Keep editing
+            Keep
           </button>
           <button
             type="button"
