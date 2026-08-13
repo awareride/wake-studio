@@ -7,6 +7,7 @@
  */
 
 import * as React from 'react'
+import { ChevronRightIcon } from '@radix-ui/react-icons'
 import { cn } from './cn'
 
 interface Props {
@@ -52,20 +53,12 @@ export function StepSection({
             </span>
           )}
         </span>
-        <svg
-          viewBox="0 0 24 24"
+        <ChevronRightIcon
           className={cn(
             'h-3.5 w-3.5 text-ink-3 transition-transform',
             open && 'rotate-90',
           )}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="m9 18 6-6-6-6" />
-        </svg>
+        />
       </button>
       {open && <div className="space-y-4 px-4 pb-5 pt-1">{children}</div>}
     </section>
