@@ -15,7 +15,12 @@
  */
 
 import { useState, useCallback } from 'react'
-import { renderPanel, type ModulePanelController, type PanelSection } from '@wake-studio/module-kit'
+import {
+  defaultsFromSpec,
+  renderPanel,
+  type ModulePanelController,
+  type PanelSection,
+} from '@wake-studio/module-kit'
 import type { ModuleSpec } from '@wake-studio/contracts'
 import trainingSpec from '../spec/module.spec.json'
 
@@ -39,7 +44,11 @@ export function TrainingModulePanel({
   onAction,
 }: TrainingModulePanelProps) {
   // Local controller state - no backend yet (Phase 5 wires runAction).
-  const [values, setValues] = useState<Record<string, unknown>>({})
+  // Initialize from the spec defaults so the console records real params in
+  // history even when the user does not touch the form (issue #105).
+  const [values, setValues] = useState<Record<string, unknown>>(() =>
+    defaultsFromSpec(TRAINING_SPEC),
+  )
   const [status, setStatus] = useState<Record<string, unknown>>({})
 
   const setValue = useCallback((id: string, value: unknown) => {
