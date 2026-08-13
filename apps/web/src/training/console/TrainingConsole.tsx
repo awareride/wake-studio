@@ -24,7 +24,7 @@ import {
   type TrainMethodId,
 } from '@wake-studio/module-training'
 import { clearJobs, listJobs, saveJob } from '@wake-studio/module-training'
-import { IconWand } from '../../components/icons'
+import { IconMenu, IconWand } from '../../components/icons'
 import { NewTrainWizard } from './NewTrainWizard'
 import { TrainDetails } from './TrainDetails'
 import { TrainList } from './TrainList'
@@ -163,6 +163,10 @@ export function TrainingConsole() {
 
   const openTrain = useCallback((jobId: string) => setView({ kind: 'details', jobId }), [])
 
+  // Collapse the left rail horizontally so the details panel is full-width
+  // (issue #105 — toggle behaves like the shell's sidebar trigger).
+  const [railCollapsed, setRailCollapsed] = useState(false)
+
   return (
     <div className="space-y-6">
       {/* Header. */}
@@ -198,19 +202,37 @@ export function TrainingConsole() {
         />
       ) : (
         <div className="flex gap-6">
-          {/* Left rail: the train list (notifications live with each train). */}
-          <aside className="flex w-72 shrink-0 flex-col border-r border-line">
-            <TrainList
-              jobs={jobs}
-              selectedId={selectedJob?.id ?? null}
-              onSelect={openTrain}
-              onClear={handleClear}
-              confirmingClear={confirmingClear}
-            />
-          </aside>
+          {/* Left rail: the train list (hidden when collapsed, #105). */}
+          {!railCollapsed && (
+            <aside className="flex w-72 shrink-0 flex-col border-r border-line">
+              <TrainList
+                jobs={jobs}
+                selectedId={selectedJob?.id ?? null}
+                onSelect={openTrain}
+                onClear={handleClear}
+                confirmingClear={confirmingClear}
+              />
+            </aside>
+          )}
 
           {/* Right pane: details or empty state. */}
           <div className="min-w-0 flex-1">
+            {/* Rail toggle (sidebar-trigger style): hide/show the train list
+                so the details take the full width. */}
+            <div className="mb-4 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setRailCollapsed((c) => !c)}
+                aria-label={railCollapsed ? 'Show train list' : 'Hide train list'}
+                aria-expanded={!railCollapsed}
+                className="rounded-md border border-line bg-surface-2 p-1.5 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
+              >
+                <IconMenu className="h-4 w-4" />
+              </button>
+              <span className="text-[11px] text-ink-3">
+                {railCollapsed ? 'Train list hidden — details are full-width' : 'Train list'}
+              </span>
+            </div>
             {view.kind === 'details' &&
               (selectedJob ? (
                 <TrainDetails

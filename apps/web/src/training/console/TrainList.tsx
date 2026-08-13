@@ -8,9 +8,7 @@
  */
 
 import { latestMessage, sortJobsNewestFirst, type HistoryJob } from '@wake-studio/module-training'
-import { useState } from 'react'
 import { cn } from '../../components/cn'
-import { IconMenu } from '../../components/icons'
 import { StatusChip } from './StatusChip'
 
 export interface TrainListProps {
@@ -31,26 +29,12 @@ function formatWhen(ms: number): string {
 
 export function TrainList({ jobs, selectedId, onSelect, onClear, confirmingClear }: TrainListProps) {
   const ordered = sortJobsNewestFirst(jobs)
-  const [collapsed, setCollapsed] = useState(false)
 
   return (
     <div className="flex min-h-0 flex-col">
       <div className="flex items-center justify-between px-4 pb-2 pt-4">
-        <div className="flex items-center gap-1">
-          {/* Toggle the list body (issue #105) — styled like the shell's
-              sidebar trigger (IconMenu). */}
-          <button
-            type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            aria-label={collapsed ? 'Expand train list' : 'Collapse train list'}
-            aria-expanded={!collapsed}
-            className="rounded-md p-1 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
-          >
-            <IconMenu className="h-4 w-4" />
-          </button>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Trains</h3>
-        </div>
-        {!collapsed && jobs.length > 0 && (
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Trains</h3>
+        {jobs.length > 0 && (
           <button
             type="button"
             onClick={onClear}
@@ -61,8 +45,7 @@ export function TrainList({ jobs, selectedId, onSelect, onClear, confirmingClear
         )}
       </div>
 
-      {!collapsed &&
-        (ordered.length === 0 ? (
+      {ordered.length === 0 ? (
           <div className="px-4 py-6 text-xs leading-relaxed text-ink-3">
             No trains yet. Press <span className="font-medium text-ink-2">New</span> (the wizard
             wand) to start one — jobs land here for re-inspection (IndexedDB, client-side).
@@ -118,7 +101,7 @@ export function TrainList({ jobs, selectedId, onSelect, onClear, confirmingClear
               )
             })}
           </ul>
-        ))}
+        )}
     </div>
   )
 }
