@@ -16,6 +16,7 @@
 
 import * as React from 'react'
 import type { MutableRefObject } from 'react'
+import { Button } from '@radix-ui/themes'
 import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import { describeParameters } from '@wake-studio/module-afe-graph'
 import { ParamRows } from './UnifiedConfigPanel'
@@ -24,7 +25,6 @@ import { PersistenceStageToggle } from './PersistenceStageToggle'
 import type { SourceState, SourceActions } from '../workspace/useSourceConfig'
 import type { WorkspaceConfig } from '../workspace/types'
 import type { ParamValue } from './UnifiedConfigPanel'
-import { cn } from './cn'
 
 // ---------------------------------------------------------------------------
 // Shared flat shell
@@ -68,19 +68,18 @@ export function StageModuleShell({
           </div>
         </div>
         {onToggle && (
-          <button
+          <Button
             onClick={onToggle}
             aria-label={`${title} toggle`}
             aria-pressed={enabled}
-            className={cn(
-              'rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-colors',
-              enabled
-                ? 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
-                : 'bg-surface-4 text-ink-3 hover:bg-surface-3',
-            )}
+            variant={enabled ? 'soft' : 'ghost'}
+            color={enabled ? 'green' : 'gray'}
+            size="1"
+            radius="full"
+            className="px-3 text-[10px] font-bold uppercase tracking-widest"
           >
             {enabled ? 'On' : 'Off'}
-          </button>
+          </Button>
         )}
       </div>
       {children && (
