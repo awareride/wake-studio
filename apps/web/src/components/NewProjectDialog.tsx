@@ -8,6 +8,7 @@
  */
 
 import * as React from 'react'
+import { Button, TextField } from '@radix-ui/themes'
 import { useProjects, PROJECT_DOMAINS } from '../projects'
 import type { ProjectDomain } from '../projects'
 import {
@@ -17,7 +18,6 @@ import {
   DialogTitle,
 } from './ui'
 import { useToast } from './toast'
-import { cn } from './cn'
 
 interface Props {
   open: boolean
@@ -59,20 +59,20 @@ export function NewProjectDialog({ open, onOpenChange }: Props) {
         <div className="mt-4 space-y-3">
           <label className="block text-sm">
             <span className="text-ink-2">Project name</span>
-            <input
+            <TextField.Root
+              className="mt-1"
               value={draft.name}
               onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
               placeholder="e.g. Hey Studio"
-              className="mt-1 w-full rounded-lg border border-line bg-surface-3 px-3 py-2 text-sm text-ink-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
             />
           </label>
           <label className="block text-sm">
             <span className="text-ink-2">Wake word</span>
-            <input
+            <TextField.Root
+              className="mt-1"
               value={draft.targetWord}
               onChange={(e) => setDraft((d) => ({ ...d, targetWord: e.target.value }))}
               placeholder="e.g. hey studio"
-              className="mt-1 w-full rounded-lg border border-line bg-surface-3 px-3 py-2 text-sm text-ink-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
             />
           </label>
           <label className="block text-sm">
@@ -80,7 +80,7 @@ export function NewProjectDialog({ open, onOpenChange }: Props) {
             <select
               value={draft.domain}
               onChange={(e) => setDraft((d) => ({ ...d, domain: e.target.value as ProjectDomain }))}
-              className="mt-1 w-full rounded-lg border border-line bg-surface-3 px-3 py-2 text-sm text-ink-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+              className="mt-1 w-full rounded-md border border-line bg-surface-3 px-2.5 py-1.5 text-sm text-ink-1 outline-none focus-visible:ring-2 focus-visible:ring-brand-8"
             >
               {PROJECT_DOMAINS.map((d) => (
                 <option key={d.value} value={d.value}>
@@ -91,28 +91,29 @@ export function NewProjectDialog({ open, onOpenChange }: Props) {
           </label>
           <label className="block text-sm">
             <span className="text-ink-2">Target chip (optional)</span>
-            <input
+            <TextField.Root
+              className="mt-1"
               value={draft.targetChip}
               onChange={(e) => setDraft((d) => ({ ...d, targetChip: e.target.value }))}
               placeholder="e.g. rpi4, esp32-s3, linux-x64"
-              className="mt-1 w-full rounded-lg border border-line bg-surface-3 px-3 py-2 text-sm text-ink-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
             />
           </label>
         </div>
         <div className="mt-5 flex justify-end gap-2">
-          <button
+          <Button
             onClick={() => onOpenChange(false)}
-            className={cn('rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:bg-surface-3')}
+            variant="outline"
+            size="2"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={submitCreate}
             disabled={busy}
-            className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
+            size="2"
           >
             {busy ? 'Creating…' : 'Create'}
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

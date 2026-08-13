@@ -9,12 +9,13 @@
 
 import { SourceSelector } from './SourceSelector'
 import { FileSourcePanel } from './FileSourcePanel'
+import { Button, SegmentedControl } from '@radix-ui/themes'
 import { FileIcon } from '@radix-ui/react-icons'
 import type { SourceState, SourceActions } from '../workspace/useSourceConfig'
-import { cn } from './cn'
 
 interface Props {
-  source: SourceState
+  /** Working source draft; `dirty`/`kindChanged` tell how it differs from the saved one. */
+  source: SourceState & { dirty: boolean; kindChanged: boolean }
   actions: SourceActions
   disabled?: boolean
 }
@@ -22,38 +23,40 @@ interface Props {
 export function SourceConfigSection({ source, actions, disabled }: Props) {
   return (
     <div className="space-y-3">
-      <div className="inline-flex items-center gap-1 rounded-xl border border-line bg-surface-3 p-1">
-        <button
-          onClick={() => actions.updateKind('mic')}
-          disabled={disabled}
-          className={cn(
-            'flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-50',
-            source.kind === 'mic'
-              ? 'bg-brand-500 text-ink-1 shadow-sm'
-              : 'text-ink-2 hover:bg-surface-4',
-          )}
-        >
-          {/* Mic: Radix UI has no mic glyph, so this stays hand-drawn. */}
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <SegmentedControl.Root
+        value={source.kind}
+        disabled={disabled}
+        onValueChange={(v) => actions.updateKind(v as 'mic' | 'file')}
+      >
+        <SegmentedControl.Item value="mic">
+          {/* Mic: Radix UI has no mic glyph, so this stays hand-drawn.
+              inline-block: Tailwind preflight makes svg display:block, which
+              would put the icon on its own line and clip the label. */}
+          <svg viewBox="0 0 24 24" className="inline-block h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
             <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8" />
           </svg>
           Microphone
-        </button>
-        <button
-          onClick={() => actions.updateKind('file')}
-          disabled={disabled}
-          className={cn(
-            'flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-50',
-            source.kind === 'file'
-              ? 'bg-brand-500 text-ink-1 shadow-sm'
-              : 'text-ink-2 hover:bg-surface-4',
-          )}
-        >
-          <FileIcon className="h-4 w-4" />
+        </SegmentedControl.Item>
+        <SegmentedControl.Item value="file">
+          <FileIcon className="inline-block h-4 w-4" />
           Audio files
-        </button>
-      </div>
+        </SegmentedControl.Item>
+      </SegmentedControl.Root>
+      {source.dirty && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="1" onClick={actions.apply}>
+            {source.kindChanged
+              ? `Use ${source.kind === 'file' ? 'audio files' : 'microphone'} as source`
+              : 'Apply source changes'}
+          </Button>
+          <span className="text-[11px] text-ink-3">
+            {disabled
+              ? 'Applies on the next Start'
+              : 'Not saved yet — press Apply to make it the project source.'}
+          </span>
+        </div>
+      )}
       {source.kind === 'mic' ? (
         <SourceSelector
           value={source.mic}

@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Button } from '@radix-ui/themes'
 import { personalizeNotebook, type EnvParam } from '@wake-studio/module-training'
 import { cn } from '../../components/cn'
 import { IconChevronLeft } from '../../components/icons'
@@ -171,13 +172,15 @@ export function NotebookReviewView({
       {/* Panel header. */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <button
+          <Button
             type="button"
             onClick={onBack}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-surface-3"
+            variant="outline"
+            size="1"
+            className="shrink-0 gap-1 text-xs font-medium"
           >
             <IconChevronLeft className="h-3.5 w-3.5" /> Back
-          </button>
+          </Button>
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold text-ink-1">Notebook review — {fileName}</h3>
             {bakedIn.length > 0 && (

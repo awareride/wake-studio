@@ -14,6 +14,7 @@
  */
 
 import * as React from 'react'
+import { Button } from '@radix-ui/themes'
 import { cn } from './cn'
 
 export type PipelineTabId = 'source' | 'aec' | 'bss' | 'ns' | 'kws'
@@ -73,7 +74,7 @@ export function StageCard({
       className={cn(
         'flex min-w-0 flex-1 cursor-pointer flex-col overflow-hidden rounded-xl border transition-all',
         active
-          ? 'border-brand-400/60 bg-surface-2 shadow-lg shadow-brand-500/5'
+          ? 'border-brand-8/60 bg-surface-2 shadow-lg shadow-brand-9/5'
           : 'border-line bg-surface-2 hover:border-line-2 hover:bg-surface-3',
         !enabled && 'opacity-60',
         !onSelect && 'cursor-default',
@@ -107,22 +108,21 @@ export function StageCard({
             )}
           </div>
           {onToggleEnabled && (
-            <button
+            <Button
               onClick={(e) => {
                 e.stopPropagation()
                 onToggleEnabled?.()
               }}
               aria-label={`${label} toggle`}
               aria-pressed={enabled}
-              className={cn(
-                'shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest transition-colors',
-                enabled
-                  ? 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
-                  : 'bg-surface-4 text-ink-3 hover:bg-surface-3',
-              )}
+              variant={enabled ? 'soft' : 'ghost'}
+              color={enabled ? 'green' : 'gray'}
+              size="1"
+              radius="full"
+              className="shrink-0 px-2 text-[9px] font-bold uppercase tracking-widest"
             >
               {enabled ? 'On' : 'Off'}
-            </button>
+            </Button>
           )}
         </div>
 

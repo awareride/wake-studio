@@ -16,6 +16,7 @@
  */
 
 import * as React from 'react'
+import { Checkbox } from '@radix-ui/themes'
 import { KWSPanel } from '../components/KWSPanel'
 import { ProjectBar } from '../components/ProjectBar'
 import { RecentProjectsMenu } from '../components/RecentProjectsMenu'
@@ -205,8 +206,13 @@ function WorkspaceInner({
 
   // Step A source state (re-seeded per project via the keyed wrapper).
   const source = useSourceConfig(wsCfg, persistWs, fallbackChannels)
-  const sourceRef = React.useRef(source)
-  sourceRef.current = source
+  const sourceRef = React.useRef<import('../workspace/useSourceConfig').SourceState>(
+    source.appliedSource,
+  )
+  // The pipeline reads the source at Start time - it must use the APPLIED
+  // source, never the working draft (browsing the other tab must not change
+  // what the system uses; only the explicit Apply button commits).
+  sourceRef.current = source.appliedSource
 
   // AFE engine lifecycle (commandRef feeds the unified runner).
   const { afeRef, running, error, commandRef } = useAfePipeline({
@@ -254,13 +260,15 @@ function WorkspaceInner({
 
   const previewVisible = runState.afeRunning || runState.kwsRunning
   const sourcePreview =
-    source.kind === 'file' ? `Files (${source.files.length})` : 'Mic · default'
+    source.appliedSource.kind === 'file'
+      ? `Files (${source.appliedSource.files.length})`
+      : 'Mic · default'
   const afeInfo = `AFE · ${afeCfg?.topology ?? 'single-worklet'} · ${afeCfg?.latencyBudgetMs ?? 150} ms`
 
   const stageCards = [
     {
       id: 'source' as const,
-      label: 'Source & AFE',
+      label: 'Source',
       preview: (
         <>
           <div>{sourcePreview}</div>
@@ -331,7 +339,7 @@ function WorkspaceInner({
           <div className="sticky top-0 z-20 bg-surface pt-3">
             <div className="rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
             <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-line pb-2">
-              <span className="rounded bg-brand-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-300">
+              <span className="rounded bg-brand-9/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-11">
                 Setup
               </span>
               <span className="text-xs text-ink-3">configure each module, then Start — Stop returns here</span>
@@ -404,14 +412,13 @@ function WorkspaceInner({
               <StageSection>
                 <div className="space-y-3">
                   <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={kwsPreloadOnStart}
-                      onChange={(e) => {
-                        setKwsPreloadOnStart(e.target.checked)
-                        persistWs({ kwsPreloadOnStart: e.target.checked })
+                      onCheckedChange={(v) => {
+                        setKwsPreloadOnStart(v === true)
+                        persistWs({ kwsPreloadOnStart: v === true })
                       }}
-                      className="h-3.5 w-3.5 rounded accent-brand-500"
+                      size="1"
                     />
                     <span className="text-ink-2">Preload KWS models on Start</span>
                     <span className="text-xs text-ink-3">
@@ -469,7 +476,7 @@ function WorkspaceInner({
             <div className="flex flex-wrap gap-2">
               <StageCard
                 id="source"
-                label="Source & AFE"
+                label="Source"
                 glyph="⌗"
                 color="#64748b"
                 enabled

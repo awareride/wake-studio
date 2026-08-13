@@ -15,6 +15,7 @@ import {
   downloadCsv,
 } from '../log'
 import { useLogEntries } from '../log'
+import { Button, SegmentedControl, Tabs } from '@radix-ui/themes'
 import { cn } from '../components/cn'
 import { useToast } from '../components/toast'
 
@@ -73,57 +74,46 @@ export function SessionConsoleView() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             onClick={handleClear}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:bg-surface-3"
+            variant="outline"
+            size="2"
           >
             Clear
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleExportCsv}
             disabled={triggers.length === 0}
-            className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-40"
+            size="2"
           >
             Export triggers CSV
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* Log / triggers sub-tabs */}
-      <div className="inline-flex rounded-lg border border-line bg-surface-2 p-1">
-        {(['log', 'triggers'] as const).map((v) => (
-          <button
-            key={v}
-            onClick={() => setView(v)}
-            className={cn(
-              'rounded-md px-3 py-1 text-sm font-medium',
-              view === v ? 'bg-brand-500/10 text-brand-700' : 'text-ink-3 hover:text-ink-1',
-            )}
-          >
-            {v === 'log' ? 'Event log' : `Triggers (${triggers.length})`}
-          </button>
-        ))}
-      </div>
+      {/* Log / triggers sub-tabs (Radix Themes Tabs, primitives-backed). */}
+      <Tabs.Root
+        value={view}
+        onValueChange={(v) => setView(v as 'log' | 'triggers')}
+      >
+        <Tabs.List size="1" className="w-fit">
+          <Tabs.Trigger value="log">Event log</Tabs.Trigger>
+          <Tabs.Trigger value="triggers">Triggers ({triggers.length})</Tabs.Trigger>
+        </Tabs.List>
 
-      {view === 'log' ? (
-        <>
-          {/* Level filter */}
-          <div className="flex gap-1">
+        <Tabs.Content value="log" className="space-y-2 pt-3">
+          {/* Level filter (Radix Themes SegmentedControl = ToggleGroup primitive). */}
+          <SegmentedControl.Root
+            size="1"
+            value={levelFilter}
+            onValueChange={(v) => setLevelFilter(v as LogLevel | 'all')}
+          >
             {(['all', 'info', 'warn', 'error'] as const).map((l) => (
-              <button
-                key={l}
-                onClick={() => setLevelFilter(l)}
-                className={cn(
-                  'rounded-full px-2.5 py-1 text-xs font-medium',
-                  levelFilter === l
-                    ? 'bg-surface-4 text-ink-1'
-                    : 'text-ink-3 hover:text-ink-1',
-                )}
-              >
+              <SegmentedControl.Item key={l} value={l}>
                 {l === 'all' ? 'All' : l}
-              </button>
+              </SegmentedControl.Item>
             ))}
-          </div>
+          </SegmentedControl.Root>
 
           {/* Log list */}
           <div className="max-h-[60vh] overflow-y-auto rounded-xl border border-line bg-surface-2 font-mono text-xs">
@@ -151,36 +141,38 @@ export function SessionConsoleView() {
               </ul>
             )}
           </div>
-        </>
-      ) : (
-        /* Trigger history table */
-        <div className="overflow-hidden rounded-xl border border-line bg-surface-2">
-          {triggers.length === 0 ? (
-            <div className="p-6 text-center text-sm text-ink-3">
-              No triggers yet — run detection and say the wake word.
-            </div>
-          ) : (
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-line bg-surface-3 text-xs uppercase tracking-wide text-ink-3">
-                <tr>
-                  <th className="px-3 py-2">Time</th>
-                  <th className="px-3 py-2">Wake word</th>
-                  <th className="px-3 py-2">Peak score</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {triggers.map((e) => (
-                  <tr key={e.id} className="text-ink-2">
-                    <td className="px-3 py-2 font-mono">{new Date(e.at).toLocaleString()}</td>
-                    <td className="px-3 py-2 font-medium text-ink-1">{e.trigger!.word}</td>
-                    <td className="px-3 py-2 font-mono">{e.trigger!.peakScore.toFixed(3)}</td>
+        </Tabs.Content>
+
+        {/* Trigger history table */}
+        <Tabs.Content value="triggers" className="pt-3">
+          <div className="overflow-hidden rounded-xl border border-line bg-surface-2">
+            {triggers.length === 0 ? (
+              <div className="p-6 text-center text-sm text-ink-3">
+                No triggers yet — run detection and say the wake word.
+              </div>
+            ) : (
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-line bg-surface-3 text-xs uppercase tracking-wide text-ink-3">
+                  <tr>
+                    <th className="px-3 py-2">Time</th>
+                    <th className="px-3 py-2">Wake word</th>
+                    <th className="px-3 py-2">Peak score</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {triggers.map((e) => (
+                    <tr key={e.id} className="text-ink-2">
+                      <td className="px-3 py-2 font-mono">{new Date(e.at).toLocaleString()}</td>
+                      <td className="px-3 py-2 font-medium text-ink-1">{e.trigger!.word}</td>
+                      <td className="px-3 py-2 font-mono">{e.trigger!.peakScore.toFixed(3)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </Tabs.Content>
+      </Tabs.Root>
     </div>
   )
 }

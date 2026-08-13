@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useRef } from 'react'
+import { Button, Checkbox, Slider } from '@radix-ui/themes'
 import type { FileChannelConfig, FileSourceItem } from '../workspace/types'
 import { decodeAudioFile } from '../workspace/sources/fileSource'
 
@@ -98,13 +99,14 @@ export function FileSourcePanel({ files, onChange, disabled }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
-        <button
+        <Button
           onClick={() => inputRef.current?.click()}
           disabled={disabled}
-          className="rounded-lg bg-surface-3 px-3 py-1.5 text-sm font-medium text-ink-2 hover:bg-surface-4 disabled:opacity-50"
+          variant="surface"
+          size="2"
         >
           + Add audio files…
-        </button>
+        </Button>
         <input
           ref={inputRef}
           type="file"
@@ -140,13 +142,16 @@ export function FileSourcePanel({ files, onChange, disabled }: Props) {
                     {f.channels.length} ch
                   </span>
                 </div>
-                <button
+                <Button
                   onClick={() => handleRemove(fi)}
                   disabled={disabled}
-                  className="shrink-0 rounded px-1.5 py-0.5 text-xs text-danger hover:bg-danger/10"
+                  variant="ghost"
+                  color="red"
+                  size="1"
+                  className="shrink-0 text-xs"
                 >
                   Remove
-                </button>
+                </Button>
               </div>
 
               {/* Per-channel rows: loop + offset */}
@@ -160,30 +165,28 @@ export function FileSourcePanel({ files, onChange, disabled }: Props) {
                       Ch {ch.index + 1}
                     </span>
                     <label className="flex items-center gap-1.5">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={ch.loop}
                         disabled={disabled}
-                        onChange={(e) =>
-                          updateChannel(fi, ci, { loop: e.target.checked })
+                        onCheckedChange={(v) =>
+                          updateChannel(fi, ci, { loop: v === true })
                         }
-                        className="h-3.5 w-3.5 rounded accent-brand-500"
+                        size="1"
                       />
                       <span className="text-ink-2">Loop</span>
                     </label>
                     <label className="flex items-center gap-1.5">
                       <span className="text-ink-3">Offset</span>
-                      <input
-                        type="range"
+                      <Slider
                         min={0}
                         max={Math.max(1, Math.round(f.durationMs))}
                         step={100}
-                        value={Math.min(ch.offsetMs, Math.max(1, Math.round(f.durationMs)))}
+                        value={[Math.min(ch.offsetMs, Math.max(1, Math.round(f.durationMs)))]}
                         disabled={disabled}
-                        onChange={(e) =>
-                          updateChannel(fi, ci, { offsetMs: Number(e.target.value) })
+                        onValueChange={(v) =>
+                          updateChannel(fi, ci, { offsetMs: v[0] })
                         }
-                        className="w-32 accent-brand-500"
+                        className="w-32"
                       />
                       <span className="w-14 text-right font-mono text-ink-2">
                         {(ch.offsetMs / 1000).toFixed(1)}s

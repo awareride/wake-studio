@@ -23,6 +23,9 @@
 /** Platform theme modes. `system` follows `prefers-color-scheme`. */
 export type ThemeMode = 'light' | 'dark' | 'system'
 
+/** Accent color themes - Radix Colors scales (https://www.radix-ui.com/colors). */
+export type AccentTheme = 'jade' | 'gray' | 'indigo' | 'orange' | 'mint' | 'sky'
+
 /** Locale anchor (store-only for now; i18n lands in Phase 6). */
 export type AppLocale = 'en' | 'zh-CN'
 
@@ -37,6 +40,8 @@ export interface PlatformSettings {
   /** Version gate for mergeWithDefaults on read. */
   schemaVersion: number
   theme: ThemeMode
+  /** Accent color theme (Radix Colors scale). */
+  'theme.accent': AccentTheme
   locale: AppLocale
   'kws.executionProvider': ExecutionProvider
   'backend.endpoint': string

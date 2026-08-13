@@ -87,14 +87,14 @@ export function ModuleSettingsSection({
             className={cn(
               'rounded-xl border bg-surface-2 p-5 transition-opacity',
               focused
-                ? 'border-brand-400 ring-1 ring-brand-400/30'
+                ? 'border-brand-8 ring-1 ring-brand-8/30'
                 : 'border-line',
             )}
           >
             <h3 className="mb-1 text-sm font-semibold text-ink-1">
               {driver.label}
               {focused && (
-                <span className="ml-2 rounded bg-brand-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-700">
+                <span className="ml-2 rounded bg-brand-9/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-11">
                   active
                 </span>
               )}

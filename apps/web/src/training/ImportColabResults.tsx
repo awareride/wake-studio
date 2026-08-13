@@ -8,6 +8,7 @@
  */
 
 import * as React from 'react'
+import { Button } from '@radix-ui/themes'
 import {
   BundleImportError,
   BUNDLE_IMPORT_ERROR_MESSAGES,
@@ -186,14 +187,14 @@ export function ImportColabResults({ onImported }: ImportColabResultsProps) {
             e.target.value = ''
           }}
         />
-        <button
+        <Button
           onClick={() => inputRef.current?.click()}
           disabled={importing}
-          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-brand-400 disabled:opacity-50"
+          size="2"
         >
           {importing ? 'Importing…' : 'Import Colab results…'}
-        </button>
-        {importing && <IconSpinner className="h-4 w-4 text-brand-600" />}
+        </Button>
+        {importing && <IconSpinner className="h-4 w-4 text-brand-11" />}
       </div>
 
       {error && (

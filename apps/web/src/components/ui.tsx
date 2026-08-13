@@ -1,11 +1,20 @@
 /**
  * Radix shell components (App shell layer).
  *
- * Thin, styled adapters over Radix Primitives for the console shell ONLY -
- * navigation, modals, menus, hints, notifications. These are NOT part of the
- * spec-driven layer (ADR-025 keeps that pure in `module-kit`); they are the
- * shell's own building blocks. Styling uses the WakeStudio semantic tokens
- * (`--ws-*`, light theme; dark theme is a token swap).
+ * Thin, styled adapters over Radix Primitives / Radix Themes for the console
+ * shell - navigation, modals, menus, hints, notifications. These are NOT part
+ * of the spec-driven layer (ADR-025 keeps that pure in `module-kit`); they are
+ * the shell's own building blocks.
+ *
+ * - Dialog, buttons, cards, inputs... use Radix Themes components (styling
+ *   comes from the Theme provider + Radix Colors tokens).
+ * - DropdownMenu, Tooltip, Toast stay on Radix Primitives (already themed via
+ *   the `--ws-*` tokens; behavior-critical for e2e).
+ *
+ * Note: Radix Themes' CSS is unlayered, so it beats Tailwind utilities in the
+ * cascade. Where we need to override Themes defaults (dialog width/padding,
+ * drawer positioning) we use Tailwind's `!` (important) modifier - see
+ * DialogContent.
  */
 
 import * as React from 'react'
@@ -13,88 +22,57 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import * as DropdownPrimitive from '@radix-ui/react-dropdown-menu'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import * as ToastPrimitive from '@radix-ui/react-toast'
+import * as Themes from '@radix-ui/themes'
 import { cn } from './cn'
 import { IconMenu } from './icons'
 
 // ---------------------------------------------------------------------------
-// Dialog
+// Dialog (Radix Themes - bundled overlay + content, themes motion/styling)
 // ---------------------------------------------------------------------------
 export const Dialog = DialogPrimitive.Root
 export const DialogTrigger = DialogPrimitive.Trigger
 export const DialogClose = DialogPrimitive.Close
-export const DialogPortal = DialogPrimitive.Portal
-export const DialogOverlay = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Overlay>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Overlay
+
+export const DialogContent = React.forwardRef<
+  React.ElementRef<typeof Themes.Dialog.Content>,
+  React.ComponentPropsWithoutRef<typeof Themes.Dialog.Content> & {
+    /** Center on screen (default). When false, the content is a left-edge
+     *  side drawer (mobile nav / train list). */
+    centered?: boolean
+  }
+>(({ className, centered = true, ...props }, ref) => (
+  <Themes.Dialog.Content
     ref={ref}
     className={cn(
-      // Position + animation only; the scrim color is applied by the caller
-      // (DialogContent) so a focused modal can fully replace it (issue #105).
-      'fixed inset-0 z-50',
-      'data-[state=open]:animate-in data-[state=closed]:animate-out',
+      // Themes CSS is unlayered -> width/padding overrides need `!`.
+      centered
+        ? '!w-[min(92vw,26rem)]'
+        : '!fixed left-0 top-0 h-screen !w-[min(80vw,17rem)] !p-0',
       className,
     )}
     {...props}
   />
 ))
-DialogOverlay.displayName = 'DialogOverlay'
-export const DialogContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
-    /** Center on screen (default). When false, no positioning classes are
-     *  applied so the caller can position it (e.g. a side drawer). */
-    centered?: boolean
-    /** Extra classes for the scrim overlay (e.g. a stronger dim + blur for
-     *  focused modal flows — training wizard / notebook review, #105). */
-    overlayClassName?: string
-  }
->(({ className, children, centered = true, overlayClassName, ...props }, ref) => (
-  <DialogPrimitive.Portal>
-    <DialogOverlay className={overlayClassName ?? 'bg-slate-900/20'} />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        'z-50 border border-line bg-surface-2 shadow-2xl',
-        'outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
-        centered
-          ? 'fixed left-1/2 top-1/2 w-[min(92vw,26rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl p-6'
-          : 'fixed',
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </DialogPrimitive.Content>
-  </DialogPrimitive.Portal>
-))
 DialogContent.displayName = 'DialogContent'
+
 export const DialogTitle = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
+  React.ElementRef<typeof Themes.Dialog.Title>,
+  React.ComponentPropsWithoutRef<typeof Themes.Dialog.Title>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title
-    ref={ref}
-    className={cn('text-base font-semibold text-ink-1', className)}
-    {...props}
-  />
+  <Themes.Dialog.Title ref={ref} className={className} {...props} />
 ))
 DialogTitle.displayName = 'DialogTitle'
+
 export const DialogDescription = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
+  React.ElementRef<typeof Themes.Dialog.Description>,
+  React.ComponentPropsWithoutRef<typeof Themes.Dialog.Description>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description
-    ref={ref}
-    className={cn('mt-1 text-sm text-ink-2', className)}
-    {...props}
-  />
+  <Themes.Dialog.Description ref={ref} className={className} {...props} />
 ))
 DialogDescription.displayName = 'DialogDescription'
 
 // ---------------------------------------------------------------------------
-// Dropdown menu
+// Dropdown menu (Radix primitive, token-styled)
 // ---------------------------------------------------------------------------
 export const DropdownMenu = DropdownPrimitive.Root
 export const DropdownMenuTrigger = DropdownPrimitive.Trigger
@@ -145,7 +123,7 @@ export const DropdownMenuSeparator = React.forwardRef<
 DropdownMenuSeparator.displayName = 'DropdownMenuSeparator'
 
 // ---------------------------------------------------------------------------
-// Tooltip
+// Tooltip (Radix primitive, token-styled)
 // ---------------------------------------------------------------------------
 export const TooltipProvider = TooltipPrimitive.Provider
 export const Tooltip = TooltipPrimitive.Root
@@ -170,7 +148,7 @@ export const TooltipContent = React.forwardRef<
 TooltipContent.displayName = 'TooltipContent'
 
 // ---------------------------------------------------------------------------
-// Toast
+// Toast (Radix primitive, token-styled)
 // ---------------------------------------------------------------------------
 export const ToastProvider = ToastPrimitive.Provider
 export const ToastViewport = React.forwardRef<

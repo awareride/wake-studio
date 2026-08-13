@@ -17,7 +17,7 @@ export function ComingSoonView({
 }) {
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
-      <div className="rounded-full bg-brand-500/10 px-3 py-1 text-xs font-medium text-brand-700">
+      <div className="rounded-full bg-brand-9/10 px-3 py-1 text-xs font-medium text-brand-11">
         Coming soon
       </div>
       <h2 className="text-lg font-semibold text-ink-1">{title}</h2>

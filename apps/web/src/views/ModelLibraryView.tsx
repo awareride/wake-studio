@@ -15,6 +15,7 @@ import { loadRegistry, isCommerciallyUsable } from '@wake-studio/platform'
 import { probeModelUrl, type ProbeResult } from '@wake-studio/platform'
 import { getBackendRegistry } from '@wake-studio/module-kws-engine'
 import { IconSpinner } from '../components/icons'
+import { Button, SegmentedControl, TextField } from '@radix-ui/themes'
 import { useToast } from '../components/toast'
 import { cn } from '../components/cn'
 import { ExportGateDialog } from './ExportGateDialog'
@@ -71,13 +72,15 @@ function ProbeButton({ model }: { model: RegistryModel }) {
   }
   if (probe.state === 'error') {
     return (
-      <button
+      <Button
         onClick={run}
-        className="text-[11px] text-danger hover:underline"
+        variant="ghost"
+        size="1"
+        className="h-auto text-[11px] text-danger hover:underline"
         title={probe.error}
       >
         unreachable · retry
-      </button>
+      </Button>
     )
   }
   if (probe.state === 'probing') {
@@ -88,12 +91,14 @@ function ProbeButton({ model }: { model: RegistryModel }) {
     )
   }
   return (
-    <button
+    <Button
       onClick={run}
-      className="text-[11px] text-ink-3 hover:text-ink-1 hover:underline"
+      variant="ghost"
+      size="1"
+      className="h-auto text-[11px] text-ink-3 hover:underline hover:text-ink-1"
     >
       verify reachable
-    </button>
+    </Button>
   )
 }
 
@@ -149,7 +154,7 @@ export function ModelLibraryView() {
   if (!registry) {
     return (
       <div className="flex items-center gap-3 py-16 text-sm text-ink-2">
-        <IconSpinner className="h-4 w-4 text-brand-600" />
+        <IconSpinner className="h-4 w-4 text-brand-11" />
         Loading model registry…
       </div>
     )
@@ -168,27 +173,24 @@ export function ModelLibraryView() {
 
       {/* Toolbar: search + tier filter */}
       <div className="flex flex-wrap items-center gap-3">
-        <input
+        <TextField.Root
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search models…"
           aria-label="Search models"
-          className="w-64 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-sm text-ink-1 placeholder:text-ink-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+          className="w-64"
         />
-        <div className="flex gap-1 rounded-lg border border-line bg-surface-2 p-1">
+        <SegmentedControl.Root
+          size="1"
+          value={tier}
+          onValueChange={(v) => setTier(v as 'all' | ModelTier)}
+        >
           {(['all', 'low-power', 'high-performance'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTier(t)}
-              className={cn(
-                'rounded-md px-2.5 py-1 text-xs font-medium',
-                tier === t ? 'bg-brand-500/10 text-brand-700' : 'text-ink-3 hover:text-ink-1',
-              )}
-            >
+            <SegmentedControl.Item key={t} value={t}>
               {t === 'all' ? 'All' : t === 'low-power' ? 'MCU' : 'High-perf'}
-            </button>
+            </SegmentedControl.Item>
           ))}
-        </div>
+        </SegmentedControl.Root>
       </div>
 
       {/* Backend availability */}
@@ -269,12 +271,14 @@ export function ModelLibraryView() {
 
                 <div className="mt-auto flex items-center justify-between pt-2">
                   <ProbeButton model={m} />
-                  <button
+                  <Button
                     onClick={() => setExportModel(m)}
-                    className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink-2 hover:bg-surface-3"
+                    variant="outline"
+                    size="1"
+                    className="text-xs"
                   >
                     Export…
-                  </button>
+                  </Button>
                 </div>
               </article>
             ))}

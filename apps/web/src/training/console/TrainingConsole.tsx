@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Button, IconButton } from '@radix-ui/themes'
 import {
   backendForMethod,
   importedJob,
@@ -187,14 +188,15 @@ export function TrainingConsole() {
               Training never runs in the browser (ADR-013).
             </p>
           </div>
-          <button
+          <Button
             type="button"
             onClick={() => setView({ kind: 'wizard', from: view })}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-400"
+            size="2"
+            className="shrink-0 gap-1.5 font-semibold"
           >
             <IconWand className="h-4 w-4" />
             New
-          </button>
+          </Button>
         </div>
       )}
 
@@ -230,14 +232,16 @@ export function TrainingConsole() {
                 toggle lives in the TRAINS header (issue #105). */}
             {(!isDesktop || railCollapsed) && (
               <div className="mb-2 flex shrink-0 items-center gap-2">
-                <button
+                <IconButton
                   type="button"
                   onClick={handleRailToggle}
                   aria-label={isDesktop ? 'Show train list' : 'Open train list'}
-                  className="rounded-md p-1 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
+                  variant="ghost"
+                  size="1"
+                  className="text-ink-3"
                 >
                   <IconMenu className="h-4 w-4" />
-                </button>
+                </IconButton>
                 <span className="text-[11px] text-ink-3">Train list</span>
               </div>
             )}
@@ -294,14 +298,16 @@ export function TrainingConsole() {
             <span className="text-xs font-semibold uppercase tracking-wide text-ink-3">
               Train list
             </span>
-            <button
+            <IconButton
               type="button"
               onClick={() => setDrawerOpen(false)}
               aria-label="Close train list"
-              className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
+              variant="ghost"
+              size="1"
+              className="text-ink-3"
             >
               ✕
-            </button>
+            </IconButton>
           </div>
           <div className="flex-1 overflow-y-auto">
             <TrainList

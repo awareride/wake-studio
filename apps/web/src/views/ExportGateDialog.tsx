@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogClose,
 } from '../components/ui'
+import { Button } from '@radix-ui/themes'
 import { useToast } from '../components/toast'
 import { cn } from '../components/cn'
 
@@ -89,17 +90,17 @@ export function ExportGateDialog({ model, open, onOpenChange }: ExportGateDialog
                 className={cn(
                   'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm',
                   target === t.value
-                    ? 'border-brand-500 bg-brand-500/10 text-ink-1'
+                    ? 'border-brand-9 bg-brand-9/10 text-ink-1'
                     : 'border-line bg-surface-3 text-ink-2 hover:bg-surface-4',
                 )}
               >
                 <span
                   className={cn(
                     'flex h-4 w-4 items-center justify-center rounded-full border',
-                    target === t.value ? 'border-brand-500' : 'border-line-2',
+                    target === t.value ? 'border-brand-9' : 'border-line-2',
                   )}
                 >
-                  {target === t.value && <span className="h-2 w-2 rounded-full bg-brand-500" />}
+                  {target === t.value && <span className="h-2 w-2 rounded-full bg-brand-9" />}
                 </span>
                 {t.label}
               </button>
@@ -109,23 +110,18 @@ export function ExportGateDialog({ model, open, onOpenChange }: ExportGateDialog
 
         <div className="mt-5 flex justify-end gap-2">
           <DialogClose asChild>
-            <button className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:bg-surface-3">
+            <Button variant="outline" size="2">
               Cancel
-            </button>
+            </Button>
           </DialogClose>
-          <button
+          <Button
             onClick={handleExport}
             disabled={!usable}
-            className={cn(
-              'rounded-lg px-3 py-1.5 text-sm font-medium',
-              usable
-                ? 'bg-brand-500 text-ink-1 hover:bg-brand-400'
-                : 'cursor-not-allowed bg-surface-4 text-ink-3',
-            )}
+            size="2"
             title={usable ? undefined : 'Blocked by the license gate'}
           >
             Export
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

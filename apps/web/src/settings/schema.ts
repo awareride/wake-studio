@@ -11,12 +11,13 @@
 import type { PlatformSettings, PlatformSettingId, SettingDescriptor } from './types'
 
 /** Current schema version. Bump when a field is added/removed. */
-export const SETTINGS_SCHEMA_VERSION = 1
+export const SETTINGS_SCHEMA_VERSION = 2
 
 /** Default platform settings (schemaVersion is explicit so merge works). */
 export const PLATFORM_DEFAULTS: PlatformSettings = {
   schemaVersion: SETTINGS_SCHEMA_VERSION,
   theme: 'light',
+  'theme.accent': 'gray',
   locale: 'en',
   'kws.executionProvider': 'wasm',
   'backend.endpoint': 'http://127.0.0.1:4824',
@@ -41,6 +42,23 @@ export const PLATFORM_SETTING_DESCRIPTORS: ReadonlyArray<SettingDescriptor> = [
       { value: 'light', label: 'Light' },
       { value: 'dark', label: 'Dark' },
       { value: 'system', label: 'System' },
+    ],
+    group: 'general',
+  },
+  {
+    id: 'theme.accent',
+    label: 'Accent color',
+    description:
+      'Accent theme (Radix Colors scales). Gray is the default; Sky is the classic WakeStudio look.',
+    type: 'select',
+    default: 'gray',
+    options: [
+      { value: 'jade', label: 'Jade' },
+      { value: 'gray', label: 'Gray' },
+      { value: 'indigo', label: 'Indigo' },
+      { value: 'orange', label: 'Orange' },
+      { value: 'mint', label: 'Mint' },
+      { value: 'sky', label: 'Sky' },
     ],
     group: 'general',
   },

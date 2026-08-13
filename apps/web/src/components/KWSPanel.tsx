@@ -13,6 +13,7 @@
  */
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Button } from '@radix-ui/themes'
 import type { MutableRefObject } from 'react'
 import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import type { PanelCommands } from '../workspace/usePipelineRunner'
@@ -970,66 +971,45 @@ export const KWSPanel = memo(function KWSPanel({
           </div>
           <div className="flex items-center gap-2">
             {provisionKind !== 'prototype' && status === 'idle' && (
-              <button
-                onClick={provisionKind === 'list' ? handleListLoad : handleLoad}
-                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-brand-400"
-              >
+              <Button variant="solid" size="2" onClick={provisionKind === 'list' ? handleListLoad : handleLoad}>
                 {provisionKind === 'list'
                   ? (provisionActionLabel(config.backend, 'load-with-list') ?? 'Load')
                   : 'Load models'}
-              </button>
+              </Button>
             )}
             {provisionKind !== 'prototype' && (status === 'ready' || status === 'error') && (
-              <button
-                onClick={provisionKind === 'list' ? handleListLoad : handleLoad}
-                className="rounded-lg bg-surface-3 px-4 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-4"
-              >
+              <Button variant="surface" size="2" onClick={provisionKind === 'list' ? handleListLoad : handleLoad}>
                 {provisionKind === 'list'
                   ? (provisionActionLabel(config.backend, 'load-with-list') ?? 'Reload')
                   : 'Reload models'}
-              </button>
+              </Button>
             )}
             {provisionKind === 'prototype' && status !== 'ready' && status !== 'running' && !detecting && (
-              <button
-                onClick={handleProvisionLoad}
-                disabled={status === 'loading'}
-                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
-              >
+              <Button variant="solid" size="2" onClick={handleProvisionLoad}
+                disabled={status === 'loading'}>
                 {status === 'loading' ? 'Loading…' : loadActionLabel(selectedBackend)}
-              </button>
+              </Button>
             )}
             {provisionKind !== 'prototype' && canStart && (
-              <button
-                onClick={handleStart}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-emerald-500"
-              >
+              <Button variant="solid" color="green" size="2" onClick={handleStart}>
                 Start detection
-              </button>
+              </Button>
             )}
             {provisionKind !== 'prototype' && running && (
-              <button
-                onClick={handleStop}
-                className="rounded-lg bg-danger/90 px-4 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-red-500"
-              >
+              <Button variant="solid" color="red" size="2" onClick={handleStop}>
                 Stop detection
-              </button>
+              </Button>
             )}
             {provisionKind === 'prototype' && artifact && !detecting && (
-              <button
-                onClick={handleProvisionStart}
-                disabled={!afeRunning}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-emerald-500 disabled:opacity-50"
-              >
+              <Button variant="solid" color="green" size="2" onClick={handleProvisionStart}
+                disabled={!afeRunning}>
                 {provisionActionLabel(config.backend, 'start') ?? 'Start detection'}
-              </button>
+              </Button>
             )}
             {provisionKind === 'prototype' && detecting && (
-              <button
-                onClick={handleProvisionStop}
-                className="rounded-lg bg-danger/90 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-red-500"
-              >
+              <Button variant="solid" color="red" size="2" onClick={handleProvisionStop}>
                 {provisionActionLabel(config.backend, 'stop') ?? 'Stop detection'}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -1214,32 +1194,39 @@ export const KWSPanel = memo(function KWSPanel({
                           Saved: {selectedModel.name} · {Math.round(selectedModel.sizeBytes / 1024)} KB ·{' '}
                           {new Date(selectedModel.createdAtMs).toLocaleDateString()}
                         </span>
-                        <button
+                        <Button
                           onClick={() => void exportUserModel(selectedModel)}
-                          className="text-brand-400 underline hover:text-brand-300"
+                          variant="ghost"
+                          size="1"
+                          className="text-brand-11 underline hover:text-brand-10"
                         >
                           Export
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           onClick={() => {
                             void deleteUserModel(selectedModel.id)
                             setUserModels((prev) => prev.filter((m) => m.id !== selectedModel.id))
                             setModelSources((prev) => ({ ...prev, [role]: fallbackId }))
                           }}
+                          variant="ghost"
+                          color="red"
+                          size="1"
                           className="text-danger underline hover:text-red-400"
                         >
                           Delete
-                        </button>
+                        </Button>
                       </div>
                     )}
                     <div className="flex items-center gap-2">
-                      <button
+                      <Button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={status === 'loading' || running}
-                        className="rounded bg-surface-3 px-2 py-0.5 text-[10px] text-ink-2 hover:bg-surface-4"
+                        variant="soft"
+                        size="1"
+                        className="text-[10px]"
                       >
                         Import local file…
-                      </button>
+                      </Button>
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -1334,25 +1321,24 @@ export const KWSPanel = memo(function KWSPanel({
           {provisionKind === 'prototype' && status === 'ready' && !detecting && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-3">
-                <button
+                <Button
                   onClick={() => void handleRecord('pos')}
                   disabled={recording}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-emerald-500 disabled:opacity-50"
+                  variant="solid"
+                  color="green"
+                  size="2"
                 >
                   {recording
                     ? `Recording… (${RECORD_MS}ms)`
                     : (provisionActionLabel(config.backend, 'record') ?? 'Record sample')}
-                </button>
+                </Button>
                 {samples.length >= MIN_SAMPLES && (
-                  <button
-                    onClick={handleBuildPrototype}
-                    disabled={building}
-                    className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
-                  >
+                  <Button variant="solid" size="2" onClick={handleBuildPrototype}
+                    disabled={building}>
                     {building
                       ? 'Building…'
                       : `${provisionActionLabel(config.backend, 'enroll') ?? 'Build prototype'} (${samples.length} samples)`}
-                  </button>
+                  </Button>
                 )}
                 {samples.length > 0 && (
                   <span className="text-xs text-ink-3">
@@ -1411,25 +1397,23 @@ export const KWSPanel = memo(function KWSPanel({
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <button
+                  <Button
                     onClick={() => void handleRecord('neg')}
                     disabled={recordingNeg}
-                    className="rounded-lg bg-surface-3 px-4 py-2 text-sm font-medium text-ink-2 hover:bg-surface-4 disabled:opacity-50"
+                    variant="surface"
+                    size="2"
                   >
                     {recordingNeg ? `Recording… (${RECORD_MS}ms)` : 'Record non-target sample'}
-                  </button>
+                  </Button>
                   {negSamples.length >= MIN_SAMPLES && artifactProto && (
-                    <button
-                      onClick={handleBuildNegative}
-                      disabled={buildingNeg}
-                      className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
-                    >
+                    <Button variant="solid" size="2" onClick={handleBuildNegative}
+                      disabled={buildingNeg}>
                       {buildingNeg
                         ? 'Building…'
                         : artifactProto.negativeVector
                           ? 'Re-enroll negative prototype'
                           : `${provisionActionLabel(config.backend, 'enroll-negative') ?? 'Build negative prototype'} (${negSamples.length} samples)`}
-                    </button>
+                    </Button>
                   )}
                   {negSamples.length > 0 && (
                     <span className="text-xs text-ink-3">

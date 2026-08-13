@@ -58,7 +58,7 @@ export function UiBar({ value, label, height = 6, threshold = 0.5, className }: 
       >
         <div
           className={`h-full rounded-full transition-all duration-100 ${
-            over ? 'bg-emerald-500' : 'bg-brand-500'
+            over ? 'bg-emerald-500' : 'bg-brand-9'
           }`}
           style={{ width: `${pct}%` }}
         />

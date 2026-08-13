@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { MicSourceConfig } from '@wake-studio/module-afe-graph'
+import { Button, Card, Checkbox } from '@radix-ui/themes'
 import {
   enumerateMicDevices,
   hasDeviceLabels,
@@ -42,12 +43,11 @@ function ToggleRow({
 }) {
   return (
     <label className="flex items-center gap-2 text-xs">
-      <input
-        type="checkbox"
+      <Checkbox
         checked={checked}
         disabled={disabled}
-        onChange={(e) => onChecked(e.target.checked)}
-        className="h-3.5 w-3.5 rounded accent-brand-500"
+        onCheckedChange={(v) => onChecked(v === true)}
+        size="1"
       />
       <span className="text-ink-2">{label}</span>
       <span className="text-[10px] text-ink-3">{hint}</span>
@@ -90,14 +90,14 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
   }, [devices])
 
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-line bg-surface-2 p-4">
+    <Card className="flex flex-wrap items-center gap-x-5 gap-y-3 !p-4">
       <label className="flex items-center gap-2 text-sm">
         <span className="text-ink-2">Input device</span>
         <select
           value={value.deviceId ?? ''}
           disabled={disabled || devices.length === 0}
           onChange={(e) => onChange({ ...value, deviceId: e.target.value || undefined })}
-          className="max-w-56 truncate rounded bg-surface-3 px-2 py-1 text-sm text-ink-1"
+          className="max-w-72 truncate rounded bg-surface-3 px-2.5 py-1 text-sm text-ink-1"
         >
           {devices.length === 0 && <option value="">Default device</option>}
           {devices.map((d) => (
@@ -109,13 +109,13 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
       </label>
 
       {devices.length > 0 && !permissionGranted && (
-        <button
+        <Button
           onClick={handleRequestPermission}
           disabled={disabled}
-          className="rounded bg-brand-500 px-2 py-1 text-xs font-medium text-ink-1 hover:bg-brand-400 disabled:opacity-50"
+          size="1"
         >
           Allow mic to see device names
-        </button>
+        </Button>
       )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -160,6 +160,6 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
         Browser DSP is off by default — our RNNoise is the only noise
         suppressor. Toggle browser AEC/NS/AGC to let the device do it instead.
       </p>
-    </div>
+    </Card>
   )
 }

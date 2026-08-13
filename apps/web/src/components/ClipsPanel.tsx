@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Button } from '@radix-ui/themes'
 import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import { useProjects } from '../projects'
 import type { WorkspaceConfig } from '../workspace/types'
@@ -147,17 +148,15 @@ export function ClipsPanel({ pipeline, running, config }: Props) {
     <div className="rounded-xl border border-line bg-surface-2 p-5">
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="text-sm font-semibold text-ink-1">Per-stage clips</h3>
-        <button
+        <Button
           onClick={() => void handleCapture()}
           disabled={!running || enabledCount === 0}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 ${
-            capturing
-              ? 'bg-danger/90 text-ink-1 hover:bg-red-500'
-              : 'bg-surface-3 text-ink-2 hover:bg-surface-4'
-          }`}
+          variant={capturing ? 'solid' : 'surface'}
+          color={capturing ? 'red' : 'gray'}
+          size="2"
         >
           {capturing ? 'Stop & save clips' : 'Capture'}
-        </button>
+        </Button>
         {running && enabledCount === 0 && (
           <span className="text-xs text-warning">
             Enable persistence in a module config (Source/NS/KWS) first.
@@ -185,36 +184,46 @@ export function ClipsPanel({ pipeline, running, config }: Props) {
                 </span>
                 <div className="ml-auto flex items-center gap-2">
                   {playingId === clip.id ? (
-                    <button
+                    <Button
                       onClick={stop}
-                      className="rounded bg-surface-3 px-2 py-0.5 text-xs text-ink-2 hover:bg-surface-4"
+                      variant="soft"
+                      size="1"
+                      className="text-xs"
                     >
                       Stop
-                    </button>
+                    </Button>
                   ) : (
-                    <button
+                    <Button
                       onClick={() => void handlePlay(clip)}
-                      className="rounded bg-emerald-600/20 px-2 py-0.5 text-xs text-emerald-300 hover:bg-emerald-600/30"
+                      variant="soft"
+                      color="green"
+                      size="1"
+                      className="text-xs"
                     >
                       Play
-                    </button>
+                    </Button>
                   )}
-                  <button
+                  <Button
                     onClick={() => {
                       void clip.blob.arrayBuffer().then((buf) => {
                         downloadWav(new Uint8Array(buf), `${clip.name}.wav`)
                       })
                     }}
-                    className="rounded bg-surface-3 px-2 py-0.5 text-xs text-ink-2 hover:bg-surface-4"
+                    variant="soft"
+                    size="1"
+                    className="text-xs"
                   >
                     Export
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => handleDelete(clip.id)}
-                    className="rounded px-2 py-0.5 text-xs text-danger hover:bg-danger/10"
+                    variant="ghost"
+                    color="red"
+                    size="1"
+                    className="text-xs"
                   >
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </div>
               {playingId === clip.id && (
