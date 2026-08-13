@@ -2,14 +2,15 @@
  * Training console — layout (issue #105).
  *
  *   Header: Training · [New]  (wizard wand)
- *   Left rail:  Train news (tips)  ·  Train list (persistent, IndexedDB)
- *   Right pane: the selected train's details (status / results / inputs
- *               review), or an empty state.
+ *   Left rail:  train list (persistent, IndexedDB; each item notes its
+ *               latest notification)
+ *   Right pane: the selected train's details (status / notifications /
+ *               results / inputs review), or an empty state.
  *
- * The New-train wizard runs in a MODAL dialog so clicking trains in the left
- * rail cannot interrupt the steps. Confirming a train records the job and
- * opens its review immediately; Colab imports record/update the job and open
- * its review too.
+ * The New-train wizard is a FULL panel of the Training view (no dialog, no
+ * left rail while it is open, so the steps cannot be interrupted).
+ * Confirming a train records the job and opens its review immediately;
+ * Colab imports record/update the job and open its review too.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -23,7 +24,6 @@ import {
   type TrainMethodId,
 } from '@wake-studio/module-training'
 import { clearJobs, listJobs, saveJob } from '@wake-studio/module-training'
-import { Dialog, DialogContent, DialogTitle } from '../../components/ui'
 import { IconWand } from '../../components/icons'
 import { NewTrainWizard } from './NewTrainWizard'
 import { TrainDetails } from './TrainDetails'
@@ -31,14 +31,16 @@ import { TrainList } from './TrainList'
 import { fetchTrainableModules, type TrainableModule } from '../train-modules'
 import type { ColabImportResult } from '../colab-import'
 
-type View = { kind: 'empty' } | { kind: 'details'; jobId: string }
+type View =
+  | { kind: 'empty' }
+  | { kind: 'details'; jobId: string }
+  | { kind: 'wizard'; from: { kind: 'empty' } | { kind: 'details'; jobId: string } }
 
 export function TrainingConsole() {
   const [jobs, setJobs] = useState<HistoryJob[]>([])
   const [modules, setModules] = useState<TrainableModule[]>([])
   const [modulesError, setModulesError] = useState<string | null>(null)
   const [view, setView] = useState<View>({ kind: 'empty' })
-  const [wizardOpen, setWizardOpen] = useState(false)
   const [confirmingClear, setConfirmingClear] = useState(false)
 
   // Load the persistent train list + the trainable-modules catalog once.
@@ -92,7 +94,6 @@ export function TrainingConsole() {
         params,
       })
       recordJob(job)
-      setWizardOpen(false)
       setView({ kind: 'details', jobId: job.id })
     },
     [recordJob],
@@ -141,78 +142,74 @@ export function TrainingConsole() {
             Training never runs in the browser (ADR-013).
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setWizardOpen(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-400"
-        >
-          <IconWand className="h-4 w-4" />
-          New
-        </button>
+        {view.kind !== 'wizard' && (
+          <button
+            type="button"
+            onClick={() => setView({ kind: 'wizard', from: view })}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-400"
+          >
+            <IconWand className="h-4 w-4" />
+            New
+          </button>
+        )}
       </div>
 
-      <div className="flex gap-6">
-        {/* Left rail: the train list (notifications live with each train). */}
-        <aside className="flex w-72 shrink-0 flex-col border-r border-line">
-          <TrainList
-            jobs={jobs}
-            selectedId={selectedJob?.id ?? null}
-            onSelect={openTrain}
-            onClear={handleClear}
-            confirmingClear={confirmingClear}
-          />
-        </aside>
+      {view.kind === 'wizard' ? (
+        /* The New-train wizard as a FULL panel of the Training view — no
+           dialog, no left rail to interrupt the steps (issue #105). */
+        <NewTrainWizard
+          modules={modules}
+          onStarted={handleWizardStarted}
+          onCancel={() => setView(view.from)}
+        />
+      ) : (
+        <div className="flex gap-6">
+          {/* Left rail: the train list (notifications live with each train). */}
+          <aside className="flex w-72 shrink-0 flex-col border-r border-line">
+            <TrainList
+              jobs={jobs}
+              selectedId={selectedJob?.id ?? null}
+              onSelect={openTrain}
+              onClear={handleClear}
+              confirmingClear={confirmingClear}
+            />
+          </aside>
 
-        {/* Right pane: details or empty state. */}
-        <div className="min-w-0 flex-1">
-          {view.kind === 'details' &&
-            (selectedJob ? (
-              <TrainDetails
-                job={selectedJob}
-                modules={modules}
-                onImported={handleImported}
-                onTunnelUrlChange={(url) => patchJob(selectedJob.id, { tunnelUrl: url })}
-              />
-            ) : (
-              <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
-                This train is no longer in the list (cleared?). Pick another from the rail.
+          {/* Right pane: details or empty state. */}
+          <div className="min-w-0 flex-1">
+            {view.kind === 'details' &&
+              (selectedJob ? (
+                <TrainDetails
+                  job={selectedJob}
+                  modules={modules}
+                  onImported={handleImported}
+                  onTunnelUrlChange={(url) => patchJob(selectedJob.id, { tunnelUrl: url })}
+                />
+              ) : (
+                <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
+                  This train is no longer in the list (cleared?). Pick another from the rail.
+                </div>
+              ))}
+
+            {view.kind === 'empty' && (
+              <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
+                <p className="text-sm font-medium text-ink-1">No train selected</p>
+                <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
+                  Press <span className="font-medium text-ink-2">New</span> (the wizard wand) to
+                  pick a trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure
+                  it, choose a train method, and confirm. Past trains stay in the left rail.
+                </p>
               </div>
-            ))}
+            )}
 
-          {view.kind === 'empty' && (
-            <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
-              <p className="text-sm font-medium text-ink-1">No train selected</p>
-              <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
-                Press <span className="font-medium text-ink-2">New</span> (the wizard wand) to
-                pick a trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure
-                it, choose a train method, and confirm. Past trains stay in the left rail.
-              </p>
-            </div>
-          )}
-
-          {modulesError && (
-            <div className="mt-4 rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
-              Could not load the trainable-modules catalog: {modulesError}
-            </div>
-          )}
+            {modulesError && (
+              <div className="mt-4 rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
+                Could not load the trainable-modules catalog: {modulesError}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-
-      {/* The New-train wizard as a modal — left-rail clicks cannot break it. */}
-      <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
-        <DialogContent
-          centered={false}
-          overlayClassName="bg-slate-900/45 backdrop-blur-sm"
-          className="fixed left-1/2 top-1/2 max-h-[85vh] w-[min(94vw,46rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl p-6"
-        >
-          <DialogTitle className="sr-only">New train</DialogTitle>
-          <NewTrainWizard
-            modules={modules}
-            onStarted={handleWizardStarted}
-            onCancel={() => setWizardOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      )}
     </div>
   )
 }

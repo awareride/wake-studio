@@ -16,19 +16,25 @@
   border-bottom: 0;
 }
 
-/* Cell collapse toggle injected per cell. */
+/* Cell head: the −/+ toggle button + the (collapsed-only) title label. */
+.notebook-review .nb-cell-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
 .notebook-review .nb-cell-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  max-width: 100%;
-  margin-bottom: 0.35rem;
-  padding: 0.15rem 0.4rem;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
   border: 1px solid rgb(var(--ws-line-2));
   border-radius: 0.3rem;
   background: rgb(var(--ws-surface-3));
   color: rgb(var(--ws-ink-3));
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   line-height: 1;
   cursor: pointer;
 }
@@ -42,13 +48,15 @@
   text-align: center;
   font-weight: 600;
 }
-/* The cell title is shown only while the cell is collapsed (issue #105). */
+/* The cell title is a title-like label, shown only while collapsed (#105). */
 .notebook-review .nb-cell-title {
   display: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-style: italic;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgb(var(--ws-ink-1));
 }
 .notebook-review .cell.collapsed .nb-cell-title {
   display: inline;
@@ -81,6 +89,54 @@
   font-size: 0.8rem;
   line-height: 1.55;
   color: rgb(var(--ws-ink-1));
+}
+
+/* Syntax highlighting (highlight.js token colors, light theme). */
+.notebook-review code.hljs .hljs-keyword,
+.notebook-review code.hljs .hljs-selector-tag {
+  color: #7c3aed;
+}
+.notebook-review code.hljs .hljs-string,
+.notebook-review code.hljs .hljs-symbol,
+.notebook-review code.hljs .hljs-bullet {
+  color: #059669;
+}
+.notebook-review code.hljs .hljs-number,
+.notebook-review code.hljs .hljs-literal,
+.notebook-review code.hljs .hljs-boolean {
+  color: #d97706;
+}
+.notebook-review code.hljs .hljs-comment {
+  color: #94a3b8;
+  font-style: italic;
+}
+.notebook-review code.hljs .hljs-title,
+.notebook-review code.hljs .hljs-title.function_,
+.notebook-review code.hljs .hljs-doctag,
+.notebook-review code.hljs .hljs-tag {
+  color: #2563eb;
+}
+.notebook-review code.hljs .hljs-built_in,
+.notebook-review code.hljs .hljs-type,
+.notebook-review code.hljs .hljs-name {
+  color: #0891b2;
+}
+.notebook-review code.hljs .hljs-attr,
+.notebook-review code.hljs .hljs-attribute,
+.notebook-review code.hljs .hljs-params {
+  color: #b45309;
+}
+.notebook-review code.hljs .hljs-variable,
+.notebook-review code.hljs .hljs-template-variable,
+.notebook-review code.hljs .hljs-meta {
+  color: #db2777;
+}
+.notebook-review code.hljs .hljs-operator,
+.notebook-review code.hljs .hljs-punctuation {
+  color: #64748b;
+}
+.notebook-review code.hljs .hljs-section {
+  color: #b91c1c;
 }
 .notebook-review .prompt {
   width: 4.5rem;

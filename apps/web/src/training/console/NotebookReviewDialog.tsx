@@ -58,21 +58,34 @@ function cellTitle(cell: RawCell): string {
   return (first ?? 'cell').slice(0, 60)
 }
 
-/** Add a Collapse/Expand toggle with title to every cell the library rendered. */
+/**
+ * Add a Collapse/Expand toggle + title to every cell the library rendered.
+ * The toggle is a compact −/+ button; the cell title (markdown heading or
+ * first code line) sits beside it as a title-like label, shown only while
+ * the cell is collapsed (issue #105). The library's own toggle buttons
+ * (metadata.collapsed cells) are stripped to avoid duplicates.
+ */
 function addPerCellToggles(html: string, titles: string[]): string {
+  let out = html.replace(
+    /<button[^>]*class="[^"]*\btoggle-btn\b[^"]*"[^>]*>.*?<\/button>/gs,
+    '',
+  )
   let index = 0
-  return html.replace(/<div class="cell ([^"]*)">/g, (_m, cls: string) => {
+  out = out.replace(/<div class="cell ([^"]*)">/g, (_m, cls: string) => {
     const id = `cell-${index}`
     const title = titles[index] ?? ''
-    const toggle =
-      `<button type="button" class="nb-cell-toggle" data-toggle="#${id}" ` +
-      `title="${escapeAttr(title)}">` +
-      `<span class="nb-glyph">&minus;</span>` +
-      (title ? `<span class="nb-cell-title">${escapeAttr(title)}</span>` : '') +
-      `</button>`
     index++
-    return `<div class="cell ${cls}" data-cell-id="${id}">${toggle}`
+    const head =
+      `<div class="nb-cell-head">` +
+      `<button type="button" class="nb-cell-toggle" data-toggle="#${id}" ` +
+      `aria-label="Collapse or expand cell"><span class="nb-glyph">&minus;</span></button>` +
+      (title
+        ? `<span class="nb-cell-title" title="${escapeAttr(title)}">${escapeAttr(title)}</span>`
+        : '') +
+      `</div>`
+    return `<div class="cell ${cls}" data-cell-id="${id}">${head}`
   })
+  return out
 }
 
 export function NotebookReviewDialog({
