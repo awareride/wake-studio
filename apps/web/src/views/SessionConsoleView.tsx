@@ -15,6 +15,7 @@ import {
   downloadCsv,
 } from '../log'
 import { useLogEntries } from '../log'
+import { Button } from '@radix-ui/themes'
 import { cn } from '../components/cn'
 import { useToast } from '../components/toast'
 
@@ -110,18 +111,16 @@ export function SessionConsoleView() {
           {/* Level filter */}
           <div className="flex gap-1">
             {(['all', 'info', 'warn', 'error'] as const).map((l) => (
-              <button
+              <Button
                 key={l}
                 onClick={() => setLevelFilter(l)}
-                className={cn(
-                  'rounded-full px-2.5 py-1 text-xs font-medium',
-                  levelFilter === l
-                    ? 'bg-surface-4 text-ink-1'
-                    : 'text-ink-3 hover:text-ink-1',
-                )}
+                variant={levelFilter === l ? 'soft' : 'ghost'}
+                size="1"
+                radius="full"
+                className="text-xs"
               >
                 {l === 'all' ? 'All' : l}
-              </button>
+              </Button>
             ))}
           </div>
 

@@ -11,6 +11,7 @@
  */
 
 import * as React from 'react'
+import { Button } from '@radix-ui/themes'
 import { renderParamRow } from '@wake-studio/module-kit'
 import { useToast } from '../components/toast'
 import {
@@ -159,13 +160,13 @@ export function SettingsView({
         <span className="text-xs text-ink-3">
           {dirty ? 'Unsaved changes' : 'All changes saved'}
         </span>
-        <button
+        <Button
           onClick={handleSave}
           disabled={!dirty}
-          className="rounded-lg bg-brand-9 px-4 py-2 text-sm font-medium text-white hover:bg-brand-10 disabled:opacity-40"
+          size="2"
         >
           Save
-        </button>
+        </Button>
       </div>
     </div>
   )

@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Button } from '@radix-ui/themes'
 import {
   STEP_DEFS,
   STEP_ORDER,
@@ -132,13 +133,15 @@ export function NewTrainWizard({
           <h3 className="text-base font-semibold text-ink-1">New train</h3>
           <p className="mt-0.5 text-xs text-ink-3">{def.summary}</p>
         </div>
-        <button
+        <Button
           type="button"
           onClick={requestCancel}
-          className="rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-xs text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
+          variant="outline"
+          size="1"
+          className="text-xs"
         >
           Cancel
-        </button>
+        </Button>
       </div>
 
       <nav aria-label="New train steps" className="flex shrink-0 flex-wrap items-center gap-1.5">
@@ -212,32 +215,34 @@ export function NewTrainWizard({
           Save/Start in the same position (issue #105). */}
       <div className="shrink-0 space-y-2 border-t border-line pt-4">
         <div className="flex items-center justify-between">
-          <button
+          <Button
             type="button"
             onClick={() => setStep(STEP_ORDER[STEP_ORDER.indexOf(step) - 1])}
             disabled={!canGoBack(step)}
-            className="rounded-lg border border-line bg-surface-2 px-4 py-1.5 text-sm text-ink-2 transition-colors hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-50"
+            variant="outline"
+            size="2"
           >
             Back
-          </button>
+          </Button>
           {next ? (
-            <button
+            <Button
               type="button"
               onClick={() => setStep(advanceStep(step) ?? step)}
               disabled={!canNext}
-              className="rounded-lg bg-brand-9 px-5 py-1.5 text-sm font-medium text-ink-1 transition-colors hover:bg-brand-10 disabled:cursor-not-allowed disabled:opacity-50"
+              size="2"
             >
               Next
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               type="button"
               onClick={handleStart}
               disabled={starting}
-              className="rounded-lg bg-brand-9 px-5 py-1.5 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-10 disabled:cursor-not-allowed disabled:opacity-50"
+              size="2"
+              className="font-semibold"
             >
               {starting ? 'Saving…' : method === 'colab' ? 'Save' : 'Start train'}
-            </button>
+            </Button>
           )}
         </div>
         {step === 'ready' && method === 'colab' && (

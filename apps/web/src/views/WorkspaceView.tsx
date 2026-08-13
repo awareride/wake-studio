@@ -16,6 +16,7 @@
  */
 
 import * as React from 'react'
+import { Checkbox } from '@radix-ui/themes'
 import { KWSPanel } from '../components/KWSPanel'
 import { ProjectBar } from '../components/ProjectBar'
 import { RecentProjectsMenu } from '../components/RecentProjectsMenu'
@@ -404,14 +405,13 @@ function WorkspaceInner({
               <StageSection>
                 <div className="space-y-3">
                   <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={kwsPreloadOnStart}
-                      onChange={(e) => {
-                        setKwsPreloadOnStart(e.target.checked)
-                        persistWs({ kwsPreloadOnStart: e.target.checked })
+                      onCheckedChange={(v) => {
+                        setKwsPreloadOnStart(v === true)
+                        persistWs({ kwsPreloadOnStart: v === true })
                       }}
-                      className="h-3.5 w-3.5 rounded accent-brand-9"
+                      size="1"
                     />
                     <span className="text-ink-2">Preload KWS models on Start</span>
                     <span className="text-xs text-ink-3">

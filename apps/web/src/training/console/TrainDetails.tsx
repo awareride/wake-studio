@@ -9,6 +9,7 @@
  */
 
 import { useMemo, useState } from 'react'
+import { Button } from '@radix-ui/themes'
 import {
   backendToMethod,
   deriveMessages,
@@ -292,13 +293,16 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange, onDe
           <p className="text-xs text-ink-3">
             Remove this train from the list. The imported model stays in your model library.
           </p>
-          <button
+          <Button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            className="rounded-lg border border-danger/40 bg-surface-3 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/10"
+            variant="outline"
+            color="red"
+            size="1"
+            className="text-xs"
           >
             Delete
-          </button>
+          </Button>
         </div>
       </section>
 

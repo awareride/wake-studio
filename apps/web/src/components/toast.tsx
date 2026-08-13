@@ -6,6 +6,7 @@
  */
 
 import * as React from 'react'
+import { IconButton } from '@radix-ui/themes'
 import {
   Toast,
   ToastDescription,
@@ -77,13 +78,15 @@ export function AppToastProvider({ children }: { children: React.ReactNode }) {
                     <ToastDescription>{t.description}</ToastDescription>
                   )}
                 </div>
-                <button
+                <IconButton
                   onClick={() => setItems((prev) => prev.filter((x) => x.id !== t.id))}
-                  className="rounded p-0.5 text-ink-3 hover:text-ink-1"
+                  variant="ghost"
+                  size="1"
+                  className="text-ink-3"
                   aria-label="Dismiss notification"
                 >
                   ✕
-                </button>
+                </IconButton>
               </div>
             </Toast>
           ))}

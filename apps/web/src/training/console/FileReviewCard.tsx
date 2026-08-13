@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
+import { Button } from '@radix-ui/themes'
 import {
   personalizeNotebook,
   personalizedParamIds,
@@ -147,26 +148,29 @@ export function FileReviewCard({
 
       <div className="mt-3 flex flex-wrap gap-2">
         {isNotebook && onReview && (
-          <button
+          <Button
             type="button"
             onClick={onReview}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-9 px-3 py-1.5 text-xs font-semibold text-ink-1 transition-colors hover:bg-brand-10"
+            size="2"
+            className="gap-1.5 text-xs font-semibold"
           >
             Review
-          </button>
+          </Button>
         )}
         {rawUrl && (
-          <button
+          <Button
             type="button"
             onClick={() =>
               isNotebook && params && paramMeta
                 ? downloadPersonalized(rawUrl, fileName, params, paramMeta)
                 : downloadRaw(rawUrl, fileName)
             }
-            className="rounded-lg border border-line bg-surface-3 px-3 py-1.5 text-xs font-medium text-ink-1 transition-colors hover:bg-surface-4"
+            variant="surface"
+            size="2"
+            className="text-xs font-medium"
           >
             Download {fileName}
-          </button>
+          </Button>
         )}
         {openUrl && (
           <a

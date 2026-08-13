@@ -5,6 +5,7 @@
  * leave mid-wizard via another menu, etc.
  */
 
+import { Button } from '@radix-ui/themes'
 import {
   Dialog,
   DialogContent,
@@ -35,20 +36,25 @@ export function ConfirmDialog({
         <DialogTitle className="text-sm">{title}</DialogTitle>
         <DialogDescription className="text-xs leading-relaxed">{message}</DialogDescription>
         <div className="mt-4 flex justify-end gap-2">
-          <button
+          <Button
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs text-ink-2 transition-colors hover:bg-surface-3"
+            variant="outline"
+            size="2"
+            className="text-xs"
           >
             Keep
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={onConfirm}
-            className="rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-surface-2 transition-colors hover:opacity-90"
+            variant="solid"
+            color="red"
+            size="2"
+            className="text-xs"
           >
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

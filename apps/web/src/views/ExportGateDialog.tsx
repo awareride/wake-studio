@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogClose,
 } from '../components/ui'
+import { Button } from '@radix-ui/themes'
 import { useToast } from '../components/toast'
 import { cn } from '../components/cn'
 
@@ -109,23 +110,18 @@ export function ExportGateDialog({ model, open, onOpenChange }: ExportGateDialog
 
         <div className="mt-5 flex justify-end gap-2">
           <DialogClose asChild>
-            <button className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:bg-surface-3">
+            <Button variant="outline" size="2">
               Cancel
-            </button>
+            </Button>
           </DialogClose>
-          <button
+          <Button
             onClick={handleExport}
             disabled={!usable}
-            className={cn(
-              'rounded-lg px-3 py-1.5 text-sm font-medium',
-              usable
-                ? 'bg-brand-9 text-ink-1 hover:bg-brand-10'
-                : 'cursor-not-allowed bg-surface-4 text-ink-3',
-            )}
+            size="2"
             title={usable ? undefined : 'Blocked by the license gate'}
           >
             Export
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

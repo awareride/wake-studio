@@ -11,6 +11,7 @@
  */
 
 import { latestMessage, sortJobsNewestFirst, type HistoryJob } from '@wake-studio/module-training'
+import { IconButton } from '@radix-ui/themes'
 import { cn } from '../../components/cn'
 import { IconMenu } from '../../components/icons'
 import { StatusChip } from './StatusChip'
@@ -37,14 +38,16 @@ export function TrainList({ jobs, selectedId, onSelect, onToggle }: TrainListPro
   return (
     <div className="flex min-h-0 flex-col">
       <div className="flex items-center gap-1.5 px-4 pb-2 pt-3">
-        <button
+        <IconButton
           type="button"
           onClick={onToggle}
           aria-label="Toggle train list"
-          className="rounded-md p-1 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
+          variant="ghost"
+          size="1"
+          className="text-ink-3"
         >
           <IconMenu className="h-4 w-4" />
-        </button>
+        </IconButton>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Trains</h3>
         {jobs.length > 0 && (
           <span className="ml-auto rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] text-ink-3">
