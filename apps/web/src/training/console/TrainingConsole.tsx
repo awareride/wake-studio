@@ -214,6 +214,7 @@ export function TrainingConsole() {
             {view.kind === 'details' &&
               (selectedJob ? (
                 <TrainDetails
+                  key={selectedJob.id}
                   job={selectedJob}
                   modules={modules}
                   onImported={handleImported}

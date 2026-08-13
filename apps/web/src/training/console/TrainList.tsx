@@ -10,7 +10,7 @@
 import { latestMessage, sortJobsNewestFirst, type HistoryJob } from '@wake-studio/module-training'
 import { useState } from 'react'
 import { cn } from '../../components/cn'
-import { IconChevronRight } from '../../components/icons'
+import { IconMenu } from '../../components/icons'
 import { StatusChip } from './StatusChip'
 
 export interface TrainListProps {
@@ -37,17 +37,16 @@ export function TrainList({ jobs, selectedId, onSelect, onClear, confirmingClear
     <div className="flex min-h-0 flex-col">
       <div className="flex items-center justify-between px-4 pb-2 pt-4">
         <div className="flex items-center gap-1">
-          {/* Toggle the list body (issue #105). */}
+          {/* Toggle the list body (issue #105) — styled like the shell's
+              sidebar trigger (IconMenu). */}
           <button
             type="button"
             onClick={() => setCollapsed((c) => !c)}
             aria-label={collapsed ? 'Expand train list' : 'Collapse train list'}
             aria-expanded={!collapsed}
-            className="rounded p-0.5 text-ink-3 transition-colors hover:text-ink-1"
+            className="rounded-md p-1 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
           >
-            <IconChevronRight
-              className={cn('h-3 w-3 transition-transform', !collapsed && 'rotate-90')}
-            />
+            <IconMenu className="h-4 w-4" />
           </button>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Trains</h3>
         </div>

@@ -68,6 +68,16 @@ describe('personalizeNotebook', () => {
     const src = (nb.cells as Array<{ source: string[] }>)[1].source.join('\n')
     expect(src).toContain('os.environ.get("WAKE_N_SAMPLES", "1000")')
   })
+
+  it('keeps the params cell multiline after personalization (no single-line merge)', () => {
+    const out = personalizeNotebook(template(), PARAMS, { nSamples: '9999' }) as {
+      cells: Array<{ source: string[] }>
+    }
+    const joined = out.cells[1].source.join('')
+    expect(joined).toContain('\n')
+    // Each element ends with '\n' (Jupyter array format), like the template.
+    expect(out.cells[1].source.every((l) => l.endsWith('\n'))).toBe(true)
+  })
 })
 
 describe('personalizedParamIds', () => {

@@ -70,7 +70,13 @@ export function personalizeNotebook(
 
   if (!changed) return notebook
 
-  const nextCell = { ...cell, source: source.split('\n') }
+  // Preserve the Jupyter array format: each element ends with '\n', so
+  // renderers that join with '' keep the line breaks (issue #105 — the
+  // params cell must not collapse into a single line after personalization).
+  const nextCell = {
+    ...cell,
+    source: source.split('\n').map((line) => `${line}\n`),
+  }
   return {
     ...notebook,
     cells: notebook.cells!.map((c, i) => (i === cellIndex ? nextCell : c)),
