@@ -1,13 +1,13 @@
 /**
- * Training console — stepper state machine (issue #105).
+ * Training console — wizard step machine (issue #105).
  *
- * Pure, headless step/state logic for the Training console stepper
- * (Configure → Connect backend → Run/monitor → Review, plan §1). No UI, no
- * storage — fully L1-testable. The stepper auto-advances to Review when a
- * job succeeds; all other navigation is manual.
+ * Pure, headless step/state logic for the "New train" wizard:
+ * Choose model type → Configure → Choose train method → Ready to start.
+ * No UI, no storage — fully L1-testable. Guidance text for each step is
+ * rendered inline inside the step panels (guide is mixed in, not a drawer).
  */
 
-export type TrainingStepId = 'configure' | 'connect' | 'run' | 'review'
+export type TrainingStepId = 'model' | 'config' | 'method' | 'ready'
 
 export interface TrainingStepDef {
   id: TrainingStepId
@@ -15,61 +15,61 @@ export interface TrainingStepDef {
   label: string
   /** One-line purpose for the stepper header. */
   summary: string
-  /** Contextual help lines for the help drawer (guide, not a tab). */
+  /** Inline guidance shown inside the step panel (guide mixed in). */
   help: string[]
 }
 
 export const STEP_ORDER: readonly TrainingStepId[] = [
-  'configure',
-  'connect',
-  'run',
-  'review',
+  'model',
+  'config',
+  'method',
+  'ready',
 ]
 
 export const STEP_DEFS: readonly TrainingStepDef[] = [
   {
-    id: 'configure',
+    id: 'model',
+    label: 'Choose model type',
+    summary: 'Pick the module you want to train.',
+    help: [
+      'Each trainable module declares its own train config in its spec (ADR-025): what it produces (ONNX/TFLite) and how training runs.',
+      'KWS openwakeword = app-class wake-word model (ONNX). KWS streaming = streaming-aware model (TFLite). RNNoise = noise suppression (ONNX).',
+      'Only modules with a spec.train entry appear here.',
+    ],
+  },
+  {
+    id: 'config',
     label: 'Configure',
-    summary: 'Set the wake phrase, target tier and training params.',
+    summary: 'Set the training params for the chosen module.',
     help: [
-      'Choose the wake phrase that will trigger the trained model.',
-      'Target tier: MCU (TFLite-Micro, micro-wake-word) or app-class (ONNX, openWakeWord).',
-      'Advanced params (epochs, augmentation, quantization) are optional — the defaults are safe.',
+      'Params come from the training module spec (spec-driven, ADR-025) — wake phrase, epochs, augmentation, quantization.',
+      'The module card shows the differences from the selected module\'s own spec.train: notebook or script, invocation methods, outputs.',
+      'Defaults are safe — you can usually keep them.',
     ],
   },
   {
-    id: 'connect',
-    label: 'Connect backend',
-    summary: 'Pick where training runs and connect to it.',
+    id: 'method',
+    label: 'Choose train method',
+    summary: 'Pick where training runs, from the methods the module supports.',
     help: [
-      'Colab is the free path: open the module-owned notebook in your Google account, run it, and paste the Cloudflare tunnel URL here (ADR-023 amendment, issue #106).',
-      'Self-hosted and cloud-provider backends land in a later Phase 5 slice — this step starts with Colab.',
-      'The pasted URL stays in your browser only (client-side, localStorage).',
+      'The methods come from the module\'s spec.train.invocation: Google Colab (free GPU, your account), Self-hosted service (local endpoint), CI (GitHub Actions).',
+      'Colab is the v1 path: open the module-owned notebook, run it, and optionally paste the Cloudflare tunnel URL (ADR-023 amendment, issue #106) for direct control.',
+      'Method-specific config stays client-side only.',
     ],
   },
   {
-    id: 'run',
-    label: 'Run / monitor',
-    summary: 'Start training, watch status, and import the results bundle.',
+    id: 'ready',
+    label: 'Ready to start',
+    summary: 'Review the train, then start it.',
     help: [
-      'Start training in the module panel, or run the Colab notebook and download wake-studio-results.zip.',
-      'Import Colab results validates the bundle manifest (metadata.json + provenance.json) client-side.',
-      'The stepper auto-advances to Review when a job succeeds.',
-    ],
-  },
-  {
-    id: 'review',
-    label: 'Review',
-    summary: 'Inspect the finished job and its artifact.',
-    help: [
-      'Check the trained model, metrics (recall/accuracy), and license provenance.',
-      'A user-owned license means the Phase 4 export gate treats the model as commercially clean.',
-      'Test the model in-browser via the KWS panel (Load models), then export.',
+      'For Colab: the module-owned .ipynb notebook is shown for review — you can download it or open it in Colab.',
+      'Starting opens this train\'s review (status + results). Training never runs in the browser (ADR-013).',
+      'A user-owned trained model (provenance.json) is commercially clean for export (Phase 4 license gate).',
     ],
   },
 ]
 
-/** Lifecycle phase the stepper reasons about (normalized from job status). */
+/** Lifecycle phase the console reasons about (normalized from job status). */
 export type JobPhase = 'idle' | 'running' | 'succeeded' | 'failed' | 'canceled'
 
 /**
@@ -93,40 +93,25 @@ export function jobPhase(status: unknown): JobPhase {
 }
 
 /**
- * Whether manual "Next" is allowed from `step`. Configure→Connect→Run are
- * freely walkable; Run only leaves **auto**matically on job success
- * (plan T-7), and Review is terminal.
+ * Whether manual "Next" is allowed from `step`. The first three steps walk
+ * freely; `ready` has no Next — it is where the user presses Start.
  */
-export function canAdvance(step: TrainingStepId, phase: JobPhase): boolean {
-  switch (step) {
-    case 'configure':
-    case 'connect':
-      return true
-    case 'run':
-      return phase === 'succeeded'
-    case 'review':
-      return false
-  }
+export function canAdvance(step: TrainingStepId): boolean {
+  return step !== 'ready'
 }
 
 /** Manual "Back" is allowed everywhere except the first step. */
 export function canGoBack(step: TrainingStepId): boolean {
-  return step !== 'configure'
+  return step !== 'model'
 }
 
-/** The next step after `step`; undefined when `step` is terminal (Review). */
+/** The next step after `step`; undefined when `step` is terminal (ready). */
 export function nextStepId(step: TrainingStepId): TrainingStepId | undefined {
   const i = STEP_ORDER.indexOf(step)
   return i >= 0 && i < STEP_ORDER.length - 1 ? STEP_ORDER[i + 1] : undefined
 }
 
-/**
- * Combine manual navigation with auto-advance on job success: returns the
- * step the console should move to, or undefined when it must stay put.
- */
-export function advanceStep(
-  step: TrainingStepId,
-  phase: JobPhase,
-): TrainingStepId | undefined {
-  return canAdvance(step, phase) ? nextStepId(step) : undefined
+/** Advance one step (wizard navigation; ready is terminal). */
+export function advanceStep(step: TrainingStepId): TrainingStepId | undefined {
+  return canAdvance(step) ? nextStepId(step) : undefined
 }

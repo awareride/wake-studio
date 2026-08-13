@@ -29,15 +29,6 @@
       "description": "MCU (micro-wake-word / TFLite-Micro) or app-class (openWakeWord / ONNX)."
     },
     {
-      "id": "backend",
-      "label": "Training backend",
-      "group": "primary",
-      "type": "select",
-      "default": "self-hosted",
-      "options": ["self-hosted", "cloud", "colab"],
-      "description": "Execution backend (ADR-013): Self-hosted Service, Cloud Provider, or Colab."
-    },
-    {
       "id": "epochs",
       "label": "Epochs",
       "group": "advanced",

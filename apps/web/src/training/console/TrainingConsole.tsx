@@ -1,215 +1,221 @@
 /**
- * Training console — stepper + history rail + guide (issue #105).
+ * Training console — layout (issue #105).
  *
- * App-layer container around the training module's spec-driven panel
- * (ADR-025 — never hand-written controls). Layout:
+ *   Header: Training · [New train]
+ *   Left rail:  Train news (tips)  ·  Train list (persistent, IndexedDB)
+ *   Right pane: the New Train wizard, or the selected train's details
+ *               (status / results / inputs review), or an empty state.
  *
- *   Configure → Connect backend → Run/monitor → Review   (stepper)
- *   Train history                                        (left rail)
- *   Inline tooltips + collapsible help drawer            (guide, not a tab)
- *
- * The generated panel stays mounted across all steps (hidden on the app-only
- * steps) so param/status state survives navigation; only the rendered
- * sections change per step. Jobs are recorded in IndexedDB history
- * (history-store.ts) on "Start training" and on Colab import success.
+ * The wizard records a job on Start and opens its review immediately.
+ * Colab imports record/update the job and open its review too.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  STEP_DEFS,
-  advanceStep,
+  backendForMethod,
+  deriveNews,
   importedJob,
-  jobPhase,
-  listJobs,
-  saveJob,
   sortJobsNewestFirst,
   startedJob,
   upsertJob,
   type HistoryJob,
-  type TrainingJob,
-  type TrainingStepId,
+  type TrainMethodId,
 } from '@wake-studio/module-training'
-import { TrainingModulePanel } from '@wake-studio/module-training/web'
-import { StepperNav } from './StepperNav'
-import { HistoryRail } from './HistoryRail'
-import { HelpDrawer } from './HelpDrawer'
-import { ConnectStep } from './ConnectStep'
-import { ReviewStep } from './ReviewStep'
-import { sectionsForStep } from './steps'
-import { ImportColabResults } from '../ImportColabResults'
+import { clearJobs, listJobs, saveJob } from '@wake-studio/module-training'
+import { NewTrainWizard } from './NewTrainWizard'
+import { TrainDetails } from './TrainDetails'
+import { TrainList } from './TrainList'
+import { TrainNews } from './TrainNews'
+import { fetchTrainableModules, type TrainableModule } from '../train-modules'
 import type { ColabImportResult } from '../colab-import'
-import { cn } from '../../components/cn'
+
+type View =
+  | { kind: 'empty' }
+  | { kind: 'wizard'; from: string | null }
+  | { kind: 'details'; jobId: string }
+
+const TUNNEL_URL_KEY = 'wake-studio:train:tunnelUrl'
+const ENDPOINT_URL_KEY = 'wake-studio:train:endpointUrl'
+
+function loadUrl(key: string): string {
+  try {
+    return window.localStorage.getItem(key) ?? ''
+  } catch {
+    return ''
+  }
+}
 
 export function TrainingConsole() {
-  const [step, setStep] = useState<TrainingStepId>('configure')
   const [jobs, setJobs] = useState<HistoryJob[]>([])
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
-  const [tunnelUrl, setTunnelUrl] = useState('')
-  const [helpOpen, setHelpOpen] = useState(false)
-  const [helpFocus, setHelpFocus] = useState<TrainingStepId>('configure')
-  const [lastImport, setLastImport] = useState<ColabImportResult | null>(null)
+  const [modules, setModules] = useState<TrainableModule[]>([])
+  const [modulesError, setModulesError] = useState<string | null>(null)
+  const [view, setView] = useState<View>({ kind: 'empty' })
+  const [tunnelUrl, setTunnelUrl] = useState(() => loadUrl(TUNNEL_URL_KEY))
+  const [endpointUrl, setEndpointUrl] = useState(() => loadUrl(ENDPOINT_URL_KEY))
+  const [confirmingClear, setConfirmingClear] = useState(false)
 
-  // Load the persistent history rail once on mount (IndexedDB).
+  // Load the persistent train list + the trainable-modules catalog once.
   useEffect(() => {
     let alive = true
     void listJobs().then((all) => {
       if (alive) setJobs(sortJobsNewestFirst(all))
     })
+    fetchTrainableModules()
+      .then((mods) => alive && setModules(mods))
+      .catch((err: unknown) => alive && setModulesError(err instanceof Error ? err.message : String(err)))
     return () => {
       alive = false
     }
   }, [])
 
-  const activeJob = jobs[0] ?? null
-  const phase = useMemo(() => (activeJob ? jobPhase(activeJob.status) : 'idle'), [activeJob])
-
-  // Auto-advance to Review on job success (plan T-7): a succeeded latest
-  // job while on the Run step moves the stepper forward.
-  useEffect(() => {
-    if (phase === 'succeeded') {
-      setStep((s) => (s === 'run' ? (advanceStep(s, phase) ?? s) : s))
+  const persistUrl = useCallback((key: string) => (value: string) => {
+    try {
+      window.localStorage.setItem(key, value)
+    } catch {
+      /* private mode — fine, session-only */
     }
-  }, [phase])
-
-  const selectedJob = useMemo(
-    () => jobs.find((j) => j.id === selectedJobId) ?? activeJob,
-    [jobs, selectedJobId, activeJob],
-  )
+  }, [])
 
   const recordJob = useCallback((job: HistoryJob) => {
     setJobs((prev) => upsertJob(prev, job))
-    setSelectedJobId(job.id)
     void saveJob(job)
   }, [])
 
-  // "Start training" fired in the generated panel → record a queued job.
-  const handleAction = useCallback(
-    (actionId: string, values: Record<string, string>) => {
-      if (actionId !== 'train') return
-      const backend: TrainingJob['backend'] =
-        values.backend === 'cloud' || values.backend === 'colab' || values.backend === 'self-hosted'
-          ? values.backend
-          : 'colab'
-      recordJob(
-        startedJob({
-          id: `local-${Date.now()}`,
-          backend,
-          params: values,
-        }),
-      )
+  const selectedJob = useMemo(() => {
+    if (view.kind !== 'details') return null
+    return jobs.find((j) => j.id === view.jobId) ?? null
+  }, [view, jobs])
+
+  const news = useMemo(() => deriveNews(jobs), [jobs])
+
+  // Wizard "Start": record the job, open its review (issue #105).
+  const handleWizardStarted = useCallback(
+    (moduleId: string, method: TrainMethodId, params: Record<string, string>) => {
+      const job = startedJob({
+        id: `train-${Date.now()}`,
+        moduleId,
+        method,
+        backend: backendForMethod(method),
+        params,
+      })
+      recordJob(job)
+      setView({ kind: 'details', jobId: job.id })
     },
     [recordJob],
   )
 
-  // Colab import succeeded → record the job, auto-advance to Review.
+  // Colab import success: record/update the job, open its review.
   const handleImported = useCallback(
     (result: ColabImportResult) => {
-      setLastImport(result)
-      recordJob(
-        importedJob({
-          jobId: result.bundle.jobId,
-          metadata: result.bundle.files.metadata,
-          provenance: result.bundle.files.provenance,
-          metrics: result.bundle.files.metrics,
-          classifierRef: result.classifierRef,
-        }),
-      )
-      setStep('review')
+      const job = importedJob({
+        jobId: result.bundle.jobId,
+        metadata: result.bundle.files.metadata,
+        provenance: result.bundle.files.provenance,
+        metrics: result.bundle.files.metrics,
+        classifierRef: result.classifierRef,
+      })
+      recordJob(job)
+      setView({ kind: 'details', jobId: job.id })
     },
     [recordJob],
   )
 
-  const handleCleared = useCallback(() => {
-    setJobs([])
-    setSelectedJobId(null)
-    setLastImport(null)
-    setStep('configure')
-  }, [])
+  const handleClear = useCallback(() => {
+    if (!confirmingClear) {
+      setConfirmingClear(true)
+      setTimeout(() => setConfirmingClear(false), 2500)
+      return
+    }
+    setConfirmingClear(false)
+    void clearJobs().then(() => {
+      setJobs([])
+      setView({ kind: 'empty' })
+    })
+  }, [confirmingClear])
 
-  const openHelp = useCallback((focus: TrainingStepId) => {
-    setHelpFocus(focus)
-    setHelpOpen(true)
-  }, [])
+  const openTrain = useCallback((jobId: string) => setView({ kind: 'details', jobId }), [])
 
   return (
     <div className="space-y-6">
-      {/* Console header: title + guide trigger. */}
+      {/* Header. */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-ink-1">Training</h2>
           <p className="mt-1 max-w-2xl text-sm text-ink-2">
-            Train a custom wake word end to end: configure, connect a backend,
-            run, and review. Training never runs in the browser (ADR-013) —
-            Colab (free GPU, your Google account) is the v1 backend.
+            Train a custom model end to end: pick a trainable module, configure it,
+            choose a train method (Colab / self-hosted / CI), then review the run.
+            Training never runs in the browser (ADR-013).
           </p>
         </div>
         <button
           type="button"
-          onClick={() => openHelp(step)}
-          aria-label="Open training guide"
-          className="rounded-full border border-line bg-surface-2 px-3 py-1.5 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-3"
+          onClick={() => setView((v) => ({ kind: 'wizard', from: v.kind === 'details' ? v.jobId : null }))}
+          className="shrink-0 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-400"
         >
-          Guide <span className="ml-1 font-semibold">?</span>
+          + New train
         </button>
       </div>
 
-      {/* Stepper over the module panel. */}
-      <StepperNav step={step} phase={phase} onStepChange={setStep} onHelp={openHelp} />
-
       <div className="flex gap-6">
-        {/* Persistent history rail (orthogonal browsing). */}
-        <HistoryRail
-          jobs={jobs}
-          selectedId={selectedJob?.id ?? null}
-          onSelect={setSelectedJobId}
-          onCleared={handleCleared}
-        />
+        {/* Left rail: news + list. */}
+        <aside className="flex w-72 shrink-0 flex-col border-r border-line">
+          <TrainNews items={news} onOpen={openTrain} />
+          <TrainList
+            jobs={jobs}
+            selectedId={selectedJob?.id ?? null}
+            onSelect={openTrain}
+            onClear={handleClear}
+            confirmingClear={confirmingClear}
+          />
+        </aside>
 
-        {/* Step content. */}
+        {/* Right pane. */}
         <div className="min-w-0 flex-1">
-          {step === 'connect' && (
-            <ConnectStep tunnelUrl={tunnelUrl} onChangeTunnelUrl={setTunnelUrl} />
-          )}
-
-          {step === 'review' && (
-            <ReviewStep job={selectedJob} testModelHint={lastImport?.model.name} />
-          )}
-
-          {/*
-            The module panel (ADR-025 generated panel): kept mounted across
-            steps so param/status state survives; scoped per step — params on
-            Configure, actions + status on Run/monitor — and hidden on the
-            app-only steps (Connect/Review render content above).
-          */}
-          <div className={cn(step === 'configure' || step === 'run' ? '' : 'hidden')}>
-            <TrainingModulePanel
-              sections={sectionsForStep(step)}
-              onAction={handleAction}
+          {view.kind === 'wizard' && (
+            <NewTrainWizard
+              modules={modules}
+              tunnelUrl={tunnelUrl}
+              onChangeTunnelUrl={(u) => {
+                setTunnelUrl(u)
+                persistUrl(TUNNEL_URL_KEY)(u)
+              }}
+              endpointUrl={endpointUrl}
+              onChangeEndpointUrl={(u) => {
+                setEndpointUrl(u)
+                persistUrl(ENDPOINT_URL_KEY)(u)
+              }}
+              onStarted={handleWizardStarted}
+              onCancel={() => setView(view.from ? { kind: 'details', jobId: view.from } : { kind: 'empty' })}
             />
-          </div>
+          )}
 
-          {/* The import half of the loop (issue #97), in the Run step. */}
-          {step === 'run' && (
-            <div className="mt-8">
-              <ImportColabResults onImported={handleImported} />
+          {view.kind === 'details' &&
+            (selectedJob ? (
+              <TrainDetails job={selectedJob} modules={modules} onImported={handleImported} />
+            ) : (
+              <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
+                This train is no longer in the list (cleared?). Pick another from the rail.
+              </div>
+            ))}
+
+          {view.kind === 'empty' && (
+            <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
+              <p className="text-sm font-medium text-ink-1">No train selected</p>
+              <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
+                Press <span className="font-medium text-ink-2">+ New train</span> to pick a
+                trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure it,
+                choose a train method, and start. Past trains stay in the left rail.
+              </p>
             </div>
           )}
 
-          {/* Inline guidance for the current step is one click away. */}
-          <p className="mt-6 text-xs text-ink-3">
-            Need a hand?{' '}
-            <button
-              type="button"
-              onClick={() => openHelp(step)}
-              className="font-medium text-brand-400 underline-offset-2 hover:underline"
-            >
-              Open the guide for “{STEP_DEFS.find((d) => d.id === step)?.label}”
-            </button>
-          </p>
+          {modulesError && view.kind !== 'details' && (
+            <div className="mt-4 rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
+              Could not load the trainable-modules catalog: {modulesError}
+            </div>
+          )}
         </div>
       </div>
-
-      <HelpDrawer open={helpOpen} onOpenChange={setHelpOpen} focusStep={helpFocus} />
     </div>
   )
 }

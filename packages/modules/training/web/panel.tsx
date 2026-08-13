@@ -14,7 +14,7 @@
  *   the current param values — lets the console record jobs in history.
  */
 
-import { useState, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import {
   defaultsFromSpec,
   renderPanel,
@@ -36,12 +36,24 @@ export interface TrainingModulePanelProps {
    * values (stringified) — used by the training console to record history.
    */
   onAction?: (actionId: string, values: Record<string, string>) => void
+  /**
+   * Notified whenever the param values change (and once on mount) — the
+   * wizard tracks the current params through this (issue #105).
+   */
+  onValuesChange?: (values: Record<string, string>) => void
+}
+
+function stringifyValues(values: Record<string, unknown>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(values).map(([k, v]) => [k, String(v ?? '')]),
+  )
 }
 
 /** The training panel: rendered from the spec, not hand-written (ADR-025). */
 export function TrainingModulePanel({
   sections,
   onAction,
+  onValuesChange,
 }: TrainingModulePanelProps) {
   // Local controller state - no backend yet (Phase 5 wires runAction).
   // Initialize from the spec defaults so the console records real params in
@@ -51,9 +63,23 @@ export function TrainingModulePanel({
   )
   const [status, setStatus] = useState<Record<string, unknown>>({})
 
-  const setValue = useCallback((id: string, value: unknown) => {
-    setValues((prev) => ({ ...prev, [id]: value }))
+  // Announce the initial (default) values once, on mount.
+  useEffect(() => {
+    onValuesChange?.(stringifyValues(values))
+    // mount-only: the initial defaults are announced once; later changes
+    // flow through setValue below.
   }, [])
+
+  const setValue = useCallback(
+    (id: string, value: unknown) => {
+      setValues((prev) => {
+        const next = { ...prev, [id]: value }
+        onValuesChange?.(stringifyValues(next))
+        return next
+      })
+    },
+    [onValuesChange],
+  )
 
   const controller: ModulePanelController = {
     values,
@@ -61,10 +87,7 @@ export function TrainingModulePanel({
     runAction: (actionId: string) => {
       // Phase 5: submit a TrainingJob to the selected backend. Today the
       // action is a no-op stub that reports the (not-yet-implemented) status.
-      const stringValues = Object.fromEntries(
-        Object.entries(values).map(([k, v]) => [k, String(v ?? '')]),
-      )
-      onAction?.(actionId, stringValues)
+      onAction?.(actionId, stringifyValues(values))
       if (actionId === 'train') {
         setStatus((s) => ({ ...s, jobStatus: 'queued (backend lands in Phase 5)' }))
       }

@@ -1,18 +1,22 @@
 /**
- * Training console — history rail (issue #105).
+ * Training console — train list (issue #105).
  *
- * Persistent left rail listing past training jobs from IndexedDB
- * (status / params / backend / timestamps / artifact ref). Browsing is
- * orthogonal to the stepper flow — the rail never blocks navigation.
+ * The persistent train list on the left: every recorded job (status, phrase,
+ * module, method, artifact ref, time). Selecting a job opens its details in
+ * the right pane. Persisted in IndexedDB (history-store.ts).
  */
 
-import { useState } from 'react'
-import {
-  sortJobsNewestFirst,
-  type HistoryJob,
-  clearJobs,
-} from '@wake-studio/module-training'
+import { sortJobsNewestFirst, type HistoryJob } from '@wake-studio/module-training'
 import { cn } from '../../components/cn'
+import { StatusChip } from './StatusChip'
+
+export interface TrainListProps {
+  jobs: HistoryJob[]
+  selectedId: string | null
+  onSelect: (id: string) => void
+  onClear: () => void
+  confirmingClear: boolean
+}
 
 function formatWhen(ms: number): string {
   const diff = Date.now() - ms
@@ -22,57 +26,28 @@ function formatWhen(ms: number): string {
   return new Date(ms).toLocaleDateString()
 }
 
-const STATUS_STYLE: Record<HistoryJob['status'], string> = {
-  queued: 'bg-amber-500/15 text-amber-700',
-  running: 'bg-brand-500/15 text-brand-600',
-  succeeded: 'bg-emerald-500/15 text-emerald-700',
-  failed: 'bg-danger/15 text-danger',
-  canceled: 'bg-surface-3 text-ink-3',
-}
-
-export interface HistoryRailProps {
-  jobs: HistoryJob[]
-  selectedId: string | null
-  onSelect: (id: string) => void
-  /** Called after the user clears the rail (store already wiped). */
-  onCleared: () => void
-}
-
-export function HistoryRail({ jobs, selectedId, onSelect, onCleared }: HistoryRailProps) {
-  const [confirming, setConfirming] = useState(false)
+export function TrainList({ jobs, selectedId, onSelect, onClear, confirmingClear }: TrainListProps) {
   const ordered = sortJobsNewestFirst(jobs)
 
-  const clear = () => {
-    if (!confirming) {
-      setConfirming(true)
-      setTimeout(() => setConfirming(false), 2500)
-      return
-    }
-    setConfirming(false)
-    void clearJobs().then(onCleared)
-  }
-
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-line">
+    <div className="flex min-h-0 flex-col">
       <div className="flex items-center justify-between px-4 pb-2 pt-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-          Train history
-        </h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Trains</h3>
         {jobs.length > 0 && (
           <button
             type="button"
-            onClick={clear}
+            onClick={onClear}
             className="text-[11px] text-ink-3 underline-offset-2 hover:text-ink-1 hover:underline"
           >
-            {confirming ? 'Clear all?' : 'Clear'}
+            {confirmingClear ? 'Clear all?' : 'Clear'}
           </button>
         )}
       </div>
 
       {ordered.length === 0 ? (
         <div className="px-4 py-6 text-xs leading-relaxed text-ink-3">
-          No training jobs yet. Start a run or import Colab results — past
-          jobs land here for quick re-inspection (IndexedDB, client-side).
+          No trains yet. Press <span className="font-medium text-ink-2">New train</span> to
+          start one — jobs land here for re-inspection (IndexedDB, client-side).
         </div>
       ) : (
         <ul className="flex-1 space-y-1 overflow-y-auto px-2 pb-4">
@@ -92,23 +67,16 @@ export function HistoryRail({ jobs, selectedId, onSelect, onCleared }: HistoryRa
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={cn(
-                        'rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide',
-                        STATUS_STYLE[job.status],
-                      )}
-                    >
-                      {job.status}
-                    </span>
-                    <span className="text-[10px] text-ink-3">
-                      {formatWhen(job.startedAtMs)}
-                    </span>
+                    <StatusChip status={job.status} />
+                    <span className="text-[10px] text-ink-3">{formatWhen(job.startedAtMs)}</span>
                   </div>
                   <div className="mt-1 truncate text-xs font-medium text-ink-1">
                     “{job.phrase || 'unknown phrase'}”
                   </div>
                   <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-ink-3">
-                    <span className="font-mono">{job.backend}</span>
+                    <span className="font-mono">{job.method}</span>
+                    <span aria-hidden>·</span>
+                    <span className="truncate">{job.moduleId}</span>
                     {job.artifactRef && (
                       <>
                         <span aria-hidden>·</span>
@@ -124,6 +92,6 @@ export function HistoryRail({ jobs, selectedId, onSelect, onCleared }: HistoryRa
           })}
         </ul>
       )}
-    </aside>
+    </div>
   )
 }

@@ -86,6 +86,8 @@ function makeJob(partial: Partial<HistoryJob> = {}): HistoryJob {
     status: partial.status ?? 'queued',
     phrase: partial.phrase ?? 'hey studio',
     params: partial.params ?? {},
+    moduleId: partial.moduleId ?? 'kws-openwakeword',
+    method: partial.method ?? 'colab',
     backend: partial.backend ?? 'colab',
     startedAtMs: partial.startedAtMs ?? Date.now(),
     ...partial,

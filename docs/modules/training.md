@@ -267,30 +267,35 @@ self-hosted API shape** — one HTTP client, N backends. ✅ **RESOLVED
 in `DECISIONS.md`. Full design in `docs/training-console.plan.md` §2; the
 URL is pasted in the training console's Connect step (§7.3).
 
-### 7.3 Training console — stepper + history rail + guide (issue #105)
+### 7.3 Training console — train list + news + New-train wizard (issue #105)
 
-The PWA's Training view is an app-layer console around the spec-driven panel
+The PWA's Training view is a list-detail console around the spec-driven panel
 (ADR-025 — no hand-written controls):
 
-- **Stepper (wizard), not tabs** — linear, stateful flow in four steps:
-  **Configure → Connect backend → Run/monitor → Review**. The module panel
-  stays mounted across steps (param/status state survives); only the
-  generated sections change (`sections` prop in module-kit): params on
-  Configure, actions + status on Run/monitor, app-layer content on Connect /
-  Review. Step/state logic is pure and headless in
-  `packages/modules/training/core/steps.ts` (L1-tested).
-- **Auto-advance** — the stepper advances Run → Review automatically on job
-  success (plan T-7); all other navigation is manual, and Review is terminal.
-- **History rail (persistent, left)** — past jobs (status / params / backend /
-  timestamps / artifact ref) from IndexedDB (`core/history-store.ts`),
-  recorded on "Start training" (`core/history.ts` `startedJob`) and on Colab
-  import success (`importedJob`). Browsing is orthogonal to the steps.
-- **Guide = inline tooltips + collapsible help drawer** — a "?" trigger next
-  to each step opens a contextual drawer with per-step help text from
-  `STEP_DEFS`; there is no dedicated "guide" tab.
-- **Step 2 Connect** — backend readiness cards (Colab = v1 available;
-  self-hosted + cloud = later Phase 5 slices) plus the Colab tunnel URL field
-  (ADR-023 amendment, issue #106; client-side only, localStorage).
+- **Layout:** a persistent **train list** (left rail) + **train news** tips
+  feed (successes / errors / imports, derived from the recorded jobs) and a
+  **details pane** (right) showing the selected train's status, results, and
+  inputs review. **New train** opens the wizard; starting a train opens its
+  review immediately.
+- **Wizard (4 steps, guide mixed into each panel):**
+  1. **Choose model type** — the trainable modules from the generated
+     catalog `apps/web/public/train-modules.json` (spec-driven, ADR-025; built
+     by `scripts/build-model-registry.mjs` from every `spec.train`).
+  2. **Configure** — the module's train config card (from its spec.train: the
+     differences between modules) + the spec-driven params form (the training
+     module's generated panel; `sections` prop in module-kit).
+  3. **Choose train method** — the methods the module declares in
+     `spec.train.invocation` (`methodsFor` in `core/methods.ts`): Google
+     Colab / Self-hosted service / CI, each with its specific config
+     (Colab → tunnel URL, ADR-023 amendment; client-side only).
+  4. **Ready to start** — the train summary + the train input file shown for
+     review: for Colab the module-owned `.ipynb` notebook (download + Open in
+     Colab, ADR-035); for scripts/entries the upstream/local train file.
+- **History model** — jobs recorded on Start (`core/history.ts` `startedJob`,
+  with module + method) and on Colab import (`importedJob`); persisted in
+  IndexedDB (`core/history-store.ts`). Step/state logic is pure and headless
+  (`core/steps.ts`), L1-tested together with `core/methods.ts` and the news
+  projection (`deriveNews`).
 
 
 ## 8. Cloud Providers (ADR-013)
@@ -332,3 +337,4 @@ for every provider. Capability labels: train-capable vs inference-only.
 | 2026-08-05 | **§4 upstream-script adapters** (human decision: preserve upstream train.py/ipynb; adapt to them). Spec `train` gains `script`/`notebook`/`adapter` fields; `standardize-results` is the single importer. Sections renumbered. | agent |
 | 2026-08-13 | §7.2 Colab runtime tunnel (proposal, Q15 issue #106): collapse Colab into the self-hosted API shape. | agent |
 | 2026-08-13 | Q15 resolved (human): tunnel adopted — ADR-023 amended (issue #106). §7.3 added: Training console (stepper + history rail + guide, issue #105). | agent |
+| 2026-08-13 | §7.3 reworked (human design feedback, issue #105): list-detail layout (train list + news + details pane) with a New-train wizard — model type (from `train-modules.json`) → config → method (spec.train.invocation) → ready (.ipynb review + download); guide mixed into each step; starting opens the train's review. | agent |

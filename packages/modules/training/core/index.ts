@@ -33,13 +33,25 @@ export {
   type JobPhase,
 } from './steps'
 export {
+  TRAIN_METHODS,
+  TRAIN_METHOD_ORDER,
+  methodsFor,
+  supportsMethod,
+  backendForMethod,
+  type TrainMethod,
+  type TrainMethodId,
+} from './methods'
+export {
   startedJob,
   importedJob,
+  backendToMethod,
   sortJobsNewestFirst,
   upsertJob,
+  deriveNews,
   type HistoryJob,
   type StartedJobInput,
   type ImportedJobInput,
+  type TrainNewsItem,
 } from './history'
 export {
   listJobs,
