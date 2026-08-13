@@ -157,13 +157,7 @@ export function NewTrainWizard({ modules, onStarted, onCancel }: NewTrainWizardP
       )}
 
       {step === 'ready' && module && method && (
-        <ReadyStep
-          module={module}
-          method={method}
-          params={params}
-          onStart={handleStart}
-          starting={starting}
-        />
+        <ReadyStep module={module} method={method} params={params} />
       )}
 
       {/* The module's own train params (spec-driven, ADR-025): kept mounted
@@ -172,7 +166,8 @@ export function NewTrainWizard({ modules, onStarted, onCancel }: NewTrainWizardP
         {trainSpec && <TrainParamsPanel spec={trainSpec} onValuesChange={setParams} />}
       </div>
 
-      {/* Back / Next. */}
+      {/* Back / Next — the final step replaces Next with Save/Start in the
+          same position (issue #105). */}
       <div className="flex items-center justify-between border-t border-line pt-4">
         <button
           type="button"
@@ -182,7 +177,7 @@ export function NewTrainWizard({ modules, onStarted, onCancel }: NewTrainWizardP
         >
           Back
         </button>
-        {next && (
+        {next ? (
           <button
             type="button"
             onClick={() => setStep(advanceStep(step) ?? step)}
@@ -191,8 +186,25 @@ export function NewTrainWizard({ modules, onStarted, onCancel }: NewTrainWizardP
           >
             Next
           </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleStart}
+            disabled={starting}
+            className="rounded-lg bg-brand-500 px-5 py-1.5 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {starting ? 'Saving…' : method === 'colab' ? 'Save' : 'Start train'}
+          </button>
         )}
       </div>
+
+      {step === 'ready' && method === 'colab' && (
+        <p className="text-[11px] leading-relaxed text-ink-3">
+          Save just confirms this train here — the run happens in your own Colab session (run the
+          notebook, then bring results back in the train details pane: tunnel URL, or download +
+          submit the results zip).
+        </p>
+      )}
     </div>
   )
 }

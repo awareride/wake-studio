@@ -10,6 +10,7 @@
 
 import {
   backendToMethod,
+  deriveMessages,
   type HistoryJob,
 } from '@wake-studio/module-training'
 import { cn } from '../../components/cn'
@@ -40,6 +41,7 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange }: Tr
   const isColab = job.method === 'colab' || backendToMethod(job.backend) === 'colab'
   const needsImport = isColab && job.status !== 'succeeded'
   const file = module ? trainInputFile(module, isColab ? 'colab' : job.method) : null
+  const messages = deriveMessages(job)
 
   return (
     <div className="space-y-5">
@@ -136,6 +138,32 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange }: Tr
             appear here once the train finishes and the bundle is imported.
           </p>
         )}
+      </section>
+
+      {/* Notifications / messages for this train (issue #105). */}
+      <section className="rounded-xl border border-line bg-surface-2 p-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Notifications</h4>
+        <ul className="mt-2 space-y-1.5">
+          {messages.map((m, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs text-ink-2">
+              <span
+                className={cn(
+                  'mt-1 h-1.5 w-1.5 shrink-0 rounded-full',
+                  m.kind === 'failed' || m.kind === 'canceled'
+                    ? 'bg-danger'
+                    : m.kind === 'started'
+                      ? 'bg-brand-500'
+                      : 'bg-emerald-500',
+                )}
+                aria-hidden
+              />
+              {m.message}
+              <span className="ml-auto shrink-0 text-[10px] text-ink-3">
+                {new Date(m.atMs).toLocaleString()}
+              </span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* Inputs review: the file that trains (the .ipynb for Colab). */}

@@ -14,7 +14,8 @@ import {
   backendToMethod,
   sortJobsNewestFirst,
   upsertJob,
-  deriveNews,
+  deriveMessages,
+  latestMessage,
   type HistoryJob,
 } from '../core/history'
 import type { ArtifactBundleMetadata, ArtifactProvenance } from '../core/manifest'
@@ -164,7 +165,7 @@ describe('sortJobsNewestFirst / upsertJob', () => {
   })
 })
 
-describe('deriveNews (train news feed)', () => {
+describe('deriveMessages / latestMessage (per-job notifications)', () => {
   const base: HistoryJob = {
     id: 'j1',
     status: 'queued',
@@ -176,39 +177,28 @@ describe('deriveNews (train news feed)', () => {
     startedAtMs: 100,
   }
 
-  it('emits a started tip for queued/running jobs', () => {
-    const items = deriveNews([base])
-    expect(items).toHaveLength(1)
-    expect(items[0].kind).toBe('started')
-    expect(items[0].message).toContain('hey studio')
-    expect(items[0].message).toContain('kws-openwakeword')
+  it('emits a started message for a saved job', () => {
+    const msgs = deriveMessages(base)
+    expect(msgs).toHaveLength(1)
+    expect(msgs[0].kind).toBe('started')
+    expect(msgs[0].message).toContain('kws-openwakeword')
   })
 
-  it('emits an imported tip for succeeded jobs with an artifact', () => {
-    const items = deriveNews([
-      { ...base, status: 'succeeded', finishedAtMs: 200, artifactRef: 'user:m1' },
-    ])
-    expect(items[0].kind).toBe('imported')
-    expect(items[0].message).toContain('imported')
-    expect(items[0].atMs).toBe(200)
-  })
-
-  it('emits failed tips and orders newest first', () => {
-    const failed: HistoryJob = {
+  it('appends an imported message for succeeded jobs with an artifact', () => {
+    const msgs = deriveMessages({
       ...base,
-      id: 'f1',
-      status: 'failed',
-      finishedAtMs: 500,
-    }
-    const ok: HistoryJob = {
-      ...base,
-      id: 's1',
       status: 'succeeded',
-      finishedAtMs: 300,
-      artifactRef: 'user:m',
-    }
-    const items = deriveNews([failed, ok])
-    expect(items.map((i) => i.id)).toEqual(['f1:failed', 's1:succeeded'])
-    expect(items[0].kind).toBe('failed')
+      finishedAtMs: 200,
+      artifactRef: 'user:m1',
+    })
+    expect(msgs.map((m) => m.kind)).toEqual(['started', 'imported'])
+    expect(msgs[1].atMs).toBe(200)
+    expect(latestMessage({ ...base, status: 'succeeded', finishedAtMs: 200, artifactRef: 'user:m1' })?.kind).toBe('imported')
+  })
+
+  it('emits failed messages with the error', () => {
+    const msgs = deriveMessages({ ...base, status: 'failed', error: 'boom', finishedAtMs: 300 })
+    expect(msgs[1].kind).toBe('failed')
+    expect(msgs[1].message).toContain('boom')
   })
 })

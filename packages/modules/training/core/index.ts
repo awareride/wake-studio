@@ -52,11 +52,12 @@ export {
   backendToMethod,
   sortJobsNewestFirst,
   upsertJob,
-  deriveNews,
+  deriveMessages,
+  latestMessage,
   type HistoryJob,
   type StartedJobInput,
   type ImportedJobInput,
-  type TrainNewsItem,
+  type TrainMessage,
 } from './history'
 export {
   listJobs,

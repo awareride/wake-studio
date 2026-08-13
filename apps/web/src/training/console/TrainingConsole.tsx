@@ -15,7 +15,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   backendForMethod,
-  deriveNews,
   importedJob,
   sortJobsNewestFirst,
   startedJob,
@@ -28,7 +27,6 @@ import { Dialog, DialogContent, DialogTitle } from '../../components/ui'
 import { NewTrainWizard } from './NewTrainWizard'
 import { TrainDetails } from './TrainDetails'
 import { TrainList } from './TrainList'
-import { TrainNews } from './TrainNews'
 import { fetchTrainableModules, type TrainableModule } from '../train-modules'
 import type { ColabImportResult } from '../colab-import'
 
@@ -81,8 +79,6 @@ export function TrainingConsole() {
     if (view.kind !== 'details') return null
     return jobs.find((j) => j.id === view.jobId) ?? null
   }, [view, jobs])
-
-  const news = useMemo(() => deriveNews(jobs), [jobs])
 
   // Wizard "Save/Start": record the job, open its review (issue #105).
   const handleWizardStarted = useCallback(
@@ -154,9 +150,8 @@ export function TrainingConsole() {
       </div>
 
       <div className="flex gap-6">
-        {/* Left rail: news + list. */}
+        {/* Left rail: the train list (notifications live with each train). */}
         <aside className="flex w-72 shrink-0 flex-col border-r border-line">
-          <TrainNews items={news} onOpen={openTrain} />
           <TrainList
             jobs={jobs}
             selectedId={selectedJob?.id ?? null}

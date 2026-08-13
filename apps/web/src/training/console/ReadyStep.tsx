@@ -1,39 +1,31 @@
 /**
- * Training wizard — Step 4: Ready to start (issue #105).
+ * Training wizard — Step 4: Ready to confirm (issue #105).
  *
  * Reviews the train (module + params + method) and shows the train input
- * file for review — for Colab the .ipynb notebook, previewed on the panel.
- * The CTA is honest per method: Colab cannot be started from the app (the
- * run happens in the user's Colab session), so the button SAVES/CONFIRMS the
- * train and opens its details pane; subprocess/ci label it "Start train" for
- * the future.
+ * file for review — for Colab the .ipynb notebook with a Review button
+ * (full NotebookTs dialog). The Save/Start button lives in the wizard
+ * footer, in the same position as Next.
  */
 
 import { type TrainMethodId } from '@wake-studio/module-training'
 import type { TrainableModule } from '../train-modules'
 import { FileReviewCard } from './FileReviewCard'
 import { trainInputFile } from './train-files'
-import { cn } from '../../components/cn'
 
 export interface ReadyStepProps {
   module: TrainableModule
   method: TrainMethodId
   params: Record<string, string>
-  onStart: () => void
-  starting?: boolean
 }
 
 function methodLabel(method: TrainMethodId): string {
   return method === 'colab' ? 'Google Colab' : method === 'subprocess' ? 'Self-hosted service' : 'CI'
 }
 
-export function ReadyStep({ module, method, params, onStart, starting }: ReadyStepProps) {
+export function ReadyStep({ module, method, params }: ReadyStepProps) {
   const file = trainInputFile(module, method)
-  const labels = new Map(
-    (module.train.params ?? []).map((p) => [p.id, p.label]),
-  )
+  const labels = new Map((module.train.params ?? []).map((p) => [p.id, p.label]))
   const paramRows = Object.entries(params)
-  const isColab = method === 'colab'
 
   return (
     <div className="space-y-4">
@@ -61,7 +53,8 @@ export function ReadyStep({ module, method, params, onStart, starting }: ReadySt
         </dl>
       </div>
 
-      {/* Inputs review: the file that actually trains. */}
+      {/* Inputs review: the file that actually trains (Review opens the full
+          notebook dialog; the panel itself stays compact, issue #105). */}
       {file && (
         <FileReviewCard
           title={file.title}
@@ -73,31 +66,6 @@ export function ReadyStep({ module, method, params, onStart, starting }: ReadySt
           description={file.description}
         />
       )}
-
-      <div className="space-y-2">
-        <button
-          type="button"
-          onClick={onStart}
-          disabled={starting}
-          className={cn(
-            'rounded-lg bg-brand-500 px-5 py-2 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-400',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-          )}
-        >
-          {starting
-            ? 'Saving…'
-            : isColab
-              ? `Save ${methodLabel(method)} train`
-              : `Start ${methodLabel(method)} train`}
-        </button>
-        {isColab && (
-          <p className="text-[11px] leading-relaxed text-ink-3">
-            This just saves and confirms the train here — the run happens in your own Colab
-            session (run the notebook, then bring results back in the train details pane:
-            tunnel URL, or download + submit the results zip).
-          </p>
-        )}
-      </div>
     </div>
   )
 }

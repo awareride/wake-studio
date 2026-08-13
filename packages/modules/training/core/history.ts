@@ -130,54 +130,52 @@ export function upsertJob(
 }
 
 // ---------------------------------------------------------------------------
-// Train news feed (tips for the end user, derived from the jobs)
+// Per-job notifications (issue #105 — messages live with the train, not a
+// global news feed)
 // ---------------------------------------------------------------------------
 
-export interface TrainNewsItem {
-  /** Stable id (jobId + event kind). */
-  id: string
-  jobId: string
+export interface TrainMessage {
   kind: 'started' | 'succeeded' | 'imported' | 'failed' | 'canceled'
-  /** Human-readable tip, e.g. "Train “hey studio” succeeded (kws-openwakeword)". */
   message: string
   atMs: number
 }
 
 /**
- * Derive the news feed from the recorded jobs: one tip per job reflecting
- * its outcome (queued = started, succeeded with artifact = imported),
- * newest first. No extra storage — the feed is a pure projection.
+ * The messages/notifications for ONE job, chronological: it was recorded,
+ * then its outcome (imported results, succeeded, failed…). Shown in the
+ * train details pane; the latest one is the note on the train-list item.
  */
-export function deriveNews(jobs: readonly HistoryJob[]): TrainNewsItem[] {
-  const items: TrainNewsItem[] = []
-  for (const job of jobs) {
-    const phrase = job.phrase ? `“${job.phrase}”` : 'a train'
-    const module = job.moduleId
-    if (job.status === 'succeeded') {
-      items.push({
-        id: `${job.id}:succeeded`,
-        jobId: job.id,
-        kind: job.artifactRef ? 'imported' : 'succeeded',
-        message: `Train ${phrase} succeeded${job.artifactRef ? ' and was imported' : ''} (${module})`,
-        atMs: job.finishedAtMs ?? job.startedAtMs,
-      })
-    } else if (job.status === 'failed' || job.status === 'canceled') {
-      items.push({
-        id: `${job.id}:${job.status}`,
-        jobId: job.id,
-        kind: job.status,
-        message: `Train ${phrase} ${job.status} (${module})`,
-        atMs: job.finishedAtMs ?? job.startedAtMs,
-      })
-    } else {
-      items.push({
-        id: `${job.id}:started`,
-        jobId: job.id,
-        kind: 'started',
-        message: `Train ${phrase} queued on ${job.method} (${module})`,
-        atMs: job.startedAtMs,
-      })
-    }
+export function deriveMessages(job: HistoryJob): TrainMessage[] {
+  const messages: TrainMessage[] = []
+  const method = job.method === 'colab' ? 'Colab' : job.method === 'subprocess' ? 'self-hosted' : 'CI'
+
+  messages.push({
+    kind: 'started',
+    message: `Train saved — ${method} (${job.moduleId})`,
+    atMs: job.startedAtMs,
+  })
+
+  if (job.status === 'succeeded') {
+    messages.push({
+      kind: job.artifactRef ? 'imported' : 'succeeded',
+      message: job.artifactRef
+        ? 'Results imported — the model is ready to test in-browser.'
+        : 'Train finished successfully.',
+      atMs: job.finishedAtMs ?? job.startedAtMs,
+    })
+  } else if (job.status === 'failed' || job.status === 'canceled') {
+    messages.push({
+      kind: job.status,
+      message: job.error ? `Train ${job.status}: ${job.error}` : `Train ${job.status}.`,
+      atMs: job.finishedAtMs ?? job.startedAtMs,
+    })
   }
-  return items.sort((a, b) => b.atMs - a.atMs)
+
+  return messages.sort((a, b) => a.atMs - b.atMs)
+}
+
+/** The latest message for a job (the train-list note), if any. */
+export function latestMessage(job: HistoryJob): TrainMessage | undefined {
+  const messages = deriveMessages(job)
+  return messages[messages.length - 1]
 }

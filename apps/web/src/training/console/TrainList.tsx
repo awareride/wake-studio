@@ -6,7 +6,7 @@
  * the right pane. Persisted in IndexedDB (history-store.ts).
  */
 
-import { sortJobsNewestFirst, type HistoryJob } from '@wake-studio/module-training'
+import { latestMessage, sortJobsNewestFirst, type HistoryJob } from '@wake-studio/module-training'
 import { cn } from '../../components/cn'
 import { StatusChip } from './StatusChip'
 
@@ -86,6 +86,12 @@ export function TrainList({ jobs, selectedId, onSelect, onClear, confirmingClear
                       </>
                     )}
                   </div>
+                  {/* Note: the latest notification for this train (issue #105). */}
+                  {latestMessage(job) && (
+                    <div className="mt-1 truncate text-[10px] italic text-ink-3" title={latestMessage(job)?.message}>
+                      {latestMessage(job)?.message}
+                    </div>
+                  )}
                 </button>
               </li>
             )

@@ -272,11 +272,11 @@ URL is pasted in the training console's Connect step (§7.3).
 The PWA's Training view is a list-detail console around the spec-driven panel
 (ADR-025 — no hand-written controls):
 
-- **Layout:** a persistent **train list** (left rail) + **train news** tips
-  feed (successes / errors / imports, derived from the recorded jobs) and a
-  **details pane** (right) showing the selected train's status, results, and
-  inputs review. **New train** opens the wizard; starting a train opens its
-  review immediately.
+- **Layout:** a persistent **train list** (left rail; each item carries the
+  latest notification as a note) and a **details pane** (right) showing the
+  selected train's status, **notifications**, results, and inputs review.
+  **New train** opens the wizard; starting a train opens its review
+  immediately. There is no global news feed — messages live with each train.
 - **Wizard (4 steps, guide mixed into each panel, MODAL dialog so the left
   rail cannot interrupt it):**
   1. **Choose model type** — the trainable modules from the generated
@@ -293,17 +293,20 @@ The PWA's Training view is a list-detail console around the spec-driven panel
      Colab / Self-hosted service / CI. Connection details (the Colab tunnel
      URL) are NOT asked here — they are generated when the train runs.
   4. **Ready to start** — the train summary (param labels from the module's
-     spec) + the train input file shown for review: for Colab the
-     module-owned `.ipynb` **previewed on the panel** (markdown rendered,
-     code with line numbers, chapter outline) with download. The CTA is
-     honest per method: Colab = **Save train** (the run happens in the user's
-     Colab session; results come back in the details pane), subprocess/ci =
-     Start train.
+     spec) + the train input file shown as a compact card: for Colab the
+     module-owned `.ipynb` with a **Review** button opening the full
+     notebook dialog (rendered with `notebook-viewer-ts` — NotebookTs:
+     markdown, code highlighting, outputs, Collapse/Expand) and download.
+     The CTA lives in the wizard footer in the same position as Next: Colab
+     = **Save** (the run happens in the user's Colab session; results come
+     back in the details pane), subprocess/ci = Start train.
 - **Notebooks come from the app, not GitHub:** module-owned train files
   (`spec.train.notebookLocal` / `entry`) are copied into
   `apps/web/public/train/<module-id>/` by the registry script and served
   from the app's own origin — the WakeStudio repo only provides the
-  template, never fetched at runtime (issue #105, human feedback).
+  template, never fetched at runtime (issue #105, human feedback). The
+  notebook library is lazy-loaded (dynamic import) so highlight.js /
+  micromark / katex stay out of the main bundle.
 - **Colab finish flow (details pane, per job):** the tunnel URL is entered
   here once the notebook prints it (generated at run time; auto-detected on
   import when the notebook wrote it — Cloudflare API in Settings), or the
@@ -358,4 +361,5 @@ for every provider. Capability labels: train-capable vs inference-only.
 | 2026-08-13 | Q15 resolved (human): tunnel adopted — ADR-023 amended (issue #106). §7.3 added: Training console (stepper + history rail + guide, issue #105). | agent |
 | 2026-08-13 | §7.3 reworked (human design feedback, issue #105): list-detail layout (train list + news + details pane) with a New-train wizard — model type (from `train-modules.json`) → config → method (spec.train.invocation) → ready (.ipynb review + download); guide mixed into each step; starting opens the train's review. | agent |
 | 2026-08-13 | §7.3 refined (human feedback, issue #105): (1) train configs come from each module's own `spec.train.params` (schema extension; `trainPanelSpec`; training module no longer hard-codes params); (2) module-owned notebooks are copied to `public/train/<module-id>/` and served from the app — no GitHub fetch; (3) the .ipynb is previewed on the panel (cells rendered read-only). | agent |
-| 2026-08-13 | §7.3 polished (human feedback round 2, issue #105): wizard is a modal dialog (left rail can't break it); `target` param removed from openwakeword (app-class only); tunnel URL moved out of the wizard into the per-job details pane (generated at run time, auto-detected on import); module-owned "Open in Colab" removed (repo = template only); Colab CTA renamed to "Save train" (honest — no real start yet); manual-submit tips when the tunnel can't be traced; notebook reviewer upgraded (markdown rendering, code line numbers, chapter outline). | agent |
+| 2026-08-13 | §7.3 polished (human feedback round 2, issue #105): wizard is a modal dialog; `target` param removed from openwakeword; tunnel URL moved to the per-job details pane; module-owned Open-in-Colab removed; Colab CTA renamed to Save; manual-submit tips; upgraded notebook reviewer. | agent |
+| 2026-08-13 | §7.3 refined (human feedback round 3, issue #105): notebook review uses `notebook-viewer-ts` (NotebookTs — markdown, hljs, outputs, folding) in a full Review dialog (lazy-loaded; no inline preview; Collapse-all/Expand-all + per-cell toggles); the news rail is gone — notifications/messages live in the train details pane and as a note on each train-list item; the wizard footer keeps Next's position for the final Save/Start button. | agent |
