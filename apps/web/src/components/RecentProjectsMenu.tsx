@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from './ui'
 import { NewProjectDialog } from './NewProjectDialog'
+import { ChevronDownIcon, ListBulletIcon } from '@radix-ui/react-icons'
 
 /** Relative "updated …" caption for the recent-projects menu. */
 function formatUpdated(ms: number): string {
@@ -49,13 +50,9 @@ export function RecentProjectsMenu() {
             className="flex max-w-48 items-center gap-1.5 rounded-lg border border-line bg-surface-3 px-2.5 py-1.5 text-sm font-medium text-ink-1 hover:bg-surface-4"
             title="Recent projects"
           >
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-ink-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 7h18M7 12h14M3 17h10" />
-            </svg>
+            <ListBulletIcon className="h-3.5 w-3.5 shrink-0 text-ink-3" />
             <span className="truncate">{label}</span>
-            <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0 text-ink-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
+            <ChevronDownIcon className="h-3 w-3 shrink-0 text-ink-3" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-60">

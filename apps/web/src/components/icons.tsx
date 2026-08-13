@@ -1,161 +1,89 @@
 /**
- * Icon set - hand-drawn inline SVG components (24x24, stroke-based).
+ * Icon set - Radix UI icons (https://www.radix-ui.com/icons).
  *
- * Presentation-layer only: no external icon dependency, styled with current
- * color. Kept intentionally tiny and consistent with the WakeStudio logo
- * language (rounded strokes).
+ * Thin wrappers over `@radix-ui/react-icons` that keep the legacy local API
+ * (`size` prop, `IconX` names) so existing call sites work unchanged. Radix
+ * icons are filled and inherit `currentColor`, so they pick up text color
+ * utilities exactly like the old stroke-based set.
+ *
+ * Note: Radix ships no mic/folder/terminal/flask glyphs; closest matches are
+ * used where needed (see each export below).
  */
 
-import type { SVGProps } from 'react'
+import type { ComponentType, SVGProps } from 'react'
+import type { IconProps as RadixIconProps } from '@radix-ui/react-icons/dist/types'
+import {
+  ArchiveIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CodeIcon,
+  Component2Icon,
+  GearIcon,
+  HamburgerMenuIcon,
+  MagicWandIcon,
+  MixIcon,
+  PlayIcon,
+  ReaderIcon,
+  ReloadIcon,
+  StopIcon,
+  ViewGridIcon,
+} from '@radix-ui/react-icons'
 
 type IconProps = SVGProps<SVGSVGElement> & { size?: number }
 
-function base(props: IconProps) {
-  const { size = 18, ...rest } = props
-  return {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.8,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    'aria-hidden': true,
-    ...rest,
+/** Wrap a Radix icon, mapping the legacy `size` prop to width/height. */
+function fromRadix(RadixIcon: ComponentType<RadixIconProps>) {
+  function Icon(props: IconProps) {
+    const { size = 18, children: _children, ...rest } = props
+    return <RadixIcon width={size} height={size} aria-hidden {...rest} />
   }
+  return Icon
 }
 
-export function IconWorkspace(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <rect x="3" y="3" width="7.5" height="7.5" rx="1.5" />
-      <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" />
-      <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" />
-      <path d="M13.5 17h7.5M17 13.5v7.5" />
-    </svg>
-  )
-}
+/** Workspace (2x2 grid view). */
+export const IconWorkspace = fromRadix(ViewGridIcon)
 
-export function IconLibrary(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M4 4.5h16v15H4z" />
-      <path d="M8 9h8M8 13h5" />
-    </svg>
-  )
-}
+/** Model Registry (book / reader). */
+export const IconLibrary = fromRadix(ReaderIcon)
 
-export function IconFolder(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M3 6.5a1.5 1.5 0 0 1 1.5-1.5h4l2 2h9A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
-    </svg>
-  )
-}
+/** Projects (Radix has no folder; archive box is the closest match). */
+export const IconFolder = fromRadix(ArchiveIcon)
 
-export function IconSettings(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.08a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.08a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03z" />
-    </svg>
-  )
-}
+export const IconSettings = fromRadix(GearIcon)
 
-export function IconChip(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <rect x="6" y="6" width="12" height="12" rx="2" />
-      <path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" />
-    </svg>
-  )
-}
+/** Device SDK (chip: rounded rect with edge pins). */
+export const IconChip = fromRadix(Component2Icon)
 
-export function IconMic(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-    </svg>
-  )
-}
+export const IconStop = fromRadix(StopIcon)
 
-export function IconStop(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />
-    </svg>
-  )
-}
+export const IconPlay = fromRadix(PlayIcon)
 
-export function IconPlay(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M7 5.5v13l11-6.5z" fill="currentColor" stroke="none" />
-    </svg>
-  )
-}
-
+/** Spinner (Radix reload arrows spun via CSS animation). */
 export function IconSpinner(props: IconProps) {
+  const { size = 18, className, children: _children, ...rest } = props
   return (
-    <svg {...base(props)} className={`animate-spin ${props.className ?? ''}`}>
-      <path d="M12 3a9 9 0 1 0 9 9" />
-    </svg>
+    <ReloadIcon
+      width={size}
+      height={size}
+      className={`animate-spin ${className ?? ''}`}
+      aria-hidden
+      {...rest}
+    />
   )
 }
 
-export function IconChevronRight(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  )
-}
+export const IconChevronRight = fromRadix(ChevronRightIcon)
 
 /** Left chevron (Back navigation, issue #105). */
-export function IconChevronLeft(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M15 6l-6 6 6 6" />
-    </svg>
-  )
-}
+export const IconChevronLeft = fromRadix(ChevronLeftIcon)
 
-export function IconMenu(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M4 7h16M4 12h16M4 17h16" />
-    </svg>
-  )
-}
+export const IconMenu = fromRadix(HamburgerMenuIcon)
 
-export function IconTrain(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" />
-      <path d="M7.5 15h9" />
-    </svg>
-  )
-}
+/** Training (Radix has no flask; the beaker-with-liquid half of MixIcon). */
+export const IconTrain = fromRadix(MixIcon)
 
-export function IconConsole(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M4 5h16v14H4z" />
-      <path d="M7 9l3 3-3 3M12 15h5" />
-    </svg>
-  )
-}
+/** Console (Radix has no terminal; code brackets are the closest match). */
+export const IconConsole = fromRadix(CodeIcon)
 
 /** A wizard wand with sparkles (the "New train" trigger, issue #105). */
-export function IconWand(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M15 4l5 5L7 22l-5-5L15 4z" />
-      <path d="M13.5 6.5l4 4" />
-      <path d="M18 2v3M19.5 3.5h-3" />
-      <path d="M4 12.5l1.5 1.5M6.5 15l1.5 1.5" />
-    </svg>
-  )
-}
+export const IconWand = fromRadix(MagicWandIcon)
