@@ -15,7 +15,7 @@ import { loadRegistry, isCommerciallyUsable } from '@wake-studio/platform'
 import { probeModelUrl, type ProbeResult } from '@wake-studio/platform'
 import { getBackendRegistry } from '@wake-studio/module-kws-engine'
 import { IconSpinner } from '../components/icons'
-import { Button, TextField } from '@radix-ui/themes'
+import { Button, SegmentedControl, TextField } from '@radix-ui/themes'
 import { useToast } from '../components/toast'
 import { cn } from '../components/cn'
 import { ExportGateDialog } from './ExportGateDialog'
@@ -180,19 +180,17 @@ export function ModelLibraryView() {
           aria-label="Search models"
           className="w-64"
         />
-        <div className="flex gap-1 rounded-lg border border-line bg-surface-2 p-1">
+        <SegmentedControl.Root
+          size="1"
+          value={tier}
+          onValueChange={(v) => setTier(v as 'all' | ModelTier)}
+        >
           {(['all', 'low-power', 'high-performance'] as const).map((t) => (
-            <Button
-              key={t}
-              onClick={() => setTier(t)}
-              variant={tier === t ? 'soft' : 'ghost'}
-              size="1"
-              className="text-xs"
-            >
+            <SegmentedControl.Item key={t} value={t}>
               {t === 'all' ? 'All' : t === 'low-power' ? 'MCU' : 'High-perf'}
-            </Button>
+            </SegmentedControl.Item>
           ))}
-        </div>
+        </SegmentedControl.Root>
       </div>
 
       {/* Backend availability */}

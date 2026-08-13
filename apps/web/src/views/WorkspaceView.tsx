@@ -261,7 +261,7 @@ function WorkspaceInner({
   const stageCards = [
     {
       id: 'source' as const,
-      label: 'Source & AFE',
+      label: 'Source',
       preview: (
         <>
           <div>{sourcePreview}</div>
@@ -469,7 +469,7 @@ function WorkspaceInner({
             <div className="flex flex-wrap gap-2">
               <StageCard
                 id="source"
-                label="Source & AFE"
+                label="Source"
                 glyph="⌗"
                 color="#64748b"
                 enabled

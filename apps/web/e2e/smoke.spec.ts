@@ -80,7 +80,7 @@ test('live workspace panels still render (AFE/KWS)', async ({ page }) => {
 
   // Phase 1 configure flow with the pipeline-shaped module tabs.
   await expect(page.getByText('Setup')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Source & AFE config' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Source config' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'NS config' })).toBeVisible()
 
   // KWS detection.

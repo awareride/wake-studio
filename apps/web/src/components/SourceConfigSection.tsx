@@ -9,7 +9,7 @@
 
 import { SourceSelector } from './SourceSelector'
 import { FileSourcePanel } from './FileSourcePanel'
-import { Button } from '@radix-ui/themes'
+import { SegmentedControl } from '@radix-ui/themes'
 import { FileIcon } from '@radix-ui/react-icons'
 import type { SourceState, SourceActions } from '../workspace/useSourceConfig'
 
@@ -22,32 +22,24 @@ interface Props {
 export function SourceConfigSection({ source, actions, disabled }: Props) {
   return (
     <div className="space-y-3">
-      <div className="inline-flex items-center gap-1 rounded-xl border border-line bg-surface-3 p-1">
-        <Button
-          onClick={() => actions.updateKind('mic')}
-          disabled={disabled}
-          variant={source.kind === 'mic' ? 'solid' : 'ghost'}
-          size="2"
-          className="gap-1.5"
-        >
+      <SegmentedControl.Root
+        value={source.kind}
+        disabled={disabled}
+        onValueChange={(v) => actions.updateKind(v as 'mic' | 'file')}
+      >
+        <SegmentedControl.Item value="mic">
           {/* Mic: Radix UI has no mic glyph, so this stays hand-drawn. */}
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
             <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8" />
           </svg>
           Microphone
-        </Button>
-        <Button
-          onClick={() => actions.updateKind('file')}
-          disabled={disabled}
-          variant={source.kind === 'file' ? 'solid' : 'ghost'}
-          size="2"
-          className="gap-1.5"
-        >
+        </SegmentedControl.Item>
+        <SegmentedControl.Item value="file">
           <FileIcon className="h-4 w-4" />
           Audio files
-        </Button>
-      </div>
+        </SegmentedControl.Item>
+      </SegmentedControl.Root>
       {source.kind === 'mic' ? (
         <SourceSelector
           value={source.mic}

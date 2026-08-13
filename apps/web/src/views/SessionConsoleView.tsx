@@ -15,7 +15,7 @@ import {
   downloadCsv,
 } from '../log'
 import { useLogEntries } from '../log'
-import { Button } from '@radix-ui/themes'
+import { Button, SegmentedControl, Tabs } from '@radix-ui/themes'
 import { cn } from '../components/cn'
 import { useToast } from '../components/toast'
 
@@ -91,37 +91,29 @@ export function SessionConsoleView() {
         </div>
       </div>
 
-      {/* Log / triggers sub-tabs */}
-      <div className="inline-flex rounded-lg border border-line bg-surface-2 p-1">
-        {(['log', 'triggers'] as const).map((v) => (
-          <Button
-            key={v}
-            onClick={() => setView(v)}
-            variant={view === v ? 'soft' : 'ghost'}
-            size="2"
-          >
-            {v === 'log' ? 'Event log' : `Triggers (${triggers.length})`}
-          </Button>
-        ))}
-      </div>
+      {/* Log / triggers sub-tabs (Radix Themes Tabs, primitives-backed). */}
+      <Tabs.Root
+        value={view}
+        onValueChange={(v) => setView(v as 'log' | 'triggers')}
+      >
+        <Tabs.List size="1" className="w-fit">
+          <Tabs.Trigger value="log">Event log</Tabs.Trigger>
+          <Tabs.Trigger value="triggers">Triggers ({triggers.length})</Tabs.Trigger>
+        </Tabs.List>
 
-      {view === 'log' ? (
-        <>
-          {/* Level filter */}
-          <div className="flex gap-1">
+        <Tabs.Content value="log" className="space-y-2 pt-3">
+          {/* Level filter (Radix Themes SegmentedControl = ToggleGroup primitive). */}
+          <SegmentedControl.Root
+            size="1"
+            value={levelFilter}
+            onValueChange={(v) => setLevelFilter(v as LogLevel | 'all')}
+          >
             {(['all', 'info', 'warn', 'error'] as const).map((l) => (
-              <Button
-                key={l}
-                onClick={() => setLevelFilter(l)}
-                variant={levelFilter === l ? 'soft' : 'ghost'}
-                size="1"
-                radius="full"
-                className="text-xs"
-              >
+              <SegmentedControl.Item key={l} value={l}>
                 {l === 'all' ? 'All' : l}
-              </Button>
+              </SegmentedControl.Item>
             ))}
-          </div>
+          </SegmentedControl.Root>
 
           {/* Log list */}
           <div className="max-h-[60vh] overflow-y-auto rounded-xl border border-line bg-surface-2 font-mono text-xs">
@@ -149,36 +141,38 @@ export function SessionConsoleView() {
               </ul>
             )}
           </div>
-        </>
-      ) : (
-        /* Trigger history table */
-        <div className="overflow-hidden rounded-xl border border-line bg-surface-2">
-          {triggers.length === 0 ? (
-            <div className="p-6 text-center text-sm text-ink-3">
-              No triggers yet — run detection and say the wake word.
-            </div>
-          ) : (
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-line bg-surface-3 text-xs uppercase tracking-wide text-ink-3">
-                <tr>
-                  <th className="px-3 py-2">Time</th>
-                  <th className="px-3 py-2">Wake word</th>
-                  <th className="px-3 py-2">Peak score</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {triggers.map((e) => (
-                  <tr key={e.id} className="text-ink-2">
-                    <td className="px-3 py-2 font-mono">{new Date(e.at).toLocaleString()}</td>
-                    <td className="px-3 py-2 font-medium text-ink-1">{e.trigger!.word}</td>
-                    <td className="px-3 py-2 font-mono">{e.trigger!.peakScore.toFixed(3)}</td>
+        </Tabs.Content>
+
+        {/* Trigger history table */}
+        <Tabs.Content value="triggers" className="pt-3">
+          <div className="overflow-hidden rounded-xl border border-line bg-surface-2">
+            {triggers.length === 0 ? (
+              <div className="p-6 text-center text-sm text-ink-3">
+                No triggers yet — run detection and say the wake word.
+              </div>
+            ) : (
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-line bg-surface-3 text-xs uppercase tracking-wide text-ink-3">
+                  <tr>
+                    <th className="px-3 py-2">Time</th>
+                    <th className="px-3 py-2">Wake word</th>
+                    <th className="px-3 py-2">Peak score</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {triggers.map((e) => (
+                    <tr key={e.id} className="text-ink-2">
+                      <td className="px-3 py-2 font-mono">{new Date(e.at).toLocaleString()}</td>
+                      <td className="px-3 py-2 font-medium text-ink-1">{e.trigger!.word}</td>
+                      <td className="px-3 py-2 font-mono">{e.trigger!.peakScore.toFixed(3)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </Tabs.Content>
+      </Tabs.Root>
     </div>
   )
 }

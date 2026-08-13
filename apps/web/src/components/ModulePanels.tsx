@@ -157,7 +157,7 @@ export function SourcePanel({
     <StageModuleShell
       color="#64748b"
       number="1"
-      title="Source & AFE"
+      title="Source"
       note="input feed, raw persistence and AFE-wide settings"
       enabled
     >
