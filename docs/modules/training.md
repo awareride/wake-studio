@@ -256,14 +256,69 @@ The import half of the loop lives in `packages/modules/training/`:
 Client-side only: the zip is parsed and validated entirely in the browser; no
 WakeStudio server and no credentials are involved (ADR-013/023).
 
-### 7.2 Colab runtime tunnel (proposal — Q15)
+### 7.2 Colab runtime tunnel (Q15 — resolved, ADR-023 amendment)
 
-An alternative to the manual zip round-trip: the notebook exposes the
+Instead of only the manual zip round-trip, the notebook exposes the
 studio-backend HTTP contract (§3) via a Cloudflare tunnel (`cloudflared`;
 trycloudflare default, named tunnel opt-in), so the PWA drives Colab exactly
 like the self-hosted backend. **This collapses the Colab backend into the
-self-hosted API shape** — one HTTP client, N backends. Full design in
-`docs/training-console.plan.md` §2; tracked as Q15 (issue #106).
+self-hosted API shape** — one HTTP client, N backends. ✅ **RESOLVED
+(human, 2026-08-13): adopt** (issue #106); recorded as an ADR-023 amendment
+in `DECISIONS.md`. Full design in `docs/training-console.plan.md` §2; the
+URL is pasted in the training console's Connect step (§7.3).
+
+### 7.3 Training console — train list + New-train wizard (issue #105)
+
+The PWA's Training view is a list-detail console around the spec-driven panel
+(ADR-025 — no hand-written controls):
+
+- **Layout:** a persistent **train list** (left rail; each item carries the
+  latest notification as a note) and a **details pane** (right) showing the
+  selected train's status, **notifications**, results, and inputs review.
+  **New train** opens the wizard; starting a train opens its review
+  immediately. There is no global news feed — messages live with each train.
+- **Wizard (4 steps, guide mixed into each panel, MODAL dialog so the left
+  rail cannot interrupt it):**
+  1. **Choose model type** — the trainable modules from the generated
+     catalog `apps/web/public/train-modules.json` (spec-driven, ADR-025; built
+     by `scripts/build-model-registry.mjs` from every `spec.train`).
+  2. **Configure** — the module's train config card (from its spec.train: the
+     differences between modules) + the module's OWN train params
+     (`spec.train.params`, schema-extension; `trainPanelSpec` in
+     `core/train-spec.ts` builds the panel spec) rendered through the
+     generated panel — nothing is hard-coded in the training module. No
+     params (e.g. frozen-weight rnnoise) → an empty form.
+  3. **Choose train method** — the methods the module declares in
+     `spec.train.invocation` (`methodsFor` in `core/methods.ts`): Google
+     Colab / Self-hosted service / CI. Connection details (the Colab tunnel
+     URL) are NOT asked here — they are generated when the train runs.
+  4. **Ready to start** — the train summary (param labels from the module's
+     spec) + the train input file shown as a compact card: for Colab the
+     module-owned `.ipynb` with a **Review** button opening the full
+     notebook dialog (rendered with `notebook-viewer-ts` — NotebookTs:
+     markdown, code highlighting, outputs, Collapse/Expand) and download.
+     The CTA lives in the wizard footer in the same position as Next: Colab
+     = **Save** (the run happens in the user's Colab session; results come
+     back in the details pane), subprocess/ci = Start train.
+- **Notebooks come from the app, not GitHub:** module-owned train files
+  (`spec.train.notebookLocal` / `entry`) are copied into
+  `apps/web/public/train/<module-id>/` by the registry script and served
+  from the app's own origin — the WakeStudio repo only provides the
+  template, never fetched at runtime (issue #105, human feedback). The
+  notebook library is lazy-loaded (dynamic import) so highlight.js /
+  micromark / katex stay out of the main bundle.
+- **Colab finish flow (details pane, per job):** the tunnel URL is entered
+  here once the notebook prints it (generated at run time; auto-detected on
+  import when the notebook wrote it — Cloudflare API in Settings), or the
+  user finishes manually by submitting the results zip. A tip switches
+  between "tunnel set → status trackable" and "no tunnel → download + submit
+  manually".
+- **History model** — jobs recorded on Start (`core/history.ts` `startedJob`,
+  with module + method) and on Colab import (`importedJob`); persisted in
+  IndexedDB (`core/history-store.ts`). Step/state logic is pure and headless
+  (`core/steps.ts`), L1-tested together with `core/methods.ts` and the
+  per-train notifications (`deriveMessages`).
+
 
 ## 8. Cloud Providers (ADR-013)
 
@@ -303,3 +358,18 @@ for every provider. Capability labels: train-capable vs inference-only.
 | 2026-08-05 | Initial draft (docs-first, §6.5 Step A). | agent |
 | 2026-08-05 | **§4 upstream-script adapters** (human decision: preserve upstream train.py/ipynb; adapt to them). Spec `train` gains `script`/`notebook`/`adapter` fields; `standardize-results` is the single importer. Sections renumbered. | agent |
 | 2026-08-13 | §7.2 Colab runtime tunnel (proposal, Q15 issue #106): collapse Colab into the self-hosted API shape. | agent |
+| 2026-08-13 | Q15 resolved (human): tunnel adopted — ADR-023 amended (issue #106). §7.3 added: Training console (stepper + history rail + guide, issue #105). | agent |
+| 2026-08-13 | §7.3 reworked (human design feedback, issue #105): list-detail layout (train list + news + details pane) with a New-train wizard — model type (from `train-modules.json`) → config → method (spec.train.invocation) → ready (.ipynb review + download); guide mixed into each step; starting opens the train's review. | agent |
+| 2026-08-13 | §7.3 refined (human feedback, issue #105): (1) train configs come from each module's own `spec.train.params` (schema extension; `trainPanelSpec`; training module no longer hard-codes params); (2) module-owned notebooks are copied to `public/train/<module-id>/` and served from the app — no GitHub fetch; (3) the .ipynb is previewed on the panel (cells rendered read-only). | agent |
+| 2026-08-13 | §7.3 polished (human feedback round 2, issue #105): wizard is a modal dialog; `target` param removed from openwakeword; tunnel URL moved to the per-job details pane; module-owned Open-in-Colab removed; Colab CTA renamed to Save; manual-submit tips; upgraded notebook reviewer. | agent |
+| 2026-08-13 | §7.3 refined (human feedback round 3, issue #105): notebook review uses `notebook-viewer-ts` (NotebookTs — markdown, hljs, outputs, folding) in a full Review dialog (lazy-loaded; no inline preview; Collapse-all/Expand-all + per-cell toggles); the news rail is gone — notifications/messages live in the train details pane and as a note on each train-list item; the wizard footer keeps Next's position for the final Save/Start button. | agent |
+| 2026-08-13 | §7.3 polished (human feedback round 4, issue #105): modal dialogs use a stronger scrim (45% + blur — no back-content bleed during fast scroll); notebook review shows each cell's title when collapsed and flips − → +; the trigger is a compact **New** button with a wizard-wand icon; cleanup — training module spec slimmed (params/actions/status empty; the wizard owns the flow), outdated guide text fixed. | agent |
+| 2026-08-13 | §7.3 refined (human feedback round 5, issue #105): the wizard is a FULL panel of the Training view (dialog removed; no left rail while it is open, so steps cannot be interrupted); notebook review — the −/+ button is the glyph alone and the collapsed cell's title is a proper title-like label (larger); syntax highlighting is on (the NotebookTs renderer runs highlight.js; the review CSS now carries the hljs token colors). | agent |
+| 2026-08-13 | §7.3 polished (human feedback round 6, issue #105): (1) notebook review is a full panel of the train details/wizard with a Back button (state preserved); (2) wizard Cancel and leaving via another menu confirm when there is progress; (3) the Trains list header has a collapse/expand toggle; (4) step guide tips are collapsed by default (click the `>` to expand); (5) Back/Next/Save are pinned at the bottom — only the inner content scrolls; (7) train params are now REAL — each spec.train.params entry declares its notebook env var (`env`), and the app bakes the user's values into the downloaded .ipynb (and shows them in the review); (8) the repo-internal notebook path row was removed from the module config card. | agent |
+| 2026-08-13 | §7.3 fixes (human feedback round 7, issue #105): the Trains toggle uses the sidebar-trigger style (IconMenu); the notebook review resets when switching trains (details are keyed by job id); personalized notebook cells keep their line breaks (the source array preserved trailing newlines — the `# --- WakeStudio job params` cell no longer collapses to a single line). | agent |
+| 2026-08-13 | §7.3 fix (human feedback round 8, issue #105): the hamburger toggle now collapses the LEFT RAIL horizontally (sidebar-trigger behavior) — the train list hides and the details pane takes the full width; the toggle lives in the right-pane header so it stays reachable while the rail is hidden. | agent |
+| 2026-08-13 | §7.3 polish (human feedback round 9, issue #105): notebook review code blocks WRAP (pre-wrap/break-word — long lines no longer overflow the panel width); the train-list toggle is mobile-aware — on small screens the rail is hidden and the hamburger opens a left-edge drawer (mirroring the shell's mobile sidebar); selecting a train closes the drawer and opens its details. | agent |
+| 2026-08-13 | §7.3 fix (human feedback round 10, issue #105): the mobile train-list drawer now matches the global menu exactly — same `drawer-content` + slide-in/out animation classes, the default shell overlay (no custom scrim), and the toggle button matches the TopBar hamburger (no border/background). | agent |
+| 2026-08-13 | §7.3 fix (human feedback round 11, issue #105): the wizard container uses a FIXED height (`h-[calc(100dvh-12rem)]`, not `max-h`) so the pinned Back/Next/Save footer stays at the same height regardless of the step/config content length. | agent |
+| 2026-08-13 | §7.3 fix (human feedback round 12, issue #105): mobile footer went off-screen because the Training header wrapped taller — the header is now hidden while the wizard is open (the wizard has its own header + Cancel), so the chrome is constant and the pinned footer stays inside the viewport on both PC and mobile. | agent |
+| 2026-08-13 | §7.3 polish (human feedback round 13, issue #105): the training panel is a fixed-height split-scroll area — the train list and the train details each scroll independently within the panel (the page itself no longer scrolls). Verified with 15 jobs: both columns scroll internally, body does not. | agent |

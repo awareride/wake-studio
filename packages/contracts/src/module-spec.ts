@@ -40,6 +40,12 @@ export interface ModuleParam {
    */
   options?: ReadonlyArray<string | { value: string; label: string }>
   validation?: ParamValidation
+  /**
+   * Train params only: the notebook env var this param maps to (issue #105).
+   * The app bakes the user's value into the downloaded .ipynb by replacing
+   * the default inside `os.environ.get("ENV", "default")`.
+   */
+  env?: string
 }
 
 export type ActionKind = 'load' | 'start' | 'stop' | 'export' | 'train' | 'record' | 'reset' | 'enroll'
@@ -102,6 +108,14 @@ export interface ModuleTrain {
   notebookLocal?: string
   python?: string
   deps?: string
+  /**
+   * The module's OWN train params (issue #105) — the wizard's Configure
+   * step renders these spec-driven, so each module owns its train config
+   * (a wake phrase + steps for openwakeword, feature type / training steps
+   * for kws_streaming, none for frozen-weight rnnoise). Same shape as the
+   * top-level `params`. Mirrors the module-spec JSON schema `train.params`.
+   */
+  params?: ModuleParam[]
   /** Who may invoke: "subprocess" (studio-backend), "ci", "colab". */
   invocation: Array<'subprocess' | 'ci' | 'colab'>
   outputs: Record<string, string>

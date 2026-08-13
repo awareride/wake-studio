@@ -1,45 +1,76 @@
 /**
- * Training module - spec-driven panel (ADR-025 §3).
+ * Training module - spec-driven train params panel (ADR-025 §3, issue #105).
  *
- * Replaces the hand-written TrainingPanel stub with a generated panel from
- * the module spec. The panel is a pure function of the spec: params render via
- * module-kit's Ui* controls; backend wiring lands in goal.plan Phase 5. A
- * minimal controller holds local param state (no backend yet).
+ * Renders a module's OWN train params (built by `trainPanelSpec` from the
+ * module's spec.train.params) through the generated panel - the wizard's
+ * Configure step uses this, so each module provides its own train config and
+ * nothing is hard-coded here. The panel stays controlled: the host tracks
+ * the current values via `onValuesChange` (defaults announced on mount).
  */
 
-import { useState, useCallback } from 'react'
-import { renderPanel, type ModulePanelController } from '@wake-studio/module-kit'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  defaultsFromSpec,
+  renderPanel,
+  type ModulePanelController,
+} from '@wake-studio/module-kit'
 import type { ModuleSpec } from '@wake-studio/contracts'
-import trainingSpec from '../spec/module.spec.json'
+import type { TrainPanelSpec } from '../core/train-spec'
 
-const TRAINING_SPEC = trainingSpec as unknown as ModuleSpec
+export interface TrainParamsPanelProps {
+  /** Panel spec built from the module's spec.train.params (trainPanelSpec). */
+  spec: TrainPanelSpec
+  /** Notified on mount (defaults) and on every param change. */
+  onValuesChange?: (values: Record<string, string>) => void
+}
 
-const GeneratedTrainingPanel = renderPanel(TRAINING_SPEC)
+function stringifyValues(values: Record<string, unknown>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(values).map(([k, v]) => [k, String(v ?? '')]),
+  )
+}
 
-/** The training panel: rendered from the spec, not hand-written (ADR-025). */
-export function TrainingModulePanel() {
-  // Local controller state - no backend yet (Phase 5 wires runAction).
-  const [values, setValues] = useState<Record<string, unknown>>({})
-  const [status, setStatus] = useState<Record<string, unknown>>({})
+/** The training panel: rendered from the module spec, not hand-written. */
+export function TrainParamsPanel({ spec, onValuesChange }: TrainParamsPanelProps) {
+  const Panel = useMemo(
+    () => renderPanel(spec as ModuleSpec),
+    [spec],
+  )
 
-  const setValue = useCallback((id: string, value: unknown) => {
-    setValues((prev) => ({ ...prev, [id]: value }))
-  }, [])
+  const [values, setValues] = useState<Record<string, unknown>>(() =>
+    defaultsFromSpec(spec as ModuleSpec),
+  )
+
+  // Re-initialize from defaults when the module (spec) changes — e.g. the
+  // user goes back and picks a different model type — and announce the
+  // defaults on mount / module change (issue #105).
+  useEffect(() => {
+    const defaults = defaultsFromSpec(spec as ModuleSpec)
+    setValues(defaults)
+    onValuesChange?.(stringifyValues(defaults))
+  }, [spec, onValuesChange])
+
+  const setValue = useCallback(
+    (id: string, value: unknown) => {
+      setValues((prev) => {
+        const next = { ...prev, [id]: value }
+        onValuesChange?.(stringifyValues(next))
+        return next
+      })
+    },
+    [onValuesChange],
+  )
 
   const controller: ModulePanelController = {
     values,
     setValue,
-    runAction: (actionId: string) => {
-      // Phase 5: submit a TrainingJob to the selected backend. Today the
-      // action is a no-op stub that reports the (not-yet-implemented) status.
-      if (actionId === 'train') {
-        setStatus((s) => ({ ...s, jobStatus: 'queued (backend lands in Phase 5)' }))
-      }
+    runAction: () => {
+      /* train params only - no actions in the wizard's Configure step */
     },
-    status,
+    status: {},
   }
 
-  return <GeneratedTrainingPanel controller={controller} />
+  return <Panel controller={controller} sections={['params']} hideHeader compact />
 }
 
-export default TrainingModulePanel
+export default TrainParamsPanel

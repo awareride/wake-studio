@@ -139,6 +139,48 @@
       "ci",
       "colab"
     ],
+    "params": [
+      {
+        "id": "wantedWords",
+        "label": "Wake word (label)",
+        "group": "primary",
+        "type": "select",
+        "default": "yes",
+        "options": ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go"],
+        "description": "The class label to train as the wake word (upstream --wanted_words)."
+      },
+      {
+        "id": "featureType",
+        "label": "Feature type",
+        "group": "primary",
+        "type": "select",
+        "default": "micro",
+        "options": ["micro", "mfcc", "raw"],
+        "description": "Input features (upstream --feature_type). 'micro' matches the on-device streaming model."
+      },
+      {
+        "id": "howManyTrainingSteps",
+        "label": "Training steps",
+        "group": "advanced",
+        "type": "number",
+        "default": 30000,
+        "min": 1000,
+        "max": 500000,
+        "step": 1000,
+        "description": "Upstream --how_many_training_steps."
+      },
+      {
+        "id": "learningRate",
+        "label": "Learning rate",
+        "group": "advanced",
+        "type": "number",
+        "default": 0.001,
+        "min": 0.00001,
+        "max": 0.1,
+        "step": 0.0001,
+        "description": "Upstream --learning_rate."
+      }
+    ],
     "outputs": {
       "checkpoint": "tflite_stream_state_external/stream_state_external.tflite",
       "metrics": "tflite_stream_state_external/tflite_stream_state_external_model_accuracy_reset0.txt"

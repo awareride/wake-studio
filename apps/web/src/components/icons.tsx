@@ -113,6 +113,15 @@ export function IconChevronRight(props: IconProps) {
   )
 }
 
+/** Left chevron (Back navigation, issue #105). */
+export function IconChevronLeft(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  )
+}
+
 export function IconMenu(props: IconProps) {
   return (
     <svg {...base(props)}>
@@ -135,6 +144,18 @@ export function IconConsole(props: IconProps) {
     <svg {...base(props)}>
       <path d="M4 5h16v14H4z" />
       <path d="M7 9l3 3-3 3M12 15h5" />
+    </svg>
+  )
+}
+
+/** A wizard wand with sparkles (the "New train" trigger, issue #105). */
+export function IconWand(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M15 4l5 5L7 22l-5-5L15 4z" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M18 2v3M19.5 3.5h-3" />
+      <path d="M4 12.5l1.5 1.5M6.5 15l1.5 1.5" />
     </svg>
   )
 }

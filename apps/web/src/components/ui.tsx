@@ -30,9 +30,9 @@ export const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      // Light dim, no blur - a subtle scrim so the drawer/dialog stands out
-      // without darkening or blurring the page behind it.
-      'fixed inset-0 z-50 bg-slate-900/20',
+      // Position + animation only; the scrim color is applied by the caller
+      // (DialogContent) so a focused modal can fully replace it (issue #105).
+      'fixed inset-0 z-50',
       'data-[state=open]:animate-in data-[state=closed]:animate-out',
       className,
     )}
@@ -46,10 +46,13 @@ export const DialogContent = React.forwardRef<
     /** Center on screen (default). When false, no positioning classes are
      *  applied so the caller can position it (e.g. a side drawer). */
     centered?: boolean
+    /** Extra classes for the scrim overlay (e.g. a stronger dim + blur for
+     *  focused modal flows — training wizard / notebook review, #105). */
+    overlayClassName?: string
   }
->(({ className, children, centered = true, ...props }, ref) => (
+>(({ className, children, centered = true, overlayClassName, ...props }, ref) => (
   <DialogPrimitive.Portal>
-    <DialogOverlay />
+    <DialogOverlay className={overlayClassName ?? 'bg-slate-900/20'} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(

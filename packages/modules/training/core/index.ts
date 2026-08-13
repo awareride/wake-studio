@@ -19,3 +19,55 @@ export {
   type BundleImportErrorCode,
   BUNDLE_IMPORT_ERROR_MESSAGES,
 } from './manifest'
+// Training console stepper + history rail (issue #105).
+export {
+  STEP_ORDER,
+  STEP_DEFS,
+  jobPhase,
+  canAdvance,
+  canGoBack,
+  nextStepId,
+  advanceStep,
+  type TrainingStepId,
+  type TrainingStepDef,
+  type JobPhase,
+} from './steps'
+export {
+  trainPanelSpec,
+  type TrainPanelSpec,
+  type TrainableModuleLike,
+} from './train-spec'
+export {
+  TRAIN_METHODS,
+  TRAIN_METHOD_ORDER,
+  methodsFor,
+  supportsMethod,
+  backendForMethod,
+  type TrainMethod,
+  type TrainMethodId,
+} from './methods'
+export {
+  startedJob,
+  importedJob,
+  backendToMethod,
+  sortJobsNewestFirst,
+  upsertJob,
+  deriveMessages,
+  latestMessage,
+  type HistoryJob,
+  type StartedJobInput,
+  type ImportedJobInput,
+  type TrainMessage,
+} from './history'
+export {
+  listJobs,
+  getJob,
+  saveJob,
+  updateJobStatus,
+  clearJobs,
+} from './history-store'
+export {
+  personalizeNotebook,
+  personalizedParamIds,
+  type EnvParam,
+} from './notebook'

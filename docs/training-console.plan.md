@@ -101,9 +101,10 @@ manual zip round-trip).
    removes it.
 3. trycloudflare rate-limits/ToS on heavy use → named tunnel for serious use.
 
-**Decision gate:** adopting this amends ADR-023 ("the Colab runtime exposes the
-studio-backend HTTP contract via an ephemeral Cloudflare tunnel"). Tracked as
-Q15, issue #106.
+**Decision gate:** amended ADR-023 ("the Colab runtime exposes the
+studio-backend HTTP contract via an ephemeral Cloudflare tunnel"). ✅ **RESOLVED
+(human, 2026-08-13): adopt — trycloudflare default, named tunnel opt-in**
+(Q15, issue #106; recorded as an ADR-023 amendment).
 
 ## 3. D2 — Hugging Face is complementary, not a replacement
 
@@ -147,10 +148,16 @@ The backend selector (Step 2) presents them honestly:
 |---|---|---|
 | T-7 | Panel: stepper auto-advance on job completion, or manual "Next"? | Auto-advance to Review on success; manual otherwise. |
 | T-8 | History persistence: IndexedDB only, or also sync to backend when connected? | IndexedDB only for v1. |
-| Q15 | Colab tunnel: adopt cloudflared (trycloudflare default, named tunnel opt-in)? | Yes — amends ADR-023 (issue #106). |
+| Q15 | Colab tunnel: adopt cloudflared (trycloudflare default, named tunnel opt-in)? | ✅ **RESOLVED (human, 2026-08-13): Yes — ADR-023 amended** (issue #106 closed). |
 
 ## 6. Change log
 
 | Date | Change | Author |
 |---|---|---|
 | 2026-08-13 | Initial review draft — panel layout (stepper + history rail), Colab cloudflared tunnel (Q15, issue #106), HF complementary role (issue #107). | agent |
+| 2026-08-13 | Q15 resolved (human): cloudflared tunnel adopted — trycloudflare default, named tunnel opt-in; recorded as an ADR-023 amendment (issue #106). | agent |
+| 2026-08-13 | §1/§5 implemented (issue #105): Training console — stepper (Configure→Connect→Run→Review) around the spec-driven panel, IndexedDB history rail, collapsible help drawer; step/state logic in `packages/modules/training/core/steps.ts` (L1-tested); docs `training.md` §7.3. | agent |
+| 2026-08-13 | §1 reworked per human design feedback (issue #105): list-detail layout (train list + train news + details pane) and a New-train wizard — choose model type (trainable modules from `train-modules.json`) → configure → choose train method (spec.train.invocation) → ready (.ipynb shown for review + download); guide mixed into each step; starting opens the train's review. | agent |
+| 2026-08-13 | §1 refined (human feedback, issue #105): configs come from each module's own `spec.train.params` (schema extension, `trainPanelSpec` — nothing hard-coded in the training module); module-owned notebooks are served from the app's own origin (`public/train/<module-id>/`, no GitHub fetch); the .ipynb is previewed on the panel (read-only cells). | agent |
+| 2026-08-13 | §1 polished (human feedback round 2, issue #105): wizard is a modal dialog; tunnel URL moves to the per-job details pane (generated at run time / auto-detected on import); module-owned Open-in-Colab removed; Colab CTA = "Save train"; manual-submit tips; upgraded notebook reviewer (markdown + line numbers + chapters). | agent |
+| 2026-08-13 | §1 refined (human feedback round 3, issue #105): notebook review via `notebook-viewer-ts` in a full Review dialog (no inline preview; Collapse/Expand); news rail removed — notifications per train (details pane + list-item note); Save button sits where Next did. | agent |

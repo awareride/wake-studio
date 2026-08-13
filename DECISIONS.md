@@ -496,6 +496,36 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   Google account is the only credential. Notebooks are version-controlled in the
   repo (e.g. under `colab/`).
 
+**Amendment (2026-08-13) - Colab runtime control via an ephemeral Cloudflare tunnel (Q15, issue #106):**
+1. **Adopted:** the Colab runtime exposes the studio-backend HTTP contract
+   (`POST /train`, `GET /status`, `GET /artifacts/<name>`, `docs/modules/training.md`
+   §3) through an ephemeral Cloudflare tunnel served by a small in-notebook HTTP
+   server (FastAPI/uvicorn). This collapses Colab into the self-hosted API shape:
+   one HTTP client, N backends — the PWA drives Colab exactly like the
+   self-hosted backend (same polling, same artifact download, no manual zip
+   round-trip).
+2. **Default = `trycloudflare`** (no key, consistent with "only the Google
+   account"); a **named tunnel** (the user's own Cloudflare key) is the stable
+   "pro" upgrade for repeated use. v1 friction (manual URL paste, ephemeral URL)
+   is accepted; runtime-idle drops are mitigated with checkpoint/resume + a
+   fresh URL reprint on reconnect.
+3. **Mechanism:** the notebook starts a local HTTP server on `localhost:PORT`,
+   runs `cloudflared tunnel --url http://localhost:PORT`, and prints
+   `https://xxxx.trycloudflare.com`; the user pastes the URL into the training
+   console's "Connect backend" step (issue #105); the PWA then polls and
+   downloads exactly as it does for the self-hosted backend.
+4. **CORS:** the in-notebook server sets `Access-Control-Allow-Origin: *` (we
+   own it). No mixed-content issue — the PWA and the tunnel are both HTTPS.
+   Colab's sandbox allows the outbound cloudflared connection
+   (`pip install cloudflared` or the static binary; no root needed).
+5. **Security:** the URL is unguessable but treated as public; no credentials
+   ever travel *through* the tunnel; notebook keys stay client-side in Settings
+   (issue #52), never in tunnel traffic.
+6. **Accepted risks:** (a) Colab kills idle runtimes — long jobs can drop the
+   tunnel; mitigated by checkpoint/resume + fresh URL reprint; (b) manual paste
+   friction — acceptable for v1, removed by a named tunnel; (c) trycloudflare
+   rate-limits/ToS on heavy use — named tunnel for serious use.
+
 ---
 
 ## ADR-024 — KWS is organized into three categories with a decoupling rule and a unified panel spec

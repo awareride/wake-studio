@@ -1,0 +1,208 @@
+{
+  "$schema": "./train-modules.schema.json",
+  "version": 1,
+  "updated": "2026-08-13",
+  "note": "Catalog of trainable modules (spec.train, issue #105). Generated from the module specs - the single shared fact source (ADR-025). The training console picks the model type (openwakeword / streaming / rnnoise), renders its train config, and offers the invocation methods the module declares.",
+  "modules": [
+    {
+      "id": "rnnoise",
+      "category": "afe",
+      "name": "RNNoise Noise Suppression",
+      "license": "BSD-3-Clause (RNNoise) + MIT (integration)",
+      "maturity": "pilot",
+      "train": {
+        "entry": "train/train.py",
+        "python": "3.11",
+        "deps": "train/pyproject.toml",
+        "invocation": [
+          "ci"
+        ],
+        "outputs": {
+          "checkpoint": "out/rnnoise.onnx",
+          "metrics": "out/metrics.json"
+        }
+      }
+    },
+    {
+      "id": "kws-openwakeword",
+      "category": "kws",
+      "name": "OpenWakeWord KWS driver",
+      "license": "Apache-2.0 (code); pre-trained models CC BY-NC-SA (demo-only)",
+      "maturity": "pilot",
+      "train": {
+        "notebookLocal": "packages/modules/kws/openwakeword/train/colab/train.ipynb",
+        "invocation": [
+          "colab"
+        ],
+        "params": [
+          {
+            "id": "wakePhrase",
+            "label": "Wake phrase",
+            "group": "primary",
+            "type": "string",
+            "default": "hey studio",
+            "description": "The wake phrase to train (notebook env WAKE_PHRASE). Spell phonetically with underscores if the default pronunciation is off, e.g. \"hey siri\" → \"hey_seer_e\".",
+            "env": "WAKE_PHRASE"
+          },
+          {
+            "id": "nSamples",
+            "label": "Synthetic samples",
+            "group": "advanced",
+            "type": "number",
+            "default": 1000,
+            "min": 100,
+            "max": 10000,
+            "step": 100,
+            "description": "Generated TTS sample count (notebook env WAKE_N_SAMPLES); raise for a stronger model.",
+            "env": "WAKE_N_SAMPLES"
+          },
+          {
+            "id": "steps",
+            "label": "Training steps",
+            "group": "advanced",
+            "type": "number",
+            "default": 10000,
+            "min": 100,
+            "max": 200000,
+            "step": 1000,
+            "description": "Optimizer steps (notebook env WAKE_STEPS); full models often use 50 000+.",
+            "env": "WAKE_STEPS"
+          },
+          {
+            "id": "falseActivationPenalty",
+            "label": "False-activation penalty",
+            "group": "advanced",
+            "type": "number",
+            "default": 1500,
+            "min": 0,
+            "max": 10000,
+            "step": 100,
+            "description": "max_negative_weight (notebook env WAKE_FALSE_ACTIVATION); higher = fewer false alarms.",
+            "env": "WAKE_FALSE_ACTIVATION"
+          },
+          {
+            "id": "augment",
+            "label": "Audio augmentation",
+            "group": "advanced",
+            "type": "boolean",
+            "default": true,
+            "description": "Background mixing + room impulse responses (notebook env WAKE_AUGMENT).",
+            "env": "WAKE_AUGMENT"
+          },
+          {
+            "id": "quantize",
+            "label": "Quantize export",
+            "group": "advanced",
+            "type": "boolean",
+            "default": true,
+            "description": "Emit a TFLite model alongside the ONNX (best-effort, notebook env WAKE_QUANTIZE).",
+            "env": "WAKE_QUANTIZE"
+          }
+        ],
+        "outputs": {
+          "checkpoint": "out/model.onnx",
+          "metrics": "out/metrics.json"
+        }
+      }
+    },
+    {
+      "id": "kws-streaming",
+      "category": "kws",
+      "name": "kws_streaming (Traditional streaming-aware driver)",
+      "license": "Apache-2.0 (google-research/kws_streaming + ARM keyword-transformer) + MIT (integration)",
+      "maturity": "pilot",
+      "train": {
+        "script": {
+          "repo": "https://github.com/google-research/google-research",
+          "path": "kws_streaming/train/model_train_eval.py",
+          "ref": "master",
+          "language": "python",
+          "entrypoint": "python -m kws_streaming.train.model_train_eval",
+          "args": [
+            "--data_dir",
+            "--wanted_words",
+            "--train_dir",
+            "--split_data",
+            "--preprocess",
+            "--feature_type",
+            "--how_many_training_steps",
+            "--learning_rate",
+            "--train"
+          ]
+        },
+        "invocation": [
+          "subprocess",
+          "ci",
+          "colab"
+        ],
+        "params": [
+          {
+            "id": "wantedWords",
+            "label": "Wake word (label)",
+            "group": "primary",
+            "type": "select",
+            "default": "yes",
+            "options": [
+              "yes",
+              "no",
+              "up",
+              "down",
+              "left",
+              "right",
+              "on",
+              "off",
+              "stop",
+              "go"
+            ],
+            "description": "The class label to train as the wake word (upstream --wanted_words)."
+          },
+          {
+            "id": "featureType",
+            "label": "Feature type",
+            "group": "primary",
+            "type": "select",
+            "default": "micro",
+            "options": [
+              "micro",
+              "mfcc",
+              "raw"
+            ],
+            "description": "Input features (upstream --feature_type). 'micro' matches the on-device streaming model."
+          },
+          {
+            "id": "howManyTrainingSteps",
+            "label": "Training steps",
+            "group": "advanced",
+            "type": "number",
+            "default": 30000,
+            "min": 1000,
+            "max": 500000,
+            "step": 1000,
+            "description": "Upstream --how_many_training_steps."
+          },
+          {
+            "id": "learningRate",
+            "label": "Learning rate",
+            "group": "advanced",
+            "type": "number",
+            "default": 0.001,
+            "min": 0.00001,
+            "max": 0.1,
+            "step": 0.0001,
+            "description": "Upstream --learning_rate."
+          }
+        ],
+        "outputs": {
+          "checkpoint": "tflite_stream_state_external/stream_state_external.tflite",
+          "metrics": "tflite_stream_state_external/tflite_stream_state_external_model_accuracy_reset0.txt"
+        },
+        "adapter": "standardize-results",
+        "adapterOptions": {
+          "modelRegex": "stream_state_external\\.tflite$",
+          "labelsFile": "labels.txt",
+          "flagsFile": "flags.json"
+        }
+      }
+    }
+  ]
+}

@@ -126,53 +126,75 @@ export interface GeneratedPanelProps {
   controller: ModulePanelController
   /** Override panel heading (defaults to spec.meta.name). */
   title?: string
+  /** Hide the panel header (meta name/license) — used when the panel is
+   *  embedded in a host that already introduces the module (issue #105). */
+  hideHeader?: boolean
+  /** Compact layout: no outer page padding/centering (embedded contexts). */
+  compact?: boolean
+  /**
+   * Scope which generated sections render (training console stepper,
+   * issue #105). Undefined = all sections (today's behavior).
+   */
+  sections?: PanelSection[]
 }
+
+/**
+ * The generated panel's sections, scoped by a host (e.g. the training
+ * console stepper shows params on "Configure" and actions+status on
+ * "Run/monitor", without hand-writing any control).
+ */
+export type PanelSection = 'params' | 'actions' | 'status'
 
 /**
  * The panel generated from a ModuleSpec. Pure render: all state comes from
  * `controller`. Primary params render inline; `group: "advanced"` params
- * collapse under an "Advanced" section (ADR-024 dual layer).
+ * collapse under an "Advanced" section (ADR-024 dual layer). With
+ * `sections`, only the listed sections render.
  */
-export function ModulePanel({ spec, controller, title }: GeneratedPanelProps) {
+export function ModulePanel({ spec, controller, title, hideHeader, compact, sections }: GeneratedPanelProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false)
 
+  const show = (section: PanelSection) => !sections || sections.includes(section)
   const primary = spec.params.filter((p) => p.group === 'primary')
   const advanced = spec.params.filter((p) => p.group === 'advanced')
   const busy = controller.actionBusy ?? false
   const disabled = controller.disabled ?? busy
 
   return (
-    <section className="mx-auto max-w-5xl px-6 py-12">
-      {/* Panel header from spec.meta. */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-ink-1">
-          {title ?? spec.meta.name}
-        </h2>
-        <p className="mt-1 text-sm text-ink-2">
-          {spec.meta.category} module · v{spec.meta.version} ·{' '}
-          <span className="text-ink-3">{spec.meta.license}</span>
-        </p>
-      </div>
+    <section className={compact ? '' : 'mx-auto max-w-5xl px-6 py-12'}>
+      {/* Panel header from spec.meta (hidden when embedded, issue #105). */}
+      {!hideHeader && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-ink-1">
+            {title ?? spec.meta.name}
+          </h2>
+          <p className="mt-1 text-sm text-ink-2">
+            {spec.meta.category} module · v{spec.meta.version} ·{' '}
+            <span className="text-ink-3">{spec.meta.license}</span>
+          </p>
+        </div>
+      )}
 
       <div className="space-y-4 rounded-xl border border-line bg-surface-2 p-5">
         {/* Primary params. */}
-        {primary.map((param) => (
-          <UiParamRow
-            key={param.id}
-            label={param.label}
-            description={param.description}
-          >
-            {renderParamControl({
-              param,
-              value: controller.values[param.id],
-              onChange: (v) => controller.setValue(param.id, v),
-              disabled,
-            })}
-          </UiParamRow>
-        ))}
+        {show('params') &&
+          primary.map((param) => (
+            <UiParamRow
+              key={param.id}
+              label={param.label}
+              description={param.description}
+            >
+              {renderParamControl({
+                param,
+                value: controller.values[param.id],
+                onChange: (v) => controller.setValue(param.id, v),
+                disabled,
+              })}
+            </UiParamRow>
+          ))}
 
         {/* Advanced params (collapsible, ADR-024). */}
-        {advanced.length > 0 && (
+        {show('params') && advanced.length > 0 && (
           <UiCollapsible
             label="Advanced"
             open={advancedOpen}
@@ -198,7 +220,7 @@ export function ModulePanel({ spec, controller, title }: GeneratedPanelProps) {
         )}
 
         {/* Actions. */}
-        {spec.actions.length > 0 && (
+        {show('actions') && spec.actions.length > 0 && (
           <div className="flex flex-wrap gap-3 pt-2">
             {spec.actions.map((action) => (
               <ActionButton
@@ -217,7 +239,7 @@ export function ModulePanel({ spec, controller, title }: GeneratedPanelProps) {
           Colab" action. It is a plain external link — no server, no
           credentials; the user runs the notebook in their own Colab session.
         */}
-        {spec.train?.notebookLocal && (
+        {show('actions') && spec.train?.notebookLocal && (
           <div className="flex flex-wrap gap-3 pt-2">
             <a
               href={buildColabUrl(spec.train.notebookLocal)}
@@ -232,7 +254,7 @@ export function ModulePanel({ spec, controller, title }: GeneratedPanelProps) {
         )}
 
         {/* Status (live values from controller.status). */}
-        {spec.status.length > 0 && (
+        {show('status') && spec.status.length > 0 && (
           <div className="grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
             {spec.status.map((statusDef) => (
               <div key={statusDef.id}>
@@ -294,6 +316,12 @@ export interface GeneratedModulePanelProps {
   controller: ModulePanelController
   /** Override panel heading. */
   title?: string
+  /** Hide the panel header (embedded contexts). */
+  hideHeader?: boolean
+  /** Compact layout: no outer page padding/centering. */
+  compact?: boolean
+  /** Scope which generated sections render (undefined = all). */
+  sections?: PanelSection[]
 }
 
 /**
@@ -304,8 +332,15 @@ export interface GeneratedModulePanelProps {
  * mounted against different module instances.
  */
 export function renderPanel(spec: ModuleSpec) {
-  const Panel = ({ controller, title }: GeneratedModulePanelProps) => (
-    <ModulePanel spec={spec} controller={controller} title={title} />
+  const Panel = ({ controller, title, hideHeader, compact, sections }: GeneratedModulePanelProps) => (
+    <ModulePanel
+      spec={spec}
+      controller={controller}
+      title={title}
+      hideHeader={hideHeader}
+      compact={compact}
+      sections={sections}
+    />
   )
   Panel.displayName = `ModulePanel(${spec.meta.id})`
   return Panel

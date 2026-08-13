@@ -346,6 +346,101 @@
         "deps": {
           "type": "string"
         },
+        "params": {
+          "type": "array",
+          "description": "Train params declared by the module itself (issue #105) - the wizard's Configure step renders these spec-driven, so each module owns its own train config (a wake phrase + steps for openwakeword, feature type / training steps for kws_streaming, none for frozen-weight rnnoise). Same shape as the top-level params array.",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "label",
+              "group",
+              "type",
+              "default"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "group": {
+                "enum": [
+                  "primary",
+                  "advanced"
+                ]
+              },
+              "type": {
+                "enum": [
+                  "number",
+                  "boolean",
+                  "select",
+                  "enum",
+                  "slider",
+                  "secret",
+                  "string"
+                ]
+              },
+              "default": {},
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "step": {
+                "type": "number"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "value"
+                      ],
+                      "properties": {
+                        "value": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "validation": {
+                "type": "object",
+                "properties": {
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "if": {
+                    "type": "string"
+                  }
+                }
+              },
+              "env": {
+                "type": "string",
+                "description": "Notebook env var this train param maps to (issue #105) \u2014 the app bakes the user's value into the downloaded notebook by replacing the default in os.environ.get(\"ENV\", \"default\")."
+              }
+            }
+          }
+        },
         "invocation": {
           "type": "array",
           "items": {
@@ -463,7 +558,10 @@
           "properties": {
             "source": {
               "type": "string",
-              "enum": ["run", "release"],
+              "enum": [
+                "run",
+                "release"
+              ],
               "description": "Where the artifact comes from: a GitHub Actions run (default; build.artifactName) or a GitHub Release (source=release; static models with no CI build, e.g. openwakeword/hey-buddy)."
             },
             "releaseTag": {
