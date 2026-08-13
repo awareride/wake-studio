@@ -177,12 +177,12 @@ export function TrainingConsole() {
   }, [isDesktop])
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-[calc(100dvh-7.5rem)] min-h-[24rem] flex-col gap-6">
       {/* Header (hidden while the wizard is open — the wizard has its own
           header, and a constant chrome keeps the pinned footer stable on
           PC and mobile, issue #105). */}
       {view.kind !== 'wizard' && (
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex shrink-0 items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-ink-1">Training</h2>
             <p className="mt-1 max-w-2xl text-sm text-ink-2">
@@ -212,11 +212,13 @@ export function TrainingConsole() {
           onDirtyChange={handleDirtyChange}
         />
       ) : (
-        <div className="flex gap-6">
+        /* Split-scroll panel: the train list and the details each scroll
+           independently within the panel's height (issue #105). */
+        <div className="flex min-h-0 flex-1 gap-6">
           {/* Left rail (desktop): the train list — hidden when collapsed.
               On mobile the rail is a drawer (below). */}
           {!railCollapsed && (
-            <aside className="hidden w-72 shrink-0 flex-col border-r border-line lg:flex">
+            <aside className="hidden min-h-0 w-72 shrink-0 flex-col border-r border-line lg:flex">
               <TrainList
                 jobs={jobs}
                 selectedId={selectedJob?.id ?? null}
@@ -227,11 +229,11 @@ export function TrainingConsole() {
             </aside>
           )}
 
-          {/* Right pane: details or empty state. */}
-          <div className="min-w-0 flex-1">
+          {/* Right pane: details or empty state — its own scroll. */}
+          <div className="flex min-w-0 flex-1 flex-col">
             {/* Rail toggle (sidebar-trigger style): desktop collapses the
                 inline rail; mobile opens the train-list drawer. */}
-            <div className="mb-4 flex items-center gap-2">
+            <div className="mb-4 flex shrink-0 items-center gap-2">
               <button
                 type="button"
                 onClick={handleRailToggle}
@@ -255,37 +257,40 @@ export function TrainingConsole() {
                   : 'Train list'}
               </span>
             </div>
-            {view.kind === 'details' &&
-              (selectedJob ? (
-                <TrainDetails
-                  key={selectedJob.id}
-                  job={selectedJob}
-                  modules={modules}
-                  onImported={handleImported}
-                  onTunnelUrlChange={(url) => patchJob(selectedJob.id, { tunnelUrl: url })}
-                />
-              ) : (
-                <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
-                  This train is no longer in the list (cleared?). Pick another from the rail.
+            {/* The details content scrolls independently of the train list. */}
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+              {view.kind === 'details' &&
+                (selectedJob ? (
+                  <TrainDetails
+                    key={selectedJob.id}
+                    job={selectedJob}
+                    modules={modules}
+                    onImported={handleImported}
+                    onTunnelUrlChange={(url) => patchJob(selectedJob.id, { tunnelUrl: url })}
+                  />
+                ) : (
+                  <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
+                    This train is no longer in the list (cleared?). Pick another from the rail.
+                  </div>
+                ))}
+
+              {view.kind === 'empty' && (
+                <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
+                  <p className="text-sm font-medium text-ink-1">No train selected</p>
+                  <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
+                    Press <span className="font-medium text-ink-2">New</span> (the wizard wand) to
+                    pick a trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure
+                    it, choose a train method, and confirm. Past trains stay in the left rail.
+                  </p>
                 </div>
-              ))}
+              )}
 
-            {view.kind === 'empty' && (
-              <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
-                <p className="text-sm font-medium text-ink-1">No train selected</p>
-                <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
-                  Press <span className="font-medium text-ink-2">New</span> (the wizard wand) to
-                  pick a trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure
-                  it, choose a train method, and confirm. Past trains stay in the left rail.
-                </p>
-              </div>
-            )}
-
-            {modulesError && (
-              <div className="mt-4 rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
-                Could not load the trainable-modules catalog: {modulesError}
-              </div>
-            )}
+              {modulesError && (
+                <div className="mt-4 rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
+                  Could not load the trainable-modules catalog: {modulesError}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
