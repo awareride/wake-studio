@@ -2,9 +2,9 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 // Radix Themes - component + theming layer (colors from Radix Colors).
 // Imported before index.css so the app's token overrides (scrollbar, body)
-// win the cascade.
+// win the cascade. The <Theme> wrapper itself lives in App.tsx (ThemedShell)
+// so the accent color can come from the saved settings.
 import '@radix-ui/themes/styles.css'
-import { Theme } from '@radix-ui/themes'
 // Host composition root (ADR-034): the ONLY file in apps/ that imports
 // driver (impl) modules. Each driver registers its backend into the KWS
 // engine registry on import. Adding a driver regenerates module-wire.ts
@@ -20,8 +20,6 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
-    <Theme appearance="light" accentColor="sky" grayColor="slate">
-      <App />
-    </Theme>
+    <App />
   </StrictMode>,
 )

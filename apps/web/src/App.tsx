@@ -16,6 +16,8 @@ import { AppToastProvider } from "./components/toast";
 import { ProjectProvider } from "./projects";
 import { LogProvider } from "./log";
 import { SettingsProvider } from "./settings";
+import { useAppSettings } from "./settings/context";
+import { Theme } from "@radix-ui/themes";
 import { WorkspaceView } from "./views/WorkspaceView";
 import { ModelLibraryView } from "./views/ModelLibraryView";
 import { TrainingView } from "./views/TrainingView";
@@ -33,12 +35,28 @@ export default function App() {
         <ProjectProvider>
           <SettingsProvider>
             <LogProvider>
-              <AppShell />
+              <ThemedShell />
             </LogProvider>
           </SettingsProvider>
         </ProjectProvider>
       </AppToastProvider>
     </ConsoleStatusProvider>
+  );
+}
+
+/**
+ * Radix Themes wrapper - accent comes from the saved platform setting
+ * (Settings -> General -> Accent color; default gray). Gray is the default;
+ * Sky is the classic WakeStudio look. Dark mode (appearance) lands with the
+ * dark token set - today the app is light-only.
+ */
+function ThemedShell() {
+  const { platform } = useAppSettings();
+  const accent = platform['theme.accent'] ?? 'gray';
+  return (
+    <Theme appearance="light" accentColor={accent} grayColor="slate">
+      <AppShell />
+    </Theme>
   );
 }
 

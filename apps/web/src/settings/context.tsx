@@ -22,7 +22,7 @@ import {
   resetSettings,
 } from './storage'
 import type { KwsSourcesSettings } from './storage'
-import type { ModuleSettings, PlatformSettings, PlatformSettingId, ThemeMode } from './types'
+import type { ModuleSettings, PlatformSettings, PlatformSettingId, ThemeMode, AccentTheme } from './types'
 
 interface SettingsContextValue {
   /** Resolved platform settings (theme already applied to the document). */
@@ -51,15 +51,32 @@ export function resolveSystemTheme(): Exclude<ThemeMode, 'system'> {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
+/** Radix Colors step-9 hex per accent theme (for the PWA meta theme-color). */
+export const ACCENT_META_COLORS: Record<AccentTheme, string> = {
+  jade: '#29a383',
+  gray: '#8d8d8d',
+  indigo: '#3e63dd',
+  orange: '#f76b15',
+  mint: '#86ead4',
+  sky: '#7ce2fe',
+}
+
 /** Apply the theme to the document (data-theme + meta theme-color). */
-export function applyTheme(mode: ThemeMode): void {
+export function applyTheme(mode: ThemeMode, accent?: AccentTheme): void {
   const resolved = mode === 'system' ? resolveSystemTheme() : mode
   if (typeof document === 'undefined') return
   document.documentElement.dataset.theme = resolved
   document.documentElement.style.colorScheme = resolved
-  // Update the PWA theme-color meta (light/dark accent).
+  // Update the PWA theme-color meta (accent-aware).
   const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0b1020' : '#0ea5e9')
+  if (meta) {
+    meta.setAttribute(
+      'content',
+      resolved === 'dark'
+        ? '#0b1020'
+        : ACCENT_META_COLORS[accent ?? 'gray'],
+    )
+  }
 }
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
@@ -88,9 +105,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   // Apply the theme whenever the setting or OS preference changes.
   const theme: ThemeMode = platform.theme ?? PLATFORM_DEFAULTS.theme
+  const accent: AccentTheme = platform['theme.accent'] ?? PLATFORM_DEFAULTS['theme.accent']
   React.useEffect(() => {
-    applyTheme(theme)
-  }, [theme, osTheme])
+    applyTheme(theme, accent)
+  }, [theme, accent, osTheme])
 
   const resolvedTheme: Exclude<ThemeMode, 'system'> =
     theme === 'system' ? osTheme : theme

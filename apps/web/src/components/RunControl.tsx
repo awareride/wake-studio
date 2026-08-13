@@ -40,10 +40,7 @@ export function RunControl({ runState, onStart, onStop }: Props) {
           title="Start pipeline"
           size="4"
           radius="full"
-          className={cn(
-            'bg-brand-9 text-ink-1 shadow-lg shadow-brand-9/30 hover:bg-brand-10',
-            busy && 'cursor-not-allowed',
-          )}
+          className={cn('shadow-lg', busy && 'cursor-not-allowed')}
         >
           <IconPlay className="h-5 w-5" />
         </IconButton>
@@ -55,10 +52,9 @@ export function RunControl({ runState, onStart, onStop }: Props) {
           title="Stop pipeline"
           size="4"
           radius="full"
-          className={cn(
-            'bg-danger/90 text-ink-1 shadow-lg shadow-danger/25',
-            busy && 'cursor-not-allowed',
-          )}
+          variant="solid"
+          color="red"
+          className={cn('shadow-lg', busy && 'cursor-not-allowed')}
         >
           <IconStop className="h-5 w-5" />
         </IconButton>

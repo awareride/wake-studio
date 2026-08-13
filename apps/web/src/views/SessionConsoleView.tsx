@@ -74,35 +74,34 @@ export function SessionConsoleView() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             onClick={handleClear}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:bg-surface-3"
+            variant="outline"
+            size="2"
           >
             Clear
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleExportCsv}
             disabled={triggers.length === 0}
-            className="rounded-lg bg-brand-9 px-3 py-1.5 text-sm font-medium text-ink-1 hover:bg-brand-10 disabled:opacity-40"
+            size="2"
           >
             Export triggers CSV
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Log / triggers sub-tabs */}
       <div className="inline-flex rounded-lg border border-line bg-surface-2 p-1">
         {(['log', 'triggers'] as const).map((v) => (
-          <button
+          <Button
             key={v}
             onClick={() => setView(v)}
-            className={cn(
-              'rounded-md px-3 py-1 text-sm font-medium',
-              view === v ? 'bg-brand-9/10 text-brand-11' : 'text-ink-3 hover:text-ink-1',
-            )}
+            variant={view === v ? 'soft' : 'ghost'}
+            size="2"
           >
             {v === 'log' ? 'Event log' : `Triggers (${triggers.length})`}
-          </button>
+          </Button>
         ))}
       </div>
 
