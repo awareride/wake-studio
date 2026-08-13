@@ -209,6 +209,13 @@ function WorkspaceInner({
   const sourceRef = React.useRef(source)
   sourceRef.current = source
 
+  // What you see is what runs: commit the working source draft when the
+  // pipeline starts, so the project snapshot matches the source in use.
+  const handleStartWithSource = React.useCallback(() => {
+    source.apply()
+    onStart()
+  }, [source, onStart])
+
   // AFE engine lifecycle (commandRef feeds the unified runner).
   const { afeRef, running, error, commandRef } = useAfePipeline({
     sourceRef,
@@ -337,7 +344,7 @@ function WorkspaceInner({
               </span>
               <span className="text-xs text-ink-3">configure each module, then Start — Stop returns here</span>
               <div className="ml-auto">
-                <RunControl runState={runState} onStart={onStart} onStop={onStop} />
+                <RunControl runState={runState} onStart={handleStartWithSource} onStop={onStop} />
               </div>
             </div>
             <PipelineTabs
@@ -461,7 +468,7 @@ function WorkspaceInner({
               </span>
               <span className="text-xs text-ink-3">running effects — Stop to reconfigure</span>
               <div className="ml-auto">
-                <RunControl runState={runState} onStart={onStart} onStop={onStop} />
+                <RunControl runState={runState} onStart={handleStartWithSource} onStop={onStop} />
               </div>
             </div>
             {/* Live stage cards — identical to the Setup cards: same count,

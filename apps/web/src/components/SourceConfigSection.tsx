@@ -9,12 +9,13 @@
 
 import { SourceSelector } from './SourceSelector'
 import { FileSourcePanel } from './FileSourcePanel'
-import { SegmentedControl } from '@radix-ui/themes'
+import { Button, SegmentedControl } from '@radix-ui/themes'
 import { FileIcon } from '@radix-ui/react-icons'
 import type { SourceState, SourceActions } from '../workspace/useSourceConfig'
 
 interface Props {
-  source: SourceState
+  /** Working source draft; `dirty`/`kindChanged` tell how it differs from the saved one. */
+  source: SourceState & { dirty: boolean; kindChanged: boolean }
   actions: SourceActions
   disabled?: boolean
 }
@@ -42,6 +43,20 @@ export function SourceConfigSection({ source, actions, disabled }: Props) {
           Audio files
         </SegmentedControl.Item>
       </SegmentedControl.Root>
+      {source.dirty && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="1" onClick={actions.apply}>
+            {source.kindChanged
+              ? `Use ${source.kind === 'file' ? 'audio files' : 'microphone'} as source`
+              : 'Apply source changes'}
+          </Button>
+          <span className="text-[11px] text-ink-3">
+            {disabled
+              ? 'Applies on the next Start'
+              : 'Not saved yet — press Apply to make it the project source.'}
+          </span>
+        </div>
+      )}
       {source.kind === 'mic' ? (
         <SourceSelector
           value={source.mic}

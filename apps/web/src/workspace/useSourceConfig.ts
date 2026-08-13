@@ -3,7 +3,14 @@
  *
  * Lifted out of the AFE panel so the Step A source editor renders in the
  * workspace's Phase 1 flow while the pipeline start (owned by the AFE panel)
- * reads the same source. Persisted to the workspace snapshot (`source` key).
+ * reads the same source.
+ *
+ * Draft/apply model (UX #113): switching the source tab (mic/file) and editing
+ * the mic/file configs only updates the in-memory WORKING draft - nothing is
+ * persisted. The draft becomes the project's saved source only on `apply()`
+ * (explicit Apply button, or automatically when the pipeline starts, so what
+ * you see is what runs). `dirty` reports whether the working draft differs
+ * from the last persisted source.
  */
 
 import * as React from 'react'
@@ -18,16 +25,37 @@ export interface SourceState {
 }
 
 export interface SourceActions {
+  /** Update the working mic config (draft only - not persisted). */
   updateMic: (next: MicSourceConfig) => void
+  /** Switch the working source kind (draft only - not persisted). */
   updateKind: (kind: 'mic' | 'file') => void
+  /** Update the working file list (draft only - not persisted). */
   updateFiles: (next: FileSourceItem[]) => void
+  /** Persist the working draft as the project's source. */
+  apply: () => void
+}
+
+/** Stable serialization (key-order insensitive) for draft-change detection. */
+function stableKey(v: unknown): string {
+  if (Array.isArray(v)) return '[' + v.map(stableKey).join(',') + ']'
+  if (v && typeof v === 'object') {
+    return (
+      '{' +
+      Object.keys(v)
+        .sort()
+        .map((k) => `${k}:${stableKey((v as Record<string, unknown>)[k])}`)
+        .join(',') +
+      '}'
+    )
+  }
+  return JSON.stringify(v)
 }
 
 export function useSourceConfig(
   wsCfg: WorkspaceConfig | undefined,
   persistWs: (patch: Partial<WorkspaceConfig>) => void,
   fallbackChannelCount: 1 | 2,
-): SourceState & SourceActions {
+): SourceState & SourceActions & { kindChanged: boolean; dirty: boolean } {
   const [mic, setMic] = React.useState<MicSourceConfig>(() => {
     const s = wsCfg?.source
     if (s?.kind === 'mic') {
@@ -56,33 +84,36 @@ export function useSourceConfig(
       : [],
   )
 
-  const updateMic = React.useCallback(
-    (next: MicSourceConfig) => {
-      setMic(next)
-      persistWs({ source: { kind: 'mic', mic: next } })
-    },
-    [persistWs],
+  // The last applied source: what the project snapshot holds (seeded from the
+  // snapshot; updated on apply). `dirty` tracks the source KIND switch and the
+  // FILE LIST - mic config knobs (device auto-pick, browser DSP toggles) are
+  // ephemeral and don't flag the draft.
+  const [appliedKind, setAppliedKind] = React.useState<'mic' | 'file'>(kind)
+  const [appliedFilesKey, setAppliedFilesKey] = React.useState<string>(() =>
+    stableKey(files),
   )
 
-  const updateKind = React.useCallback(
-    (next: 'mic' | 'file') => {
-      setKind(next)
-      if (next === 'mic') {
-        persistWs({ source: { kind: 'mic', mic } })
-      } else {
-        persistWs({ source: { kind: 'file', files } })
-      }
-    },
-    [persistWs, mic, files],
-  )
+  const updateMic = React.useCallback((next: MicSourceConfig) => {
+    setMic(next)
+  }, [])
 
-  const updateFiles = React.useCallback(
-    (next: FileSourceItem[]) => {
-      setFiles(next)
-      persistWs({ source: { kind: 'file', files: next } })
-    },
-    [persistWs],
-  )
+  const updateKind = React.useCallback((next: 'mic' | 'file') => {
+    setKind(next)
+  }, [])
 
-  return { kind, mic, files, updateMic, updateKind, updateFiles }
+  const updateFiles = React.useCallback((next: FileSourceItem[]) => {
+    setFiles(next)
+  }, [])
+
+  const apply = React.useCallback(() => {
+    const next = { kind, mic, files }
+    persistWs({ source: next })
+    setAppliedKind(kind)
+    setAppliedFilesKey(stableKey(files))
+  }, [persistWs, kind, mic, files])
+
+  const kindChanged = kind !== appliedKind
+  const dirty = kindChanged || stableKey(files) !== appliedFilesKey
+
+  return { kind, mic, files, updateMic, updateKind, updateFiles, apply, kindChanged, dirty }
 }

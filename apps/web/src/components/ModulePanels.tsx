@@ -119,7 +119,7 @@ export function SourcePanel({
   persistence,
   setPersistence,
 }: {
-  source: SourceState
+  source: SourceState & { dirty: boolean; kindChanged: boolean }
   actions: SourceActions
   afeRef: MutableRefObject<AFEPipeline | null>
   running: boolean
