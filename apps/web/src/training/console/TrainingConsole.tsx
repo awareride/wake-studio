@@ -178,17 +178,19 @@ export function TrainingConsole() {
 
   return (
     <div className="space-y-6">
-      {/* Header. */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-ink-1">Training</h2>
-          <p className="mt-1 max-w-2xl text-sm text-ink-2">
-            Train a custom model end to end: pick a trainable module, configure it,
-            choose a train method (Colab / self-hosted / CI), then review the run.
-            Training never runs in the browser (ADR-013).
-          </p>
-        </div>
-        {view.kind !== 'wizard' && (
+      {/* Header (hidden while the wizard is open — the wizard has its own
+          header, and a constant chrome keeps the pinned footer stable on
+          PC and mobile, issue #105). */}
+      {view.kind !== 'wizard' && (
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ink-1">Training</h2>
+            <p className="mt-1 max-w-2xl text-sm text-ink-2">
+              Train a custom model end to end: pick a trainable module, configure it,
+              choose a train method (Colab / self-hosted / CI), then review the run.
+              Training never runs in the browser (ADR-013).
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => setView({ kind: 'wizard', from: view })}
@@ -197,8 +199,8 @@ export function TrainingConsole() {
             <IconWand className="h-4 w-4" />
             New
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {view.kind === 'wizard' ? (
         /* The New-train wizard as a FULL panel of the Training view — no
