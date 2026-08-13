@@ -24,11 +24,13 @@ import {
   type TrainMethodId,
 } from '@wake-studio/module-training'
 import { clearJobs, listJobs, saveJob } from '@wake-studio/module-training'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui'
 import { IconMenu, IconWand } from '../../components/icons'
 import { NewTrainWizard } from './NewTrainWizard'
 import { TrainDetails } from './TrainDetails'
 import { TrainList } from './TrainList'
 import { ConfirmDialog } from './ConfirmDialog'
+import { useIsDesktop } from './useIsDesktop'
 import { fetchTrainableModules, type TrainableModule } from '../train-modules'
 import type { ColabImportResult } from '../colab-import'
 
@@ -163,9 +165,16 @@ export function TrainingConsole() {
 
   const openTrain = useCallback((jobId: string) => setView({ kind: 'details', jobId }), [])
 
-  // Collapse the left rail horizontally so the details panel is full-width
-  // (issue #105 — toggle behaves like the shell's sidebar trigger).
+  // Rail visibility: desktop collapses the inline rail horizontally; on
+  // mobile the train list is a left-edge drawer (shell-sidebar pattern).
+  const isDesktop = useIsDesktop()
   const [railCollapsed, setRailCollapsed] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
+  const handleRailToggle = useCallback(() => {
+    if (isDesktop) setRailCollapsed((c) => !c)
+    else setDrawerOpen(true)
+  }, [isDesktop])
 
   return (
     <div className="space-y-6">
@@ -202,9 +211,10 @@ export function TrainingConsole() {
         />
       ) : (
         <div className="flex gap-6">
-          {/* Left rail: the train list (hidden when collapsed, #105). */}
+          {/* Left rail (desktop): the train list — hidden when collapsed.
+              On mobile the rail is a drawer (below). */}
           {!railCollapsed && (
-            <aside className="flex w-72 shrink-0 flex-col border-r border-line">
+            <aside className="hidden w-72 shrink-0 flex-col border-r border-line lg:flex">
               <TrainList
                 jobs={jobs}
                 selectedId={selectedJob?.id ?? null}
@@ -217,20 +227,30 @@ export function TrainingConsole() {
 
           {/* Right pane: details or empty state. */}
           <div className="min-w-0 flex-1">
-            {/* Rail toggle (sidebar-trigger style): hide/show the train list
-                so the details take the full width. */}
+            {/* Rail toggle (sidebar-trigger style): desktop collapses the
+                inline rail; mobile opens the train-list drawer. */}
             <div className="mb-4 flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setRailCollapsed((c) => !c)}
-                aria-label={railCollapsed ? 'Show train list' : 'Hide train list'}
-                aria-expanded={!railCollapsed}
+                onClick={handleRailToggle}
+                aria-label={
+                  isDesktop
+                    ? railCollapsed
+                      ? 'Show train list'
+                      : 'Hide train list'
+                    : 'Open train list'
+                }
+                aria-expanded={isDesktop ? !railCollapsed : undefined}
                 className="rounded-md border border-line bg-surface-2 p-1.5 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
               >
                 <IconMenu className="h-4 w-4" />
               </button>
               <span className="text-[11px] text-ink-3">
-                {railCollapsed ? 'Train list hidden — details are full-width' : 'Train list'}
+                {isDesktop
+                  ? railCollapsed
+                    ? 'Train list hidden — details are full-width'
+                    : 'Train list'
+                  : 'Train list'}
               </span>
             </div>
             {view.kind === 'details' &&
@@ -267,6 +287,45 @@ export function TrainingConsole() {
           </div>
         </div>
       )}
+      {/* Mobile train-list drawer (shell-sidebar pattern, issue #105). */}
+      <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DialogContent
+          centered={false}
+          overlayClassName="bg-slate-900/40"
+          className="left-0 top-0 h-full w-[min(80vw,18rem)] max-w-[calc(100vw-2rem)] rounded-r-xl border-l border-t-0 border-r-0 border-b-0 p-0"
+        >
+          <DialogTitle className="sr-only">Train list</DialogTitle>
+          <DialogDescription className="sr-only">
+            Your saved training jobs
+          </DialogDescription>
+          <div className="flex items-center justify-between border-b border-line px-4 py-3">
+            <span className="text-xs font-semibold uppercase tracking-wide text-ink-3">
+              Train list
+            </span>
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(false)}
+              aria-label="Close train list"
+              className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <TrainList
+              jobs={jobs}
+              selectedId={selectedJob?.id ?? null}
+              onSelect={(id) => {
+                openTrain(id)
+                setDrawerOpen(false)
+              }}
+              onClear={handleClear}
+              confirmingClear={confirmingClear}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Leaving mid-wizard via another menu (issue #105). */}
       <ConfirmDialog
         open={confirmNav !== null}

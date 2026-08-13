@@ -77,7 +77,7 @@
   cursor: pointer;
 }
 
-/* Code cells. */
+/* Code cells — long lines WRAP instead of overflowing the panel (#105). */
 .notebook-review pre {
   margin: 0;
   overflow-x: auto;
@@ -89,6 +89,13 @@
   font-size: 0.8rem;
   line-height: 1.55;
   color: rgb(var(--ws-ink-1));
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.notebook-review code.hljs {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 /* Syntax highlighting (highlight.js token colors, light theme). */
