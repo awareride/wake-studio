@@ -125,7 +125,7 @@ export function NewTrainWizard({
   }
 
   return (
-    <div className="flex max-h-[calc(100dvh-11rem)] flex-col gap-4">
+    <div className="flex h-[calc(100dvh-12rem)] flex-col gap-4">
       {/* Wizard header + step pills (pinned). */}
       <div className="flex shrink-0 items-start justify-between gap-3">
         <div>
