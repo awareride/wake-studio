@@ -55,7 +55,8 @@ export function useSourceConfig(
   wsCfg: WorkspaceConfig | undefined,
   persistWs: (patch: Partial<WorkspaceConfig>) => void,
   fallbackChannelCount: 1 | 2,
-): SourceState & SourceActions & { kindChanged: boolean; dirty: boolean } {
+): SourceState &
+  SourceActions & { kindChanged: boolean; dirty: boolean; appliedSource: SourceState } {
   const [mic, setMic] = React.useState<MicSourceConfig>(() => {
     const s = wsCfg?.source
     if (s?.kind === 'mic') {
@@ -84,14 +85,17 @@ export function useSourceConfig(
       : [],
   )
 
-  // The last applied source: what the project snapshot holds (seeded from the
-  // snapshot; updated on apply). `dirty` tracks the source KIND switch and the
-  // FILE LIST - mic config knobs (device auto-pick, browser DSP toggles) are
-  // ephemeral and don't flag the draft.
-  const [appliedKind, setAppliedKind] = React.useState<'mic' | 'file'>(kind)
-  const [appliedFilesKey, setAppliedFilesKey] = React.useState<string>(() =>
-    stableKey(files),
-  )
+  // The last APPLIED source: what the project snapshot holds and what the
+
+  // pipeline uses on Start (seeded from the snapshot; updated on apply). The
+  // working `kind`/`mic`/`files` draft never affects Start - only Apply does.
+  // `dirty` tracks the source KIND switch and the FILE LIST; mic config knobs
+  // (device auto-pick, browser DSP toggles) are ephemeral and don't flag it.
+  const [appliedSource, setAppliedSource] = React.useState<SourceState>(() => ({
+    kind,
+    mic,
+    files,
+  }))
 
   const updateMic = React.useCallback((next: MicSourceConfig) => {
     setMic(next)
@@ -106,14 +110,25 @@ export function useSourceConfig(
   }, [])
 
   const apply = React.useCallback(() => {
-    const next = { kind, mic, files }
+    const next: SourceState = { kind, mic, files }
     persistWs({ source: next })
-    setAppliedKind(kind)
-    setAppliedFilesKey(stableKey(files))
+    setAppliedSource(next)
   }, [persistWs, kind, mic, files])
 
-  const kindChanged = kind !== appliedKind
-  const dirty = kindChanged || stableKey(files) !== appliedFilesKey
+  const kindChanged = kind !== appliedSource.kind
+  const dirty = kindChanged || stableKey(files) !== stableKey(appliedSource.files)
 
-  return { kind, mic, files, updateMic, updateKind, updateFiles, apply, kindChanged, dirty }
+  return {
+    kind,
+    mic,
+    files,
+    updateMic,
+    updateKind,
+    updateFiles,
+    apply,
+    kindChanged,
+    dirty,
+    /** The committed source - what the pipeline actually uses on Start. */
+    appliedSource,
+  }
 }

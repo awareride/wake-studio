@@ -206,15 +206,13 @@ function WorkspaceInner({
 
   // Step A source state (re-seeded per project via the keyed wrapper).
   const source = useSourceConfig(wsCfg, persistWs, fallbackChannels)
-  const sourceRef = React.useRef(source)
-  sourceRef.current = source
-
-  // What you see is what runs: commit the working source draft when the
-  // pipeline starts, so the project snapshot matches the source in use.
-  const handleStartWithSource = React.useCallback(() => {
-    source.apply()
-    onStart()
-  }, [source, onStart])
+  const sourceRef = React.useRef<import('../workspace/useSourceConfig').SourceState>(
+    source.appliedSource,
+  )
+  // The pipeline reads the source at Start time - it must use the APPLIED
+  // source, never the working draft (browsing the other tab must not change
+  // what the system uses; only the explicit Apply button commits).
+  sourceRef.current = source.appliedSource
 
   // AFE engine lifecycle (commandRef feeds the unified runner).
   const { afeRef, running, error, commandRef } = useAfePipeline({
@@ -262,7 +260,9 @@ function WorkspaceInner({
 
   const previewVisible = runState.afeRunning || runState.kwsRunning
   const sourcePreview =
-    source.kind === 'file' ? `Files (${source.files.length})` : 'Mic · default'
+    source.appliedSource.kind === 'file'
+      ? `Files (${source.appliedSource.files.length})`
+      : 'Mic · default'
   const afeInfo = `AFE · ${afeCfg?.topology ?? 'single-worklet'} · ${afeCfg?.latencyBudgetMs ?? 150} ms`
 
   const stageCards = [
@@ -344,7 +344,7 @@ function WorkspaceInner({
               </span>
               <span className="text-xs text-ink-3">configure each module, then Start — Stop returns here</span>
               <div className="ml-auto">
-                <RunControl runState={runState} onStart={handleStartWithSource} onStop={onStop} />
+                <RunControl runState={runState} onStart={onStart} onStop={onStop} />
               </div>
             </div>
             <PipelineTabs
@@ -468,7 +468,7 @@ function WorkspaceInner({
               </span>
               <span className="text-xs text-ink-3">running effects — Stop to reconfigure</span>
               <div className="ml-auto">
-                <RunControl runState={runState} onStart={handleStartWithSource} onStop={onStop} />
+                <RunControl runState={runState} onStart={onStart} onStop={onStop} />
               </div>
             </div>
             {/* Live stage cards — identical to the Setup cards: same count,
