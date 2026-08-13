@@ -1,7 +1,7 @@
 /**
  * Training console — layout (issue #105).
  *
- *   Header: Training · [New train]
+ *   Header: Training · [New]  (wizard wand)
  *   Left rail:  Train news (tips)  ·  Train list (persistent, IndexedDB)
  *   Right pane: the selected train's details (status / results / inputs
  *               review), or an empty state.
@@ -24,6 +24,7 @@ import {
 } from '@wake-studio/module-training'
 import { clearJobs, listJobs, saveJob } from '@wake-studio/module-training'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui'
+import { IconWand } from '../../components/icons'
 import { NewTrainWizard } from './NewTrainWizard'
 import { TrainDetails } from './TrainDetails'
 import { TrainList } from './TrainList'
@@ -143,9 +144,10 @@ export function TrainingConsole() {
         <button
           type="button"
           onClick={() => setWizardOpen(true)}
-          className="shrink-0 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-400"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-400"
         >
-          + New train
+          <IconWand className="h-4 w-4" />
+          New
         </button>
       </div>
 
@@ -181,9 +183,9 @@ export function TrainingConsole() {
             <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
               <p className="text-sm font-medium text-ink-1">No train selected</p>
               <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
-                Press <span className="font-medium text-ink-2">+ New train</span> to pick a
-                trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure it,
-                choose a train method, and confirm. Past trains stay in the left rail.
+                Press <span className="font-medium text-ink-2">New</span> (the wizard wand) to
+                pick a trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure
+                it, choose a train method, and confirm. Past trains stay in the left rail.
               </p>
             </div>
           )}
@@ -200,6 +202,7 @@ export function TrainingConsole() {
       <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
         <DialogContent
           centered={false}
+          overlayClassName="bg-slate-900/45 backdrop-blur-sm"
           className="fixed left-1/2 top-1/2 max-h-[85vh] w-[min(94vw,46rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl p-6"
         >
           <DialogTitle className="sr-only">New train</DialogTitle>

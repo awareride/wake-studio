@@ -267,7 +267,7 @@ self-hosted API shape** — one HTTP client, N backends. ✅ **RESOLVED
 in `DECISIONS.md`. Full design in `docs/training-console.plan.md` §2; the
 URL is pasted in the training console's Connect step (§7.3).
 
-### 7.3 Training console — train list + news + New-train wizard (issue #105)
+### 7.3 Training console — train list + New-train wizard (issue #105)
 
 The PWA's Training view is a list-detail console around the spec-driven panel
 (ADR-025 — no hand-written controls):
@@ -316,8 +316,8 @@ The PWA's Training view is a list-detail console around the spec-driven panel
 - **History model** — jobs recorded on Start (`core/history.ts` `startedJob`,
   with module + method) and on Colab import (`importedJob`); persisted in
   IndexedDB (`core/history-store.ts`). Step/state logic is pure and headless
-  (`core/steps.ts`), L1-tested together with `core/methods.ts` and the news
-  projection (`deriveNews`).
+  (`core/steps.ts`), L1-tested together with `core/methods.ts` and the
+  per-train notifications (`deriveMessages`).
 
 
 ## 8. Cloud Providers (ADR-013)
@@ -363,3 +363,4 @@ for every provider. Capability labels: train-capable vs inference-only.
 | 2026-08-13 | §7.3 refined (human feedback, issue #105): (1) train configs come from each module's own `spec.train.params` (schema extension; `trainPanelSpec`; training module no longer hard-codes params); (2) module-owned notebooks are copied to `public/train/<module-id>/` and served from the app — no GitHub fetch; (3) the .ipynb is previewed on the panel (cells rendered read-only). | agent |
 | 2026-08-13 | §7.3 polished (human feedback round 2, issue #105): wizard is a modal dialog; `target` param removed from openwakeword; tunnel URL moved to the per-job details pane; module-owned Open-in-Colab removed; Colab CTA renamed to Save; manual-submit tips; upgraded notebook reviewer. | agent |
 | 2026-08-13 | §7.3 refined (human feedback round 3, issue #105): notebook review uses `notebook-viewer-ts` (NotebookTs — markdown, hljs, outputs, folding) in a full Review dialog (lazy-loaded; no inline preview; Collapse-all/Expand-all + per-cell toggles); the news rail is gone — notifications/messages live in the train details pane and as a note on each train-list item; the wizard footer keeps Next's position for the final Save/Start button. | agent |
+| 2026-08-13 | §7.3 polished (human feedback round 4, issue #105): modal dialogs use a stronger scrim (45% + blur — no back-content bleed during fast scroll); notebook review shows each cell's title when collapsed and flips − → +; the trigger is a compact **New** button with a wizard-wand icon; cleanup — training module spec slimmed (params/actions/status empty; the wizard owns the flow), outdated guide text fixed. | agent |

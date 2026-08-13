@@ -138,3 +138,15 @@ export function IconConsole(props: IconProps) {
     </svg>
   )
 }
+
+/** A wizard wand with sparkles (the "New train" trigger, issue #105). */
+export function IconWand(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M15 4l5 5L7 22l-5-5L15 4z" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M18 2v3M19.5 3.5h-3" />
+      <path d="M4 12.5l1.5 1.5M6.5 15l1.5 1.5" />
+    </svg>
+  )
+}

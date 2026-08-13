@@ -46,13 +46,14 @@ export function TrainList({ jobs, selectedId, onSelect, onClear, confirmingClear
 
       {ordered.length === 0 ? (
         <div className="px-4 py-6 text-xs leading-relaxed text-ink-3">
-          No trains yet. Press <span className="font-medium text-ink-2">New train</span> to
-          start one — jobs land here for re-inspection (IndexedDB, client-side).
+          No trains yet. Press <span className="font-medium text-ink-2">New</span> (the wizard
+          wand) to start one — jobs land here for re-inspection (IndexedDB, client-side).
         </div>
       ) : (
         <ul className="flex-1 space-y-1 overflow-y-auto px-2 pb-4">
           {ordered.map((job) => {
             const selected = job.id === selectedId
+            const note = latestMessage(job)
             return (
               <li key={job.id}>
                 <button
@@ -87,9 +88,9 @@ export function TrainList({ jobs, selectedId, onSelect, onClear, confirmingClear
                     )}
                   </div>
                   {/* Note: the latest notification for this train (issue #105). */}
-                  {latestMessage(job) && (
-                    <div className="mt-1 truncate text-[10px] italic text-ink-3" title={latestMessage(job)?.message}>
-                      {latestMessage(job)?.message}
+                  {note && (
+                    <div className="mt-1 truncate text-[10px] italic text-ink-3" title={note.message}>
+                      {note.message}
                     </div>
                   )}
                 </button>

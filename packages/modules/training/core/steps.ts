@@ -53,8 +53,8 @@ export const STEP_DEFS: readonly TrainingStepDef[] = [
     summary: 'Pick where training runs, from the methods the module supports.',
     help: [
       'The methods come from the module\'s spec.train.invocation: Google Colab (free GPU, your account), Self-hosted service (local endpoint), CI (GitHub Actions).',
-      'Colab is the v1 path: open the module-owned notebook, run it, and optionally paste the Cloudflare tunnel URL (ADR-023 amendment, issue #106) for direct control.',
-      'Method-specific config stays client-side only.',
+      'Colab is the v1 path: run the module-owned notebook in your own session, then bring results back in the train details pane (tunnel URL or manual zip submit, ADR-023 amendment, issue #106).',
+      'Connection details are generated at run time, not here — the URL does not exist yet.',
     ],
   },
   {

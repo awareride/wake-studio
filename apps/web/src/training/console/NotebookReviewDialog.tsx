@@ -6,9 +6,11 @@
  * folding. The library is lazy-loaded (dynamic import) so highlight.js /
  * micromark / katex stay out of the main bundle.
  *
- * The library's HTML is post-processed to give every cell its own
- * Collapse/Expand toggle, plus global Collapse-all / Expand-all buttons in
- * the dialog header. The notebook is fetched from the app's own origin.
+ * The library's HTML is post-processed so every cell gets its own
+ * Collapse/Expand toggle: the glyph flips `−` (expanded) → `+` (collapsed),
+ * and a collapsed cell shows its title (markdown heading / first code line)
+ * so you know what is hidden. Global Collapse-all / Expand-all buttons live
+ * in the dialog header. The notebook is fetched from the app's own origin.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -28,14 +30,47 @@ export interface NotebookReviewDialogProps {
   rawUrl: string
 }
 
-/** Add a Collapse/Expand toggle to every cell the library rendered. */
-function addPerCellToggles(html: string): string {
+interface RawCell {
+  cell_type?: 'markdown' | 'code' | 'raw'
+  source?: string[] | string
+}
+
+function escapeAttr(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+}
+
+/** A short title for a cell: markdown heading (or first line) / first code line. */
+function cellTitle(cell: RawCell): string {
+  const src = Array.isArray(cell.source) ? cell.source.join('') : (cell.source ?? '')
+  if (cell.cell_type === 'markdown') {
+    for (const line of src.split('\n')) {
+      const h = /^#{1,6}\s+(.*)$/.exec(line.trim())
+      if (h) return h[1].slice(0, 60)
+    }
+  }
+  const first = src
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.length > 0)
+  return (first ?? 'cell').slice(0, 60)
+}
+
+/** Add a Collapse/Expand toggle with title to every cell the library rendered. */
+function addPerCellToggles(html: string, titles: string[]): string {
   let index = 0
   return html.replace(/<div class="cell ([^"]*)">/g, (_m, cls: string) => {
-    const id = `cell-${index++}`
+    const id = `cell-${index}`
+    const title = titles[index] ?? ''
     const toggle =
       `<button type="button" class="nb-cell-toggle" data-toggle="#${id}" ` +
-      `aria-label="Collapse or expand cell">&minus;</button>`
+      `title="${escapeAttr(title)}">` +
+      `<span class="nb-glyph">&minus;</span>` +
+      (title ? `<span class="nb-cell-title">${escapeAttr(title)}</span>` : '') +
+      `</button>`
+    index++
     return `<div class="cell ${cls}" data-cell-id="${id}">${toggle}`
   })
 }
@@ -62,11 +97,12 @@ export function NotebookReviewDialog({
       try {
         const res = await fetch(rawUrl)
         if (!res.ok) throw new Error(`Could not fetch the notebook (HTTP ${res.status})`)
-        const json = (await res.json()) as unknown
+        const json = (await res.json()) as { cells?: RawCell[] }
         const { Notebook } = await import('notebook-viewer-ts')
         const nb = new Notebook(json as string | object)
         if (!alive) return
-        setHtml(addPerCellToggles(nb.render('tailwind')))
+        const titles = (json.cells ?? []).map(cellTitle)
+        setHtml(addPerCellToggles(nb.render('tailwind'), titles))
       } catch (err) {
         if (alive) setError(err instanceof Error ? err.message : String(err))
       }
@@ -76,12 +112,14 @@ export function NotebookReviewDialog({
     }
   }, [open, rawUrl])
 
+  /** Toggle one cell: content hidden + `collapsed` class + glyph −/+. */
   const toggleCell = useCallback((targetId: string, button: HTMLElement) => {
     const content = containerRef.current?.querySelector<HTMLElement>(targetId)
     if (!content) return
     const hidden = content.classList.toggle('hidden')
-    const glyph = button.querySelector('span')
-    if (glyph) glyph.textContent = hidden ? '▸' : '▾'
+    button.closest('.cell')?.classList.toggle('collapsed', hidden)
+    const glyph = button.querySelector('.nb-glyph')
+    if (glyph) glyph.textContent = hidden ? '+' : '−'
   }, [])
 
   /** Click delegation: the library's [data-toggle] buttons + our per-cell toggles. */
@@ -96,23 +134,25 @@ export function NotebookReviewDialog({
   )
 
   /** Global Collapse-all / Expand-all. */
-  const setAll = useCallback(
-    (collapsed: boolean) => {
-      setCollapsedAll(collapsed)
-      containerRef.current
-        ?.querySelectorAll<HTMLElement>('.cell > div[id^="cell-"]')
-        .forEach((el) => el.classList.toggle('hidden', collapsed))
-      containerRef.current
-        ?.querySelectorAll<HTMLElement>('.nb-cell-toggle span')
-        .forEach((s) => (s.textContent = collapsed ? '▸' : '▾'))
-    },
-    [],
-  )
+  const setAll = useCallback((collapsed: boolean) => {
+    setCollapsedAll(collapsed)
+    const root = containerRef.current
+    root
+      ?.querySelectorAll<HTMLElement>('.cell')
+      .forEach((cell) => cell.classList.toggle('collapsed', collapsed))
+    root
+      ?.querySelectorAll<HTMLElement>('.cell > div[id^="cell-"]')
+      .forEach((el) => el.classList.toggle('hidden', collapsed))
+    root
+      ?.querySelectorAll<HTMLElement>('.nb-glyph')
+      .forEach((s) => (s.textContent = collapsed ? '+' : '−'))
+  }, [])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         centered={false}
+        overlayClassName="bg-slate-900/45 backdrop-blur-sm"
         className="fixed left-1/2 top-1/2 flex max-h-[88vh] w-[min(96vw,64rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl p-0"
       >
         {/* Header. */}

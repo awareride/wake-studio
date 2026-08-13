@@ -11,37 +11,8 @@
     "status": "proposed"
   },
   "params": [],
-  "actions": [
-    {
-      "id": "train",
-      "label": "Start training",
-      "kind": "train",
-      "progress": "indeterminate",
-      "requires": []
-    },
-    {
-      "id": "export",
-      "label": "Export trained model",
-      "kind": "export",
-      "requires": []
-    }
-  ],
-  "status": [
-    {
-      "id": "jobStatus",
-      "label": "Training status",
-      "renderer": "badge",
-      "source": "event:jobStatus",
-      "refreshMs": 1000
-    },
-    {
-      "id": "progress",
-      "label": "Training progress",
-      "renderer": "bar",
-      "source": "event:progress",
-      "refreshMs": 250
-    }
-  ],
+  "actions": [],
+  "status": [],
   "runtime": {
     "web": {
       "engine": "TrainingJob"
