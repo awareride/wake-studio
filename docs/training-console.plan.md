@@ -156,3 +156,4 @@ The backend selector (Step 2) presents them honestly:
 |---|---|---|
 | 2026-08-13 | Initial review draft — panel layout (stepper + history rail), Colab cloudflared tunnel (Q15, issue #106), HF complementary role (issue #107). | agent |
 | 2026-08-13 | Q15 resolved (human): cloudflared tunnel adopted — trycloudflare default, named tunnel opt-in; recorded as an ADR-023 amendment (issue #106). | agent |
+| 2026-08-13 | §1/§5 implemented (issue #105): Training console — stepper (Configure→Connect→Run→Review) around the spec-driven panel, IndexedDB history rail, collapsible help drawer; step/state logic in `packages/modules/training/core/steps.ts` (L1-tested); docs `training.md` §7.3. | agent |

@@ -256,14 +256,42 @@ The import half of the loop lives in `packages/modules/training/`:
 Client-side only: the zip is parsed and validated entirely in the browser; no
 WakeStudio server and no credentials are involved (ADR-013/023).
 
-### 7.2 Colab runtime tunnel (proposal — Q15)
+### 7.2 Colab runtime tunnel (Q15 — resolved, ADR-023 amendment)
 
-An alternative to the manual zip round-trip: the notebook exposes the
+Instead of only the manual zip round-trip, the notebook exposes the
 studio-backend HTTP contract (§3) via a Cloudflare tunnel (`cloudflared`;
 trycloudflare default, named tunnel opt-in), so the PWA drives Colab exactly
 like the self-hosted backend. **This collapses the Colab backend into the
-self-hosted API shape** — one HTTP client, N backends. Full design in
-`docs/training-console.plan.md` §2; tracked as Q15 (issue #106).
+self-hosted API shape** — one HTTP client, N backends. ✅ **RESOLVED
+(human, 2026-08-13): adopt** (issue #106); recorded as an ADR-023 amendment
+in `DECISIONS.md`. Full design in `docs/training-console.plan.md` §2; the
+URL is pasted in the training console's Connect step (§7.3).
+
+### 7.3 Training console — stepper + history rail + guide (issue #105)
+
+The PWA's Training view is an app-layer console around the spec-driven panel
+(ADR-025 — no hand-written controls):
+
+- **Stepper (wizard), not tabs** — linear, stateful flow in four steps:
+  **Configure → Connect backend → Run/monitor → Review**. The module panel
+  stays mounted across steps (param/status state survives); only the
+  generated sections change (`sections` prop in module-kit): params on
+  Configure, actions + status on Run/monitor, app-layer content on Connect /
+  Review. Step/state logic is pure and headless in
+  `packages/modules/training/core/steps.ts` (L1-tested).
+- **Auto-advance** — the stepper advances Run → Review automatically on job
+  success (plan T-7); all other navigation is manual, and Review is terminal.
+- **History rail (persistent, left)** — past jobs (status / params / backend /
+  timestamps / artifact ref) from IndexedDB (`core/history-store.ts`),
+  recorded on "Start training" (`core/history.ts` `startedJob`) and on Colab
+  import success (`importedJob`). Browsing is orthogonal to the steps.
+- **Guide = inline tooltips + collapsible help drawer** — a "?" trigger next
+  to each step opens a contextual drawer with per-step help text from
+  `STEP_DEFS`; there is no dedicated "guide" tab.
+- **Step 2 Connect** — backend readiness cards (Colab = v1 available;
+  self-hosted + cloud = later Phase 5 slices) plus the Colab tunnel URL field
+  (ADR-023 amendment, issue #106; client-side only, localStorage).
+
 
 ## 8. Cloud Providers (ADR-013)
 
@@ -303,3 +331,4 @@ for every provider. Capability labels: train-capable vs inference-only.
 | 2026-08-05 | Initial draft (docs-first, §6.5 Step A). | agent |
 | 2026-08-05 | **§4 upstream-script adapters** (human decision: preserve upstream train.py/ipynb; adapt to them). Spec `train` gains `script`/`notebook`/`adapter` fields; `standardize-results` is the single importer. Sections renumbered. | agent |
 | 2026-08-13 | §7.2 Colab runtime tunnel (proposal, Q15 issue #106): collapse Colab into the self-hosted API shape. | agent |
+| 2026-08-13 | Q15 resolved (human): tunnel adopted — ADR-023 amended (issue #106). §7.3 added: Training console (stepper + history rail + guide, issue #105). | agent |

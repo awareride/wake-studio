@@ -5,10 +5,17 @@
  * the module spec. The panel is a pure function of the spec: params render via
  * module-kit's Ui* controls; backend wiring lands in goal.plan Phase 5. A
  * minimal controller holds local param state (no backend yet).
+ *
+ * Host props (training console, issue #105):
+ * - `sections`: scope which generated sections render (e.g. params only on
+ *   the "Configure" step, actions + status on "Run/monitor"). Undefined =
+ *   everything, like today.
+ * - `onAction`: notified when the user fires an action (train/export) with
+ *   the current param values — lets the console record jobs in history.
  */
 
 import { useState, useCallback } from 'react'
-import { renderPanel, type ModulePanelController } from '@wake-studio/module-kit'
+import { renderPanel, type ModulePanelController, type PanelSection } from '@wake-studio/module-kit'
 import type { ModuleSpec } from '@wake-studio/contracts'
 import trainingSpec from '../spec/module.spec.json'
 
@@ -16,8 +23,21 @@ const TRAINING_SPEC = trainingSpec as unknown as ModuleSpec
 
 const GeneratedTrainingPanel = renderPanel(TRAINING_SPEC)
 
+export interface TrainingModulePanelProps {
+  /** Scope which generated sections render (undefined = all). */
+  sections?: PanelSection[]
+  /**
+   * Notified when an action fires, with a snapshot of the current param
+   * values (stringified) — used by the training console to record history.
+   */
+  onAction?: (actionId: string, values: Record<string, string>) => void
+}
+
 /** The training panel: rendered from the spec, not hand-written (ADR-025). */
-export function TrainingModulePanel() {
+export function TrainingModulePanel({
+  sections,
+  onAction,
+}: TrainingModulePanelProps) {
   // Local controller state - no backend yet (Phase 5 wires runAction).
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [status, setStatus] = useState<Record<string, unknown>>({})
@@ -32,6 +52,10 @@ export function TrainingModulePanel() {
     runAction: (actionId: string) => {
       // Phase 5: submit a TrainingJob to the selected backend. Today the
       // action is a no-op stub that reports the (not-yet-implemented) status.
+      const stringValues = Object.fromEntries(
+        Object.entries(values).map(([k, v]) => [k, String(v ?? '')]),
+      )
+      onAction?.(actionId, stringValues)
       if (actionId === 'train') {
         setStatus((s) => ({ ...s, jobStatus: 'queued (backend lands in Phase 5)' }))
       }
@@ -39,7 +63,7 @@ export function TrainingModulePanel() {
     status,
   }
 
-  return <GeneratedTrainingPanel controller={controller} />
+  return <GeneratedTrainingPanel controller={controller} sections={sections} />
 }
 
 export default TrainingModulePanel

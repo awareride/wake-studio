@@ -21,6 +21,7 @@ export {
   ModulePanel,
   renderPanel,
   defaultsFromSpec,
+  type PanelSection,
   type ModulePanelController,
   type GeneratedPanelProps,
   type GeneratedModulePanelProps,

@@ -109,7 +109,15 @@ function SuccessCard({ result }: { result: ColabImportResult }) {
   )
 }
 
-export function ImportColabResults() {
+export interface ImportColabResultsProps {
+  /**
+   * Called after a bundle imports successfully (training console uses it to
+   * record the job in the history rail and auto-advance to Review, #105).
+   */
+  onImported?: (result: ColabImportResult) => void
+}
+
+export function ImportColabResults({ onImported }: ImportColabResultsProps) {
   const { toast } = useToast()
   const { kwsSources, setKwsSources } = useAppSettings()
   const inputRef = React.useRef<HTMLInputElement | null>(null)
@@ -136,6 +144,7 @@ export function ImportColabResults() {
           },
         })
         setResult(reg)
+        onImported?.(reg)
         toast({
           title: 'Colab model imported',
           description: `“${reg.bundle.files.metadata.params.wakePhrase ?? reg.bundle.jobId}” is ready to test.`,
@@ -147,7 +156,7 @@ export function ImportColabResults() {
         setImporting(false)
       }
     },
-    [kwsSources, setKwsSources, toast],
+    [kwsSources, onImported, setKwsSources, toast],
   )
 
   return (
