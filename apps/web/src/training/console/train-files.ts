@@ -12,8 +12,20 @@
  */
 
 import { SOURCE_REPO, buildColabUrl } from '@wake-studio/module-kit'
+import { resolveAsset } from '@wake-studio/platform'
 import type { TrainMethodId } from '@wake-studio/module-training'
 import type { TrainableModule } from '../train-modules'
+
+/**
+ * Module-owned train files (notebookLocal / entry) are copied into the app's
+ * public/train/<module-id>/ at build time (scripts/build-model-registry.mjs)
+ * and served from the app's own origin — users never fetch them from the
+ * WakeStudio GitHub repo (issue #105). Upstream files (spec.train.notebook /
+ * script) stay on their third-party repos; we only link to those.
+ */
+function moduleOwnedUrl(moduleId: string, fileName: string): string {
+  return resolveAsset(`train/${moduleId}/${fileName}`)
+}
 
 /** 'https://github.com/org/repo' | 'org/repo' → 'org/repo'. */
 function repoSlug(repo: string): string {
@@ -56,15 +68,16 @@ export function trainInputFile(
 
   if (method === 'colab') {
     if (t.notebookLocal) {
+      const fileName = t.notebookLocal.split('/').pop() ?? 'train.ipynb'
       return {
         kind: 'notebook',
         title: 'Training notebook (module-owned)',
-        fileName: t.notebookLocal.split('/').pop() ?? 'train.ipynb',
-        rawUrl: rawUrl(SOURCE_REPO.org, SOURCE_REPO.repo, SOURCE_REPO.ref, t.notebookLocal),
+        fileName,
+        rawUrl: moduleOwnedUrl(module.id, fileName),
         openUrl: buildColabUrl(t.notebookLocal),
         openLabel: 'Open in Colab',
         description:
-          'WakeStudio-owned wrapper notebook (ADR-035): generates synthetic data (Piper), runs the pinned upstream trainer, and writes the standard result bundle.',
+          'WakeStudio-owned wrapper notebook (ADR-035): generates synthetic data (Piper), runs the pinned upstream trainer, and writes the standard result bundle. Served from this app — download it and upload it to Colab, or open it directly.',
       }
     }
     if (t.notebook) {
@@ -93,11 +106,12 @@ export function trainInputFile(
   }
 
   if (t.entry) {
+    const fileName = t.entry.split('/').pop() ?? 'train.py'
     return {
       kind: 'script',
       title: 'Train script (module-owned)',
-      fileName: t.entry.split('/').pop() ?? 'train.py',
-      rawUrl: rawUrl(SOURCE_REPO.org, SOURCE_REPO.repo, SOURCE_REPO.ref, t.entry),
+      fileName,
+      rawUrl: moduleOwnedUrl(module.id, fileName),
       openUrl: githubBlobUrl(
         `${SOURCE_REPO.org}/${SOURCE_REPO.repo}`,
         SOURCE_REPO.ref,

@@ -143,6 +143,7 @@ export function TrainDetails({ job, modules, onImported }: TrainDetailsProps) {
           <FileReviewCard
             title={file.title}
             fileName={file.fileName}
+            kind={file.kind}
             rawUrl={file.rawUrl}
             openUrl={file.openUrl}
             openLabel={file.openLabel}

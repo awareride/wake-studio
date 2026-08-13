@@ -282,15 +282,24 @@ The PWA's Training view is a list-detail console around the spec-driven panel
      catalog `apps/web/public/train-modules.json` (spec-driven, ADR-025; built
      by `scripts/build-model-registry.mjs` from every `spec.train`).
   2. **Configure** — the module's train config card (from its spec.train: the
-     differences between modules) + the spec-driven params form (the training
-     module's generated panel; `sections` prop in module-kit).
+     differences between modules) + the module's OWN train params
+     (`spec.train.params`, schema-extension; `trainPanelSpec` in
+     `core/train-spec.ts` builds the panel spec) rendered through the
+     generated panel — nothing is hard-coded in the training module. No
+     params (e.g. frozen-weight rnnoise) → an empty form.
   3. **Choose train method** — the methods the module declares in
      `spec.train.invocation` (`methodsFor` in `core/methods.ts`): Google
      Colab / Self-hosted service / CI, each with its specific config
      (Colab → tunnel URL, ADR-023 amendment; client-side only).
   4. **Ready to start** — the train summary + the train input file shown for
-     review: for Colab the module-owned `.ipynb` notebook (download + Open in
-     Colab, ADR-035); for scripts/entries the upstream/local train file.
+     review: for Colab the module-owned `.ipynb` notebook **previewed on the
+     panel** (cells rendered read-only) with download + Open in Colab
+     (ADR-035); for scripts/entries the upstream/local train file.
+- **Notebooks come from the app, not GitHub:** module-owned train files
+  (`spec.train.notebookLocal` / `entry`) are copied into
+  `apps/web/public/train/<module-id>/` by the registry script and served
+  from the app's own origin — users never fetch them from the WakeStudio
+  repo (issue #105, human feedback).
 - **History model** — jobs recorded on Start (`core/history.ts` `startedJob`,
   with module + method) and on Colab import (`importedJob`); persisted in
   IndexedDB (`core/history-store.ts`). Step/state logic is pure and headless
@@ -338,3 +347,4 @@ for every provider. Capability labels: train-capable vs inference-only.
 | 2026-08-13 | §7.2 Colab runtime tunnel (proposal, Q15 issue #106): collapse Colab into the self-hosted API shape. | agent |
 | 2026-08-13 | Q15 resolved (human): tunnel adopted — ADR-023 amended (issue #106). §7.3 added: Training console (stepper + history rail + guide, issue #105). | agent |
 | 2026-08-13 | §7.3 reworked (human design feedback, issue #105): list-detail layout (train list + news + details pane) with a New-train wizard — model type (from `train-modules.json`) → config → method (spec.train.invocation) → ready (.ipynb review + download); guide mixed into each step; starting opens the train's review. | agent |
+| 2026-08-13 | §7.3 refined (human feedback, issue #105): (1) train configs come from each module's own `spec.train.params` (schema extension; `trainPanelSpec`; training module no longer hard-codes params); (2) module-owned notebooks are copied to `public/train/<module-id>/` and served from the app — no GitHub fetch; (3) the .ipynb is previewed on the panel (cells rendered read-only). | agent |

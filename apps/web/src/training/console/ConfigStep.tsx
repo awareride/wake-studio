@@ -2,9 +2,8 @@
  * Training wizard — Step 2: Configure (issue #105).
  *
  * The selected module's train config card (from its spec.train — the
- * differences between modules) sits above the spec-driven params form (the
- * training module's generated panel, ADR-025). The params form itself is
- * rendered by the wizard's mounted TrainingModulePanel (sections: params).
+ * differences between modules) sits above the module's OWN train params
+ * form (spec.train.params, rendered spec-driven by TrainParamsPanel).
  */
 
 import type { TrainableModule } from '../train-modules'

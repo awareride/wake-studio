@@ -50,6 +50,74 @@
   "train": {
     "notebookLocal": "packages/modules/kws/openwakeword/train/colab/train.ipynb",
     "invocation": ["colab"],
+    "params": [
+      {
+        "id": "wakePhrase",
+        "label": "Wake phrase",
+        "group": "primary",
+        "type": "string",
+        "default": "hey studio",
+        "description": "The wake phrase to train (notebook env WAKE_PHRASE). Spell phonetically with underscores if the default pronunciation is off, e.g. \"hey siri\" → \"hey_seer_e\"."
+      },
+      {
+        "id": "target",
+        "label": "Target tier",
+        "group": "primary",
+        "type": "select",
+        "default": "app-class",
+        "options": ["mc", "app-class"],
+        "description": "App-class ONNX model (notebook env WAKE_TARGET). MCU/TFLite-Micro is a separate micro-wake-word notebook later."
+      },
+      {
+        "id": "nSamples",
+        "label": "Synthetic samples",
+        "group": "advanced",
+        "type": "number",
+        "default": 1000,
+        "min": 100,
+        "max": 10000,
+        "step": 100,
+        "description": "Generated TTS sample count (notebook env WAKE_N_SAMPLES); raise for a stronger model."
+      },
+      {
+        "id": "steps",
+        "label": "Training steps",
+        "group": "advanced",
+        "type": "number",
+        "default": 10000,
+        "min": 100,
+        "max": 200000,
+        "step": 1000,
+        "description": "Optimizer steps (notebook env WAKE_STEPS); full models often use 50 000+."
+      },
+      {
+        "id": "falseActivationPenalty",
+        "label": "False-activation penalty",
+        "group": "advanced",
+        "type": "number",
+        "default": 1500,
+        "min": 0,
+        "max": 10000,
+        "step": 100,
+        "description": "max_negative_weight (notebook env WAKE_FALSE_ACTIVATION); higher = fewer false alarms."
+      },
+      {
+        "id": "augment",
+        "label": "Audio augmentation",
+        "group": "advanced",
+        "type": "boolean",
+        "default": true,
+        "description": "Background mixing + room impulse responses (notebook env WAKE_AUGMENT)."
+      },
+      {
+        "id": "quantize",
+        "label": "Quantize export",
+        "group": "advanced",
+        "type": "boolean",
+        "default": true,
+        "description": "Emit a TFLite model alongside the ONNX (best-effort, notebook env WAKE_QUANTIZE)."
+      }
+    ],
     "outputs": {
       "checkpoint": "out/model.onnx",
       "metrics": "out/metrics.json"

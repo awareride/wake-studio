@@ -10,52 +10,7 @@
     "license": "MIT (integration)",
     "status": "proposed"
   },
-  "params": [
-    {
-      "id": "wakePhrase",
-      "label": "Wake phrase",
-      "group": "primary",
-      "type": "string",
-      "default": "hey studio",
-      "description": "The wake word to train (Traditional/MCU path, Phase 5 backend)."
-    },
-    {
-      "id": "target",
-      "label": "Target tier",
-      "group": "primary",
-      "type": "select",
-      "default": "mc",
-      "options": ["mc", "app-class"],
-      "description": "MCU (micro-wake-word / TFLite-Micro) or app-class (openWakeWord / ONNX)."
-    },
-    {
-      "id": "epochs",
-      "label": "Epochs",
-      "group": "advanced",
-      "type": "number",
-      "default": 50,
-      "min": 1,
-      "max": 500,
-      "step": 1,
-      "description": "Training epochs (Traditional path)."
-    },
-    {
-      "id": "augment",
-      "label": "Audio augmentation",
-      "group": "advanced",
-      "type": "boolean",
-      "default": true,
-      "description": "Augment synthetic data (data-source layer, ADR-022)."
-    },
-    {
-      "id": "quantize",
-      "label": "Quantize export",
-      "group": "advanced",
-      "type": "boolean",
-      "default": true,
-      "description": "Emit int8 TFLite/ONNX for the target."
-    }
-  ],
+  "params": [],
   "actions": [
     {
       "id": "train",
@@ -102,14 +57,21 @@
   },
   "tests": {
     "l1": "packages/modules/training/tests/manifest.test.ts",
-    "required": ["l1"]
+    "required": [
+      "l1"
+    ]
   },
   "playground": {
     "route": "/playground/training",
     "entry": "packages/modules/training/web/playground.tsx"
   },
   "interfaces": {
-    "provides": ["TrainingJob"],
-    "consumes": ["KWSBackend", "DataSources"]
+    "provides": [
+      "TrainingJob"
+    ],
+    "consumes": [
+      "KWSBackend",
+      "DataSources"
+    ]
   }
 }

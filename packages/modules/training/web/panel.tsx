@@ -1,45 +1,26 @@
 /**
- * Training module - spec-driven panel (ADR-025 §3).
+ * Training module - spec-driven train params panel (ADR-025 §3, issue #105).
  *
- * Replaces the hand-written TrainingPanel stub with a generated panel from
- * the module spec. The panel is a pure function of the spec: params render via
- * module-kit's Ui* controls; backend wiring lands in goal.plan Phase 5. A
- * minimal controller holds local param state (no backend yet).
- *
- * Host props (training console, issue #105):
- * - `sections`: scope which generated sections render (e.g. params only on
- *   the "Configure" step, actions + status on "Run/monitor"). Undefined =
- *   everything, like today.
- * - `onAction`: notified when the user fires an action (train/export) with
- *   the current param values — lets the console record jobs in history.
+ * Renders a module's OWN train params (built by `trainPanelSpec` from the
+ * module's spec.train.params) through the generated panel - the wizard's
+ * Configure step uses this, so each module provides its own train config and
+ * nothing is hard-coded here. The panel stays controlled: the host tracks
+ * the current values via `onValuesChange` (defaults announced on mount).
  */
 
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   defaultsFromSpec,
   renderPanel,
   type ModulePanelController,
-  type PanelSection,
 } from '@wake-studio/module-kit'
 import type { ModuleSpec } from '@wake-studio/contracts'
-import trainingSpec from '../spec/module.spec.json'
+import type { TrainPanelSpec } from '../core/train-spec'
 
-const TRAINING_SPEC = trainingSpec as unknown as ModuleSpec
-
-const GeneratedTrainingPanel = renderPanel(TRAINING_SPEC)
-
-export interface TrainingModulePanelProps {
-  /** Scope which generated sections render (undefined = all). */
-  sections?: PanelSection[]
-  /**
-   * Notified when an action fires, with a snapshot of the current param
-   * values (stringified) — used by the training console to record history.
-   */
-  onAction?: (actionId: string, values: Record<string, string>) => void
-  /**
-   * Notified whenever the param values change (and once on mount) — the
-   * wizard tracks the current params through this (issue #105).
-   */
+export interface TrainParamsPanelProps {
+  /** Panel spec built from the module's spec.train.params (trainPanelSpec). */
+  spec: TrainPanelSpec
+  /** Notified on mount (defaults) and on every param change. */
   onValuesChange?: (values: Record<string, string>) => void
 }
 
@@ -49,26 +30,25 @@ function stringifyValues(values: Record<string, unknown>): Record<string, string
   )
 }
 
-/** The training panel: rendered from the spec, not hand-written (ADR-025). */
-export function TrainingModulePanel({
-  sections,
-  onAction,
-  onValuesChange,
-}: TrainingModulePanelProps) {
-  // Local controller state - no backend yet (Phase 5 wires runAction).
-  // Initialize from the spec defaults so the console records real params in
-  // history even when the user does not touch the form (issue #105).
-  const [values, setValues] = useState<Record<string, unknown>>(() =>
-    defaultsFromSpec(TRAINING_SPEC),
+/** The training panel: rendered from the module spec, not hand-written. */
+export function TrainParamsPanel({ spec, onValuesChange }: TrainParamsPanelProps) {
+  const Panel = useMemo(
+    () => renderPanel(spec as ModuleSpec),
+    [spec],
   )
-  const [status, setStatus] = useState<Record<string, unknown>>({})
 
-  // Announce the initial (default) values once, on mount.
+  const [values, setValues] = useState<Record<string, unknown>>(() =>
+    defaultsFromSpec(spec as ModuleSpec),
+  )
+
+  // Announce the initial (default) values once, on mount (the ref guards
+  // against re-announcing when values change later).
+  const announced = useRef(false)
   useEffect(() => {
+    if (announced.current) return
+    announced.current = true
     onValuesChange?.(stringifyValues(values))
-    // mount-only: the initial defaults are announced once; later changes
-    // flow through setValue below.
-  }, [])
+  }, [onValuesChange, values])
 
   const setValue = useCallback(
     (id: string, value: unknown) => {
@@ -84,18 +64,13 @@ export function TrainingModulePanel({
   const controller: ModulePanelController = {
     values,
     setValue,
-    runAction: (actionId: string) => {
-      // Phase 5: submit a TrainingJob to the selected backend. Today the
-      // action is a no-op stub that reports the (not-yet-implemented) status.
-      onAction?.(actionId, stringifyValues(values))
-      if (actionId === 'train') {
-        setStatus((s) => ({ ...s, jobStatus: 'queued (backend lands in Phase 5)' }))
-      }
+    runAction: () => {
+      /* train params only - no actions in the wizard's Configure step */
     },
-    status,
+    status: {},
   }
 
-  return <GeneratedTrainingPanel controller={controller} sections={sections} />
+  return <Panel controller={controller} sections={['params']} />
 }
 
-export default TrainingModulePanel
+export default TrainParamsPanel

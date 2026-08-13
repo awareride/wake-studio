@@ -1,0 +1,53 @@
+/**
+ * Train panel spec builder (issue #105).
+ *
+ * Builds a renderable panel spec from a trainable module's OWN declarations
+ * (its spec.train.params + meta) — the wizard's Configure step renders this
+ * through the generated panel, so each module provides its own train config
+ * and nothing is hard-coded in the training module. Pure + L1-testable.
+ */
+
+import type { ModuleParam, ModuleSpec } from '@wake-studio/contracts'
+
+/** The module-owned train declarations the wizard renders (subset of the
+ *  generated train-modules.json catalog). */
+export interface TrainableModuleLike {
+  id: string
+  name: string
+  category: string
+  license: string
+  /** The module's own train params (spec.train.params). */
+  params?: ModuleParam[]
+}
+
+export type TrainPanelSpec = Pick<
+  ModuleSpec,
+  'meta' | 'params' | 'actions' | 'status' | 'train'
+>
+
+/**
+ * A panel spec whose params come from the module's spec.train.params. The
+ * generated panel (module-kit renderPanel) renders only meta + params here
+ * (no actions/status), so the wizard shows exactly the module's train knobs.
+ */
+export function trainPanelSpec(module: TrainableModuleLike): TrainPanelSpec {
+  const params = module.params ?? []
+  return {
+    meta: {
+      id: module.id,
+      name: module.name,
+      category: module.category as ModuleSpec['meta']['category'],
+      version: '0.1.0',
+      maturity: 'pilot',
+      owner: 'WakeStudio team',
+      license: module.license,
+      status: 'accepted',
+    },
+    params,
+    actions: [],
+    status: [],
+    // Declared so the spec stays type-valid; renderPanel only reads
+    // spec.train.notebookLocal (and never with sections=['params']).
+    train: { params, invocation: [], outputs: {} },
+  }
+}

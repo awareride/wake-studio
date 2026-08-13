@@ -102,6 +102,14 @@ export interface ModuleTrain {
   notebookLocal?: string
   python?: string
   deps?: string
+  /**
+   * The module's OWN train params (issue #105) — the wizard's Configure
+   * step renders these spec-driven, so each module owns its train config
+   * (a wake phrase + steps for openwakeword, feature type / training steps
+   * for kws_streaming, none for frozen-weight rnnoise). Same shape as the
+   * top-level `params`. Mirrors the module-spec JSON schema `train.params`.
+   */
+  params?: ModuleParam[]
   /** Who may invoke: "subprocess" (studio-backend), "ci", "colab". */
   invocation: Array<'subprocess' | 'ci' | 'colab'>
   outputs: Record<string, string>

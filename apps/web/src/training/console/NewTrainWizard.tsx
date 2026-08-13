@@ -8,7 +8,7 @@
  * Ready step's Start button creates the job and opens its review.
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   STEP_DEFS,
   STEP_ORDER,
@@ -16,10 +16,11 @@ import {
   canAdvance,
   canGoBack,
   nextStepId,
+  trainPanelSpec,
   type TrainMethodId,
   type TrainingStepId,
 } from '@wake-studio/module-training'
-import { TrainingModulePanel } from '@wake-studio/module-training/web'
+import { TrainParamsPanel } from '@wake-studio/module-training/web'
 import { cn } from '../../components/cn'
 import { IconChevronRight } from '../../components/icons'
 import { findTrainableModule, type TrainableModule } from '../train-modules'
@@ -59,6 +60,23 @@ export function NewTrainWizard({
   const module = findTrainableModule(modules, moduleId ?? undefined)
   const def = STEP_DEFS.find((d) => d.id === step) ?? STEP_DEFS[0]
   const next = nextStepId(step)
+
+  // The panel spec for the selected module's OWN train params (spec-driven,
+  // ADR-025) — built once per module so the generated panel keeps its state
+  // across renders.
+  const trainSpec = useMemo(
+    () =>
+      module
+        ? trainPanelSpec({
+            id: module.id,
+            name: module.name,
+            category: module.category,
+            license: module.license,
+            params: module.train.params,
+          })
+        : null,
+    [module],
+  )
 
   // Next is gated on the step's selection: a model type on step 1, a
   // method on step 3; Configure and Ready always pass.
@@ -174,10 +192,10 @@ export function NewTrainWizard({
         />
       )}
 
-      {/* The module panel (spec-driven params, ADR-025): kept mounted so
-          params survive step navigation; params render on Configure. */}
+      {/* The module's own train params (spec-driven, ADR-025): kept mounted
+          so values survive step navigation; params render on Configure. */}
       <div className={step === 'config' ? '' : 'hidden'}>
-        <TrainingModulePanel sections={['params']} onValuesChange={setParams} />
+        {trainSpec && <TrainParamsPanel spec={trainSpec} onValuesChange={setParams} />}
       </div>
 
       {/* Back / Next. */}

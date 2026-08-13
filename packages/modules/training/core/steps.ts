@@ -42,8 +42,8 @@ export const STEP_DEFS: readonly TrainingStepDef[] = [
     label: 'Configure',
     summary: 'Set the training params for the chosen module.',
     help: [
-      'Params come from the training module spec (spec-driven, ADR-025) — wake phrase, epochs, augmentation, quantization.',
-      'The module card shows the differences from the selected module\'s own spec.train: notebook or script, invocation methods, outputs.',
+      'Params come from the selected module\'s own spec.train.params (spec-driven, ADR-025) — every module declares its own train knobs.',
+      'The module card shows the differences from its spec.train: notebook or script, invocation methods, outputs.',
       'Defaults are safe — you can usually keep them.',
     ],
   },

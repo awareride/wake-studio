@@ -27,9 +27,7 @@ export function ReadyStep({ module, method, params, onStart, starting }: ReadySt
   const methodLabel =
     method === 'colab' ? 'Google Colab' : method === 'subprocess' ? 'Self-hosted service' : 'CI'
 
-  const paramRows = Object.entries(params).filter(
-    ([k]) => !['target'].includes(k),
-  )
+  const paramRows = Object.entries(params)
 
   return (
     <div className="space-y-4">
@@ -62,6 +60,7 @@ export function ReadyStep({ module, method, params, onStart, starting }: ReadySt
         <FileReviewCard
           title={file.title}
           fileName={file.fileName}
+          kind={file.kind}
           rawUrl={file.rawUrl}
           openUrl={file.openUrl}
           openLabel={file.openLabel}

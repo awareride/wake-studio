@@ -33,6 +33,11 @@ export {
   type JobPhase,
 } from './steps'
 export {
+  trainPanelSpec,
+  type TrainPanelSpec,
+  type TrainableModuleLike,
+} from './train-spec'
+export {
   TRAIN_METHODS,
   TRAIN_METHOD_ORDER,
   methodsFor,

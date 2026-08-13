@@ -8,12 +8,15 @@
  */
 
 import { resolveAsset } from '@wake-studio/platform'
+import type { ModuleParam } from '@wake-studio/contracts'
 
 /** The subset of spec.train the console renders (mirrors the schema). */
 export interface TrainableModuleTrain {
   entry?: string
   deps?: string
   notebookLocal?: string
+  /** The module's own train params (spec.train.params, issue #105). */
+  params?: ModuleParam[]
   notebook?: { repo: string; path: string; ref: string; paramsCell?: number }
   script?: {
     repo: string
