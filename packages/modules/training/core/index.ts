@@ -66,3 +66,8 @@ export {
   updateJobStatus,
   clearJobs,
 } from './history-store'
+export {
+  personalizeNotebook,
+  personalizedParamIds,
+  type EnvParam,
+} from './notebook'

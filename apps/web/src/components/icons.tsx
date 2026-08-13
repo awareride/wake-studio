@@ -113,6 +113,15 @@ export function IconChevronRight(props: IconProps) {
   )
 }
 
+/** Left chevron (Back navigation, issue #105). */
+export function IconChevronLeft(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  )
+}
+
 export function IconMenu(props: IconProps) {
   return (
     <svg {...base(props)}>

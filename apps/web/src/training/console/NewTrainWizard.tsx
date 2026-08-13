@@ -1,19 +1,18 @@
 /**
- * Training wizard — New train (issue #105).
+ * Training wizard — New train, full panel of the Training view (issue #105).
  *
  * Four steps: Choose model type → Configure → Choose train method → Ready.
- * The guide is mixed into each step panel (inline). The selected module's
- * OWN train params (spec.train.params) are rendered spec-driven by
+ * The guide is mixed into each step (collapsed by default). The selected
+ * module's OWN train params (spec.train.params) are rendered spec-driven by
  * TrainParamsPanel (kept mounted so values survive step navigation).
  *
- * The wizard runs in a modal dialog (TrainingConsole) so left-rail train
- * clicks cannot interrupt it. The Ready step's CTA is honest per method:
- * Colab cannot be started from here — the button saves/confirms the train
- * (the run happens in the user's Colab session; results come back via the
- * details pane); subprocess/ci label it "Start train" for the future.
+ * Layout: header + step pills pinned, Back/Next/Save pinned at the bottom —
+ * only the inner content scrolls. The notebook Review is a sub-panel (Back
+ * preserves the wizard state). Leaving (Cancel or another menu) while the
+ * wizard has progress asks for confirmation.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   STEP_DEFS,
   STEP_ORDER,
@@ -29,33 +28,48 @@ import { TrainParamsPanel } from '@wake-studio/module-training/web'
 import { cn } from '../../components/cn'
 import { IconChevronRight } from '../../components/icons'
 import { findTrainableModule, type TrainableModule } from '../train-modules'
+import { ConfirmDialog } from './ConfirmDialog'
 import { InlineGuide } from './InlineGuide'
 import { ModelTypeStep } from './ModelTypeStep'
 import { ConfigStep } from './ConfigStep'
 import { MethodStep } from './MethodStep'
 import { ReadyStep } from './ReadyStep'
+import { NotebookReviewView } from './NotebookReviewView'
+import { trainInputFile } from './train-files'
 
 export interface NewTrainWizardProps {
   modules: TrainableModule[]
-  /** Called with the finalized train when the user confirms (Start/Save). */
+  /** Called with the finalized train when the user confirms (Save/Start). */
   onStarted: (moduleId: string, method: TrainMethodId, params: Record<string, string>) => void
   onCancel: () => void
+  /** Notified when the wizard gains/loses unsaved progress (nav guard). */
+  onDirtyChange?: (dirty: boolean) => void
 }
 
-export function NewTrainWizard({ modules, onStarted, onCancel }: NewTrainWizardProps) {
+export function NewTrainWizard({
+  modules,
+  onStarted,
+  onCancel,
+  onDirtyChange,
+}: NewTrainWizardProps) {
   const [step, setStep] = useState<TrainingStepId>('model')
   const [moduleId, setModuleId] = useState<string | null>(null)
   const [method, setMethod] = useState<TrainMethodId | null>(null)
   const [params, setParams] = useState<Record<string, string>>({})
   const [starting, setStarting] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
 
   const module = findTrainableModule(modules, moduleId ?? undefined)
   const def = STEP_DEFS.find((d) => d.id === step) ?? STEP_DEFS[0]
   const next = nextStepId(step)
+  const dirty = step !== 'model' || moduleId !== null || method !== null
 
-  // The panel spec for the selected module's OWN train params (spec-driven,
-  // ADR-025) — built once per module so the generated panel keeps its state
-  // across renders.
+  // Report unsaved progress to the console (leave-guard on other menus).
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
+
   const trainSpec = useMemo(
     () =>
       module
@@ -70,15 +84,18 @@ export function NewTrainWizard({ modules, onStarted, onCancel }: NewTrainWizardP
     [module],
   )
 
-  // Next is gated on the step's selection: a model type on step 1, a
-  // method on step 3; Configure and Ready always pass.
+  const reviewFile = useMemo(
+    () => (module && method ? trainInputFile(module, method) : null),
+    [module, method],
+  )
+
   const canNext =
     canAdvance(step) &&
     (step === 'model' ? moduleId !== null : step === 'method' ? method !== null : true)
 
   const selectModule = useCallback((id: string) => {
     setModuleId(id)
-    setMethod(null) // a different module may not support the same method
+    setMethod(null)
   }, [])
 
   const handleStart = useCallback(() => {
@@ -87,25 +104,44 @@ export function NewTrainWizard({ modules, onStarted, onCancel }: NewTrainWizardP
     onStarted(module.id, method, params)
   }, [module, method, params, onStarted])
 
+  const requestCancel = useCallback(() => {
+    if (dirty) setConfirmCancel(true)
+    else onCancel()
+  }, [dirty, onCancel])
+
+  if (reviewing && reviewFile) {
+    return (
+      <NotebookReviewView
+        fileName={reviewFile.fileName}
+        rawUrl={reviewFile.rawUrl ?? ''}
+        onBack={() => setReviewing(false)}
+        personalize={
+          module && reviewFile.kind === 'notebook'
+            ? { params: module.train.params ?? [], values: params }
+            : undefined
+        }
+      />
+    )
+  }
+
   return (
-    <div className="space-y-5">
-      {/* Wizard header. */}
-      <div className="flex items-start justify-between gap-3">
+    <div className="flex max-h-[calc(100dvh-11rem)] flex-col gap-4">
+      {/* Wizard header + step pills (pinned). */}
+      <div className="flex shrink-0 items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-ink-1">New train</h3>
           <p className="mt-0.5 text-xs text-ink-3">{def.summary}</p>
         </div>
         <button
           type="button"
-          onClick={onCancel}
+          onClick={requestCancel}
           className="rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-xs text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-1"
         >
           Cancel
         </button>
       </div>
 
-      {/* Step pills. */}
-      <nav aria-label="New train steps" className="flex flex-wrap items-center gap-1.5">
+      <nav aria-label="New train steps" className="flex shrink-0 flex-wrap items-center gap-1.5">
         {STEP_ORDER.map((id, i) => {
           const active = id === step
           const done = STEP_ORDER.indexOf(step) > i
@@ -142,69 +178,88 @@ export function NewTrainWizard({ modules, onStarted, onCancel }: NewTrainWizardP
         })}
       </nav>
 
-      {/* Guide mixed into the step panel. */}
-      <InlineGuide lines={def.help} />
+      {/* Scrollable content. */}
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+        <InlineGuide lines={def.help} />
 
-      {/* Step content. */}
-      {step === 'model' && (
-        <ModelTypeStep modules={modules} selectedId={moduleId} onSelect={selectModule} />
-      )}
+        {step === 'model' && (
+          <ModelTypeStep modules={modules} selectedId={moduleId} onSelect={selectModule} />
+        )}
 
-      {step === 'config' && module && <ConfigStep module={module} />}
+        {step === 'config' && module && <ConfigStep module={module} />}
 
-      {step === 'method' && module && (
-        <MethodStep module={module} selected={method} onSelect={setMethod} />
-      )}
+        {step === 'method' && module && (
+          <MethodStep module={module} selected={method} onSelect={setMethod} />
+        )}
 
-      {step === 'ready' && module && method && (
-        <ReadyStep module={module} method={method} params={params} />
-      )}
+        {step === 'ready' && module && method && (
+          <ReadyStep
+            module={module}
+            method={method}
+            params={params}
+            onReview={() => setReviewing(true)}
+          />
+        )}
 
-      {/* The module's own train params (spec-driven, ADR-025): kept mounted
-          so values survive step navigation; params render on Configure. */}
-      <div className={step === 'config' ? '' : 'hidden'}>
-        {trainSpec && <TrainParamsPanel spec={trainSpec} onValuesChange={setParams} />}
+        {/* The module's own train params (spec-driven, ADR-025): kept mounted
+            so values survive step navigation; params render on Configure. */}
+        <div className={step === 'config' ? '' : 'hidden'}>
+          {trainSpec && <TrainParamsPanel spec={trainSpec} onValuesChange={setParams} />}
+        </div>
       </div>
 
-      {/* Back / Next — the final step replaces Next with Save/Start in the
-          same position (issue #105). */}
-      <div className="flex items-center justify-between border-t border-line pt-4">
-        <button
-          type="button"
-          onClick={() => setStep(STEP_ORDER[STEP_ORDER.indexOf(step) - 1])}
-          disabled={!canGoBack(step)}
-          className="rounded-lg border border-line bg-surface-2 px-4 py-1.5 text-sm text-ink-2 transition-colors hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Back
-        </button>
-        {next ? (
+      {/* Pinned footer: Back / Next — the final step replaces Next with
+          Save/Start in the same position (issue #105). */}
+      <div className="shrink-0 space-y-2 border-t border-line pt-4">
+        <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={() => setStep(advanceStep(step) ?? step)}
-            disabled={!canNext}
-            className="rounded-lg bg-brand-500 px-5 py-1.5 text-sm font-medium text-ink-1 transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => setStep(STEP_ORDER[STEP_ORDER.indexOf(step) - 1])}
+            disabled={!canGoBack(step)}
+            className="rounded-lg border border-line bg-surface-2 px-4 py-1.5 text-sm text-ink-2 transition-colors hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Next
+            Back
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleStart}
-            disabled={starting}
-            className="rounded-lg bg-brand-500 px-5 py-1.5 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {starting ? 'Saving…' : method === 'colab' ? 'Save' : 'Start train'}
-          </button>
+          {next ? (
+            <button
+              type="button"
+              onClick={() => setStep(advanceStep(step) ?? step)}
+              disabled={!canNext}
+              className="rounded-lg bg-brand-500 px-5 py-1.5 text-sm font-medium text-ink-1 transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleStart}
+              disabled={starting}
+              className="rounded-lg bg-brand-500 px-5 py-1.5 text-sm font-semibold text-ink-1 transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {starting ? 'Saving…' : method === 'colab' ? 'Save' : 'Start train'}
+            </button>
+          )}
+        </div>
+        {step === 'ready' && method === 'colab' && (
+          <p className="text-[11px] leading-relaxed text-ink-3">
+            Save just confirms this train here — the run happens in your own Colab session (run the
+            notebook, then bring results back in the train details pane: tunnel URL, or download +
+            submit the results zip).
+          </p>
         )}
       </div>
 
-      {step === 'ready' && method === 'colab' && (
-        <p className="text-[11px] leading-relaxed text-ink-3">
-          Save just confirms this train here — the run happens in your own Colab session (run the
-          notebook, then bring results back in the train details pane: tunnel URL, or download +
-          submit the results zip).
-        </p>
-      )}
+      <ConfirmDialog
+        open={confirmCancel}
+        title="Discard this train?"
+        message="You have progress in the wizard. Leaving now discards your selections."
+        confirmLabel="Discard"
+        onConfirm={() => {
+          setConfirmCancel(false)
+          onCancel()
+        }}
+        onCancel={() => setConfirmCancel(false)}
+      />
     </div>
   )
 }

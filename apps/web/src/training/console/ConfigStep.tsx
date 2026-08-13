@@ -40,7 +40,6 @@ export function ConfigStep({ module }: ConfigStepProps) {
         {row('Invocation methods', methods)}
         {row('Output checkpoint', t.outputs?.checkpoint)}
         {row('Metrics', t.outputs?.metrics)}
-        {t.notebookLocal && row('Colab notebook', t.notebookLocal)}
         {t.entry && row('Train entry', t.entry)}
         {t.python && row('Python', t.python)}
         {t.script && row('Upstream script', t.script.path, false)}

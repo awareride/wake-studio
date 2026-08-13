@@ -13,7 +13,7 @@
  * Colab imports record/update the job and open its review too.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   backendForMethod,
   importedJob,
@@ -28,6 +28,7 @@ import { IconWand } from '../../components/icons'
 import { NewTrainWizard } from './NewTrainWizard'
 import { TrainDetails } from './TrainDetails'
 import { TrainList } from './TrainList'
+import { ConfirmDialog } from './ConfirmDialog'
 import { fetchTrainableModules, type TrainableModule } from '../train-modules'
 import type { ColabImportResult } from '../colab-import'
 
@@ -42,6 +43,38 @@ export function TrainingConsole() {
   const [modulesError, setModulesError] = useState<string | null>(null)
   const [view, setView] = useState<View>({ kind: 'empty' })
   const [confirmingClear, setConfirmingClear] = useState(false)
+
+  // Unsaved-progress guard: leaving the wizard via another menu asks first.
+  const wizardDirtyRef = useRef(false)
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const navGuardRef = useRef(false)
+  const lastHashRef = useRef(location.hash)
+  const [confirmNav, setConfirmNav] = useState<{ target: string } | null>(null)
+
+  useEffect(() => {
+    const onHash = () => {
+      const target = location.hash
+      if (navGuardRef.current) {
+        navGuardRef.current = false
+        lastHashRef.current = target
+        return
+      }
+      if (viewRef.current.kind !== 'wizard' || !wizardDirtyRef.current) {
+        lastHashRef.current = target
+        return
+      }
+      // Revert and ask.
+      location.hash = lastHashRef.current
+      setConfirmNav({ target })
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  const handleDirtyChange = useCallback((dirty: boolean) => {
+    wizardDirtyRef.current = dirty
+  }, [])
 
   // Load the persistent train list + the trainable-modules catalog once.
   useEffect(() => {
@@ -161,6 +194,7 @@ export function TrainingConsole() {
           modules={modules}
           onStarted={handleWizardStarted}
           onCancel={() => setView(view.from)}
+          onDirtyChange={handleDirtyChange}
         />
       ) : (
         <div className="flex gap-6">
@@ -210,6 +244,21 @@ export function TrainingConsole() {
           </div>
         </div>
       )}
+      {/* Leaving mid-wizard via another menu (issue #105). */}
+      <ConfirmDialog
+        open={confirmNav !== null}
+        title="Leave without saving this train?"
+        message="You have progress in the New-train wizard. Leaving now discards it."
+        confirmLabel="Leave anyway"
+        onConfirm={() => {
+          if (confirmNav) {
+            navGuardRef.current = true
+            location.hash = confirmNav.target
+          }
+          setConfirmNav(null)
+        }}
+        onCancel={() => setConfirmNav(null)}
+      />
     </div>
   )
 }

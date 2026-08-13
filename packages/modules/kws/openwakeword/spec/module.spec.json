@@ -49,7 +49,9 @@
   },
   "train": {
     "notebookLocal": "packages/modules/kws/openwakeword/train/colab/train.ipynb",
-    "invocation": ["colab"],
+    "invocation": [
+      "colab"
+    ],
     "params": [
       {
         "id": "wakePhrase",
@@ -57,7 +59,8 @@
         "group": "primary",
         "type": "string",
         "default": "hey studio",
-        "description": "The wake phrase to train (notebook env WAKE_PHRASE). Spell phonetically with underscores if the default pronunciation is off, e.g. \"hey siri\" → \"hey_seer_e\"."
+        "description": "The wake phrase to train (notebook env WAKE_PHRASE). Spell phonetically with underscores if the default pronunciation is off, e.g. \"hey siri\" \u2192 \"hey_seer_e\".",
+        "env": "WAKE_PHRASE"
       },
       {
         "id": "nSamples",
@@ -68,7 +71,8 @@
         "min": 100,
         "max": 10000,
         "step": 100,
-        "description": "Generated TTS sample count (notebook env WAKE_N_SAMPLES); raise for a stronger model."
+        "description": "Generated TTS sample count (notebook env WAKE_N_SAMPLES); raise for a stronger model.",
+        "env": "WAKE_N_SAMPLES"
       },
       {
         "id": "steps",
@@ -79,7 +83,8 @@
         "min": 100,
         "max": 200000,
         "step": 1000,
-        "description": "Optimizer steps (notebook env WAKE_STEPS); full models often use 50 000+."
+        "description": "Optimizer steps (notebook env WAKE_STEPS); full models often use 50 000+.",
+        "env": "WAKE_STEPS"
       },
       {
         "id": "falseActivationPenalty",
@@ -90,7 +95,8 @@
         "min": 0,
         "max": 10000,
         "step": 100,
-        "description": "max_negative_weight (notebook env WAKE_FALSE_ACTIVATION); higher = fewer false alarms."
+        "description": "max_negative_weight (notebook env WAKE_FALSE_ACTIVATION); higher = fewer false alarms.",
+        "env": "WAKE_FALSE_ACTIVATION"
       },
       {
         "id": "augment",
@@ -98,7 +104,8 @@
         "group": "advanced",
         "type": "boolean",
         "default": true,
-        "description": "Background mixing + room impulse responses (notebook env WAKE_AUGMENT)."
+        "description": "Background mixing + room impulse responses (notebook env WAKE_AUGMENT).",
+        "env": "WAKE_AUGMENT"
       },
       {
         "id": "quantize",
@@ -106,7 +113,8 @@
         "group": "advanced",
         "type": "boolean",
         "default": true,
-        "description": "Emit a TFLite model alongside the ONNX (best-effort, notebook env WAKE_QUANTIZE)."
+        "description": "Emit a TFLite model alongside the ONNX (best-effort, notebook env WAKE_QUANTIZE).",
+        "env": "WAKE_QUANTIZE"
       }
     ],
     "outputs": {
@@ -122,7 +130,7 @@
       "releaseTag": "models-openwakeword-v1",
       "pattern": "*.tar.gz"
     },
-    "notes": "melspectrogram/embedding (Apache-2.0, upstream openWakeWord) + hey-buddy classifier (CC-BY-4.0) hosted as a GitHub Release (ADR-027 §6.7); fetched via scripts/fetch-artifact.mjs. The tar.gz preserves the module asset layout (openWakeWord/ + hey-buddy/models/)."
+    "notes": "melspectrogram/embedding (Apache-2.0, upstream openWakeWord) + hey-buddy classifier (CC-BY-4.0) hosted as a GitHub Release (ADR-027 \u00a76.7); fetched via scripts/fetch-artifact.mjs. The tar.gz preserves the module asset layout (openWakeWord/ + hey-buddy/models/)."
   },
   "tests": {
     "l1": "packages/modules/kws/openwakeword/tests/backend.test.ts",

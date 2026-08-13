@@ -40,6 +40,12 @@ export interface ModuleParam {
    */
   options?: ReadonlyArray<string | { value: string; label: string }>
   validation?: ParamValidation
+  /**
+   * Train params only: the notebook env var this param maps to (issue #105).
+   * The app bakes the user's value into the downloaded .ipynb by replacing
+   * the default inside `os.environ.get("ENV", "default")`.
+   */
+  env?: string
 }
 
 export type ActionKind = 'load' | 'start' | 'stop' | 'export' | 'train' | 'record' | 'reset' | 'enroll'

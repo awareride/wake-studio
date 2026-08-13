@@ -16,13 +16,15 @@ export interface ReadyStepProps {
   module: TrainableModule
   method: TrainMethodId
   params: Record<string, string>
+  /** Open the full notebook review panel (issue #105). */
+  onReview: () => void
 }
 
 function methodLabel(method: TrainMethodId): string {
   return method === 'colab' ? 'Google Colab' : method === 'subprocess' ? 'Self-hosted service' : 'CI'
 }
 
-export function ReadyStep({ module, method, params }: ReadyStepProps) {
+export function ReadyStep({ module, method, params, onReview }: ReadyStepProps) {
   const file = trainInputFile(module, method)
   const labels = new Map((module.train.params ?? []).map((p) => [p.id, p.label]))
   const paramRows = Object.entries(params)
@@ -64,6 +66,9 @@ export function ReadyStep({ module, method, params }: ReadyStepProps) {
           openUrl={file.openUrl}
           openLabel={file.openLabel}
           description={file.description}
+          onReview={onReview}
+          params={params}
+          paramMeta={module.train.params}
         />
       )}
     </div>

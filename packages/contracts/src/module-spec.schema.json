@@ -433,6 +433,10 @@
                     "type": "string"
                   }
                 }
+              },
+              "env": {
+                "type": "string",
+                "description": "Notebook env var this train param maps to (issue #105) \u2014 the app bakes the user's value into the downloaded notebook by replacing the default in os.environ.get(\"ENV\", \"default\")."
               }
             }
           }
@@ -554,7 +558,10 @@
           "properties": {
             "source": {
               "type": "string",
-              "enum": ["run", "release"],
+              "enum": [
+                "run",
+                "release"
+              ],
               "description": "Where the artifact comes from: a GitHub Actions run (default; build.artifactName) or a GitHub Release (source=release; static models with no CI build, e.g. openwakeword/hey-buddy)."
             },
             "releaseTag": {

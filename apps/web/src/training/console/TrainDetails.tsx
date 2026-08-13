@@ -8,6 +8,7 @@
  * started").
  */
 
+import { useMemo, useState } from 'react'
 import {
   backendToMethod,
   deriveMessages,
@@ -18,6 +19,7 @@ import { ImportColabResults } from '../ImportColabResults'
 import type { ColabImportResult } from '../colab-import'
 import { findTrainableModule, type TrainableModule } from '../train-modules'
 import { FileReviewCard } from './FileReviewCard'
+import { NotebookReviewView } from './NotebookReviewView'
 import { StatusChip } from './StatusChip'
 import { trainInputFile } from './train-files'
 
@@ -42,6 +44,27 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange }: Tr
   const needsImport = isColab && job.status !== 'succeeded'
   const file = module ? trainInputFile(module, isColab ? 'colab' : job.method) : null
   const messages = deriveMessages(job)
+
+  // Full-panel notebook review (Back preserves the details state, #105).
+  const [reviewing, setReviewing] = useState(false)
+  const personalizable = useMemo(
+    () =>
+      module && file?.kind === 'notebook'
+        ? { params: module.train.params ?? [], values: job.params }
+        : undefined,
+    [module, file, job.params],
+  )
+
+  if (reviewing && file) {
+    return (
+      <NotebookReviewView
+        fileName={file.fileName}
+        rawUrl={file.rawUrl ?? ''}
+        onBack={() => setReviewing(false)}
+        personalize={personalizable}
+      />
+    )
+  }
 
   return (
     <div className="space-y-5">
@@ -178,6 +201,9 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange }: Tr
             openUrl={file.openUrl}
             openLabel={file.openLabel}
             description={file.description}
+            onReview={() => setReviewing(true)}
+            params={job.params}
+            paramMeta={module?.train.params}
           />
         ) : (
           <div className="rounded-xl border border-line bg-surface-2 p-4 text-xs text-ink-3">
