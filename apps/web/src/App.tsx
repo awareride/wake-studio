@@ -17,6 +17,7 @@ import { ProjectProvider } from "./projects";
 import { LogProvider } from "./log";
 import { SettingsProvider } from "./settings";
 import { useAppSettings } from "./settings/context";
+import { setBrandAccentVars } from "./settings/accent-colors";
 import { Theme } from "@radix-ui/themes";
 import { WorkspaceView } from "./views/WorkspaceView";
 import { ModelLibraryView } from "./views/ModelLibraryView";
@@ -53,6 +54,11 @@ export default function App() {
 function ThemedShell() {
   const { platform } = useAppSettings();
   const accent = platform['theme.accent'] ?? 'gray';
+  // Sync the brand CSS vars (module-kit rendered panels read them) to the
+  // selected accent scale, alongside the Themes accentColor.
+  React.useEffect(() => {
+    setBrandAccentVars(accent);
+  }, [accent]);
   return (
     <Theme appearance="light" accentColor={accent} grayColor="slate">
       <AppShell />

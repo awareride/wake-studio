@@ -97,7 +97,7 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
           value={value.deviceId ?? ''}
           disabled={disabled || devices.length === 0}
           onChange={(e) => onChange({ ...value, deviceId: e.target.value || undefined })}
-          className="max-w-56 truncate rounded bg-surface-3 px-2 py-1 text-sm text-ink-1"
+          className="max-w-72 truncate rounded bg-surface-3 px-2.5 py-1 text-sm text-ink-1"
         >
           {devices.length === 0 && <option value="">Default device</option>}
           {devices.map((d) => (

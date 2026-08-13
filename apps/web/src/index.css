@@ -58,6 +58,23 @@
   --ws-success: 33 131 88;      /* green-11 */
   --ws-warning: 171 100 0;      /* amber-11 */
   --ws-danger: 206 44 49;       /* red-11 */
+
+  /* Brand = the user's accent theme (Settings -> Accent color; default
+     gray). Sync'd at runtime to the chosen Radix scale via
+     settings/accent-colors.ts; these :root values are the gray fallback
+     before the app boots. */
+  --ws-brand-1: 252 252 252;    /* gray-1 */
+  --ws-brand-2: 249 249 249;    /* gray-2 */
+  --ws-brand-3: 240 240 240;    /* gray-3 */
+  --ws-brand-4: 232 232 232;    /* gray-4 */
+  --ws-brand-5: 224 224 224;    /* gray-5 */
+  --ws-brand-6: 217 217 217;    /* gray-6 */
+  --ws-brand-7: 206 206 206;    /* gray-7 */
+  --ws-brand-8: 187 187 187;    /* gray-8 */
+  --ws-brand-9: 141 141 141;    /* gray-9 - accent solid */
+  --ws-brand-10: 131 131 131;   /* gray-10 */
+  --ws-brand-11: 100 100 100;   /* gray-11 - text on light */
+  --ws-brand-12: 32 32 32;      /* gray-12 */
 }
 
 /* Always show the scrollbar: prevents a feedback loop where content height

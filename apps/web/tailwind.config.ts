@@ -15,22 +15,25 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Radix sky scale (1-12) - https://www.radix-ui.com/colors
+        // Radix Colors accent scale (1-12) - https://www.radix-ui.com/colors
         // Roles: 1-5 tints, 6-8 borders/rings, 9-10 accent solid/hover,
-        // 11-12 text on light. Stored as rgb() triples for opacity modifiers.
+        // 11-12 text on light. Backed by --ws-brand-N CSS vars which the app
+        // syncs to the user's accent theme (Settings -> Accent color), so
+        // module-kit rendered panels follow the theme too. rgb() triples for
+        // opacity modifiers.
         brand: {
-          1: 'rgb(249 254 255 / <alpha-value>)',
-          2: 'rgb(241 250 253 / <alpha-value>)',
-          3: 'rgb(225 246 253 / <alpha-value>)',
-          4: 'rgb(209 240 250 / <alpha-value>)',
-          5: 'rgb(190 231 245 / <alpha-value>)',
-          6: 'rgb(169 218 237 / <alpha-value>)',
-          7: 'rgb(141 202 227 / <alpha-value>)',
-          8: 'rgb(96 179 215 / <alpha-value>)',
-          9: 'rgb(124 226 254 / <alpha-value>)',
-          10: 'rgb(116 218 248 / <alpha-value>)',
-          11: 'rgb(0 116 158 / <alpha-value>)',
-          12: 'rgb(29 62 86 / <alpha-value>)',
+          1: 'rgb(var(--ws-brand-1) / <alpha-value>)',
+          2: 'rgb(var(--ws-brand-2) / <alpha-value>)',
+          3: 'rgb(var(--ws-brand-3) / <alpha-value>)',
+          4: 'rgb(var(--ws-brand-4) / <alpha-value>)',
+          5: 'rgb(var(--ws-brand-5) / <alpha-value>)',
+          6: 'rgb(var(--ws-brand-6) / <alpha-value>)',
+          7: 'rgb(var(--ws-brand-7) / <alpha-value>)',
+          8: 'rgb(var(--ws-brand-8) / <alpha-value>)',
+          9: 'rgb(var(--ws-brand-9) / <alpha-value>)',
+          10: 'rgb(var(--ws-brand-10) / <alpha-value>)',
+          11: 'rgb(var(--ws-brand-11) / <alpha-value>)',
+          12: 'rgb(var(--ws-brand-12) / <alpha-value>)',
         },
         // Semantic tokens (light theme) - see index.css for values.
         // Stored as rgb() triples so Tailwind can compose opacity modifiers.

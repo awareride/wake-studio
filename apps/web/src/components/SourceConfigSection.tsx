@@ -28,15 +28,17 @@ export function SourceConfigSection({ source, actions, disabled }: Props) {
         onValueChange={(v) => actions.updateKind(v as 'mic' | 'file')}
       >
         <SegmentedControl.Item value="mic">
-          {/* Mic: Radix UI has no mic glyph, so this stays hand-drawn. */}
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          {/* Mic: Radix UI has no mic glyph, so this stays hand-drawn.
+              inline-block: Tailwind preflight makes svg display:block, which
+              would put the icon on its own line and clip the label. */}
+          <svg viewBox="0 0 24 24" className="inline-block h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
             <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8" />
           </svg>
           Microphone
         </SegmentedControl.Item>
         <SegmentedControl.Item value="file">
-          <FileIcon className="h-4 w-4" />
+          <FileIcon className="inline-block h-4 w-4" />
           Audio files
         </SegmentedControl.Item>
       </SegmentedControl.Root>
