@@ -103,6 +103,16 @@ pnpm fetch:all
 
 > The first `pnpm install` requires authorization per `AGENTS.md`.
 
+## UI conventions
+
+- **Radix-first.** The app UI builds on `@radix-ui/*` before hand-rolling CSS or
+  adding new dependencies:
+  - **Basic components + theming** — `@radix-ui/themes` (`<Theme>` wrapper owns appearance + accent)
+  - **Colors** — `@radix-ui/colors` scales (no hand-picked hex values)
+  - **Icons** — `@radix-ui/react-icons` (no emoji or ad-hoc SVGs)
+  - Hand-rolled CSS only when Radix can't express the design.
+- Full working-conventions list (WIP tips): [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
 ## Key docs
 
 - [`AGENTS.md`](./AGENTS.md) - ground rules for humans and coding agents.
