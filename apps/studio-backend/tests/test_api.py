@@ -45,7 +45,7 @@ def test_health_and_modules(store, registry, artifacts_dir):
             r = await client.get("/health")
             assert r.status_code == 200
             body = r.json()
-            assert body["service"] == "training-service"
+            assert body["service"] == "studio-backend"
             assert body["modules"] == 1
             assert body["authEnabled"] is False
             assert "gpu" in body

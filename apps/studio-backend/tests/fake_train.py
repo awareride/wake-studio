@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fake train script for training-service tests.
+"""Fake train script for studio-backend tests.
 
 Emits the NDJSON reporting protocol (docs/modules/training.md 4.4) so the
 job manager's queue/start/pause/resume/cancel/heartbeat paths can be tested

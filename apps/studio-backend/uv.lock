@@ -308,7 +308,7 @@ wheels = [
 ]
 
 [[package]]
-name = "training-service"
+name = "studio-backend"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

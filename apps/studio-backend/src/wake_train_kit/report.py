@@ -1,7 +1,7 @@
 """NDJSON reporting protocol (docs/modules/training.md 4.4, ADR-036).
 
 Module train scripts (or adapters wrapping upstream scripts) emit one JSON
-object per line on stdout; the training-service reads the pipe line-by-line
+object per line on stdout; the studio-backend reads the pipe line-by-line
 and updates the job. This reporter is the reference implementation so
 module-owned scripts get the contract for free.
 """

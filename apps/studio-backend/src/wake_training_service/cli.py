@@ -71,7 +71,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     app = create_app(manager, auth)
 
-    print(f"[wake-service] training-service on http://{args.host}:{args.port}")
+    print(f"[wake-service] studio-backend on http://{args.host}:{args.port}")
     print(f"[wake-service] registry: {registry_path} ({len(registry.modules())} module(s))")
     print(f"[wake-service] concurrency: {args.concurrency} · heartbeat: {args.heartbeat_timeout:.0f}s")
     if auth.enabled:

@@ -59,8 +59,8 @@ The durable architecture lives in `docs/architecture.md`; the ADR log in
 
 - **Pipeline** is strictly **AEC → BSS → NS → KWS** (ADR-001); AEC/BSS are
   passthrough for v1 (ADR-016), NS is RNNoise (vendored WASM), KWS is pluggable.
-- **Monorepo** (ADR-025): `apps/web` (PWA), `apps/local-service` (Node API,
-  self-hosted training backend), `packages/contracts` (shared types/schemas),
+- **Monorepo** (ADR-025): `apps/web` (PWA), `apps/studio-backend` (Python,
+  self-hosted training service, ADR-005/036), `packages/contracts` (shared types/schemas),
   `packages/module-kit` (spec-driven panel generator), `packages/test-kit`
   (L2 wasm runner), `packages/platform` (base-path, registry, runtime seams),
   `packages/modules/*` (functional modules), `packages/sdk` (device SDK),
@@ -224,10 +224,10 @@ the gate blocks a non-commercial model from a commercial export.
 1. **Common training-job interface** (ADR-013): one PWA flow — type the wake
    phrase, choose target, choose backend, monitor status, retrieve artifacts
    into the app for in-browser test + export.
-2. **Self-hosted Service** (`apps/local-service`, ADR-005): real training
-   runner (`train-runner.ts` invokes module `train/` scripts via `uv`,
-   ADR-028); PyInstaller binary + Docker image; candidate engine
-   `TigreGotico/wakeforge` (`ww_trainer`) — evaluate (Q10).
+2. **Self-hosted Service** (`apps/studio-backend`, ADR-005/036): real training
+   runner (Python/FastAPI job manager; `uv run wake-service` spawns module
+   `train/` scripts via `uv`, ADR-028); PyInstaller binary + Docker image;
+   candidate engine `TigreGotico/wakeforge` (`ww_trainer`) — evaluate (Q10).
 3. **Cloud Providers** (capability-labeled): AWS / Google Cloud / Hugging
    Face / Alibaba / Tencent / Volcengine adapters behind the common interface;
    credentials client-side only.

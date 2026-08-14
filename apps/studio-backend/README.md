@@ -1,4 +1,4 @@
-# training-service — WakeStudio self-hosted training service (ADR-036)
+# studio-backend — WakeStudio self-hosted training service (ADR-005 + ADR-036)
 
 Python/FastAPI **job-manager service** for module train scripts. One codebase,
 two launchers:
@@ -17,7 +17,7 @@ endpoints are retired from the PWA contract (ADR-036 §2). Contract:
 
 ```bash
 uv sync --project apps/training-service          # install deps into .venv
-uv run --project apps/training-service wake-service --registry apps/training-service/registry.json
+uv run --project apps/studio-backend wake-service --registry apps/studio-backend/registry.json
 ```
 
 Defaults: `127.0.0.1:4824`, single-concurrency, SQLite at
@@ -95,7 +95,7 @@ r.done()
 ## Tests
 
 ```bash
-uv run --project apps/training-service pytest
+uv run --project apps/studio-backend pytest
 ```
 
 Deterministic, no GPU: a fake train script (`tests/fake_train.py`) emits the

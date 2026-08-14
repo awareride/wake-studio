@@ -52,4 +52,4 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Browser, device, OS, branch, local-service version as applicable.
+      description: Browser, device, OS, branch, studio-backend version as applicable.

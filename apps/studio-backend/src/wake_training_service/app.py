@@ -64,7 +64,7 @@ def create_app(manager: JobManager, auth: Auth) -> FastAPI:
             counts[j.status.value] = counts.get(j.status.value, 0) + 1
         return {
             "status": "ok",
-            "service": "training-service",
+            "service": "studio-backend",
             "modules": len(manager.registry.modules()),
             "gpu": gpu_info(),
             "concurrency": manager.concurrency,

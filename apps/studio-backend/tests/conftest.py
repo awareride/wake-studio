@@ -1,4 +1,4 @@
-"""Shared fixtures for training-service tests."""
+"""Shared fixtures for studio-backend tests."""
 
 from __future__ import annotations
 

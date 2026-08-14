@@ -54,7 +54,7 @@ interface TrainingJob {
 
 interface ArtifactBundleRef {
   // One shared bundle manifest is the single retrieval contract (§4).
-  manifestUrl: string   // backend artifact URL (training-service) / cloud presigned URL / colab download
+  manifestUrl: string   // backend artifact URL (studio-backend) / cloud presigned URL / colab download
   sha256?: string
 }
 ```
@@ -63,13 +63,13 @@ interface ArtifactBundleRef {
 
 | Backend | submit | poll | retrieve | Credentials |
 |---|---|---|---|---|
-| Self-hosted (training-service, ADR-036) | `POST /jobs` (+ `POST /jobs/{id}/start`) | `GET /jobs/{id}` (+ `GET /stream` SSE) | `GET /artifacts/<name>` (sha256) | token on mutating endpoints (ADR-036 §5) |
+| Self-hosted (studio-backend, ADR-036) | `POST /jobs` (+ `POST /jobs/{id}/start`) | `GET /jobs/{id}` (+ `GET /stream` SSE) | `GET /artifacts/{job_id}/{name}` (sha256) | token on mutating endpoints (ADR-036 §5) |
 | Cloud Provider | provider API (submit job) | provider API (status) | presigned/download URL | client-side only (ADR-013) |
-| Colab | tunnel to the same training-service (§7.2, ADR-023 amendment) | same job endpoints | same artifact endpoints | user's Google account + tunnel URL |
+| Colab | tunnel to the same studio-backend (§7.2, ADR-023 amendment) | same job endpoints | same artifact endpoints | user's Google account + tunnel URL |
 
-## 3. Self-hosted Service - training-service job API (ADR-005 + ADR-036)
+## 3. Self-hosted Service - studio-backend job API (ADR-005 + ADR-036)
 
-The PWA talks to the **training-service** (`apps/training-service`, Python /
+The PWA talks to the **studio-backend** (`apps/studio-backend`, Python /
 FastAPI / uv, ADR-036) on `localhost` (`uv run wake-service`) or through the
 Colab tunnel (§7.2). **The PWA drives jobs only** — the legacy module-train
 endpoints are retired from the PWA contract (ADR-036 §2).
@@ -177,8 +177,8 @@ stays byte-identical; WakeStudio wraps it.
 
 | Where | What invokes the adapter | Notes |
 |---|---|---|
-| studio-backend | `train-runner.ts` (uv, ADR-028) | clones the pinned upstream ref into a cache, runs the upstream script, then normalizes outputs |
-| CI `train-<module>.yml` | same `train-runner` path | one code path, two callers (ADR-028) |
+| studio-backend | `uv run <train script>` (ADR-028, ADR-036) | the studio-backend job manager spawns the script as a subprocess, parses its NDJSON reports (§4.4), then normalizes outputs |
+| CI `train-<module>.yml` | the studio-backend runner path | one runner, two callers (ADR-028) |
 | Colab | the notebook itself (a WakeStudio-provided cell) | see §5 |
 
 ### 4.3 Standardize-results adapter (the normalization contract)
@@ -429,4 +429,4 @@ for every provider. Capability labels: train-capable vs inference-only.
 | 2026-08-13 | §7.3 fix (human feedback round 11, issue #105): the wizard container uses a FIXED height (`h-[calc(100dvh-12rem)]`, not `max-h`) so the pinned Back/Next/Save footer stays at the same height regardless of the step/config content length. | agent |
 | 2026-08-13 | §7.3 fix (human feedback round 12, issue #105): mobile footer went off-screen because the Training header wrapped taller — the header is now hidden while the wizard is open (the wizard has its own header + Cancel), so the chrome is constant and the pinned footer stays inside the viewport on both PC and mobile. | agent |
 | 2026-08-13 | §7.3 polish (human feedback round 13, issue #105): the training panel is a fixed-height split-scroll area — the train list and the train details each scroll independently within the panel (the page itself no longer scrolls). Verified with 15 jobs: both columns scroll internally, body does not. | agent |
-| 2026-08-14 | **§2/§3 rewritten + §4.4 added + T-1/T-3 resolved (ADR-036, human decision):** the self-hosted service becomes a Python FastAPI job-manager (`apps/training-service`, `uv run wake-service`); the PWA switches to jobs entirely (create/queue/start/pause/resume/cancel/delete, logs, artifacts, SSE); token auth on mutating endpoints; single-concurrency runner (CLI-configurable); SQLite persistence; NDJSON reporting protocol; subprocess-per-job execution model. `apps/studio-backend` (Node) keeps the module-train endpoints for CI only. | agent |
+| 2026-08-14 | **§2/§3 rewritten + §4.4 added + T-1/T-3 resolved (ADR-036, human decision):** the self-hosted service becomes a Python FastAPI job-manager (`apps/studio-backend`, `uv run wake-service`); the PWA switches to jobs entirely (create/queue/start/pause/resume/cancel/delete, logs, artifacts, SSE); token auth on mutating endpoints; single-concurrency runner (CLI-configurable); SQLite persistence; NDJSON reporting protocol; subprocess-per-job execution model. The Node `apps/studio-backend` is removed; the Python service takes over the name (ADR-036 amendment, 2026-08-14). | agent |

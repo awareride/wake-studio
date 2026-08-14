@@ -1177,10 +1177,9 @@ applied per this log and may be overridden._
    One HTTP client / N backends (ADR-023 amendment) is preserved: the PWA
    drives the Colab runtime exactly like a self-hosted endpoint.
 - **Consequences:**
-  - New `apps/training-service/` (Python, uv-managed, `uv run wake-service`).
-    `apps/studio-backend` (Node) stays for the CI `train-<module>.yml` path
-    (ADR-028 one-code-path) until the Python runner supersedes it; its
-    module-train endpoints leave the PWA contract now.
+  - New `apps/studio-backend/` (Python, uv-managed, `uv run wake-service`)
+    **replaces the Node studio-backend**; module-train endpoints leave the PWA
+    contract.
   - `docs/modules/training.md` §2/§3 rewritten: `TrainingJob.status` gains
     `paused`; §3 becomes the job-manager API; §4 gains the NDJSON reporting
     protocol; §10 T-1/T-3 resolved (async queue adopted; token auth adopted).
@@ -1189,3 +1188,9 @@ applied per this log and may be overridden._
     types via `openapi-typescript`) is a P2 follow-up.
   - The Colab launcher notebook (service cell + cloudflared + URL reprint on
     reconnect) is a follow-up task (ADR-023 amendment mechanism).
+- **Amendment (2026-08-14):** the Node `apps/studio-backend` is **removed**;
+  the Python service takes over the `apps/studio-backend` name and is the only
+  self-hosted implementation (the ADR-028 one-code-path for CI train workflows
+  now runs the Python runner). No package depends on the removed Node package;
+  the PWA was already client-side only. All references in this ADR and
+  `docs/modules/training.md` use `apps/studio-backend` (Python) going forward.

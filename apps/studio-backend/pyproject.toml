@@ -1,7 +1,7 @@
 [project]
-name = "training-service"
+name = "studio-backend"
 version = "0.1.0"
-description = "WakeStudio self-hosted training service (ADR-036): FastAPI job manager for module train scripts. Runs locally via `uv run wake-service` or inside a Colab session behind a Cloudflare tunnel (launcher glue only - no tunnel code in the service)."
+description = "WakeStudio self-hosted studio-backend (ADR-005 + ADR-036): FastAPI job manager for module train scripts. Runs locally via `uv run wake-service` or inside a Colab session behind a Cloudflare tunnel (launcher glue only - no tunnel code in the service)."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
