@@ -3,21 +3,21 @@
  *
  * Trains-style layout (mirrors the Training console): a header with the
  * `New` + `Free On Google Colab` toolbar, a left rail of backend cards
- * (collapsible; mobile drawer), and a right details pane (health, jobs,
- * logs — read-only). The layout stays top + left + right even when empty.
+ * (collapsible toggle in the rail header; mobile drawer), and a right
+ * details pane (health, jobs, logs + Operations: edit/delete). The layout
+ * stays top + left + right even when empty.
  *
  * - `New` opens a FULL-panel editor (like the Trains wizard): name /
- *   endpoint URL / access token. The **kind** (long-term vs short-term) is
- *   detected from `GET /health` (`instance`) — the Colab launcher starts
- *   with `--instance short-term` — no manual kind field.
- * - `Free On Google Colab` shows a clear step guide (Download → Open Google
- *   Colab → Upload → Run all → copy URL+token) with a `Preview` button that
- *   opens the generated notebook full-panel (Trains-style preview-on-demand).
+ *   endpoint URL / access token (Radix TextField). The **kind** (long-term
+ *   vs short-term) is detected from `GET /health` (`instance`) — the Colab
+ *   launcher starts with `--instance short-term` — no manual kind field.
+ * - `Free On Google Colab` shows a clear 3-step guide (Download →
+ *   Open Google Colab → Upload notebook) with Review on demand.
  * - Health: `GET /health` on mount + every 30s + manual refresh.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Button, IconButton } from '@radix-ui/themes'
+import { Button, IconButton, TextField } from '@radix-ui/themes'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../components/ui'
 import { useAppSettings } from '../settings'
 import { createStudioClient } from '../training/studio-client'
@@ -25,10 +25,7 @@ import type { StudioJob } from '../training/studio-client'
 import type { ManagedBackend, ManagedBackendStatus } from '../backends/types'
 import { cn } from '../components/cn'
 import { IconMenu } from '../components/icons'
-import {
-  BACKEND_NOTEBOOK_FILENAME,
-  downloadBackendNotebook,
-} from '../backends/backend-notebook'
+import { BACKEND_NOTEBOOK_FILENAME, downloadBackendNotebook } from '../backends/backend-notebook'
 import { NotebookReviewView } from '../training/console/NotebookReviewView'
 import { useIsDesktop } from '../training/console/useIsDesktop'
 import { ConfirmDialog } from '../training/console/ConfirmDialog'
@@ -39,11 +36,6 @@ function newId(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `backend-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-}
-
-function formatTime(ms: number | undefined): string {
-  if (!ms) return '—'
-  return new Date(ms).toLocaleString()
 }
 
 const STATUS_STYLE: Record<ManagedBackendStatus, string> = {
@@ -64,7 +56,7 @@ interface EditorInput {
   token: string
 }
 
-/** Full-panel editor (Trains-wizard style): header + form + pinned footer. */
+/** Full-panel editor (Trains-wizard style): header + centered form + pinned footer. */
 function BackendEditor({
   mode,
   initial,
@@ -102,25 +94,25 @@ function BackendEditor({
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-        <div className="max-w-2xl space-y-4 rounded-xl border border-line bg-surface-2 p-4">
+        <div className="mx-auto w-full max-w-2xl space-y-4 rounded-xl border border-line bg-surface-2 p-4">
           <label className="block space-y-1">
             <span className="block text-xs font-medium text-ink-2">Name</span>
-            <input
-              type="text"
+            <TextField.Root
+              size="2"
+              className="w-full"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="My server / Colab T4 #2"
-              className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-8"
             />
           </label>
           <label className="block space-y-1">
             <span className="block text-xs font-medium text-ink-2">Endpoint URL</span>
-            <input
-              type="url"
+            <TextField.Root
+              size="2"
+              className="w-full"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
               placeholder="http://127.0.0.1:4824  ·  https://xxxx.trycloudflare.com"
-              className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-sm text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-8"
             />
             {baseUrl !== '' && !urlValid && (
               <span className="block text-[11px] text-danger">Must start with http(s)://</span>
@@ -133,12 +125,13 @@ function BackendEditor({
                 (optional; for job mutations, ADR-036 §5)
               </span>
             </span>
-            <input
+            <TextField.Root
+              size="2"
+              className="w-full"
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
               placeholder="leave empty for read-only (health/jobs/logs are open)"
-              className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-sm text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-8"
             />
           </label>
           <p className="text-[11px] leading-relaxed text-ink-3">
@@ -170,24 +163,22 @@ function BackendEditor({
   )
 }
 
-const COLAB_STEPS: Array<[string, string]> = [
-  ['Download the notebook', 'the button above saves studio-backend.ipynb.'],
-  [
-    'Open Google Colab',
-    'colab.research.google.com in your browser — the notebook runs there for free.',
-  ],
-  [
-    'Upload notebook',
-    'File → Upload notebook, or drag the .ipynb file into the Colab file picker.',
-  ],
-  ['Run all', 'Runtime → Run all: the cells install the service and start the tunnel (~1–2 min).'],
-  [
-    'Copy URL + token',
-    'the last cell prints the tunnel URL and a token — paste both into Backends → New (the kind is detected automatically).',
-  ],
+/** Colab guide — clear 3-step stepper; top bar carries only Back. */
+const COLAB_STEPS: Array<{ title: string; detail: string }> = [
+  {
+    title: 'Download',
+    detail: 'Save studio-backend.ipynb (you can review it first).',
+  },
+  {
+    title: 'Open Google Colab',
+    detail: 'colab.research.google.com — free in your browser, no setup.',
+  },
+  {
+    title: 'Upload notebook',
+    detail: 'File → Upload notebook, or drag the .ipynb file into the Colab file picker.',
+  },
 ]
 
-/** The "Free On Google Colab" guide: clear steps + preview on demand. */
 function ColabGuide({
   blobUrl,
   onBack,
@@ -199,7 +190,8 @@ function ColabGuide({
 }) {
   return (
     <div className="flex h-[calc(100dvh-7.5rem)] min-h-[24rem] flex-col gap-6">
-      <div className="flex shrink-0 items-start justify-between gap-3">
+      {/* Top bar: only Back (plus the title). */}
+      <div className="flex shrink-0 items-center justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-ink-1">Free on Google Colab</h3>
           <p className="mt-0.5 text-xs text-ink-3">
@@ -207,66 +199,65 @@ function ColabGuide({
             (ADR-023 amendment) — no server, no keys, only your Google account.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {blobUrl && (
-            <a
-              href={blobUrl}
-              download={BACKEND_NOTEBOOK_FILENAME}
-              className="rounded-lg bg-brand-9 px-3 py-1.5 text-xs font-semibold text-ink-1 hover:bg-brand-8"
-            >
-              Download
-            </a>
-          )}
-          <Button type="button" variant="outline" size="1" onClick={onPreview}>
-            Preview notebook
-          </Button>
-          <Button type="button" variant="ghost" size="1" onClick={onBack}>
-            Back
-          </Button>
-        </div>
+        <Button type="button" variant="outline" size="1" onClick={onBack}>
+          Back
+        </Button>
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]">
-          <div className="rounded-xl border border-line bg-surface-2 p-4">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-              How to use it
-            </h4>
-            <ol className="mt-2 list-decimal space-y-2 pl-4">
-              {COLAB_STEPS.map(([title, detail], i) => (
-                <li key={i} className="text-xs leading-relaxed text-ink-2">
-                  <span className="font-medium text-ink-1">{title}</span> — {detail}
-                </li>
-              ))}
-            </ol>
-          </div>
+        {/* Stepper pills (wizard-style). */}
+        <nav aria-label="Setup steps" className="flex flex-wrap items-center gap-1.5">
+          {COLAB_STEPS.map((s, i) => (
+            <span
+              key={s.title}
+              className="inline-flex items-center gap-2 rounded-full border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink-2"
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-surface-3 text-[10px] font-bold text-ink-3">
+                {i + 1}
+              </span>
+              {s.title}
+            </span>
+          ))}
+        </nav>
 
-          <div className="space-y-4">
-            <div className="rounded-xl border border-line bg-surface-2 p-4">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-                What the notebook does
-              </h4>
-              <p className="mt-2 text-xs leading-relaxed text-ink-2">
-                It installs the studio-backend service from this repo (pinned to main) and starts
-                it with the Colab launcher: the service runs in a background thread, cloudflared
-                opens a free tunnel, and{' '}
-                <code className="font-mono text-[11px]">/health</code> reports{' '}
-                <code className="font-mono text-[11px]">instance: short-term</code> — that's how
-                the Backends panel knows the kind. The registry is empty in this generic runtime;
-                module train scripts (openwakeword etc.) run in their own notebooks.
-              </p>
+        {/* Step cards. */}
+        <div className="grid gap-4 lg:grid-cols-3">
+          {COLAB_STEPS.map((s, i) => (
+            <div key={s.title} className="rounded-xl border border-line bg-surface-2 p-4">
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-surface-3 px-2 py-0.5 font-mono text-[10px] text-ink-3">
+                  {i + 1}
+                </span>
+                <h4 className="text-sm font-semibold text-ink-1">{s.title}</h4>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-ink-2">{s.detail}</p>
+              {i === 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {blobUrl && (
+                    <Button type="button" size="1" asChild>
+                      <a href={blobUrl} download={BACKEND_NOTEBOOK_FILENAME}>
+                        Download
+                      </a>
+                    </Button>
+                  )}
+                  <Button type="button" size="1" variant="soft" onClick={onPreview}>
+                    Review
+                  </Button>
+                </div>
+              )}
             </div>
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-              <h4 className="text-xs font-semibold text-amber-700">Ephemeral — by design</h4>
-              <p className="mt-1.5 text-xs leading-relaxed text-amber-700/90">
-                Colab may recycle the runtime at any time. After a reconnect, re-run the last
-                cell: a fresh URL is printed. Training jobs checkpoint/resume across drops
-                (ADR-023 amendment), and the Backends badge flips to offline when /health stops
-                answering.
-              </p>
-            </div>
-          </div>
+          ))}
         </div>
+
+        {/* "Then" note. */}
+        <p className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs leading-relaxed text-ink-2">
+          Then, in Colab: <span className="font-medium text-ink-1">Runtime → Run all</span>, copy
+          the printed <span className="font-medium text-ink-1">URL</span> and{' '}
+          <span className="font-medium text-ink-1">token</span>, and paste them into{' '}
+          <span className="font-medium text-ink-1">Backends → New</span> — the kind (short-term)
+          is detected automatically. The runtime is ephemeral: after a reconnect, re-run the last
+          cell for a fresh URL (jobs checkpoint/resume across drops).
+        </p>
       </div>
     </div>
   )
@@ -495,15 +486,14 @@ export function BackendsView() {
     )
   }
 
+  // Notebook preview fills the whole panel (Trains-style review on demand).
   if (view.kind === 'colab-preview' && blobUrl) {
     return (
-      <div className="flex h-[calc(100dvh-7.5rem)] min-h-[24rem] flex-col">
-        <NotebookReviewView
-          fileName={BACKEND_NOTEBOOK_FILENAME}
-          rawUrl={blobUrl}
-          onBack={() => setView({ kind: 'colab-guide' })}
-        />
-      </div>
+      <NotebookReviewView
+        fileName={BACKEND_NOTEBOOK_FILENAME}
+        rawUrl={blobUrl}
+        onBack={() => setView({ kind: 'colab-guide' })}
+      />
     )
   }
 
@@ -540,15 +530,32 @@ export function BackendsView() {
       <div className="flex min-h-0 flex-1 gap-6">
         {!railCollapsed && (
           <aside className="hidden min-h-0 w-72 shrink-0 flex-col border-r border-line lg:flex">
-            <div className="flex items-center justify-between">
+            {/* Rail header with the menu toggle (TrainList pattern). */}
+            <div className="flex items-center gap-1.5 px-4 pb-2 pt-3">
+              <IconButton
+                type="button"
+                onClick={handleRailToggle}
+                aria-label="Toggle backend list"
+                variant="ghost"
+                size="1"
+                className="text-ink-3"
+              >
+                <IconMenu className="h-4 w-4" />
+              </IconButton>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-                {backends.length} backend{backends.length === 1 ? '' : 's'}
+                Backends
               </h3>
+              {backends.length > 0 && (
+                <span className="ml-auto rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] text-ink-3">
+                  {backends.length}
+                </span>
+              )}
               <Button type="button" size="1" variant="ghost" onClick={() => void runHealthChecks()}>
                 Check health
               </Button>
             </div>
-            <ul className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto pr-3">
+
+            <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-4">
               {backends.length === 0 && (
                 <li className="rounded-lg border border-dashed border-line px-3 py-3 text-xs text-ink-3">
                   No backends yet — press{' '}
@@ -559,19 +566,17 @@ export function BackendsView() {
               )}
               {backends.map((b) => (
                 <li key={b.id}>
-                  <div
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(b.id === selected?.id ? null : b.id)}
                     className={cn(
-                      'rounded-xl border p-3 transition-colors',
+                      'w-full rounded-xl border p-3 text-left transition-colors',
                       selected?.id === b.id
                         ? 'border-brand-9/50 bg-brand-9/5'
                         : 'border-line bg-surface-2 hover:border-brand-9/30',
                     )}
                   >
-                    <button
-                      type="button"
-                      className="flex w-full items-start justify-between gap-2 text-left"
-                      onClick={() => setSelectedId(b.id === selected?.id ? null : b.id)}
-                    >
+                    <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="text-sm font-semibold text-ink-1">{b.name}</span>
@@ -584,7 +589,9 @@ export function BackendsView() {
                             {b.kind === 'short-term' ? 'short-term' : 'long-term'}
                           </span>
                         </div>
-                        <p className="mt-1 truncate font-mono text-[11px] text-ink-3">{b.baseUrl}</p>
+                        <p className="mt-1 truncate font-mono text-[11px] text-ink-3">
+                          {b.baseUrl}
+                        </p>
                       </div>
                       <span
                         className={cn(
@@ -594,36 +601,8 @@ export function BackendsView() {
                       >
                         {b.status}
                       </span>
-                    </button>
-                    <div className="mt-2 flex items-center justify-between gap-2 border-t border-line pt-2">
-                      <span className="text-[10px] text-ink-3">
-                        {b.lastSeenMs ? `seen ${formatTime(b.lastSeenMs)}` : 'not checked yet'}
-                      </span>
-                      <div className="flex gap-1">
-                        <IconButton
-                          type="button"
-                          size="1"
-                          variant="ghost"
-                          aria-label="Edit backend"
-                          onClick={() =>
-                            setView({ kind: 'new-editor', mode: 'edit', backendId: b.id })
-                          }
-                        >
-                          ✎
-                        </IconButton>
-                        <IconButton
-                          type="button"
-                          size="1"
-                          variant="ghost"
-                          color="red"
-                          aria-label="Delete backend"
-                          onClick={() => setConfirmDelete(b.id)}
-                        >
-                          ✕
-                        </IconButton>
-                      </div>
                     </div>
-                  </div>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -650,7 +629,42 @@ export function BackendsView() {
           )}
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             {selected ? (
-              <BackendDetail key={selected.id} backend={selected} />
+              <>
+                <BackendDetail key={selected.id} backend={selected} />
+                {/* Operations (Trains-style): edit / delete live here. */}
+                <section className="rounded-xl border border-danger/25 bg-surface-2 p-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
+                    Operations
+                  </h4>
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-ink-3">
+                      Edit the endpoint/token, or remove this backend. Jobs already started keep
+                      their recorded endpoint in the Training list.
+                    </p>
+                    <div className="flex shrink-0 gap-2">
+                      <Button
+                        type="button"
+                        size="1"
+                        variant="outline"
+                        onClick={() =>
+                          setView({ kind: 'new-editor', mode: 'edit', backendId: selected.id })
+                        }
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        size="1"
+                        variant="outline"
+                        color="red"
+                        onClick={() => setConfirmDelete(selected.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </section>
+              </>
             ) : (
               <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
                 <p className="text-sm font-medium text-ink-1">No backend selected</p>
