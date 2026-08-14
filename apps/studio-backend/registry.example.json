@@ -13,5 +13,15 @@
       "WAKE_BACKEND": "self-hosted",
       "UPSTREAM_PYTHON": "{env.UPSTREAM_PYTHON}"
     }
+  },
+  "dry-run": {
+    "cwd": "../../packages/modules/dry-run/train",
+    "engine": "direct",
+    "entry": "dry_run.py",
+    "env": {
+      "WAKE_PHRASE": "{params.wakePhrase}",
+      "WAKE_STEPS": "{params.steps}",
+      "WAKE_BACKEND": "self-hosted"
+    }
   }
 }

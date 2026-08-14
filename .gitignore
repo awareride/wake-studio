@@ -67,3 +67,6 @@ apps/studio-backend/data/
 apps/studio-backend/.pytest_cache/
 **/__pycache__/
 apps/studio-backend/*.egg-info/
+
+# standard artifact bundle output (docs/modules/training.md §6)
+**/wake-studio-results/

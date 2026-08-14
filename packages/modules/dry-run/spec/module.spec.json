@@ -1,0 +1,61 @@
+{
+  "$schema": "../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "dry-run",
+    "name": "Dry-run (demo)",
+    "category": "training",
+    "version": "0.1.0",
+    "maturity": "demo",
+    "owner": "WakeStudio team",
+    "license": "MIT",
+    "status": "accepted",
+    "description": "Instant fake training for local web-function checks (no GPU, no data). Produces a standard bundle zip so the full PWA training flow can be exercised against a local studio-backend."
+  },
+  "params": [],
+  "actions": [],
+  "status": {},
+  "runtime": {
+    "web": {
+      "engine": "none"
+    }
+  },
+  "tests": {
+    "required": []
+  },
+  "playground": {
+    "route": "/dry-run",
+    "entry": "none"
+  },
+  "interfaces": {
+    "provides": [],
+    "consumes": []
+  },
+  "train": {
+    "entry": "train/dry_run.py",
+    "deps": "pyproject.toml",
+    "invocation": ["studio-backend"],
+    "params": [
+      {
+        "id": "wakePhrase",
+        "label": "Wake phrase",
+        "group": "primary",
+        "type": "string",
+        "default": "hey studio",
+        "description": "The (fake) wake phrase to train (env WAKE_PHRASE).",
+        "env": "WAKE_PHRASE"
+      },
+      {
+        "id": "steps",
+        "label": "Steps (fake)",
+        "group": "advanced",
+        "type": "number",
+        "default": 5,
+        "min": 1,
+        "max": 50,
+        "step": 1,
+        "description": "How many fake progress steps to emit (env WAKE_STEPS); keep small — it is a demo.",
+        "env": "WAKE_STEPS"
+      }
+    ]
+  }
+}
