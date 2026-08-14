@@ -8,9 +8,11 @@
  * (selectProject/current).
  */
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { Button } from '@radix-ui/themes'
 import { ConsolePanel } from '../components/ConsolePanel'
 import { useProjects } from '../projects'
+import { ConfirmDialog } from '../training/console/ConfirmDialog'
 import { cn } from '../components/cn'
 
 const DOMAIN_STYLE: Record<string, string> = {
@@ -20,7 +22,8 @@ const DOMAIN_STYLE: Record<string, string> = {
 }
 
 export function ProjectsView() {
-  const { projects, current, selectProject } = useProjects()
+  const { projects, current, selectProject, deleteProject } = useProjects()
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const ordered = useMemo(
     () => [...projects].sort((a, b) => b.updatedAtMs - a.updatedAtMs),
@@ -28,7 +31,8 @@ export function ProjectsView() {
   )
 
   return (
-    <ConsolePanel
+    <>
+      <ConsolePanel
       title="Projects"
       description="Wake-word projects: target word, domain, config snapshots, samples and prototypes. Select one to inspect; create new projects from the Workspace."
       railTitle="Projects"
@@ -85,7 +89,8 @@ export function ProjectsView() {
       )}
       details={
         current ? (
-          <section className="rounded-xl border border-line bg-surface-2 p-4">
+          <>
+            <section className="rounded-xl border border-line bg-surface-2 p-4">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-semibold text-ink-1">{current.name}</h3>
               <span
@@ -137,7 +142,29 @@ export function ProjectsView() {
             <p className="mt-3 text-[11px] text-ink-3">
               Edit samples, config and prototypes from the Workspace — this panel is read-only.
             </p>
-          </section>
+            </section>
+            {/* Operations (Trains/Backends-style). */}
+            <section className="rounded-xl border border-danger/25 bg-surface-2 p-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
+                Operations
+              </h4>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-ink-3">
+                  Delete this project and its stored config, samples and prototypes.
+                </p>
+                <Button
+                  type="button"
+                  size="1"
+                  variant="outline"
+                  color="red"
+                  className="shrink-0"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Delete
+                </Button>
+              </div>
+            </section>
+          </>
         ) : null
       }
       detailsEmpty={
@@ -149,7 +176,20 @@ export function ProjectsView() {
           </p>
         </div>
       }
-    />
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete this project?"
+        message="Deletes the project and its stored config, samples and prototypes. This cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (current) void deleteProject(current.id)
+          setConfirmDelete(false)
+        }}
+        onCancel={() => setConfirmDelete(false)}
+      />
+    </>
   )
 }
 

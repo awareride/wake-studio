@@ -13,7 +13,7 @@ import { DEFAULT_CONFIG as AFE_DEFAULTS } from '@wake-studio/module-afe-graph'
 import { DEFAULT_CONFIG as KWS_DEFAULTS } from '@wake-studio/module-kws-engine'
 import { DEFAULT_CONFIG as FS_DEFAULTS } from '@wake-studio/module-few-shot'
 import { DEFAULT_WORKSPACE_CONFIG } from '../workspace/types'
-import { listProjects, saveProject } from './store'
+import { deleteProject as deleteProjectFromStore, listProjects, saveProject } from './store'
 
 const LAST_PROJECT_KEY = 'wake-studio:last-project'
 
@@ -41,6 +41,8 @@ interface ProjectContextValue {
   selectProject: (id: string) => void
   /** Persist the current project (config snapshot + metadata). */
   saveCurrent: (patch?: Partial<WakeWordProject>) => Promise<void>
+  /** Delete a project; clears the selection when it was the current one. */
+  deleteProject: (id: string) => Promise<void>
   busy: boolean
 }
 
@@ -129,9 +131,27 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     [],
   )
 
+  const deleteProject = React.useCallback(async (id: string) => {
+    await deleteProjectFromStore(id)
+    if (localStorage.getItem(LAST_PROJECT_KEY) === id) {
+      localStorage.removeItem(LAST_PROJECT_KEY)
+    }
+    setProjects((all) => all.filter((p) => p.id !== id))
+    setCurrent((prev) => (prev && prev.id === id ? null : prev))
+  }, [])
+
   return (
     <ProjectContext.Provider
-      value={{ projects, current, refresh, createProject, selectProject, saveCurrent, busy }}
+      value={{
+        projects,
+        current,
+        refresh,
+        createProject,
+        selectProject,
+        saveCurrent,
+        deleteProject,
+        busy,
+      }}
     >
       {children}
     </ProjectContext.Provider>
