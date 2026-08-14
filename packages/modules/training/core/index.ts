@@ -48,6 +48,7 @@ export {
 } from './methods'
 export {
   startedJob,
+  retriedJob,
   importedJob,
   backendToMethod,
   sortJobsNewestFirst,
