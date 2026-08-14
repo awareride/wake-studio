@@ -29,7 +29,7 @@ import { deleteJob, listJobs, saveJob } from '@wake-studio/module-training'
 import { ConsolePanel } from '../../components/ConsolePanel'
 import { IconWand } from '../../components/icons'
 import { useAppSettings } from '../../settings'
-import { TRAIN_NEW_HASH_PREFIX } from '../../router'
+import { TRAIN_NEW_HASH_PREFIX, trainReviewJobFromHash } from '../../router'
 import { NewTrainWizard } from './NewTrainWizard'
 import { TrainDetails } from './TrainDetails'
 import { TrainList } from './TrainList'
@@ -48,7 +48,12 @@ export function TrainingConsole() {
   const [jobs, setJobs] = useState<HistoryJob[]>([])
   const [modules, setModules] = useState<TrainableModule[]>([])
   const [modulesError, setModulesError] = useState<string | null>(null)
-  const [view, setView] = useState<View>({ kind: 'empty' })
+  const [view, setView] = useState<View>(() => {
+    // A review hash (`#/training/review/<jobId>`) reopens that train's
+    // details after a refresh (issue #136).
+    const jobId = trainReviewJobFromHash(window.location.hash)
+    return jobId ? { kind: 'details', jobId } : { kind: 'empty' }
+  })
 
   // Unsaved-progress guard: leaving the wizard via another menu asks first.
   const wizardDirtyRef = useRef(false)

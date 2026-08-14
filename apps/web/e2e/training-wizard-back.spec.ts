@@ -74,3 +74,69 @@ test('browser forward re-enters the step it was on', async ({ page }) => {
   await page.goForward()
   await expect(page.getByText('Set the training params for the chosen module.')).toBeVisible()
 })
+
+test('wizard notebook review: browser back returns to the Ready step', async ({ page }) => {
+  await page.goto('/#/training')
+
+  await page.getByRole('button', { name: 'New' }).click()
+  await page.getByRole('button', { name: /OpenWakeWord/ }).click()
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await page.getByRole('button', { name: /Google Colab/ }).click()
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await expect(page.getByText('Review the train, then start it.')).toBeVisible()
+
+  // Open the notebook review — it is its own history entry.
+  await page.getByRole('button', { name: 'Review', exact: true }).click()
+  await expect(page.getByText('Notebook review — train.ipynb')).toBeVisible()
+  await expect(page).toHaveURL(/#\/training\/new\/ready\/review$/)
+
+  // Browser back closes the review and returns to the Ready step.
+  await page.goBack()
+  await expect(page.getByText('Notebook review — train.ipynb')).toBeHidden()
+  await expect(page.getByText('Review the train, then start it.')).toBeVisible()
+})
+
+test('train details notebook review: browser back returns to the details pane', async ({ page }) => {
+  await page.goto('/#/training')
+
+  // Create a train (Colab) so the details pane has a notebook to review.
+  await page.getByRole('button', { name: 'New' }).click()
+  await page.getByRole('button', { name: /OpenWakeWord/ }).click()
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await page.getByRole('button', { name: /Google Colab/ }).click()
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+
+  // The details pane's Inputs review opens the full notebook review.
+  await page.getByRole('button', { name: 'Review', exact: true }).click()
+  await expect(page.getByText('Notebook review — train.ipynb')).toBeVisible()
+
+  // Browser back returns to the train details.
+  await page.goBack()
+  await expect(page.getByText('Notebook review — train.ipynb')).toBeHidden()
+  await expect(page.getByText('Inputs review')).toBeVisible()
+})
+
+test('Backends: New editor and Colab guide/preview are back-closeable', async ({ page }) => {
+  await page.goto('/#/backends')
+
+  // New → full-panel editor; browser back returns to the list.
+  await page.getByRole('button', { name: 'New', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'New backend' })).toBeVisible()
+  await page.goBack()
+  await expect(page.getByRole('heading', { name: 'New backend' })).toBeHidden()
+  await expect(page.getByRole('heading', { name: 'Backends', level: 2 })).toBeVisible()
+
+  // Free On Google Colab → guide; Review → preview; back walks both.
+  await page.getByRole('button', { name: /Free On Google Colab/ }).click()
+  await expect(page.getByRole('heading', { name: 'Free on Google Colab' })).toBeVisible()
+  await page.getByRole('button', { name: 'Review', exact: true }).click()
+  await expect(page.getByText('Notebook review — studio-backend.ipynb')).toBeVisible()
+  await page.goBack()
+  await expect(page.getByText('Notebook review — studio-backend.ipynb')).toBeHidden()
+  await expect(page.getByRole('heading', { name: 'Free on Google Colab' })).toBeVisible()
+  await page.goBack()
+  await expect(page.getByRole('heading', { name: 'Backends', level: 2 })).toBeVisible()
+})

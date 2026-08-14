@@ -31,6 +31,7 @@ import { studioJobPatch, type StudioJobPatch } from '../studio-client'
 import { ConfirmDialog } from './ConfirmDialog'
 import { FileReviewCard } from './FileReviewCard'
 import { NotebookReviewView } from './NotebookReviewView'
+import { TRAIN_REVIEW_HASH_PREFIX, trainReviewJobFromHash } from '../../router'
 import { StatusChip } from './StatusChip'
 import { trainInputFile } from './train-files'
 
@@ -99,8 +100,19 @@ export function TrainDetails({
     if (!same) onLiveUpdate(patch)
   }, [live, job, onLiveUpdate])
 
-  // Full-panel notebook review (Back preserves the details state, #105).
-  const [reviewing, setReviewing] = useState(false)
+  // Full-panel notebook review, hash-driven (`#/training/review/<jobId>`,
+  // issue #136): opening pushes an entry, browser back closes it. The hash
+  // also restores the review across a refresh.
+  const [reviewing, setReviewing] = useState(
+    () => trainReviewJobFromHash(window.location.hash) === job.id,
+  )
+  useEffect(() => {
+    const onHash = () => {
+      setReviewing(trainReviewJobFromHash(window.location.hash) === job.id)
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [job.id])
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [logsOpen, setLogsOpen] = useState(false)
   const personalizable = useMemo(
@@ -116,7 +128,11 @@ export function TrainDetails({
       <NotebookReviewView
         fileName={file.fileName}
         rawUrl={file.rawUrl ?? ''}
-        onBack={() => setReviewing(false)}
+        onBack={() => {
+          // Pop the review entry — the `#/training` entry below restores the
+          // train details (issue #136).
+          window.history.back()
+        }}
         personalize={personalizable}
       />
     )
@@ -373,7 +389,11 @@ export function TrainDetails({
             openUrl={file.openUrl}
             openLabel={file.openLabel}
             description={file.description}
-            onReview={() => setReviewing(true)}
+            onReview={() => {
+              // The review is its own history entry (issue #136): browser back
+              // returns to the train details.
+              window.location.hash = `#${TRAIN_REVIEW_HASH_PREFIX}/${job.id}`
+            }}
             params={job.params}
             paramMeta={module?.train.params}
           />

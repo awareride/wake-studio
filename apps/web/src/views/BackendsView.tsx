@@ -27,6 +27,7 @@ import { BACKEND_NOTEBOOK_FILENAME, downloadBackendNotebook } from '../backends/
 import { NotebookReviewView } from '../training/console/NotebookReviewView'
 import { ConsolePanel } from '../components/ConsolePanel'
 import { ConfirmDialog } from '../training/console/ConfirmDialog'
+import { BACKENDS_HASH_PREFIX, backendsSubFromHash } from '../router'
 
 const HEALTH_POLL_MS = 30_000
 
@@ -541,12 +542,30 @@ type BackendsViewMode =
   | { kind: 'colab-guide' }
   | { kind: 'colab-preview' }
 
+/** Map the Backends hash sub-route onto a full-panel mode (issue #136). */
+function modeFromHash(): BackendsViewMode {
+  const sub = backendsSubFromHash(window.location.hash)
+  if (sub === 'new') return { kind: 'new-editor', mode: 'new' }
+  if (sub === 'colab') return { kind: 'colab-guide' }
+  if (sub === 'colab/preview') return { kind: 'colab-preview' }
+  return { kind: 'list' }
+}
+
 export function BackendsView() {
   const { backends, upsertBackend, removeBackend } = useAppSettings()
-  const [view, setView] = useState<BackendsViewMode>({ kind: 'list' })
+  const [view, setView] = useState<BackendsViewMode>(modeFromHash)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
+
+  // Full-panel modes are hash-encoded (`#/backends/new`, `#/backends/colab[/preview]`,
+  // issue #136): each is its own history entry, so browser back/forward walk
+  // them instead of leaving the Backends view.
+  useEffect(() => {
+    const onHash = () => setView(modeFromHash())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
 
   // Health checks: mount + every 30s + manual refresh (list read via ref).
   const backendsRef = useRef(backends)
@@ -622,9 +641,10 @@ export function BackendsView() {
           } else if (editingBackend) {
             upsertBackend({ ...editingBackend, ...input })
           }
-          setView({ kind: 'list' })
+          // Replace the editor entry with the list — never re-enter it via back.
+          location.replace(`#${BACKENDS_HASH_PREFIX}`)
         }}
-        onCancel={() => setView({ kind: 'list' })}
+        onCancel={() => location.replace(`#${BACKENDS_HASH_PREFIX}`)}
       />
     )
   }
@@ -633,8 +653,10 @@ export function BackendsView() {
     return (
       <ColabGuide
         blobUrl={blobUrl ?? ''}
-        onBack={() => setView({ kind: 'list' })}
-        onPreview={() => setView({ kind: 'colab-preview' })}
+        onBack={() => window.history.back()}
+        onPreview={() => {
+          window.location.hash = `#${BACKENDS_HASH_PREFIX}/colab/preview`
+        }}
       />
     )
   }
@@ -646,7 +668,11 @@ export function BackendsView() {
         <NotebookReviewView
           fileName={BACKEND_NOTEBOOK_FILENAME}
           rawUrl={blobUrl}
-          onBack={() => setView({ kind: 'colab-guide' })}
+          onBack={() => {
+            // Pop the preview entry — the guide entry below restores the
+            // 3-step guide (issue #136).
+            window.history.back()
+          }}
         />
       </div>
     )
@@ -664,14 +690,18 @@ export function BackendsView() {
               type="button"
               size="2"
               variant="soft"
-              onClick={() => setView({ kind: 'colab-guide' })}
+              onClick={() => {
+                window.location.hash = `#${BACKENDS_HASH_PREFIX}/colab`
+              }}
             >
               Free On Google Colab
             </Button>
             <Button
               type="button"
               size="2"
-              onClick={() => setView({ kind: 'new-editor', mode: 'new' })}
+              onClick={() => {
+                window.location.hash = `#${BACKENDS_HASH_PREFIX}/new`
+              }}
             >
               New
             </Button>

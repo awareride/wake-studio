@@ -29,7 +29,7 @@ import { TrainParamsPanel } from '@wake-studio/module-training/web'
 import { cn } from '../../components/cn'
 import { IconChevronRight } from '../../components/icons'
 import { useAppSettings } from '../../settings'
-import { TRAIN_NEW_HASH_PREFIX, trainNewStepFromHash } from '../../router'
+import { TRAIN_NEW_HASH_PREFIX, trainNewReviewFromHash, trainNewStepFromHash } from '../../router'
 import { findTrainableModule, type TrainableModule } from '../train-modules'
 import { ConfirmDialog } from './ConfirmDialog'
 import { InlineGuide } from './InlineGuide'
@@ -73,11 +73,13 @@ export function NewTrainWizard({
 
   // Wizard steps are hash-encoded (`#/training/new[/<step>]`, issue #136):
   // every step is its own history entry, so browser back/forward walk the
-  // steps instead of leaving the Training view. Hash changes sync the step.
+  // steps instead of leaving the Training view. Hash changes sync the step
+  // and the notebook review sub-panel (`#/training/new/<step>/review`).
   useEffect(() => {
     const onHash = () => {
       const s = trainNewStepFromHash(window.location.hash)
       setStep(STEP_ORDER.includes(s as TrainingStepId) ? (s as TrainingStepId) : 'model')
+      setReviewing(trainNewReviewFromHash(window.location.hash))
     }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
@@ -159,7 +161,11 @@ export function NewTrainWizard({
       <NotebookReviewView
         fileName={reviewFile.fileName}
         rawUrl={reviewFile.rawUrl ?? ''}
-        onBack={() => setReviewing(false)}
+        onBack={() => {
+          // Pop the review entry (`#/training/new/<step>/review`) — the step
+          // entry below it restores the wizard state (issue #136).
+          window.history.back()
+        }}
         personalize={
           module && reviewFile.kind === 'notebook'
             ? { params: module.train.params ?? [], values: params }
@@ -252,7 +258,11 @@ export function NewTrainWizard({
             method={method}
             params={params}
             backend={backends.find((b) => b.id === backendId) ?? null}
-            onReview={() => setReviewing(true)}
+            onReview={() => {
+              // The review is its own history entry (issue #136): browser back
+              // returns to the Ready step.
+              window.location.hash = `#${TRAIN_NEW_HASH_PREFIX}/ready/review`
+            }}
           />
         )}
 
