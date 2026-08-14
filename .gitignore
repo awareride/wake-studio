@@ -60,3 +60,10 @@ packages/modules/*/*/train/*.egg-info/
 
 # onnxruntime-web wasm runtime (copied from node_modules at build, P0-4)
 apps/web/public/ort/
+
+# training-service runtime state (ADR-036): SQLite store + artifacts
+apps/training-service/.venv/
+apps/training-service/data/
+apps/training-service/.pytest_cache/
+apps/training-service/**/__pycache__/
+apps/training-service/*.egg-info/
