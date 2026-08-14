@@ -34,10 +34,13 @@ test('hash routing navigates between views', async ({ page }) => {
   await expect(page).toHaveURL(/#\/library/)
   await expect(page.getByRole('heading', { name: /Models \(\d+ of \d+\)/ })).toBeVisible()
 
-  // Projects scaffold.
+  // Projects scaffold (list-detail on ConsolePanel: page h2 + rail h3 —
+  // assert the page-level heading specifically).
   await sidebarNav(page, 'Projects')
   await expect(page).toHaveURL(/#\/projects/)
-  await expect(page.getByRole('main').getByRole('heading', { name: 'Projects' })).toBeVisible()
+  await expect(
+    page.getByRole('main').getByRole('heading', { name: 'Projects', level: 2 }),
+  ).toBeVisible()
 
   // Settings parent toggles the sub-menu (no navigation itself); click a
   // sub-item to reach a section.
