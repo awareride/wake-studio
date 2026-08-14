@@ -56,6 +56,9 @@ const CODE_LAUNCH = `# --- Start the studio-backend service + tunnel -----------
 # Installs the service from this repo (pinned to main) and starts it with the
 # colab launcher: service thread + cloudflared, URL printed, fresh URL on
 # reconnect (issue #123). The service reports instance=short-term via /health.
+# The dry-run demo module is fetched alongside (stdlib-only trainer: ~1s, no
+# GPU/data) and registered as 'dry-run', so the full wizard flow can be
+# exercised against this runtime too.
 import os, secrets
 
 !pip install -q "git+https://github.com/awareride/wake-studio@main#subdirectory=apps/studio-backend"
@@ -65,8 +68,26 @@ from wake_training_service.colab_launcher import launch
 
 WAKE_SERVICE_TOKEN = WAKE_SERVICE_TOKEN or secrets.token_urlsafe(24)
 
+# Fetch the dry-run demo trainer (runs anywhere: stdlib only, ~1s, no GPU/data).
+DRY_RUN_DIR = os.path.abspath("./wake-studio-runtime/dry-run")
+os.makedirs(DRY_RUN_DIR, exist_ok=True)
+!curl -fsSL "https://raw.githubusercontent.com/awareride/wake-studio/main/packages/modules/dry-run/train/dry_run.py" -o "{DRY_RUN_DIR}/dry_run.py"
+if not os.path.isfile(os.path.join(DRY_RUN_DIR, "dry_run.py")):
+    raise SystemExit("failed to fetch the dry-run demo module - check your network")
+
 launcher = launch(
-    registry={},  # no module train scripts in this generic runtime
+    registry={
+        "dry-run": {
+            "cwd": DRY_RUN_DIR,
+            "engine": "direct",
+            "entry": "dry_run.py",
+            "env": {
+                "WAKE_PHRASE": "{params.wakePhrase}",
+                "WAKE_STEPS": "{params.steps}",
+                "WAKE_BACKEND": "self-hosted",
+            },
+        },
+    },
     port=WAKE_SERVICE_PORT,
     token=WAKE_SERVICE_TOKEN,
     instance="short-term",

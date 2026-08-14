@@ -40,6 +40,15 @@ describe('backend notebook template', () => {
     expect(src).toContain('trycloudflare')
   })
 
+  it('registers the dry-run demo module so jobs work on a generic runtime', () => {
+    const src = buildBackendNotebook()
+      .map((c) => c.source.join(''))
+      .join('\n')
+    expect(src).toContain('"dry-run": {')
+    expect(src).toContain('dry_run.py')
+    expect(src).toContain('WAKE_PHRASE')
+  })
+
   it('downloads under the stable filename', () => {
     expect(BACKEND_NOTEBOOK_FILENAME).toBe('studio-backend.ipynb')
   })
