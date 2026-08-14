@@ -168,7 +168,7 @@ export function NotebookReviewView({
   )
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       {/* Panel header. */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
@@ -201,12 +201,12 @@ export function NotebookReviewView({
         </div>
       </div>
 
-      {/* Scrollable notebook. */}
+      {/* Scrollable notebook (fills the parent panel). */}
       <div
         ref={containerRef}
         onClick={handleClick}
         className={cn(
-          'notebook-review max-h-[calc(100dvh-14rem)] min-h-[24rem] overflow-y-auto rounded-xl border border-line bg-surface-2 p-5',
+          'notebook-review min-h-0 flex-1 overflow-y-auto rounded-xl border border-line bg-surface-2 p-5',
           !html && !error && 'flex items-center justify-center text-sm text-ink-3',
         )}
       >

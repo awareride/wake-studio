@@ -27,7 +27,7 @@ class JobCreate(BaseModel):
     params: dict[str, str] = Field(default_factory=dict)
 
 
-def create_app(manager: JobManager, auth: Auth) -> FastAPI:
+def create_app(manager: JobManager, auth: Auth, instance: str = "long-term") -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         started_by_us = await manager.start()
@@ -65,6 +65,7 @@ def create_app(manager: JobManager, auth: Auth) -> FastAPI:
         return {
             "status": "ok",
             "service": "studio-backend",
+            "instance": instance,  # long-term | short-term (Colab runtime)
             "modules": len(manager.registry.modules()),
             "gpu": gpu_info(),
             "concurrency": manager.concurrency,

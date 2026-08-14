@@ -56,9 +56,13 @@ export class StudioClientError extends Error {
   }
 }
 
+export type StudioInstanceKind = 'long-term' | 'short-term'
+
 export interface StudioHealth {
   status: string
   service: string
+  /** long-term = persistent server; short-term = ephemeral Colab runtime. */
+  instance: StudioInstanceKind
   modules: number
   gpu: { cuda: boolean; device: string | null; vram_bytes: number | null; label: string | null }
   concurrency: number

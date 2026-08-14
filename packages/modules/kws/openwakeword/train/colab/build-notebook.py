@@ -263,6 +263,7 @@ if ENABLE_TUNNEL:
         },
         port=int(os.environ.get("WAKE_SERVICE_PORT", "4824")),
         token=WAKE_SERVICE_TOKEN,
+        instance="short-term",  # Colab runtime = ephemeral (reported by /health)
         db=os.path.abspath("./wake-studio-runtime/wake-service.db"),
         artifacts_dir=os.path.abspath("./wake-studio-runtime/artifacts"),
     )
