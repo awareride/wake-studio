@@ -7,7 +7,7 @@
  *    + Open in Colab (ADR-035).
  *  - Colab + upstream notebook (spec.train.notebook) → the upstream repo raw
  *    + Open in Colab.
- *  - subprocess/ci → the upstream script (spec.train.script) or the local
+ *  - studio-backend/ci → the upstream script (spec.train.script) or the local
  *    train entry (spec.train.entry).
  */
 

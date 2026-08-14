@@ -32,7 +32,7 @@
       "train": {
         "notebookLocal": "packages/modules/kws/openwakeword/train/colab/train.ipynb",
         "invocation": [
-          "subprocess",
+          "studio-backend",
           "colab"
         ],
         "params": [
@@ -133,7 +133,7 @@
           ]
         },
         "invocation": [
-          "subprocess",
+          "studio-backend",
           "ci",
           "colab"
         ],
