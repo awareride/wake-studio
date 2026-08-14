@@ -83,9 +83,11 @@ Why this module exists (and is not "just another backend"):
   - The generic detection loop (VAD gate, smoothing, threshold, min-duration,
     cooldown) — owned by `kws-engine` (ADR-030).
   - The AFE (this module consumes `AFEOutputFrame`).
-  - **Training a model ourselves.** `spec.train` wires the upstream script, but
-    running it needs the Phase-5 runner. Four **pretrained** models are
-    registered instead (§6.5), so the driver works today without training.
+  - **Training a model ourselves.** `spec.train` wires the upstream script and a
+    module-owned **train adapter** (`train/train_adapter.py`, #152) now runs it
+    through the studio-backend (data prep + unmodified upstream invocation +
+    standard-bundle normalization). Four **pretrained** models remain registered
+    (§6.5) so the driver also works today without training.
   - Quantized (int8) exports and MCU deployment of these graphs (Phase 4/5).
   - Quantization-aware training and MCU deployment (Phase 4/5).
 - **Public surface:** `KWSStreamingBackend` (via the engine registry),
@@ -344,6 +346,15 @@ Outputs are read from the upstream run directory
 (`tflite_stream_state_external/stream_state_external.tflite`, `labels.txt`,
 `flags.json`) by the `standardize-results` adapter.
 
+The **module-owned train adapter** (`spec.train.entry =
+train/train_adapter.py`, #152) prepares the data — `speech-commands-v2`
+(CC BY 4.0), a `user-url` dataset archive, or multi-language `edge-tts`
+synthesis (`docs/modules/data-sources.md`) — invokes
+`python -m kws_streaming.train.model_train_eval` **unchanged**, and normalizes
+the run dir into the standard artifact bundle (`docs/modules/training.md` §6).
+The studio-backend registry (`apps/studio-backend/registry.json`) maps the job
+params to `STREAM_*` env vars.
+
 ### 6.4 Build inputs
 
 `spec.build` declares the conversion the artifact needs, so the generic
@@ -493,9 +504,10 @@ a silence check asserting `_silence_` wins on zeros.
 
 - **[Q-KS-1] Which model is the default?** *Partly answered:* the shipped
   default is `kws-streaming-kwt1` (3.7 MB, 97.61%) — the smallest pretrained
-  option, so first load is fast. Still open: whether to also train a
-  `bc_resnet_2` (30K params) for the MCU tier, which is the only way to get a
-  *streaming* (external-state) model, since none is published.
+  option, so first load is fast. The train adapter (#152) now closes the
+  *capability* gap for training a streamable topology (e.g. `bc_resnet` for the
+  MCU tier, the only way to get an external-state streaming model); actually
+  producing + registering that model is still pending.
 - **[Q-KS-2] Do we support `preprocess: 'mfcc'`/`'micro'` exports?** These put
   the feature extractor *outside* the graph, so the driver would need an
   `@wake-studio/dsp` MFCC front-end bit-matched to upstream's TFLite ops. It
@@ -533,3 +545,4 @@ a silence check asserting `_silence_` wins on zeros.
 | 2026-08-07 | Initial draft (docs-first, pending human review) — Traditional-category driver for `google-research/kws_streaming` external-state streaming graphs (#72). | agent |
 | 2026-08-10 | Add `sliding-window` mode (the published ARM checkpoints are non-streamable and ship only `tflite_non_stream/`, so external-state alone could load nothing). CI TFLite→ONNX export + real-audio validation; 4 pretrained models registered and working in the web console; L2 + L3 now real (were declared gaps). Q-KS-3 answered (convert to ONNX); Q-KS-1 partly answered. | agent |
 | 2026-08-11 | Fix inference failing in the browser: pin the WASM EP (WebGPU/jsep mis-executes the CLS-token `Slice`→`Squeeze`); report the effective EP so the UI stops claiming WebGPU. L3 replaced with an INFERENCE spec after the load-only one passed while every `run()` threw. | agent |
+| 2026-08-14 | **Train adapter shipped (#152):** `train/train_adapter.py` runs the unpatched upstream trainer through the studio-backend with pluggable data sources (Speech Commands V2 / user URL / edge-tts TTS / local dir) and normalizes into the standard bundle; registry entry + fake-upstream tests (no GPU/network). Q-KS-1 capability gap closed. | agent |

@@ -14,6 +14,27 @@
       "UPSTREAM_PYTHON": "{env.UPSTREAM_PYTHON}"
     }
   },
+  "kws-streaming": {
+    "cwd": "../../packages/modules/kws/streaming/train",
+    "engine": "direct",
+    "entry": "train_adapter.py",
+    "env": {
+      "STREAM_MODEL": "{params.model}",
+      "STREAM_WANTED_WORDS": "{params.wantedWords}",
+      "STREAM_WAKE_PHRASES": "{params.wakePhrases}",
+      "STREAM_TTS_LANGUAGES": "{params.ttsLanguages}",
+      "STREAM_TTS_SAMPLES": "{params.ttsSamples}",
+      "STREAM_DATA_SOURCE": "{params.dataSource}",
+      "STREAM_DATA_URL": "{params.dataUrl}",
+      "STREAM_FEATURE_TYPE": "{params.featureType}",
+      "STREAM_PREPROCESS": "{params.preprocess}",
+      "STREAM_HOW_MANY_TRAINING_STEPS": "{params.howManyTrainingSteps}",
+      "STREAM_LEARNING_RATE": "{params.learningRate}",
+      "STREAM_SPLIT_DATA": "{params.splitData}",
+      "STREAM_BACKEND": "self-hosted",
+      "UPSTREAM_PYTHON": "{env.UPSTREAM_PYTHON}"
+    }
+  },
   "dry-run": {
     "cwd": "../../packages/modules/dry-run/train",
     "engine": "direct",
