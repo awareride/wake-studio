@@ -6,9 +6,15 @@
  * For a Colab train that has not been imported yet, the import step lives
  * here — starting a train opens this pane ("open this train review when
  * started").
+ *
+ * Live tracking (issue #122, ADR-036): when the job has an endpoint (the
+ * Settings `backend.endpoint` for self-hosted trains, or a pasted Colab
+ * tunnel URL after Connect), this pane subscribes to the studio-backend job
+ * API — SSE when available, polling fallback — and shows live progress,
+ * metrics, logs, checkpoint, artifacts and lifecycle actions.
  */
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@radix-ui/themes'
 import {
   backendToMethod,
@@ -16,9 +22,12 @@ import {
   type HistoryJob,
 } from '@wake-studio/module-training'
 import { cn } from '../../components/cn'
+import { useAppSettings } from '../../settings'
 import { ImportColabResults } from '../ImportColabResults'
 import type { ColabImportResult } from '../colab-import'
 import { findTrainableModule, type TrainableModule } from '../train-modules'
+import { isActiveStatus, useStudioJob } from '../useStudioJob'
+import { studioJobPatch, type StudioJobPatch } from '../studio-client'
 import { ConfirmDialog } from './ConfirmDialog'
 import { FileReviewCard } from './FileReviewCard'
 import { NotebookReviewView } from './NotebookReviewView'
@@ -31,6 +40,10 @@ export interface TrainDetailsProps {
   onImported: (result: ColabImportResult) => void
   /** Persist a change to the job's Colab tunnel URL. */
   onTunnelUrlChange: (url: string) => void
+  /** Submit the Colab job to the pasted tunnel URL (issue #122). */
+  onConnectColab: () => void
+  /** Merge live studio-backend state into the recorded job (issue #122). */
+  onLiveUpdate: (patch: StudioJobPatch) => void
   /** Delete this train from history (confirmed by the details pane). */
   onDelete: () => void
 }
@@ -40,7 +53,16 @@ function formatTime(ms: number | undefined): string {
   return new Date(ms).toLocaleString()
 }
 
-export function TrainDetails({ job, modules, onImported, onTunnelUrlChange, onDelete }: TrainDetailsProps) {
+export function TrainDetails({
+  job,
+  modules,
+  onImported,
+  onTunnelUrlChange,
+  onConnectColab,
+  onLiveUpdate,
+  onDelete,
+}: TrainDetailsProps) {
+  const { platform } = useAppSettings()
   const module = findTrainableModule(modules, job.moduleId)
   const exportable = job.license === 'user-owned'
   const metrics = job.metrics ?? {}
@@ -49,9 +71,36 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange, onDe
   const file = module ? trainInputFile(module, isColab ? 'colab' : job.method) : null
   const messages = deriveMessages(job)
 
+  // Live tracking: only while the job is active on an endpoint.
+  const token = platform['backend.apiKey'] || platform['backend.secret'] || undefined
+  const tracked = !!job.endpoint
+  const { live, mode, error: liveError, actions } = useStudioJob({
+    jobId: tracked ? job.id : undefined,
+    endpoint: tracked ? job.endpoint : undefined,
+    token,
+    enabled: tracked && isActiveStatus(job.status),
+  })
+
+  // Push live backend state into the recorded job (guarded against
+  // no-op loops: only call onLiveUpdate when something actually changed).
+  useEffect(() => {
+    if (!live) return
+    const patch = studioJobPatch(live)
+    const same =
+      patch.status === job.status &&
+      patch.progress === job.progress &&
+      patch.error === job.error &&
+      patch.finishedAtMs === job.finishedAtMs &&
+      patch.checkpoint === job.checkpoint &&
+      JSON.stringify(patch.metrics) === JSON.stringify(job.metrics ?? {}) &&
+      JSON.stringify(patch.logTail) === JSON.stringify(job.logTail ?? [])
+    if (!same) onLiveUpdate(patch)
+  }, [live, job, onLiveUpdate])
+
   // Full-panel notebook review (Back preserves the details state, #105).
   const [reviewing, setReviewing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [logsOpen, setLogsOpen] = useState(false)
   const personalizable = useMemo(
     () =>
       module && file?.kind === 'notebook'
@@ -70,6 +119,10 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange, onDe
       />
     )
   }
+
+  const liveMetrics = live?.metrics ?? job.metrics ?? {}
+  const progress = live?.progress ?? job.progress
+  const liveArtifacts = live?.artifacts ?? []
 
   return (
     <div className="space-y-5">
@@ -108,6 +161,118 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange, onDe
           )}
         </dl>
       </section>
+
+      {/* Live tracking (issue #122): progress, metrics, logs, actions. */}
+      {tracked && (
+        <section className="space-y-3 rounded-xl border border-line bg-surface-2 p-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
+              Live status
+            </h4>
+            <span className="rounded-full bg-surface-3 px-2 py-0.5 font-mono text-[10px] text-ink-3">
+              {mode === 'sse' ? 'SSE' : mode === 'polling' ? 'polling' : 'idle'}
+            </span>
+          </div>
+
+          {typeof progress === 'number' && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-[11px] text-ink-3">
+                <span>Progress</span>
+                <span className="font-mono">{Math.round(progress * 100)}%</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-surface-3">
+                <div
+                  className="h-full rounded-full bg-brand-9 transition-all"
+                  style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {Object.keys(liveMetrics).length > 0 && (
+            <dl className="grid gap-x-6 gap-y-1 text-xs sm:grid-cols-3">
+              {Object.entries(liveMetrics).map(([k, v]) => (
+                <div key={k} className="flex items-baseline justify-between gap-3">
+                  <dt className="truncate text-ink-3">{k}</dt>
+                  <dd className="font-mono text-ink-1">
+                    {typeof v === 'number' ? v.toFixed(4) : String(v)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
+          {live?.checkpoint && (
+            <p className="truncate font-mono text-[11px] text-ink-3" title={live.checkpoint}>
+              checkpoint: {live.checkpoint}
+            </p>
+          )}
+
+          {liveArtifacts.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] text-ink-3">Artifacts:</span>
+              {liveArtifacts.map((name) => (
+                <a
+                  key={name}
+                  href={actions.artifactUrl?.(job.id, name) ?? '#'}
+                  download={name}
+                  className="rounded-lg border border-line bg-surface-2 px-2 py-1 font-mono text-[11px] text-brand-11 hover:border-brand-8"
+                >
+                  ⬇ {name}
+                </a>
+              ))}
+            </div>
+          )}
+
+          {liveError && (
+            <p className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-[11px] leading-relaxed text-danger">
+              {liveError}
+            </p>
+          )}
+
+          {/* Lifecycle actions (ADR-036): pause/resume/cancel on the backend. */}
+          {isActiveStatus(job.status) && (
+            <div className="flex flex-wrap gap-2">
+              {job.status === 'running' && (
+                <Button type="button" size="1" variant="outline" onClick={actions.pause}>
+                  Pause
+                </Button>
+              )}
+              {job.status === 'paused' && (
+                <Button type="button" size="1" variant="outline" onClick={actions.resume}>
+                  Resume
+                </Button>
+              )}
+              {(job.status === 'running' ||
+                job.status === 'queued' ||
+                job.status === 'paused') && (
+                <Button type="button" size="1" variant="soft" color="red" onClick={actions.cancel}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Log tail — collapsible to keep the pane compact. */}
+          {(job.logTail?.length ?? 0) > 0 && (
+            <div className="rounded-lg border border-line bg-surface-1">
+              <button
+                type="button"
+                onClick={() => setLogsOpen((o) => !o)}
+                className="flex w-full items-center justify-between px-3 py-2 text-left text-[11px] font-medium text-ink-2"
+              >
+                <span>Log ({job.logTail?.length} lines)</span>
+                <span aria-hidden>{logsOpen ? '−' : '+'}</span>
+              </button>
+              {logsOpen && (
+                <pre className="max-h-48 overflow-auto border-t border-line px-3 py-2 font-mono text-[10px] leading-relaxed text-ink-2">
+                  {job.logTail?.join('\n') ?? ''}
+                </pre>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Results. */}
       <section className="rounded-xl border border-line bg-surface-2 p-4">
@@ -163,7 +328,7 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange, onDe
         ) : (
           <p className="mt-2 text-xs leading-relaxed text-ink-2">
             No results yet{job.status === 'queued' ? ' — the train is queued' : ''}. Results
-            appear here once the train finishes and the bundle is imported.
+            appear here once the train finishes{tracked ? ' and the artifact is pulled' : ' and the bundle is imported'}.
           </p>
         )}
       </section>
@@ -246,18 +411,25 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange, onDe
             />
             <p className="text-[11px] leading-relaxed text-ink-3">
               The notebook prints this URL while running (cloudflared, ADR-023 amendment). With
-              it, WakeStudio can poll status and pull results. Auto-detect: if you set a
-              Cloudflare API key in Settings, the notebook writes the URL into the results
-              bundle and it is picked up on import.
+              it, WakeStudio submits the job to the tunnel and tracks status live (issue #122).
+              Auto-detect: if you set a Cloudflare API key in Settings, the notebook writes the
+              URL into the results bundle and it is picked up on import.
             </p>
           </div>
 
-          {/* Status-traceability tip (issue #105): manual submit when the
-              tunnel cannot be traced. */}
+          {/* Connect (or retry): submit this job to the tunnel server. */}
+          {job.tunnelUrl && !job.submitted && (
+            <Button type="button" size="1" onClick={onConnectColab}>
+              {job.error ? 'Retry — connect to tunnel' : 'Connect to tunnel & submit'}
+            </Button>
+          )}
+
+          {/* Status-traceability tip (issue #105 / #122). */}
           {job.tunnelUrl ? (
             <p className="rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-[11px] leading-relaxed text-success">
-              ✓ Tunnel URL set — this run's status can be tracked and results pulled
-              automatically (polling lands with the Phase 5 backend adapter).
+              {job.submitted
+                ? '✓ Connected — status is tracked live (SSE, polling fallback) and results can be pulled.'
+                : 'Tunnel URL set — press “Connect to tunnel & submit” to start tracking this run.'}
             </p>
           ) : (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] leading-relaxed text-amber-700">
@@ -279,19 +451,14 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange, onDe
         </section>
       )}
 
-      {!isColab && (
-        <p className="text-xs text-ink-3">
-          The {job.method === 'subprocess' ? 'self-hosted service' : 'CI'} method lands in a
-          later Phase 5 slice — this train is recorded for now.
-        </p>
-      )}
-
       {/* Operations: delete this train (issue #105). */}
       <section className="rounded-xl border border-danger/25 bg-surface-2 p-4">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Operations</h4>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-ink-3">
-            Remove this train from the list. The imported model stays in your model library.
+            {tracked
+              ? 'Remove this train from the list and delete the job on the backend (its artifacts are removed there too). The imported model stays in your model library.'
+              : 'Remove this train from the list. The imported model stays in your model library.'}
           </p>
           <Button
             type="button"
@@ -309,11 +476,16 @@ export function TrainDetails({ job, modules, onImported, onTunnelUrlChange, onDe
       <ConfirmDialog
         open={confirmDelete}
         title="Delete this train?"
-        message="This removes the train from your list (IndexedDB). The imported model in your model library is not affected."
+        message={
+          tracked
+            ? 'This deletes the job and its artifacts on the studio-backend and removes the train from your list (IndexedDB).'
+            : 'This removes the train from your list (IndexedDB). The imported model in your model library is not affected.'
+        }
         confirmLabel="Delete"
         onConfirm={() => {
           setConfirmDelete(false)
-          onDelete()
+          // Best-effort backend delete; the local history entry always goes.
+          void actions.delete().finally(onDelete)
         }}
         onCancel={() => setConfirmDelete(false)}
       />

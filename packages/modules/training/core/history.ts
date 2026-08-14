@@ -37,6 +37,21 @@ export interface HistoryJob {
    * the notebook wrote it (Cloudflare API in Settings → auto-detect).
    */
   tunnelUrl?: string
+  /**
+   * The studio-backend endpoint this job is tracked on (ADR-036 §3): the
+   * Settings `backend.endpoint` for self-hosted jobs, or the tunnel URL for
+   * Colab jobs once connected. When set, the console polls / streams the
+   * job and exposes live actions (issue #122).
+   */
+  endpoint?: string
+  /** True once the job has been submitted to its endpoint (POST /jobs). */
+  submitted?: boolean
+  /** Live progress 0..1 reported by the backend (issue #122). */
+  progress?: number
+  /** Live metric values reported by the backend (loss etc.). */
+  logTail?: string[]
+  /** Last checkpoint reported by the backend (resume point). */
+  checkpoint?: string
   /** Trained-model metrics (recall/accuracy/…) from the bundle. */
   metrics?: Record<string, number>
   /** Provenance license of the produced model ('user-owned' = exportable). */
