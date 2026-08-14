@@ -24,6 +24,43 @@
       }
     },
     {
+      "id": "dry-run",
+      "category": "dry-run",
+      "name": "Dry-run (demo)",
+      "license": "MIT",
+      "maturity": "demo",
+      "train": {
+        "entry": "train/dry_run.py",
+        "deps": "pyproject.toml",
+        "invocation": [
+          "studio-backend"
+        ],
+        "params": [
+          {
+            "id": "wakePhrase",
+            "label": "Wake phrase",
+            "group": "primary",
+            "type": "string",
+            "default": "hey studio",
+            "description": "The (fake) wake phrase to train (env WAKE_PHRASE).",
+            "env": "WAKE_PHRASE"
+          },
+          {
+            "id": "steps",
+            "label": "Steps (fake)",
+            "group": "advanced",
+            "type": "number",
+            "default": 5,
+            "min": 1,
+            "max": 50,
+            "step": 1,
+            "description": "How many fake progress steps to emit (env WAKE_STEPS); keep small — it is a demo.",
+            "env": "WAKE_STEPS"
+          }
+        ]
+      }
+    },
+    {
       "id": "kws-openwakeword",
       "category": "kws",
       "name": "OpenWakeWord KWS driver",
