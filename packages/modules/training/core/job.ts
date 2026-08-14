@@ -14,7 +14,7 @@ export interface TrainingJob {
   params: Record<string, string>
   backend: 'self-hosted' | 'cloud' | 'colab'
   provider?: string
-  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled'
+  status: 'queued' | 'running' | 'paused' | 'succeeded' | 'failed' | 'canceled'
   progress?: number
   artifactBundle?: ArtifactBundleRef
   error?: string

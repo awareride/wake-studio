@@ -27,12 +27,14 @@ import {
 import { deleteJob, listJobs, saveJob } from '@wake-studio/module-training'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui'
 import { IconMenu, IconWand } from '../../components/icons'
+import { useAppSettings } from '../../settings'
 import { NewTrainWizard } from './NewTrainWizard'
 import { TrainDetails } from './TrainDetails'
 import { TrainList } from './TrainList'
 import { ConfirmDialog } from './ConfirmDialog'
 import { useIsDesktop } from './useIsDesktop'
 import { fetchTrainableModules, type TrainableModule } from '../train-modules'
+import { createStudioClient, type StudioJobPatch } from '../studio-client'
 import type { ColabImportResult } from '../colab-import'
 
 type View =
@@ -41,6 +43,7 @@ type View =
   | { kind: 'wizard'; from: { kind: 'empty' } | { kind: 'details'; jobId: string } }
 
 export function TrainingConsole() {
+  const { platform } = useAppSettings()
   const [jobs, setJobs] = useState<HistoryJob[]>([])
   const [modules, setModules] = useState<TrainableModule[]>([])
   const [modulesError, setModulesError] = useState<string | null>(null)
@@ -99,15 +102,24 @@ export function TrainingConsole() {
     void saveJob(job)
   }, [])
 
-  /** Patch one field of a recorded job (e.g. the Colab tunnel URL). */
+  /** Patch one field of a recorded job (e.g. the Colab tunnel URL).
+   *  `persist` forces an IndexedDB write; otherwise only status/terminal
+   *  changes persist (live progress/metrics churn must not spam the store). */
   const patchJob = useCallback(
-    (jobId: string, patch: Partial<HistoryJob>) => {
+    (jobId: string, patch: Partial<HistoryJob>, persist = false) => {
       setJobs((prev) => {
         const target = prev.find((j) => j.id === jobId)
         if (!target) return prev
-        const next = upsertJob(prev, { ...target, ...patch })
-        void saveJob({ ...target, ...patch })
-        return next
+        const next = { ...target, ...patch }
+        const meaningful =
+          patch.status !== undefined ||
+          patch.finishedAtMs !== undefined ||
+          patch.endpoint !== undefined ||
+          patch.tunnelUrl !== undefined ||
+          patch.submitted !== undefined ||
+          patch.error !== undefined
+        if (persist || meaningful) void saveJob(next)
+        return upsertJob(prev, next)
       })
     },
     [],
@@ -119,19 +131,60 @@ export function TrainingConsole() {
   }, [view, jobs])
 
   // Wizard "Save/Start": record the job, open its review (issue #105).
+  // For the self-hosted method the job is ALSO submitted to the studio-backend
+  // (POST /jobs) and tracked live (issue #122, ADR-036).
   const handleWizardStarted = useCallback(
     (moduleId: string, method: TrainMethodId, params: Record<string, string>) => {
+      const id = `train-${Date.now()}`
       const job = startedJob({
-        id: `train-${Date.now()}`,
+        id,
         moduleId,
         method,
         backend: backendForMethod(method),
         params,
       })
-      recordJob(job)
-      setView({ kind: 'details', jobId: job.id })
+      if (method === 'subprocess') {
+        const endpoint = platform['backend.endpoint']
+        const token = platform['backend.apiKey'] || platform['backend.secret'] || undefined
+        recordJob({ ...job, endpoint })
+        setView({ kind: 'details', jobId: job.id })
+        const client = createStudioClient(endpoint, token)
+        void client
+          .createJob(moduleId, params, id)
+          .then(() => patchJob(id, { submitted: true }))
+          .catch((err: unknown) =>
+            patchJob(id, {
+              status: 'failed',
+              error: err instanceof Error ? err.message : String(err),
+              finishedAtMs: Date.now(),
+            }),
+          )
+      } else {
+        recordJob(job)
+        setView({ kind: 'details', jobId: job.id })
+      }
     },
-    [recordJob],
+    [platform, recordJob, patchJob],
+  )
+
+  // Colab "Connect": once the notebook's tunnel URL is pasted, submit the job
+  // to the tunnel (same /jobs contract — ADR-023 amendment) and track it live.
+  const handleConnectColab = useCallback(
+    (job: HistoryJob) => {
+      if (!job.tunnelUrl) return
+      const token = platform['backend.apiKey'] || platform['backend.secret'] || undefined
+      const client = createStudioClient(job.tunnelUrl, token)
+      patchJob(job.id, { endpoint: job.tunnelUrl })
+      void client
+        .createJob(job.moduleId, job.params, job.id)
+        .then(() => patchJob(job.id, { submitted: true }))
+        .catch((err: unknown) =>
+          patchJob(job.id, {
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        )
+    },
+    [platform, patchJob],
   )
 
   // Colab import success: record/update the job, open its review.
@@ -254,7 +307,13 @@ export function TrainingConsole() {
                     job={selectedJob}
                     modules={modules}
                     onImported={handleImported}
-                    onTunnelUrlChange={(url) => patchJob(selectedJob.id, { tunnelUrl: url })}
+                    onTunnelUrlChange={(url) =>
+                      patchJob(selectedJob.id, { tunnelUrl: url }, true)
+                    }
+                    onConnectColab={() => handleConnectColab(selectedJob)}
+                    onLiveUpdate={(patch: StudioJobPatch) =>
+                      patchJob(selectedJob.id, patch)
+                    }
                     onDelete={() => handleDeleteJob(selectedJob.id)}
                   />
                 ) : (
