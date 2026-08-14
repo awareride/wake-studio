@@ -24,6 +24,10 @@ describe('backend notebook template', () => {
       expect(Array.isArray(c.source)).toBe(true)
       expect(c.source.length).toBeGreaterThan(0)
     }
+    // code cells must carry outputs: [] (notebook-viewer-ts CodeCell requires it)
+    for (const c of nb.cells.filter((c: { cell_type: string }) => c.cell_type === 'code')) {
+      expect(Array.isArray(c.outputs)).toBe(true)
+    }
   })
 
   it('the launch cell starts the launcher as a short-term instance', () => {

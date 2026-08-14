@@ -85,11 +85,16 @@ print("The service keeps running in the background - re-run this cell after a re
 `
 
 function cell(cellType: 'markdown' | 'code', source: string): NotebookCell {
-  return {
+  const base: NotebookCell = {
     cell_type: cellType,
     metadata: {},
     source: source.split('\n').map((l) => (l === '' ? '' : l + '\n')).slice(0, -1).concat(['\n']),
   }
+  // notebook-viewer-ts CodeCell requires outputs (c.outputs.map in its ctor).
+  if (cellType === 'code') {
+    return { ...base, execution_count: null, outputs: [] }
+  }
+  return base
 }
 
 /** Build the standalone studio-backend notebook (nbformat 4). */
