@@ -155,6 +155,7 @@ def test_launch_starts_service_health_ok(tmp_path):
             assert res.status == 200
             body = json.loads(res.read())
             assert body["service"] == "studio-backend"
+            assert body["instance"] == "short-term"  # Colab launcher default
             assert body["authEnabled"] is True
     finally:
         launcher.stop()

@@ -32,6 +32,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="token required on mutating endpoints (Colab launcher MUST set it)")
     p.add_argument("--heartbeat-timeout", type=float, default=300.0,
                    help="seconds without a report line before a job is marked failed")
+    p.add_argument("--instance", choices=["long-term", "short-term"],
+                   default=os.environ.get("WAKE_INSTANCE", "long-term"),
+                   help="instance kind reported by /health (short-term = ephemeral Colab runtime)")
     p.add_argument("--db", default="data/wake-service.db", help="SQLite job store path")
     p.add_argument("--artifacts-dir", default="data/artifacts",
                    help="where trained artifacts are stored (sha256-indexed)")
@@ -69,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
         heartbeat_timeout=args.heartbeat_timeout,
         max_artifacts_mb=args.max_artifacts_mb,
     )
-    app = create_app(manager, auth)
+    app = create_app(manager, auth, instance=args.instance)
 
     print(f"[wake-service] studio-backend on http://{args.host}:{args.port}")
     print(f"[wake-service] registry: {registry_path} ({len(registry.modules())} module(s))")

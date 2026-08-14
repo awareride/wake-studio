@@ -46,6 +46,7 @@ def test_health_and_modules(store, registry, artifacts_dir):
             assert r.status_code == 200
             body = r.json()
             assert body["service"] == "studio-backend"
+            assert body["instance"] == "long-term"
             assert body["modules"] == 1
             assert body["authEnabled"] is False
             assert "gpu" in body

@@ -88,6 +88,7 @@ class ColabLauncher:
         db: str | Path | None = None,
         artifacts_dir: str | Path | None = None,
         heartbeat_timeout: float = 300.0,
+        instance: str = "short-term",  # Colab runtime = ephemeral by nature
         cloudflared: str | None = None,
         restart_delay: float = RESTART_DELAY_SECONDS,
         print_fn: Callable[[str], None] = print,
@@ -114,7 +115,7 @@ class ColabLauncher:
             artifacts_dir=artifacts_dir or (workdir / "data" / "artifacts"),
             heartbeat_timeout=heartbeat_timeout,
         )
-        self._app = create_app(self._manager, self._auth)
+        self._app = create_app(self._manager, self._auth, instance=instance)
 
         self._cloudflared_bin = cloudflared
         self._process_factory = process_factory

@@ -1,24 +1,34 @@
 /**
  * Backends — managed studio-backend endpoints (training execution targets).
  *
- * Manages the user's studio-backend instances: long-term (their own server,
- * `uv run wake-service`) or short-term (an ephemeral Colab runtime behind a
- * trycloudflare tunnel). The training wizard's Studio-backend method picks
- * one of these (replacing the old single Settings backend endpoint).
+ * Trains-style layout (mirrors the Training console): a header with the
+ * `New` + `Free On Google Colab` toolbar, a left rail of backend cards, and
+ * a right details pane (health, jobs, logs — read-only).
  *
- * - Health: each backend is pinged via GET /health on mount + every 30s +
- *   manual refresh; status/lastSeen are stored back.
- * - Detail (read-only): the backend's jobs (GET /jobs) and per-job logs
- *   (GET /jobs/{id}/logs). Actions stay in the train details pane.
+ * - `New`: name / baseUrl / token. The **kind** (long-term vs short-term) is
+ *   detected from the API — `GET /health` reports `instance` (the Colab
+ *   launcher starts with `--instance short-term`), and the health check
+ *   updates the badge automatically. No manual kind field.
+ * - `Free On Google Colab`: generates a standalone studio-backend notebook
+ *   (client-side, no repo asset) the user can review + download; run it in
+ *   Colab, paste the printed URL + token into `New`.
+ * - Health: `GET /health` on mount + every 30s + manual refresh.
+ * - Detail (read-only): jobs (`GET /jobs`) + per-job logs
+ *   (`GET /jobs/{id}/logs`). Actions stay in the Training view.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, IconButton } from '@radix-ui/themes'
 import { useAppSettings } from '../settings'
 import { createStudioClient } from '../training/studio-client'
 import type { StudioJob } from '../training/studio-client'
 import type { ManagedBackend, ManagedBackendKind, ManagedBackendStatus } from '../backends/types'
 import { cn } from '../components/cn'
+import {
+  BACKEND_NOTEBOOK_FILENAME,
+  downloadBackendNotebook,
+} from '../backends/backend-notebook'
+import { NotebookReviewView } from '../training/console/NotebookReviewView'
 
 const HEALTH_POLL_MS = 30_000
 
@@ -45,13 +55,17 @@ const KIND_STYLE: Record<ManagedBackendKind, string> = {
   'short-term': 'bg-amber-500/15 text-amber-700',
 }
 
+const KIND_HINT: Record<ManagedBackendKind, string> = {
+  'long-term': 'persistent server',
+  'short-term': 'ephemeral Colab runtime',
+}
+
 interface EditorState {
   mode: 'new' | 'edit'
   id: string
   name: string
   baseUrl: string
   token: string
-  kind: ManagedBackendKind
 }
 
 function BackendEditor({
@@ -60,44 +74,30 @@ function BackendEditor({
   onCancel,
 }: {
   initial: EditorState
-  onSave: (input: { name: string; baseUrl: string; token: string; kind: ManagedBackendKind }) => void
+  onSave: (input: { name: string; baseUrl: string; token: string }) => void
   onCancel: () => void
 }) {
   const [name, setName] = useState(initial.name)
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl)
   const [token, setToken] = useState(initial.token)
-  const [kind, setKind] = useState<ManagedBackendKind>(initial.kind)
 
   const urlValid = /^https?:\/\/.+/.test(baseUrl.trim())
   const valid = name.trim() !== '' && urlValid
 
   return (
     <div className="space-y-3 rounded-xl border border-line bg-surface-2 p-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block space-y-1">
-          <span className="block text-xs font-medium text-ink-2">Name</span>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="My server / Colab T4 #2"
-            className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-8"
-          />
-        </label>
-        <label className="block space-y-1">
-          <span className="block text-xs font-medium text-ink-2">Kind</span>
-          <select
-            value={kind}
-            onChange={(e) => setKind(e.target.value as ManagedBackendKind)}
-            className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink-1 outline-none focus:border-brand-8"
-          >
-            <option value="long-term">Long-term (persistent server)</option>
-            <option value="short-term">Short-term (ephemeral — Colab runtime)</option>
-          </select>
-        </label>
-      </div>
       <label className="block space-y-1">
-        <span className="block text-xs font-medium text-ink-2">Base URL</span>
+        <span className="block text-xs font-medium text-ink-2">Name</span>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="My server / Colab T4 #2"
+          className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-8"
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="block text-xs font-medium text-ink-2">Endpoint URL</span>
         <input
           type="url"
           value={baseUrl}
@@ -111,7 +111,8 @@ function BackendEditor({
       </label>
       <label className="block space-y-1">
         <span className="block text-xs font-medium text-ink-2">
-          Token <span className="font-normal text-ink-3">(optional; for job mutations, ADR-036 §5)</span>
+          Access token{' '}
+          <span className="font-normal text-ink-3">(optional; for job mutations, ADR-036 §5)</span>
         </span>
         <input
           type="password"
@@ -121,6 +122,11 @@ function BackendEditor({
           className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-sm text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-8"
         />
       </label>
+      <p className="text-[11px] leading-relaxed text-ink-3">
+        The <span className="font-medium text-ink-2">kind</span> (long-term / short-term) is
+        detected automatically from the service's <code className="font-mono">/health</code> — no
+        need to pick it here.
+      </p>
       <div className="flex justify-end gap-2">
         <Button type="button" size="1" variant="ghost" onClick={onCancel}>
           Cancel
@@ -129,7 +135,7 @@ function BackendEditor({
           type="button"
           size="1"
           disabled={!valid}
-          onClick={() => onSave({ name: name.trim(), baseUrl: baseUrl.trim(), token: token.trim(), kind })}
+          onClick={() => onSave({ name: name.trim(), baseUrl: baseUrl.trim(), token: token.trim() })}
         >
           {initial.mode === 'new' ? 'Add backend' : 'Save changes'}
         </Button>
@@ -138,48 +144,98 @@ function BackendEditor({
   )
 }
 
-function QuickStart({ onAdd }: { onAdd: (kind: ManagedBackendKind) => void }) {
+/** The "Free On Google Colab" guide: instructions + notebook review + download. */
+function ColabGuide({ onBack }: { onBack: () => void }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    setBlobUrl(downloadBackendNotebook())
+    return () => {
+      setBlobUrl((url) => {
+        if (url) URL.revokeObjectURL(url)
+        return null
+      })
+    }
+  }, [])
+
+  const steps = useMemo(
+    () => [
+      ['Download the notebook', 'the button below saves studio-backend.ipynb.'],
+      ['Open it in Google Colab', 'colab.research.google.com → File → Upload notebook (drag it in).'],
+      ['Runtime → Run all', 'the cells install the service and start the tunnel (~1–2 min).'],
+      ['Copy URL + token', 'the last cell prints the tunnel URL and a token.'],
+      ['Backends → New', 'paste both here and save — the kind (short-term) is detected automatically.'],
+    ],
+    [],
+  )
+
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <div className="rounded-xl border border-line bg-surface-2 p-5">
-        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide', KIND_STYLE['long-term'])}>
-          Long-term
-        </span>
-        <h3 className="mt-2 text-sm font-semibold text-ink-1">Run it on your own machine</h3>
-        <p className="mt-1 text-xs leading-relaxed text-ink-2">
-          Start the WakeStudio studio-backend locally (Python/FastAPI job manager, ADR-036):
-        </p>
-        <pre className="mt-3 overflow-x-auto rounded-lg bg-surface-1 px-3 py-2 font-mono text-[11px] text-ink-2">
-          {`uv run --project apps/studio-backend wake-service`}
-        </pre>
-        <p className="mt-2 text-xs leading-relaxed text-ink-2">
-          Defaults to <code className="font-mono text-[11px]">http://127.0.0.1:4824</code>. Add it
-          as a backend, then train with the <span className="font-medium text-ink-1">Studio-backend</span> method.
-        </p>
-        <Button type="button" size="1" className="mt-3" onClick={() => onAdd('long-term')}>
-          Add my local backend
-        </Button>
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex shrink-0 items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-ink-1">Free on Google Colab</h3>
+          <p className="mt-0.5 text-xs text-ink-3">
+            A short-term studio-backend, running on a free Colab runtime behind a trycloudflare
+            tunnel (ADR-023 amendment). No server, no keys — only your Google account.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {blobUrl && (
+            <a
+              href={blobUrl}
+              download={BACKEND_NOTEBOOK_FILENAME}
+              className="rounded-lg bg-brand-9 px-3 py-1.5 text-xs font-semibold text-ink-1 hover:bg-brand-8"
+            >
+              Download notebook
+            </a>
+          )}
+          <Button type="button" variant="outline" size="1" onClick={onBack}>
+            Back
+          </Button>
+        </div>
       </div>
 
-      <div className="rounded-xl border border-line bg-surface-2 p-5">
-        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide', KIND_STYLE['short-term'])}>
-          Short-term · Colab
-        </span>
-        <h3 className="mt-2 text-sm font-semibold text-ink-1">Quick-start one on Google Colab</h3>
-        <p className="mt-1 text-xs leading-relaxed text-ink-2">
-          Open the openwakeword notebook and run <span className="font-medium text-ink-1">Step 1.5</span>{' '}
-          (tunnel, ADR-023 amendment): it starts the same service inside the Colab runtime and
-          prints a free trycloudflare URL + token.
-        </p>
-        <ol className="mt-2 list-decimal space-y-1 pl-4 text-xs leading-relaxed text-ink-2">
-          <li>Open the notebook in Colab (Training → New → OpenWakeWord → Review).</li>
-          <li>Run all cells up to <span className="font-medium">Step 1.5</span>.</li>
-          <li>Copy the printed URL + token and save them here.</li>
-        </ol>
-        <Button type="button" size="1" variant="soft" className="mt-3" onClick={() => onAdd('short-term')}>
-          Add a Colab backend
-        </Button>
+      <div className="grid shrink-0 gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-line bg-surface-2 p-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
+            How to use it
+          </h4>
+          <ol className="mt-2 list-decimal space-y-1.5 pl-4">
+            {steps.map(([title, detail], i) => (
+              <li key={i} className="text-xs leading-relaxed text-ink-2">
+                <span className="font-medium text-ink-1">{title}</span> — {detail}
+              </li>
+            ))}
+          </ol>
+          <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] leading-relaxed text-amber-700">
+            The runtime is ephemeral — Colab may recycle it. After a reconnect, re-run the last
+            cell: a fresh URL is printed. Jobs checkpoint/resume across drops (ADR-023 amendment).
+          </p>
+        </div>
+        <div className="rounded-xl border border-line bg-surface-2 p-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
+            What the notebook does
+          </h4>
+          <p className="mt-2 text-xs leading-relaxed text-ink-2">
+            It installs the studio-backend service from this repo (pinned to main) and starts it
+            with the Colab launcher: the service runs in a background thread, cloudflared opens a
+            free tunnel, and <code className="font-mono text-[11px]">/health</code> reports{' '}
+            <code className="font-mono text-[11px]">instance: short-term</code> — that's how the
+            Backends panel knows the kind. The registry is empty in this generic runtime; module
+            train scripts (openwakeword etc.) run in their own notebooks.
+          </p>
+        </div>
       </div>
+
+      {blobUrl && (
+        <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-line">
+          <NotebookReviewView
+            fileName={BACKEND_NOTEBOOK_FILENAME}
+            rawUrl={blobUrl}
+            onBack={onBack}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -294,8 +350,49 @@ function BackendDetail({ backend }: { backend: ManagedBackend }) {
   )
 }
 
+function QuickStart({ onAdd, onColab }: { onAdd: () => void; onColab: () => void }) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <div className="rounded-xl border border-line bg-surface-2 p-5">
+        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide', KIND_STYLE['long-term'])}>
+          Long-term
+        </span>
+        <h3 className="mt-2 text-sm font-semibold text-ink-1">Run it on your own machine</h3>
+        <p className="mt-1 text-xs leading-relaxed text-ink-2">
+          Start the WakeStudio studio-backend locally (Python/FastAPI job manager, ADR-036):
+        </p>
+        <pre className="mt-3 overflow-x-auto rounded-lg bg-surface-1 px-3 py-2 font-mono text-[11px] text-ink-2">
+          {`uv run --project apps/studio-backend wake-service`}
+        </pre>
+        <p className="mt-2 text-xs leading-relaxed text-ink-2">
+          Defaults to <code className="font-mono text-[11px]">http://127.0.0.1:4824</code>. Add it
+          as a backend, then train with the <span className="font-medium text-ink-1">Studio-backend</span> method.
+        </p>
+        <Button type="button" size="1" className="mt-3" onClick={onAdd}>
+          Add my local backend
+        </Button>
+      </div>
+
+      <div className="rounded-xl border border-line bg-surface-2 p-5">
+        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide', KIND_STYLE['short-term'])}>
+          Short-term · Colab
+        </span>
+        <h3 className="mt-2 text-sm font-semibold text-ink-1">Free on Google Colab</h3>
+        <p className="mt-1 text-xs leading-relaxed text-ink-2">
+          Generate a standalone notebook that starts the same service inside a free Colab runtime
+          and exposes it through a trycloudflare tunnel — no server, no keys.
+        </p>
+        <Button type="button" size="1" variant="soft" className="mt-3" onClick={onColab}>
+          Generate the notebook
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function BackendsView() {
   const { backends, upsertBackend, removeBackend } = useAppSettings()
+  const [mode, setMode] = useState<'list' | 'colab-guide'>('list')
   const [editing, setEditing] = useState<EditorState | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -312,18 +409,20 @@ export function BackendsView() {
     const results = await Promise.all(
       list.map(async (b) => {
         try {
-          await createStudioClient(b.baseUrl, b.token).health()
-          return { id: b.id, ok: true }
+          const health = await createStudioClient(b.baseUrl, b.token).health()
+          return { id: b.id, ok: true, kind: health.instance ?? null }
         } catch {
-          return { id: b.id, ok: false }
+          return { id: b.id, ok: false, kind: null }
         }
       }),
     )
-    const ok = new Set(results.filter((r) => r.ok).map((r) => r.id))
+    const ok = new Map(results.filter((r) => r.ok).map((r) => [r.id, r.kind]))
     for (const b of list) {
+      const kind = ok.get(b.id)
       upsertBackend({
         ...b,
         status: ok.has(b.id) ? 'online' : 'offline',
+        kind: kind && (kind === 'long-term' || kind === 'short-term') ? kind : b.kind,
         lastSeenMs: ok.has(b.id) ? Date.now() : b.lastSeenMs,
       })
     }
@@ -338,41 +437,123 @@ export function BackendsView() {
   const selected = backends.find((b) => b.id === selectedId) ?? null
   const editingBackend = editing ? backends.find((b) => b.id === editing.id) ?? null : null
 
+  if (mode === 'colab-guide') {
+    return <ColabGuide onBack={() => setMode('list')} />
+  }
+
   return (
-    <div className="mx-auto flex h-full max-w-4xl flex-col gap-5 p-6">
-      <div>
-        <h2 className="text-lg font-semibold text-ink-1">Backends</h2>
-        <p className="mt-1 max-w-2xl text-sm text-ink-2">
-          Your studio-backend endpoints for the <span className="font-medium text-ink-1">Studio-backend</span>{' '}
-          train method (ADR-036). Health is checked automatically; jobs and logs are read-only
-          here — train and control jobs from the Training view.
-        </p>
+    <div className="mx-auto flex h-full max-w-5xl flex-col gap-5 p-6">
+      {/* Header + toolbar (Trains-style). */}
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-ink-1">Backends</h2>
+          <p className="mt-1 max-w-2xl text-sm text-ink-2">
+            Your studio-backend endpoints for the{' '}
+            <span className="font-medium text-ink-1">Studio-backend</span> train method (ADR-036).
+            Health is checked automatically; kind (long-term / short-term) is detected from the
+            service. Jobs and logs here are read-only — train and control jobs from the Training
+            view.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            type="button"
+            size="2"
+            variant="soft"
+            onClick={() => setMode('colab-guide')}
+          >
+            Free On Google Colab
+          </Button>
+          <Button
+            type="button"
+            size="2"
+            onClick={() => setEditing({ mode: 'new', id: '', name: '', baseUrl: '', token: '' })}
+          >
+            New
+          </Button>
+        </div>
       </div>
 
-      {backends.length === 0 ? (
-        <QuickStart onAdd={(kind) => setEditing({ mode: 'new', id: '', name: '', baseUrl: '', token: '', kind })} />
+      {backends.length === 0 && !editing ? (
+        <QuickStart
+          onAdd={() => setEditing({ mode: 'new', id: '', name: '', baseUrl: '', token: '' })}
+          onColab={() => setMode('colab-guide')}
+        />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-          {/* List + editor */}
-          <div className="space-y-3">
+        /* Split-scroll: left rail + right details (mirrors the Training console). */
+        <div className="flex min-h-0 flex-1 gap-6">
+          <aside className="flex min-h-0 w-72 shrink-0 flex-col border-r border-line pr-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
                 {backends.length} backend{backends.length === 1 ? '' : 's'}
               </h3>
-              <div className="flex gap-1.5">
-                <Button type="button" size="1" variant="ghost" onClick={() => void runHealthChecks()}>
-                  Check health
-                </Button>
-                <Button
-                  type="button"
-                  size="1"
-                  onClick={() => setEditing({ mode: 'new', id: '', name: '', baseUrl: '', token: '', kind: 'long-term' })}
-                >
-                  Add
-                </Button>
-              </div>
+              <Button type="button" size="1" variant="ghost" onClick={() => void runHealthChecks()}>
+                Check health
+              </Button>
             </div>
+            <ul className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto">
+              {backends.map((b) => (
+                <li key={b.id}>
+                  <div
+                    className={cn(
+                      'rounded-xl border p-3 transition-colors',
+                      selected?.id === b.id
+                        ? 'border-brand-9/50 bg-brand-9/5'
+                        : 'border-line bg-surface-2 hover:border-brand-9/30',
+                    )}
+                  >
+                    <button
+                      type="button"
+                      className="flex w-full items-start justify-between gap-2 text-left"
+                      onClick={() => setSelectedId(b.id === selected?.id ? null : b.id)}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-sm font-semibold text-ink-1">{b.name}</span>
+                          <span className={cn('rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide', KIND_STYLE[b.kind])} title={KIND_HINT[b.kind]}>
+                            {b.kind === 'short-term' ? 'short-term' : 'long-term'}
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate font-mono text-[11px] text-ink-3">{b.baseUrl}</p>
+                      </div>
+                      <span className={cn('mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide', STATUS_STYLE[b.status])}>
+                        {b.status}
+                      </span>
+                    </button>
+                    <div className="mt-2 flex items-center justify-between gap-2 border-t border-line pt-2">
+                      <span className="text-[10px] text-ink-3">
+                        {b.lastSeenMs ? `seen ${formatTime(b.lastSeenMs)}` : 'not checked yet'}
+                      </span>
+                      <div className="flex gap-1">
+                        <IconButton
+                          type="button"
+                          size="1"
+                          variant="ghost"
+                          aria-label="Edit backend"
+                          onClick={() => setEditing({ mode: 'edit', id: b.id, name: b.name, baseUrl: b.baseUrl, token: b.token ?? '' })}
+                        >
+                          ✎
+                        </IconButton>
+                        <IconButton
+                          type="button"
+                          size="1"
+                          variant="ghost"
+                          color="red"
+                          aria-label="Delete backend"
+                          onClick={() => setConfirmDelete(b.id)}
+                        >
+                          ✕
+                        </IconButton>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </aside>
 
+          {/* Right details pane (own scroll). */}
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             {editing && (
               <BackendEditor
                 initial={editing}
@@ -383,7 +564,7 @@ export function BackendsView() {
                       name: input.name,
                       baseUrl: input.baseUrl,
                       token: input.token || undefined,
-                      kind: input.kind,
+                      kind: 'long-term', // replaced by /health detection on first check
                       status: 'unknown',
                       createdAtMs: Date.now(),
                     })
@@ -397,74 +578,11 @@ export function BackendsView() {
               />
             )}
 
-            <ul className="space-y-2">
-              {backends.map((b) => (
-                <li key={b.id}>
-                  <div
-                    className={cn(
-                      'rounded-xl border p-3 transition-colors',
-                      selected?.id === b.id
-                        ? 'border-brand-9/50 bg-brand-9/5'
-                        : 'border-line bg-surface-2',
-                    )}
-                  >
-                    <button
-                      type="button"
-                      className="flex w-full items-start justify-between gap-2 text-left"
-                      onClick={() => setSelectedId(b.id === selected?.id ? null : b.id)}
-                    >
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-ink-1">{b.name}</span>
-                          <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide', KIND_STYLE[b.kind])}>
-                            {b.kind === 'short-term' ? 'short-term' : 'long-term'}
-                          </span>
-                          <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide', STATUS_STYLE[b.status])}>
-                            {b.status}
-                          </span>
-                        </div>
-                        <p className="mt-1 truncate font-mono text-[11px] text-ink-3">{b.baseUrl}</p>
-                        {b.lastSeenMs && (
-                          <p className="mt-0.5 text-[10px] text-ink-3">
-                            last seen {formatTime(b.lastSeenMs)}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                    <div className="mt-2 flex justify-end gap-1.5">
-                      <IconButton
-                        type="button"
-                        size="1"
-                        variant="ghost"
-                        aria-label="Edit backend"
-                        onClick={() => setEditing({ mode: 'edit', id: b.id, name: b.name, baseUrl: b.baseUrl, token: b.token ?? '', kind: b.kind })}
-                      >
-                        ✎
-                      </IconButton>
-                      <IconButton
-                        type="button"
-                        size="1"
-                        variant="ghost"
-                        color="red"
-                        aria-label="Delete backend"
-                        onClick={() => setConfirmDelete(b.id)}
-                      >
-                        ✕
-                      </IconButton>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Detail (read-only): jobs + logs */}
-          <div className="min-w-0 rounded-xl border border-line bg-surface-2 p-4">
             {selected ? (
               <BackendDetail key={selected.id} backend={selected} />
             ) : (
-              <p className="text-xs text-ink-3">
-                Select a backend to see its jobs and logs (read-only).
+              <p className="rounded-xl border border-line bg-surface-2 p-4 text-xs text-ink-3">
+                Select a backend on the left to see its jobs and logs (read-only).
               </p>
             )}
           </div>
