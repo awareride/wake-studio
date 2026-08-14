@@ -205,38 +205,55 @@ function ColabGuide({
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-        {/* Step cards. */}
+        {/* Step cards — equal height, actions pinned to the bottom. */}
         <div className="grid gap-4 lg:grid-cols-3">
           {COLAB_STEPS.map((s, i) => (
-            <div key={s.title} className="rounded-xl border border-line bg-surface-2 p-4">
+            <div
+              key={s.title}
+              className="flex flex-col rounded-xl border border-line bg-surface-2 p-4"
+            >
               <div className="flex items-center gap-2">
-                <span className="rounded-full bg-surface-3 px-2 py-0.5 font-mono text-[10px] text-ink-3">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-3 font-mono text-[10px] text-ink-3">
                   {i + 1}
                 </span>
                 <h4 className="text-sm font-semibold text-ink-1">{s.title}</h4>
               </div>
-              <p className="mt-2 text-xs leading-relaxed text-ink-2">{s.detail}</p>
+              <p className="mt-2 flex-1 text-xs leading-relaxed text-ink-2">{s.detail}</p>
               {i === 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 flex gap-2 border-t border-line pt-3">
                   {blobUrl && (
-                    <Button type="button" size="1" asChild>
+                    <Button type="button" size="1" asChild className="flex-1">
                       <a href={blobUrl} download={BACKEND_NOTEBOOK_FILENAME}>
                         Download
                       </a>
                     </Button>
                   )}
-                  <Button type="button" size="1" variant="soft" onClick={onPreview}>
+                  <Button
+                    type="button"
+                    size="1"
+                    variant="soft"
+                    onClick={onPreview}
+                    className="flex-1"
+                  >
                     Review
                   </Button>
                 </div>
               )}
               {i === 1 && (
-                <div className="mt-3">
-                  <Button type="button" size="1" asChild>
+                <div className="mt-3 border-t border-line pt-3">
+                  <Button type="button" size="1" asChild className="w-full">
                     <a href="https://colab.research.google.com" target="_blank" rel="noreferrer">
                       Open Google Colab
                     </a>
                   </Button>
+                </div>
+              )}
+              {i === 2 && (
+                <div className="mt-3 border-t border-line pt-3">
+                  <p className="text-[10px] leading-relaxed text-ink-3">
+                    Then press <span className="font-medium text-ink-2">Run all</span> in Colab
+                    and copy the printed URL + token.
+                  </p>
                 </div>
               )}
             </div>
