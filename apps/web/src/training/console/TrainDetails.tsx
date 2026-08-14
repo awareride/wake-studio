@@ -43,6 +43,8 @@ export interface TrainDetailsProps {
   onTunnelUrlChange: (url: string) => void
   /** Submit the Colab job to the pasted tunnel URL (issue #122). */
   onConnectColab: () => void
+  /** Retry this run: re-submit the same module/params as a fresh job. */
+  onRetry: () => void
   /** Merge live studio-backend state into the recorded job (issue #122). */
   onLiveUpdate: (patch: StudioJobPatch) => void
   /** Delete this train from history (confirmed by the details pane). */
@@ -60,6 +62,7 @@ export function TrainDetails({
   onImported,
   onTunnelUrlChange,
   onConnectColab,
+  onRetry,
   onLiveUpdate,
   onDelete,
 }: TrainDetailsProps) {
@@ -268,6 +271,18 @@ export function TrainDetails({
                   Cancel
                 </Button>
               )}
+            </div>
+          )}
+
+          {/* Retry a finished run (same module + params, new job on the endpoint). */}
+          {!isActiveStatus(job.status) && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" size="1" variant="soft" onClick={onRetry}>
+                Retry
+              </Button>
+              <span className="text-[11px] text-ink-3">
+                Re-submits the same config as a fresh run.
+              </span>
             </div>
           )}
 

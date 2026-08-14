@@ -10,6 +10,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   startedJob,
+  retriedJob,
   importedJob,
   backendToMethod,
   sortJobsNewestFirst,
@@ -62,6 +63,29 @@ describe('startedJob', () => {
     })
     expect(job.startedAtMs).toBeGreaterThanOrEqual(before)
     expect(job.phrase).toBe('')
+  })
+})
+
+describe('retriedJob', () => {
+  it('re-queues a past job with the same module/method/backend/params and a new id', () => {
+    const original = startedJob({
+      id: 'train-original',
+      moduleId: 'dry-run',
+      method: 'studio-backend',
+      backend: 'self-hosted',
+      params: { wakePhrase: 'hey studio', steps: '5' },
+      startedAtMs: 1_000,
+    })
+    const retried = retriedJob(original, 'train-retry', 2_000)
+    expect(retried.id).toBe('train-retry')
+    expect(retried.status).toBe('queued')
+    expect(retried.moduleId).toBe('dry-run')
+    expect(retried.method).toBe('studio-backend')
+    expect(retried.backend).toBe('self-hosted')
+    expect(retried.params).toEqual({ wakePhrase: 'hey studio', steps: '5' })
+    expect(retried.phrase).toBe('hey studio')
+    expect(retried.startedAtMs).toBe(2_000)
+    expect(retried.artifactRef).toBeUndefined()
   })
 })
 

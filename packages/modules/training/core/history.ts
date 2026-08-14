@@ -86,6 +86,19 @@ export function startedJob(input: StartedJobInput): HistoryJob {
   }
 }
 
+/** A fresh run that retries a past job: same module/method/backend/params,
+ *  new id and timestamp (the run is re-queued on its endpoint). */
+export function retriedJob(job: HistoryJob, id: string, startedAtMs?: number): HistoryJob {
+  return startedJob({
+    id,
+    moduleId: job.moduleId,
+    method: job.method,
+    backend: job.backend,
+    params: job.params,
+    startedAtMs,
+  })
+}
+
 /** Map an artifact-bundle backend to a train method id. */
 export function backendToMethod(backend: TrainingJob['backend']): TrainMethodId {
   switch (backend) {

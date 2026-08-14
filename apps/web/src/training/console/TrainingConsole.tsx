@@ -19,6 +19,7 @@ import { Button } from '@radix-ui/themes'
 import {
   backendForMethod,
   importedJob,
+  retriedJob,
   sortJobsNewestFirst,
   startedJob,
   upsertJob,
@@ -239,6 +240,67 @@ export function TrainingConsole() {
     [platform, patchJob],
   )
 
+  // Retry a finished run: re-submit the same module/params as a fresh job on
+  // the same endpoint (new id, new list entry). Studio-backend jobs re-target
+  // their managed backend; Colab jobs re-target the pasted tunnel URL.
+  const handleRetry = useCallback(
+    (job: HistoryJob) => {
+      const id = `train-${Date.now()}`
+      const fresh = retriedJob(job, id)
+      const fail = (error: string) => {
+        recordJob({ ...fresh, status: 'failed', error, finishedAtMs: Date.now() })
+        setView({ kind: 'details', jobId: id })
+      }
+
+      if (job.method === 'studio-backend') {
+        const backend = job.backendId ? backends.find((b) => b.id === job.backendId) : undefined
+        const endpoint = backend?.baseUrl ?? job.endpoint
+        if (!endpoint) {
+          fail('No studio-backend endpoint to retry against — add the backend again.')
+          return
+        }
+        recordJob({ ...fresh, endpoint, backendId: job.backendId })
+        setView({ kind: 'details', jobId: id })
+        const client = createStudioClient(endpoint, backend?.token || undefined)
+        void client
+          .createJob(job.moduleId, job.params, id)
+          .then(() => patchJob(id, { submitted: true }))
+          .catch((err: unknown) =>
+            patchJob(id, {
+              status: 'failed',
+              error: err instanceof Error ? err.message : String(err),
+              finishedAtMs: Date.now(),
+            }),
+          )
+      } else if (job.method === 'colab') {
+        const endpoint = job.endpoint ?? job.tunnelUrl
+        if (!endpoint) {
+          fail('No Colab tunnel URL — paste one first, then retry.')
+          return
+        }
+        const token = platform['backend.apiKey'] || platform['backend.secret'] || undefined
+        recordJob({ ...fresh, endpoint, ...(job.tunnelUrl ? { tunnelUrl: job.tunnelUrl } : {}) })
+        setView({ kind: 'details', jobId: id })
+        const client = createStudioClient(endpoint, token)
+        void client
+          .createJob(job.moduleId, job.params, id)
+          .then(() => patchJob(id, { submitted: true }))
+          .catch((err: unknown) =>
+            patchJob(id, {
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          )
+      } else {
+        // CI and other methods have no studio-backend endpoint to resubmit to;
+        // record a fresh queued run for traceability.
+        recordJob(fresh)
+        setView({ kind: 'details', jobId: id })
+      }
+      rememberSelection('training', id)
+    },
+    [backends, platform, recordJob, patchJob],
+  )
+
   // Colab import success: record/update the job, open its review.
   const handleImported = useCallback(
     (result: ColabImportResult) => {
@@ -335,6 +397,7 @@ export function TrainingConsole() {
                   onImported={handleImported}
                   onTunnelUrlChange={(url) => patchJob(selectedJob.id, { tunnelUrl: url }, true)}
                   onConnectColab={() => handleConnectColab(selectedJob)}
+                  onRetry={() => handleRetry(selectedJob)}
                   onLiveUpdate={(patch: StudioJobPatch) => patchJob(selectedJob.id, patch)}
                   onDelete={() => handleDeleteJob(selectedJob.id)}
                 />
