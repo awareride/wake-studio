@@ -5,10 +5,11 @@
 - **Plan phase:** ADR-013 + docs/roadmap.md Phase 5
 - **Related ADRs:** ADR-005 (self-hosted service), ADR-013 (training backends:
   Self-hosted / Cloud Providers / Colab), ADR-022 (data-source layer),
-  ADR-023 (Colab backend), ADR-028 (uv train scripts)
+  ADR-023 (Colab backend), ADR-028 (uv train scripts), ADR-036 (self-hosted
+  service = job-manager API)
 - **Depends on (modules):** kws drivers (models to train), data-sources,
   export (provenance/license)
-- **Last updated:** 2026-08-05
+- **Last updated:** 2026-08-14
 
 ## 1. Purpose
 
@@ -41,8 +42,10 @@ interface TrainingJob {
   params: Record<string, string> // backend-agnostic job params (from the panel)
   backend: 'self-hosted' | 'cloud' | 'colab'
   provider?: string             // cloud: 'aws' | 'gcp' | 'hf' | 'alibaba' | 'tencent' | 'volcengine'
-  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled'
-  progress?: number             // 0..1
+  status: 'queued' | 'running' | 'paused' | 'succeeded' | 'failed' | 'canceled'
+  progress?: number             // 0..1 (from the last NDJSON progress line, §4.4)
+  metrics?: Record<string, number> // latest metrics (loss etc.), forwarded from report lines
+  logTail?: string              // recent log lines (also served by GET /jobs/{id}/logs)
   artifactBundle?: ArtifactBundleRef
   error?: string
   createdAtMs: number
@@ -60,46 +63,68 @@ interface ArtifactBundleRef {
 
 | Backend | submit | poll | retrieve | Credentials |
 |---|---|---|---|---|
-| Self-hosted (studio-backend) | `POST /modules/:id/train` | `GET /modules/:id/status` | `GET /modules/:id/artifacts/<name>` | none (localhost trust) |
+| Self-hosted (studio-backend, ADR-036) | `POST /jobs` (+ `POST /jobs/{id}/start`) | `GET /jobs/{id}` (+ `GET /stream` SSE) | `GET /artifacts/{job_id}/{name}` (sha256) | token on mutating endpoints (ADR-036 §5) |
 | Cloud Provider | provider API (submit job) | provider API (status) | presigned/download URL | client-side only (ADR-013) |
-| Colab | open notebook (ADR-023) | user-driven (no polling) | import bundle from Drive/zip | user's Google account |
+| Colab | tunnel to the same studio-backend (§7.2, ADR-023 amendment) | same job endpoints | same artifact endpoints | user's Google account + tunnel URL |
 
-## 3. Self-hosted Service - studio-backend API (ADR-005)
+## 3. Self-hosted Service - studio-backend job API (ADR-005 + ADR-036)
 
-The PWA talks to `apps/studio-backend` on `localhost`. The skeleton server
-already exposes the train routes; this contract pins the shapes the PWA
-consumes:
+The PWA talks to the **studio-backend** (`apps/studio-backend`, Python /
+FastAPI / uv, ADR-036) on `localhost` (`uv run wake-service`) or through the
+Colab tunnel (§7.2). **The PWA drives jobs only** — the legacy module-train
+endpoints are retired from the PWA contract (ADR-036 §2).
 
 ```
-GET  /health
-GET  /modules                          -> catalog (spec + targets)
-GET  /modules/:id                      -> module spec + capabilities
-POST /modules/:id/train                -> run train script (uv, ADR-028)
-GET  /modules/:id/status               -> last train result
-GET  /modules/:id/artifacts/<name>     -> download a trained artifact
+GET    /health                       -> liveness + GPU info (capability labels)
+GET    /modules                      -> catalog (spec + targets; read-only)
+GET    /jobs                         -> list jobs
+POST   /jobs                         -> create + enqueue a job   [token]
+GET    /jobs/{id}                    -> status + progress + metrics
+POST   /jobs/{id}/start              -> start (or resume) a queued/paused job [token]
+POST   /jobs/{id}/pause              -> pause (checkpoint-and-hold)          [token]
+POST   /jobs/{id}/resume             -> resume from the last checkpoint      [token]
+POST   /jobs/{id}/cancel             -> cancel; keep partial outputs          [token]
+DELETE /jobs/{id}                    -> delete job + its artifacts            [token]
+GET    /jobs/{id}/logs               -> recent log lines
+GET    /artifacts/{job_id}/{name}    -> download (sha256 header, ETag)
+GET    /stream                       -> SSE: job status events (fallback: polling)
 ```
 
-**Auth:** localhost trust only (no tokens; binds 127.0.0.1 by default). If the
-service is deployed on Google Cloud (ADR-005), the PWA connects to the user's
-own endpoint - auth is a per-deployment concern (Phase 5).
+**Auth (ADR-036 §5):** a static token (CLI `--token` / env `WAKE_SERVICE_TOKEN`,
+set by the launcher, stored client-side per issue #52) is required on all
+mutating endpoints (marked `[token]`). Read endpoints are open — the
+trycloudflare URL is unguessable but public, so writes are protected and reads
+are not. `/health` is always open.
 
-**POST /modules/:id/train** body:
+**POST /jobs** body:
 
 ```jsonc
 {
-  "params": { "wakePhrase": "hey studio", "target": "mc", "epochs": "10" }
+  "moduleId": "kws-openwakeword",
+  "params": { "wakePhrase": "hey studio", "epochs": "10" }
   // backend-agnostic; forwarded to the module's train script as args
 }
 ```
 
-**Response** (synchronous today; Phase 5 may make it async with a job id):
+**Response** (202, async):
 
 ```jsonc
-{ "module": "kws-sherpa", "exitCode": 0, "outputs": { "checkpoint": "/abs/path/out/model.onnx" } }
+{ "id": "<client-or-server uuid>", "status": "queued" }
 ```
 
-**Status** is currently synchronous (the skeleton blocks on `runTrain`); Phase 5
-adds job queueing + streaming progress so the PWA shows live status.
+**Job lifecycle** (state machine):
+
+```
+new -> queued -> running <-> paused -> succeeded | failed | canceled
+         |            \-- resume (from checkpoint) --/
+```
+
+**Execution model (ADR-036 §3):** each job is a child OS process (`uv run
+<train script>` per ADR-028); the service supervises it and parses its stdout
+as NDJSON report lines (§4.4). Single-concurrency by default (one GPU);
+`--concurrency N` overrides. SQLite persists the queue + state across restarts
+(§6.5 — a Colab runtime restart does not lose jobs; checkpoint/resume covers
+idle drops per ADR-023).
 
 ## 4. Upstream-script adapters - we adapt to the script, not vice versa (human decision)
 
@@ -152,8 +177,8 @@ stays byte-identical; WakeStudio wraps it.
 
 | Where | What invokes the adapter | Notes |
 |---|---|---|
-| studio-backend | `train-runner.ts` (uv, ADR-028) | clones the pinned upstream ref into a cache, runs the upstream script, then normalizes outputs |
-| CI `train-<module>.yml` | same `train-runner` path | one code path, two callers (ADR-028) |
+| studio-backend | `uv run <train script>` (ADR-028, ADR-036) | the studio-backend job manager spawns the script as a subprocess, parses its NDJSON reports (§4.4), then normalizes outputs |
+| CI `train-<module>.yml` | the studio-backend runner path | one runner, two callers (ADR-028) |
 | Colab | the notebook itself (a WakeStudio-provided cell) | see §5 |
 
 ### 4.3 Standardize-results adapter (the normalization contract)
@@ -163,6 +188,37 @@ shape), it finds the model + metrics + provenance and produces the standard
 bundle (§6). Adapters are per-upstream-project (openWakeWord, micro-wake-word,
 wakeforge/ww_trainer, ...), each a small parser - the upstream artifact is
 never changed. This is exactly the "we package, we do not invent" stance.
+
+### 4.4 NDJSON reporting protocol (ADR-036 §3/§8)
+
+The train script (or its adapter wrapping an upstream script, ADR-031) writes
+**NDJSON report lines to stdout**. The service reads the pipe line-by-line and
+updates the job — the stdout pipe is the IPC channel; no shared state, works
+with any language:
+
+```jsonc
+{"event":"progress","step":2,"total":7,"progress":0.28,"message":"augmenting clips"}
+{"event":"metrics","loss":0.12,"far":0.02,"frr":0.01}
+{"event":"log","level":"info","message":"epoch 3/10 done"}
+{"event":"heartbeat","at":"2026-08-14T10:00:00Z"}
+{"event":"checkpoint","path":"out/checkpoint-3.pt"}
+{"event":"artifact","path":"out/model.onnx"}
+{"event":"error","message":"..."}
+{"event":"done","exitCode":0}
+```
+
+- `progress` → job `progress` (0..1); `metrics` → job `metrics`; `log` → job
+  `logTail` / `GET /jobs/{id}/logs`; `checkpoint` → resume point; `artifact` →
+  a produced artifact (moved into the artifacts dir); `error`/`done` → final
+  job state.
+- **Heartbeat** is mandatory-ish: a `--heartbeat` CLI flag on the service sets
+  the stale timeout (default 300s); a job with no heartbeat/`progress`/`log`
+  line for that long is marked `failed` (hung-job detection), not left
+  `running` forever.
+- Adapters emit these lines by wrapping the upstream script's output (progress
+  parsers per project); the script itself is never modified (ADR-031). The
+  `train-kit` package (`wake_train_kit.report`) provides the reporter so
+  module-owned scripts get this for free.
 
 ## 6. Artifact bundle manifest (single retrieval contract)
 
@@ -340,9 +396,9 @@ for every provider. Capability labels: train-capable vs inference-only.
 
 | ID | Question | Recommended default |
 |---|---|---|
-| T-1 | **studio-backend train: synchronous (current skeleton) vs async job + streaming** | Keep the synchronous skeleton for the module scaffolding (§6.5 Step B); add async queue + SSE streaming in docs/roadmap.md Phase 5. The PWA polls `GET /status`; a job id is added when the queue lands. |
+| T-1 | **studio-backend train: synchronous (current skeleton) vs async job + streaming** | ✅ **RESOLVED (human, 2026-08-14): async job-manager API adopted (ADR-036).** Jobs replace module endpoints; SSE `/stream` for realtime, `GET /jobs/{id}` polling as fallback; NDJSON reporting protocol (§4.4). |
 | T-2 | **Colab import: zip upload vs Drive picker** | Start with zip upload (no Drive API dependency); Drive picker as an enhancement. |
-| T-3 | **Artifact serving auth on a deployed self-hosted service** | Deferred to Phase 5 (per-deployment concern); localhost has no auth. |
+| T-3 | **Artifact serving auth on a deployed self-hosted service** | ✅ **RESOLVED (human, 2026-08-14): token on mutating endpoints (ADR-036 §5);** read endpoints open (public-but-unguessable tunnel URL); artifact download stays open. |
 | T-4 | **Where the bundle manifest lives in the PWA** | `packages/modules/training/core/manifest.ts` - the single importer used by all backends. |
 | T-5 | **Which modules have a `train/` target in v1** | kws drivers (sherpa: transduce model frozen, so NO train - it's inference-only per ADR-024 ASR-Decoding; openwakeword: traditional train in Phase 5; plix: encoder is frozen). Training targets land with docs/roadmap.md Phase 5 backends. |
 | T-6 | **Upstream-script adapters (§4): preserve scripts/notebooks as-is vs rewrite** | ✅ **RESOLVED (human, 2026-08-05): preserve.** WakeStudio adapts to the upstream artifact (declare invocation + normalize outputs), never rewrites it. Spec `train` gains `script`/`notebook` + `adapter`/`adapterOptions` fields. |
@@ -373,4 +429,4 @@ for every provider. Capability labels: train-capable vs inference-only.
 | 2026-08-13 | §7.3 fix (human feedback round 11, issue #105): the wizard container uses a FIXED height (`h-[calc(100dvh-12rem)]`, not `max-h`) so the pinned Back/Next/Save footer stays at the same height regardless of the step/config content length. | agent |
 | 2026-08-13 | §7.3 fix (human feedback round 12, issue #105): mobile footer went off-screen because the Training header wrapped taller — the header is now hidden while the wizard is open (the wizard has its own header + Cancel), so the chrome is constant and the pinned footer stays inside the viewport on both PC and mobile. | agent |
 | 2026-08-13 | §7.3 polish (human feedback round 13, issue #105): the training panel is a fixed-height split-scroll area — the train list and the train details each scroll independently within the panel (the page itself no longer scrolls). Verified with 15 jobs: both columns scroll internally, body does not. | agent |
-| 2026-08-13 | §7.3 polish (human feedback round 14, issue #105): the rail toggle moved into the TRAINS header (with a count badge); the bulk Clear button is gone — each train deletes itself via Details → Operations → Delete (confirm dialog; the imported model stays in the model library). When the rail is hidden, a small re-open control appears in the details pane. | agent |
+| 2026-08-14 | **§2/§3 rewritten + §4.4 added + T-1/T-3 resolved (ADR-036, human decision):** the self-hosted service becomes a Python FastAPI job-manager (`apps/studio-backend`, `uv run wake-service`); the PWA switches to jobs entirely (create/queue/start/pause/resume/cancel/delete, logs, artifacts, SSE); token auth on mutating endpoints; single-concurrency runner (CLI-configurable); SQLite persistence; NDJSON reporting protocol; subprocess-per-job execution model. The Node `apps/studio-backend` is removed; the Python service takes over the name (ADR-036 amendment, 2026-08-14). | agent |

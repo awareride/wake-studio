@@ -12,7 +12,7 @@
   "scripts": {
     "build": "pnpm --filter @wake-studio/web build",
     "dev": "pnpm --filter @wake-studio/web dev",
-    "dev:service": "pnpm --filter @wake-studio/studio-backend dev",
+    "dev:service": "uv run --project apps/studio-backend wake-service",
     "fetch:all": "pnpm -r fetch:all",
     "gen:wires": "node scripts/gen-module-wires.mjs --update",
     "gen:wires:check": "node scripts/gen-module-wires.mjs --check",

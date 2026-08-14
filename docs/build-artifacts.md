@@ -53,7 +53,7 @@ workflows are `workflow_dispatch` and never push.
 
 Train scripts are **not** built by these artifact workflows; they are run by the
 module's `train/` directory via `uv run` (ADR-028) from either the
-studio-backend (`train-runner.ts`, `subprocess` invocation) or a CI
+studio-backend (uv runner, `subprocess` invocation, ADR-036) or a CI
 `train-<module>.yml` workflow. The trained output (checkpoint + metrics) is
 registered in `model-registry.json` exactly like a built artifact — same
 hash/version/fetch discipline, so the web app and studio-backend consume

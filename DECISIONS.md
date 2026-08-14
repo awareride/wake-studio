@@ -1116,3 +1116,81 @@ applied per this log and may be overridden._
     passed to the notebook as job params/env — never embedded.
   - `kws-openwakeword` declares its notebook; the notebook itself lands in
     `packages/modules/kws/openwakeword/train/colab/train.ipynb` (issue #96).
+
+---
+
+## ADR-036 — Self-hosted training service: job-manager API, token auth, single-concurrency runner
+
+- **Status:** Accepted
+- **Origin:** Human product-direction update (2026-08-14): the self-hosted
+  service was postponed for lack of hosting resources, then revived as the
+  **Colab runtime service** — the training engine runs inside the user's Colab
+  session and is exposed through a Cloudflare tunnel (ADR-023 amendment, Q15 /
+  issue #106), giving a stable HTTP API without owning a server. Human-scoped
+  feature list: Train Manager (new / queue / start / stop / pause / delete),
+  Access Control, realtime training status, and `uv run` startup.
+- **Decision:**
+  1. **One Python (FastAPI) job-manager service, two launchers.** The service
+     is backend-agnostic: `uv run wake-service` runs it locally (the ADR-005
+     PyInstaller/Docker engine target), and a Colab notebook cell runs the same
+     service plus `cloudflared` glue. **cloudflared is launcher glue only** —
+     it never appears inside the service (no tunnel code, no URLs in the API).
+  2. **Job-based API replaces the module train endpoints.** The PWA switches to
+     jobs entirely: `POST /jobs` (create+enqueue), `GET /jobs` (list),
+     `GET /jobs/{id}` (status + metrics), `POST /jobs/{id}/start | pause |
+     resume | cancel`, `DELETE /jobs/{id}`, `GET /jobs/{id}/logs`,
+     `GET /artifacts/{name}` (sha256-served), `GET /stream` (SSE realtime),
+     `GET /health` (GPU info — capability labels, ADR-013). The legacy
+     `POST /modules/:id/train` shape is retired from the PWA contract.
+  3. **Each training job = one child OS process.** The service is a supervisor,
+     not a trainer: it spawns `uv run train.py` (ADR-028) per job. The stdout
+     pipe is the IPC channel — the train script (or its adapter, ADR-031)
+     emits **NDJSON report lines** (`progress`, `metrics`, `log`, `heartbeat`),
+     the service parses the pipe line-by-line and updates the job. Subprocess
+     isolation gives crash containment, clean kill (SIGTERM), and full GPU
+     memory reclaim on cancel.
+  4. **Single-concurrency by default**, configurable via CLI params
+     (`--concurrency N`) — one GPU, one running job, the rest queued.
+  5. **Token auth on mutating endpoints.** A static token (CLI/env, set in the
+     notebook launcher, stored client-side per issue #52) is required for
+     `start / pause / resume / cancel / delete / create`. Read endpoints
+     (`status`, `logs`, `artifacts`, `health`, `stream`) stay open — the
+     trycloudflare URL is unguessable but public; writes must not be.
+  6. **SQLite persistence** for the job queue + state, so a Colab runtime
+     restart does not lose the queue; combined with checkpoint/resume this
+     satisfies the ADR-023 amendment's idle-drop mitigation.
+  7. **Pause = checkpoint-and-hold.** Upstream scripts do not pause mid-epoch;
+     pause sends SIGTERM, keeps partial outputs/checkpoints, and resume
+     relaunches from the latest checkpoint. Cooperative pause (a script that
+     handles a signal) is an adapter-level enhancement, not a service contract.
+  8. **NDJSON reporting protocol is a locked contract** (§4 of
+     `docs/modules/training.md`): event lines `{"event":"progress", ...}`
+     etc., with a heartbeat so the service can detect hung jobs. Adapters wrap
+     upstream scripts unchanged (ADR-031) and translate stdout into NDJSON.
+- **Rationale:** The training core is Python (openWakeWord / PyTorch / Piper;
+   100% of the existing Colab notebook), ADR-031 forbids rewriting upstream
+   scripts, and ADR-005 already committed the engine to Python (PyInstaller) —
+   the Node `apps/studio-backend` was transitional. A job manager is the
+   natural superset of the submit-and-forget module contract (queue, lifecycle,
+   logs, auth, persistence). Subprocess-per-job is the only model that
+   satisfies crash isolation, kill semantics, and GPU-memory reclaim together.
+   One HTTP client / N backends (ADR-023 amendment) is preserved: the PWA
+   drives the Colab runtime exactly like a self-hosted endpoint.
+- **Consequences:**
+  - New `apps/studio-backend/` (Python, uv-managed, `uv run wake-service`)
+    **replaces the Node studio-backend**; module-train endpoints leave the PWA
+    contract.
+  - `docs/modules/training.md` §2/§3 rewritten: `TrainingJob.status` gains
+    `paused`; §3 becomes the job-manager API; §4 gains the NDJSON reporting
+    protocol; §10 T-1/T-3 resolved (async queue adopted; token auth adopted).
+  - PWA training client (`apps/web/src/training`) migrates from module
+    endpoints to `/jobs`; a cross-language contract test (OpenAPI → TS client
+    types via `openapi-typescript`) is a P2 follow-up.
+  - The Colab launcher notebook (service cell + cloudflared + URL reprint on
+    reconnect) is a follow-up task (ADR-023 amendment mechanism).
+- **Amendment (2026-08-14):** the Node `apps/studio-backend` is **removed**;
+  the Python service takes over the `apps/studio-backend` name and is the only
+  self-hosted implementation (the ADR-028 one-code-path for CI train workflows
+  now runs the Python runner). No package depends on the removed Node package;
+  the PWA was already client-side only. All references in this ADR and
+  `docs/modules/training.md` use `apps/studio-backend` (Python) going forward.

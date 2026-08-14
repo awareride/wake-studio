@@ -37,7 +37,7 @@ three before making changes.
 │  └─ modules/          # per-module specs, written just-in-time (plan §11)
 ├─ apps/
 │  ├─ web/              # PWA (React + Vite); public/ = model-registry.json, icons
-│  ├─ local-service/    # Node API service (Self-hosted training backend, ADR-005)
+│  ├─ studio-backend/   # Python/FastAPI job manager (Self-hosted training service, ADR-005/036)
 │  └─ cli/              # ops CLI (fetch, health, train trigger) - optional
 ├─ packages/
 │  ├─ contracts/        # shared types + schemas (module-spec, kws, afe, train)

@@ -234,7 +234,8 @@ or capability edits.
 - Invoked with `uv run --project <module>/train python train.py ...` from the
   module's working directory; artifacts land under `out/` and are registered in
   `model-registry.json` (ADR-027).
-- Both the studio-backend (`train-runner.ts`) and CI (`train-<module>.yml`, using
-  `astral-sh/setup-uv`) call the same command — one code path, two callers.
+- Both the studio-backend (`uv run` job runner, ADR-036) and CI
+  (`train-<module>.yml`, using `astral-sh/setup-uv`) call the same command —
+  one code path, two callers.
 - Docker is optional per module, only when system/GPU deps exceed what `uv`
   provides.

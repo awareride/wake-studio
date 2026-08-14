@@ -18,8 +18,8 @@ The training module is currently **scaffolding only**:
 
 - `packages/modules/training/` has the spec + generated panel + the
   `manifest.ts` artifact-bundle importer — but **no real train engine**.
-- `apps/studio-backend/` has `train-runner.ts` (the `uv`/self-hosted path) but
-  it is a skeleton and depends on a locally-run server + Python/PyTorch.
+- `apps/studio-backend/` (Python/FastAPI, ADR-036) is the self-hosted train
+  runner but it is a skeleton and depends on a locally-run server + Python/PyTorch.
 - There is **no module-owned Colab notebook** and **no cloud-provider adapter** yet.
 - No real train script exists in the repo: PLiX and sherpa encoders are frozen
   (ADR-024 inference-only), so the only trainable line is the **Traditional /

@@ -1,0 +1,7 @@
+{
+  "kws-openwakeword": {
+    "cwd": "../../packages/modules/kws/openwakeword/train",
+    "engine": "uv",
+    "entry": "train/train.py"
+  }
+}

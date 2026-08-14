@@ -94,11 +94,14 @@ ESP-SR, Infineon audio-front-end, and XMOS voice-interface docs):
 
 **What the backend does - and doesn't do (ADR-005 / ADR-013):**
 
-- **`apps/studio-backend/`** (`@wake-studio/studio-backend`, the "Self-hosted
-  Service" / evolution of the "Studio Engine") is WakeStudio's own **default
-  implementation of an optional execution backend**. It runs the work the PWA
-  cannot (or should not) do in the browser: module train scripts via uv
-  (ADR-028), and in later phases SDK / model generation.
+- **`apps/studio-backend/`** (Python/FastAPI, the "Self-hosted Service" /
+  evolution of the "Studio Engine", ADR-005/036) is WakeStudio's own **default
+  implementation of an optional execution backend**. It is a **job manager**: it
+  runs the work the PWA cannot (or should not) do in the browser — module train
+  scripts as subprocesses via uv (ADR-028), with a job API (queue,
+  start/pause/resume/cancel, logs, sha256 artifacts, SSE), token auth on
+  mutating endpoints, and SQLite persistence. Start it with `uv run
+  wake-service` (ADR-036).
 - **It is NOT required.** The PWA is fully functional without it: a user can
   point the web app at **their own backend API** (self-deployed), or run
   training on a **Cloud Provider** (Hugging Face, Google Cloud, ...) or
@@ -121,13 +124,15 @@ wake-studio/                          # pnpm workspace root
 │   │   ├── src/
 │   │   ├── public/                   # model-registry.json, icons (ADR-011 registry)
 │   │   └── e2e/                      # L3 browser tests (ADR-026)
-│   ├── studio-backend/             # optional execution backend (ADR-005 Self-hosted Service)
-│   │   ├── src/
-│   │   │   ├── server.ts             # HTTP server (zero-dep Node http)
-│   │   │   ├── module-registry.ts    # reads module.spec.json -> mounts module /node routes
-│   │   │   ├── train-runner.ts       # spawns module train scripts via uv (ADR-028)
-│   │   │   └── (artifact-sync lands with ADR-027 fetch SOP)
-│   │   └── tests/
+│   ├── studio-backend/             # optional execution backend (ADR-005/036 Self-hosted Service)
+│   │   ├── pyproject.toml          # uv-managed Python project (ADR-028)
+│   │   ├── registry.json           # module id -> train-command mapping
+│   │   └── src/wake_training_service/
+│   │       ├── app.py              # FastAPI job API (docs/modules/training.md §3)
+│   │       ├── manager.py          # queue + subprocess supervisor (NDJSON, ADR-036)
+│   │       ├── store.py            # SQLite job store (survives restarts)
+│   │       └── cli.py              # `uv run wake-service` entry
+│   │   └── tests/                  # pytest (fake train script, no GPU)
 ├── packages/
 │   ├── platform/                     # @wake-studio/platform - shared capability layer (Q-P1)
 │   │   └── src/                      # base-path (ADR-012), model registry (ADR-011),
@@ -167,7 +172,7 @@ wake-studio/                          # pnpm workspace root
   `/node`, `/spec`, `/train`, `/device` subpaths; each world imports only what it
   needs (§3.2).
 - **module.spec.json is the single shared fact source** — the web panel generator,
-  the studio-backend route registry, and the CI build/train workflows all derive
+  the studio-backend module registry, and the CI build/train workflows all derive
   from one spec per module.
 - **device/** is the C world root and stays separate from the JS world (its own
   CMake build tree); module `device/` directories are pulled in via
