@@ -1,5 +1,10 @@
 # WakeStudio
 
+> ⚠️ **Work in progress.** WakeStudio is under active development — APIs, module
+> contracts, and UI are evolving and **may change without notice**. Not yet
+> production-ready. See [`docs/roadmap.md`](./docs/roadmap.md) for where things
+> stand.
+
 > Go from "I have a wake-word idea" to "a deployable, testable KWS bundle for my
 > target chip" - **without installing any toolchain, runtime, or Python.**
 
@@ -17,11 +22,11 @@ models.**
 
 ## Status
 
-Phases 0–3 shipped (AFE, KWS, Few-Shot, console/studio productization), and
-the module platform migration (ADR-025) is complete: all functional areas
-(AFE stages, KWS engine + drivers, Few-Shot, Training) are self-contained
-modules with specs + generated panels. Phase 4 (device SDK + export kits) is
-next. See [`docs/roadmap.md`](./docs/roadmap.md) for the full phased roadmap and
+**This project is work in progress (WIP).** While phases 0–3 shipped (AFE,
+KWS, Few-Shot, console/studio productization) and the module platform
+migration (ADR-025) is complete, v1 is not released: everything below can
+change. Phase 4 (device SDK + export kits) is next. See
+[`docs/roadmap.md`](./docs/roadmap.md) for the full phased roadmap and
 [`DECISIONS.md`](./DECISIONS.md) for recorded decisions.
 
 | Phase | Goal | Status |
