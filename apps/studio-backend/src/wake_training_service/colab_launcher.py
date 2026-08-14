@@ -34,6 +34,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
 import re
 import secrets
 import shutil
@@ -58,23 +59,66 @@ def parse_tunnel_url(line: str) -> str | None:
     return m.group(0) if m else None
 
 
+def cloudflared_download_url(arch: str | None = None) -> str:
+    """GitHub latest-release URL for the cloudflared binary for `arch`.
+
+    Maps the local machine arch to the release asset name
+    (cloudflared-linux-<goarch>). Pass arch explicitly to test the mapping.
+    """
+    goarch = {
+        "x86_64": "amd64", "amd64": "amd64", "i386": "386", "i686": "386",
+        "aarch64": "arm64", "arm64": "arm64", "armv7l": "arm", "armv6l": "arm",
+    }.get((arch or platform.machine()).lower())
+    if goarch is None:
+        raise RuntimeError(
+            "unsupported platform for automatic cloudflared download: "
+            f"{arch or platform.machine()}"
+        )
+    return (
+        "https://github.com/cloudflare/cloudflared/releases/latest/download/"
+        f"cloudflared-linux-{goarch}"
+    )
+
+
+def _download_cloudflared(dest: Path, print_fn: Callable[[str], None]) -> None:
+    """Download the cloudflared binary to `dest` (user-writable, no root)."""
+    url = cloudflared_download_url()
+    print_fn(f"[wake-colab] downloading cloudflared ({url}) …")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_name(dest.name + ".part")
+    try:
+        with urllib.request.urlopen(url, timeout=180) as res, tmp.open("wb") as out:
+            shutil.copyfileobj(res, out)
+        os.chmod(tmp, 0o755)
+        # sanity check: a real binary must run and report a version
+        subprocess.run([str(tmp), "--version"], capture_output=True, timeout=30, check=True)
+        tmp.replace(dest)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 def find_or_install_cloudflared(print_fn: Callable[[str], None] = print) -> str:
-    """Locate the cloudflared binary; pip-install it if missing (no root)."""
+    """Locate the cloudflared binary; download it if missing (no root).
+
+    The old `pip install cloudflared` route is gone — the PyPI package no
+    longer exists (404). Cloudflare ships standalone binaries only, so we
+    fetch the GitHub latest release into ~/.local/bin (ADR-023).
+    """
     found = shutil.which("cloudflared")
     if found:
         return found
-    print_fn("[wake-colab] cloudflared not found — installing via pip …")
-    subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-q", "cloudflared"],
-        check=False,
-    )
-    found = shutil.which("cloudflared")
-    if not found:
+    dest = Path.home() / ".local" / "bin" / "cloudflared"
+    if dest.is_file():
+        return str(dest)
+    try:
+        _download_cloudflared(dest, print_fn)
+    except Exception as exc:  # noqa: BLE001
         raise RuntimeError(
-            "cloudflared is not available and pip install failed. "
-            "Install it manually (https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)."
-        )
-    return found
+            f"cloudflared is not available and the automatic download failed: {exc}. "
+            "Install it manually (https://developers.cloudflare.com/tunnel/downloads/), "
+            "put it on PATH, or pass cloudflared=<path> to launch()."
+        ) from exc
+    return str(dest)
 
 
 class ColabLauncher:
