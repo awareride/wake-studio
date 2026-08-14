@@ -29,6 +29,7 @@ import { TrainParamsPanel } from '@wake-studio/module-training/web'
 import { cn } from '../../components/cn'
 import { IconChevronRight } from '../../components/icons'
 import { useAppSettings } from '../../settings'
+import { TRAIN_NEW_HASH_PREFIX, trainNewStepFromHash } from '../../router'
 import { findTrainableModule, type TrainableModule } from '../train-modules'
 import { ConfirmDialog } from './ConfirmDialog'
 import { InlineGuide } from './InlineGuide'
@@ -69,6 +70,30 @@ export function NewTrainWizard({
   const [reviewing, setReviewing] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const { backends } = useAppSettings()
+
+  // Wizard steps are hash-encoded (`#/training/new[/<step>]`, issue #136):
+  // every step is its own history entry, so browser back/forward walk the
+  // steps instead of leaving the Training view. Hash changes sync the step.
+  useEffect(() => {
+    const onHash = () => {
+      const s = trainNewStepFromHash(window.location.hash)
+      setStep(STEP_ORDER.includes(s as TrainingStepId) ? (s as TrainingStepId) : 'model')
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  /** Advance a step as a forward history entry (browser back can undo it). */
+  const goNext = useCallback(() => {
+    const n = advanceStep(step) ?? step
+    setStep(n)
+    window.location.hash = `#${TRAIN_NEW_HASH_PREFIX}/${n}`
+  }, [step])
+
+  /** Go back one step by popping history — never push (issue #136). */
+  const goBack = useCallback(() => {
+    window.history.back()
+  }, [])
 
   const module = findTrainableModule(modules, moduleId ?? undefined)
   const def = STEP_DEFS.find((d) => d.id === step) ?? STEP_DEFS[0]
@@ -244,7 +269,7 @@ export function NewTrainWizard({
         <div className="flex items-center justify-between">
           <Button
             type="button"
-            onClick={() => setStep(STEP_ORDER[STEP_ORDER.indexOf(step) - 1])}
+            onClick={goBack}
             disabled={!canGoBack(step)}
             variant="outline"
             size="2"
@@ -254,7 +279,7 @@ export function NewTrainWizard({
           {next ? (
             <Button
               type="button"
-              onClick={() => setStep(advanceStep(step) ?? step)}
+              onClick={goNext}
               disabled={!canNext}
               size="2"
             >

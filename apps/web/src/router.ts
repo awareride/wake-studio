@@ -4,6 +4,11 @@
  * Views are keyed by hash path, e.g. `#/workspace`, `#/library`,
  * `#/projects`, `#/playground/rnnoise`. Deep-linkable and bookmarkable.
  * Unknown hashes fall back to the default view.
+ *
+ * Sub-route hashes: `#/settings/modules/<backendId>` keeps the Settings
+ * Modules view focused on a driver; `#/training/new[/<step>]` opens the
+ * New-train wizard (each step is its own history entry so browser back
+ * walks the steps, issue #136).
  */
 
 import * as React from 'react'
@@ -130,8 +135,24 @@ export function settingsSectionOf(route: ConsoleRoute): SettingsSection | undefi
   }
 }
 
+/** Hash prefix of the New-train wizard full panel: `#/training/new[/<step>]`. */
+export const TRAIN_NEW_HASH_PREFIX = '/training/new'
+
+/**
+ * The New-train wizard step embedded in the hash, if any.
+ * `#/training/new` (no step) means the wizard's first step; this returns
+ * `undefined` for it and for any non-wizard hash.
+ */
+export function trainNewStepFromHash(hash: string): string | undefined {
+  const raw = hash.replace(/^#/, '')
+  if (!raw.startsWith(`${TRAIN_NEW_HASH_PREFIX}/`)) return undefined
+  return raw.slice(TRAIN_NEW_HASH_PREFIX.length + 1).split('/')[0] || undefined
+}
+
 function parseHash(): ConsoleRoute {
   const raw = window.location.hash.replace(/^#/, '')
+  // /training/new[/<step>] is the New-train wizard inside the Training view.
+  if (raw.startsWith(TRAIN_NEW_HASH_PREFIX)) return 'training'
   // /settings/modules/<backendId> also maps to settings-modules.
   if (raw.startsWith('/settings/modules/')) return 'settings-modules'
   return ROUTE_BY_HASH[raw] ?? DEFAULT_ROUTE

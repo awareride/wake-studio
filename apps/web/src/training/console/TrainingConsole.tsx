@@ -29,6 +29,7 @@ import { deleteJob, listJobs, saveJob } from '@wake-studio/module-training'
 import { ConsolePanel } from '../../components/ConsolePanel'
 import { IconWand } from '../../components/icons'
 import { useAppSettings } from '../../settings'
+import { TRAIN_NEW_HASH_PREFIX } from '../../router'
 import { NewTrainWizard } from './NewTrainWizard'
 import { TrainDetails } from './TrainDetails'
 import { TrainList } from './TrainList'
@@ -65,8 +66,16 @@ export function TrainingConsole() {
         lastHashRef.current = target
         return
       }
-      if (viewRef.current.kind !== 'wizard' || !wizardDirtyRef.current) {
+      // Walking wizard steps (`#/training/new[/<step>]`, issue #136) is always
+      // allowed; the guard fires only when the hash leaves the wizard route.
+      const leavingWizard =
+        viewRef.current.kind === 'wizard' &&
+        !target.startsWith(`#${TRAIN_NEW_HASH_PREFIX}`)
+      if (!leavingWizard || !wizardDirtyRef.current) {
         lastHashRef.current = target
+        // Leaving without unsaved progress (e.g. browser back to the Trains
+        // list): close the wizard and return to the pre-wizard view.
+        if (leavingWizard) setView((v) => (v.kind === 'wizard' ? v.from : v))
         return
       }
       // Revert and ask.
@@ -75,6 +84,14 @@ export function TrainingConsole() {
     }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  // A refresh while the wizard was open leaves a `#/training/new/...` hash but
+  // no wizard state — drop the stale entry so back/forward behave (issue #136).
+  useEffect(() => {
+    if (location.hash.startsWith(`#${TRAIN_NEW_HASH_PREFIX}`)) {
+      location.replace('#/training')
+    }
   }, [])
 
   const handleDirtyChange = useCallback((dirty: boolean) => {
@@ -179,6 +196,10 @@ export function TrainingConsole() {
         recordJob(job)
         setView({ kind: 'details', jobId: job.id })
       }
+      // The wizard's step entries stay in history — replace the current one
+      // with the Trains list so back from the details pane does not re-enter
+      // the finished wizard (issue #136).
+      location.replace('#/training')
     },
     [backends, recordJob, patchJob],
   )
@@ -239,7 +260,12 @@ export function TrainingConsole() {
         <NewTrainWizard
           modules={modules}
           onStarted={handleWizardStarted}
-          onCancel={() => setView(view.from)}
+          onCancel={() => {
+            setView(view.from)
+            // Replace the current step entry (not push) so the Trains list is
+            // the new top of history (issue #136).
+            location.replace('#/training')
+          }}
           onDirtyChange={handleDirtyChange}
         />
       ) : (
@@ -249,7 +275,12 @@ export function TrainingConsole() {
           actions={
             <Button
               type="button"
-              onClick={() => setView({ kind: 'wizard', from: view })}
+              onClick={() => {
+                setView({ kind: 'wizard', from: view })
+                // Opening the wizard is a history entry itself: browser back
+                // from step 1 returns to the Trains list (issue #136).
+                location.hash = `#${TRAIN_NEW_HASH_PREFIX}`
+              }}
               size="2"
               className="shrink-0 gap-1.5 font-semibold"
             >
@@ -323,6 +354,9 @@ export function TrainingConsole() {
           if (confirmNav) {
             navGuardRef.current = true
             location.hash = confirmNav.target
+            // Leave the wizard too — the hash may be the Trains list itself
+            // (browser back), which does not unmount the console (issue #136).
+            setView((v) => (v.kind === 'wizard' ? v.from : v))
           }
           setConfirmNav(null)
         }}
