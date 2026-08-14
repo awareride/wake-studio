@@ -92,6 +92,44 @@ r.artifact("out/model.onnx")
 r.done()
 ```
 
+## Colab launcher (issue #123, ADR-023 amendment)
+
+The same service runs inside a Colab runtime, exposed through a free
+`trycloudflare` tunnel — the PWA drives Colab exactly like the self-hosted
+backend (one HTTP client, N backends). `cloudflared` is launcher glue only:
+
+```python
+# in a Colab cell (after pip install from this repo, see below)
+import os, secrets
+from wake_training_service.colab_launcher import launch
+
+launcher = launch(
+    registry={
+        "kws-openwakeword": {
+            "cwd": "/content/openwakeword",
+            "engine": "uv",          # or "direct" for the notebook's Python
+            "entry": "train.py",
+        },
+    },
+    token=os.environ.get("WAKE_SERVICE_TOKEN") or secrets.token_urlsafe(24),
+)
+url = launcher.wait_for_url(timeout=120)
+print(f"Paste this into WakeStudio -> Training -> Connect: {url}")
+```
+
+- The launcher starts the service (uvicorn thread) + `cloudflared`
+  (subprocess), prints the tunnel URL, and **re-prints a fresh URL when the
+  connection drops or the runtime reconnects** (Colab idle-kill mitigation,
+  ADR-023 amendment).
+- The token is printed for the user to paste into Settings → Security →
+  backend secret (ADR-036 §5 — mutations are token-gated).
+- Install from the repo in Colab: `pip install
+  "git+https://github.com/awareride/wake-studio@main#subdirectory=apps/studio-backend"`
+- CLI equivalent: `python -m wake_training_service.colab_launcher
+  --module kws-openwakeword --cwd /content/openwakeword --entry train.py`
+- The module-owned openwakeword notebook has the launcher built in as
+  **Step 1.5** (`packages/modules/kws/openwakeword/train/colab/train.ipynb`).
+
 ## Tests
 
 ```bash
