@@ -18,6 +18,7 @@ import {
   ChevronRightIcon,
   CodeIcon,
   Component2Icon,
+  CubeIcon,
   GearIcon,
   HamburgerMenuIcon,
   MagicWandIcon,
@@ -81,6 +82,7 @@ export const IconMenu = fromRadix(HamburgerMenuIcon)
 
 /** Training (Radix has no flask; the beaker-with-liquid half of MixIcon). */
 export const IconTrain = fromRadix(MixIcon)
+export const IconServer = fromRadix(CubeIcon)
 
 /** Console (Radix has no terminal; code brackets are the closest match). */
 export const IconConsole = fromRadix(CodeIcon)

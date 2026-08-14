@@ -28,6 +28,7 @@ import {
 import { TrainParamsPanel } from '@wake-studio/module-training/web'
 import { cn } from '../../components/cn'
 import { IconChevronRight } from '../../components/icons'
+import { useAppSettings } from '../../settings'
 import { findTrainableModule, type TrainableModule } from '../train-modules'
 import { ConfirmDialog } from './ConfirmDialog'
 import { InlineGuide } from './InlineGuide'
@@ -40,8 +41,14 @@ import { trainInputFile } from './train-files'
 
 export interface NewTrainWizardProps {
   modules: TrainableModule[]
-  /** Called with the finalized train when the user confirms (Save/Start). */
-  onStarted: (moduleId: string, method: TrainMethodId, params: Record<string, string>) => void
+  /** Called with the finalized train when the user confirms (Save/Start).
+   *  backendId is set when the Studio-backend method picked a managed backend. */
+  onStarted: (
+    moduleId: string,
+    method: TrainMethodId,
+    params: Record<string, string>,
+    backendId?: string,
+  ) => void
   onCancel: () => void
   /** Notified when the wizard gains/loses unsaved progress (nav guard). */
   onDirtyChange?: (dirty: boolean) => void
@@ -56,10 +63,12 @@ export function NewTrainWizard({
   const [step, setStep] = useState<TrainingStepId>('model')
   const [moduleId, setModuleId] = useState<string | null>(null)
   const [method, setMethod] = useState<TrainMethodId | null>(null)
+  const [backendId, setBackendId] = useState<string | null>(null)
   const [params, setParams] = useState<Record<string, string>>({})
   const [starting, setStarting] = useState(false)
   const [reviewing, setReviewing] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
+  const { backends } = useAppSettings()
 
   const module = findTrainableModule(modules, moduleId ?? undefined)
   const def = STEP_DEFS.find((d) => d.id === step) ?? STEP_DEFS[0]
@@ -92,18 +101,28 @@ export function NewTrainWizard({
 
   const canNext =
     canAdvance(step) &&
-    (step === 'model' ? moduleId !== null : step === 'method' ? method !== null : true)
+    (step === 'model'
+      ? moduleId !== null
+      : step === 'method'
+        ? method !== null && (method !== 'studio-backend' || backendId !== null)
+        : true)
 
   const selectModule = useCallback((id: string) => {
     setModuleId(id)
     setMethod(null)
+    setBackendId(null)
+  }, [])
+
+  const selectMethod = useCallback((m: TrainMethodId) => {
+    setMethod(m)
+    setBackendId(null)
   }, [])
 
   const handleStart = useCallback(() => {
     if (!module || !method) return
     setStarting(true)
-    onStarted(module.id, method, params)
-  }, [module, method, params, onStarted])
+    onStarted(module.id, method, params, backendId ?? undefined)
+  }, [module, method, params, backendId, onStarted])
 
   const requestCancel = useCallback(() => {
     if (dirty) setConfirmCancel(true)
@@ -192,7 +211,14 @@ export function NewTrainWizard({
         {step === 'config' && module && <ConfigStep module={module} />}
 
         {step === 'method' && module && (
-          <MethodStep module={module} selected={method} onSelect={setMethod} />
+          <MethodStep
+            module={module}
+            selected={method}
+            onSelect={selectMethod}
+            backends={backends}
+            selectedBackendId={backendId}
+            onSelectBackend={setBackendId}
+          />
         )}
 
         {step === 'ready' && module && method && (
@@ -200,6 +226,7 @@ export function NewTrainWizard({
             module={module}
             method={method}
             params={params}
+            backend={backends.find((b) => b.id === backendId) ?? null}
             onReview={() => setReviewing(true)}
           />
         )}

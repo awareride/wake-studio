@@ -76,7 +76,7 @@ describe('platform settings', () => {
     const custom = {
       ...PLATFORM_DEFAULTS,
       theme: 'dark' as ThemeMode,
-      'backend.endpoint': 'http://x',
+      'data.upload': true,
     }
     savePlatformSettings(custom)
     expect(loadPlatformSettings()).toEqual(custom)

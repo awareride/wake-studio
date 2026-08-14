@@ -4,8 +4,9 @@
  * Subscribes to a backend job (SSE /stream when available, polling
  * fallback — see StudioClient.subscribe) and exposes lifecycle actions
  * (start/pause/resume/cancel/delete) plus a manual refresh. The endpoint
- * is the Settings `backend.endpoint` for self-hosted jobs or the Colab
- * tunnel URL; the token is the Settings secret (Bearer on mutations only).
+ * is the managed backend URL for Studio-backend jobs or the Colab tunnel
+ * URL; the token is the backend's own token (or the Settings secrets as
+ * fallback) — Bearer on mutations only.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'

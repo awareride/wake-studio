@@ -12,6 +12,7 @@ export type ConsoleRoute =
   | 'workspace'
   | 'library'
   | 'training'
+  | 'backends'
   | 'projects'
   | 'console'
   | 'playground-rnnoise'
@@ -31,6 +32,7 @@ const ROUTE_BY_HASH: Record<string, ConsoleRoute> = {
   '/workspace': 'workspace',
   '/library': 'library',
   '/training': 'training',
+  '/backends': 'backends',
   '/projects': 'projects',
   '/console': 'console',
   '/playground/rnnoise': 'playground-rnnoise',
@@ -75,6 +77,8 @@ export function routeToHash(route: ConsoleRoute): string {
       return '/library'
     case 'training':
       return '/training'
+    case 'backends':
+      return '/backends'
     case 'projects':
       return '/projects'
     case 'console':

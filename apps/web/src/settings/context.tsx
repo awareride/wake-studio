@@ -22,6 +22,8 @@ import {
   resetSettings,
 } from './storage'
 import type { KwsSourcesSettings } from './storage'
+import { loadBackends, removeBackend as storageRemoveBackend, saveBackends, upsertBackend as storageUpsertBackend } from '../backends/storage'
+import type { ManagedBackend } from '../backends/types'
 import type { ModuleSettings, PlatformSettings, PlatformSettingId, ThemeMode, AccentTheme } from './types'
 
 interface SettingsContextValue {
@@ -37,6 +39,10 @@ interface SettingsContextValue {
   /** App-level KWS model-source defaults (#52/#53 layered persistence). */
   kwsSources: KwsSourcesSettings
   setKwsSources: (s: KwsSourcesSettings) => void
+  /** Managed training backends (Backends menu). */
+  backends: ManagedBackend[]
+  upsertBackend: (b: ManagedBackend) => void
+  removeBackend: (id: string) => void
   /** Reset everything to defaults (clears localStorage). */
   reset: () => void
   /** The theme that is actually applied (system resolved). */
@@ -88,6 +94,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   )
   const [kwsSources, setKwsSourcesState] = React.useState<KwsSourcesSettings>(() =>
     loadKwsSources(),
+  )
+  const [backends, setBackendsState] = React.useState<ManagedBackend[]>(() =>
+    loadBackends(),
   )
   // Follow OS theme changes when in `system` mode.
   const [osTheme, setOsTheme] = React.useState<'light' | 'dark'>('light')
@@ -148,10 +157,20 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     setKwsSourcesState(s)
   }, [])
 
+  const upsertBackend = React.useCallback((b: ManagedBackend) => {
+    setBackendsState((prev) => storageUpsertBackend(prev, b))
+  }, [])
+
+  const removeBackend = React.useCallback((id: string) => {
+    setBackendsState((prev) => storageRemoveBackend(prev, id))
+  }, [])
+
   const reset = React.useCallback(() => {
     resetSettings()
     setPlatformState({ ...PLATFORM_DEFAULTS })
     setModuleState({})
+    setBackendsState([])
+    saveBackends([])
   }, [])
 
   const value: SettingsContextValue = {
@@ -164,6 +183,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     resolvedTheme,
     kwsSources,
     setKwsSources,
+    backends,
+    upsertBackend,
+    removeBackend,
   }
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>

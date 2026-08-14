@@ -44,6 +44,8 @@ export interface HistoryJob {
    * job and exposes live actions (issue #122).
    */
   endpoint?: string
+  /** The managed backend this job was submitted to (Backends menu), if any. */
+  backendId?: string
   /** True once the job has been submitted to its endpoint (POST /jobs). */
   submitted?: boolean
   /** Live progress 0..1 reported by the backend (issue #122). */
