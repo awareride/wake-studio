@@ -353,7 +353,9 @@ synthesis (`docs/modules/data-sources.md`) — invokes
 `python -m kws_streaming.train.model_train_eval` **unchanged**, and normalizes
 the run dir into the standard artifact bundle (`docs/modules/training.md` §6).
 The studio-backend registry (`apps/studio-backend/registry.json`) maps the job
-params to `STREAM_*` env vars.
+params to `STREAM_*` env vars. The module declares `studio-backend` + `ci`
+invocations; a Colab notebook for this module is deferred until one is
+module-owned (no `.ipynb` exists yet).
 
 ### 6.4 Build inputs
 

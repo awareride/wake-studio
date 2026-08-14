@@ -172,8 +172,7 @@
         },
         "invocation": [
           "studio-backend",
-          "ci",
-          "colab"
+          "ci"
         ],
         "params": [
           {
