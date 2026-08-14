@@ -4,6 +4,12 @@
  * Views are keyed by hash path, e.g. `#/workspace`, `#/library`,
  * `#/projects`, `#/playground/rnnoise`. Deep-linkable and bookmarkable.
  * Unknown hashes fall back to the default view.
+ *
+ * Sub-route hashes: `#/settings/modules/<backendId>` keeps the Settings
+ * Modules view focused on a driver; `#/training/new[/<step>]` opens the
+ * New-train wizard (each step is its own history entry so browser back
+ * walks the steps, issue #136); `#/training/review/<jobId>` and
+ * `#/backends/new|colab[/preview]` are back-closeable sub-panels.
  */
 
 import * as React from 'react'
@@ -130,8 +136,53 @@ export function settingsSectionOf(route: ConsoleRoute): SettingsSection | undefi
   }
 }
 
+/** Hash prefix of the New-train wizard full panel: `#/training/new[/<step>]`. */
+export const TRAIN_NEW_HASH_PREFIX = '/training/new'
+
+/**
+ * The New-train wizard step embedded in the hash, if any.
+ * `#/training/new` (no step) means the wizard's first step; this returns
+ * `undefined` for it and for any non-wizard hash.
+ */
+export function trainNewStepFromHash(hash: string): string | undefined {
+  const raw = hash.replace(/^#/, '')
+  if (!raw.startsWith(`${TRAIN_NEW_HASH_PREFIX}/`)) return undefined
+  return raw.slice(TRAIN_NEW_HASH_PREFIX.length + 1).split('/')[0] || undefined
+}
+
+/** True for a New-train wizard review hash, e.g. `#/training/new/ready/review`. */
+export function trainNewReviewFromHash(hash: string): boolean {
+  const raw = hash.replace(/^#/, '')
+  return raw.startsWith(`${TRAIN_NEW_HASH_PREFIX}/`) && raw.endsWith('/review')
+}
+
+/** Hash prefix of a train-details notebook review: `#/training/review/<jobId>`. */
+export const TRAIN_REVIEW_HASH_PREFIX = '/training/review'
+
+/** The train job id embedded in a review hash, e.g. `#/training/review/train-…`. */
+export function trainReviewJobFromHash(hash: string): string | undefined {
+  const raw = hash.replace(/^#/, '')
+  if (!raw.startsWith(`${TRAIN_REVIEW_HASH_PREFIX}/`)) return undefined
+  return raw.slice(TRAIN_REVIEW_HASH_PREFIX.length + 1).split('/')[0] || undefined
+}
+
+/** Hash prefix of the Backends view sub-panels: `#/backends/new|colab[/preview]`. */
+export const BACKENDS_HASH_PREFIX = '/backends'
+
+/** Backends sub-route embedded in the hash, e.g. 'new', 'colab', 'colab/preview'. */
+export function backendsSubFromHash(hash: string): string | undefined {
+  const raw = hash.replace(/^#/, '')
+  if (!raw.startsWith(`${BACKENDS_HASH_PREFIX}/`)) return undefined
+  return raw.slice(BACKENDS_HASH_PREFIX.length + 1)
+}
+
 function parseHash(): ConsoleRoute {
   const raw = window.location.hash.replace(/^#/, '')
+  // /training/new[/<step>] and /training/review/<jobId> live inside Training.
+  if (raw.startsWith(TRAIN_NEW_HASH_PREFIX)) return 'training'
+  if (raw.startsWith(TRAIN_REVIEW_HASH_PREFIX)) return 'training'
+  // /backends/new|colab[/preview] are Backends full-panel modes.
+  if (raw.startsWith(`${BACKENDS_HASH_PREFIX}/`)) return 'backends'
   // /settings/modules/<backendId> also maps to settings-modules.
   if (raw.startsWith('/settings/modules/')) return 'settings-modules'
   return ROUTE_BY_HASH[raw] ?? DEFAULT_ROUTE
