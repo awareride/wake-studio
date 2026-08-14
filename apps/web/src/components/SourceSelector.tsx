@@ -140,6 +140,13 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
           onChecked={(v) => onChange({ ...value, autoGainControl: v })}
           disabled={disabled}
         />
+        <ToggleRow
+          label="Monitor"
+          hint="(speaker)"
+          checked={value.monitor ?? false}
+          onChecked={(v) => onChange({ ...value, monitor: v })}
+          disabled={disabled}
+        />
         <label className="flex items-center gap-2 text-xs">
           <span className="text-ink-2">Channels</span>
           <select
@@ -160,6 +167,14 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
         Browser DSP is off by default — our RNNoise is the only noise
         suppressor. Toggle browser AEC/NS/AGC to let the device do it instead.
       </p>
+
+      {value.monitor && (
+        <p className="w-full rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-700">
+          ⚠️ Monitor is on: mic audio plays through your speakers. Without
+          headphones the speakers feed back into the mic (feedback noise) —
+          wear headphones or turn Monitor off.
+        </p>
+      )}
     </Card>
   )
 }

@@ -45,6 +45,11 @@ export interface MicSourceConfig {
   noiseSuppression?: boolean
   autoGainControl?: boolean
   channelCount?: 1 | 2
+  /**
+   * Send the mic through to the speakers (monitor). Off by default: speaker
+   * output feeds back into the mic without headphones (issue #140).
+   */
+  monitor?: boolean
 }
 
 /**

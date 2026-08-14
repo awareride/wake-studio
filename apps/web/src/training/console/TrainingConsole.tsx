@@ -30,6 +30,7 @@ import { ConsolePanel } from '../../components/ConsolePanel'
 import { IconWand } from '../../components/icons'
 import { useAppSettings } from '../../settings'
 import { TRAIN_NEW_HASH_PREFIX, trainReviewJobFromHash } from '../../router'
+import { rememberSelection, rememberedSelection } from '../../view-selection'
 import { NewTrainWizard } from './NewTrainWizard'
 import { TrainDetails } from './TrainDetails'
 import { TrainList } from './TrainList'
@@ -108,6 +109,14 @@ export function TrainingConsole() {
     let alive = true
     void listJobs().then((all) => {
       if (alive) setJobs(sortJobsNewestFirst(all))
+      // Restore the last-selected train (issue #139) unless a review hash
+      // already pinned one (issue #136).
+      if (!trainReviewJobFromHash(window.location.hash)) {
+        const last = rememberedSelection('training')
+        if (last && all.some((j) => j.id === last)) {
+          setView({ kind: 'details', jobId: last })
+        }
+      }
     })
     fetchTrainableModules()
       .then((mods) => alive && setModules(mods))
@@ -204,6 +213,7 @@ export function TrainingConsole() {
       // The wizard's step entries stay in history — replace the current one
       // with the Trains list so back from the details pane does not re-enter
       // the finished wizard (issue #136).
+      rememberSelection('training', id)
       location.replace('#/training')
     },
     [backends, recordJob, patchJob],
@@ -240,12 +250,19 @@ export function TrainingConsole() {
         classifierRef: result.classifierRef,
       })
       recordJob(job)
+      rememberSelection('training', job.id)
       setView({ kind: 'details', jobId: job.id })
     },
     [recordJob],
   )
 
-  const openTrain = useCallback((jobId: string) => setView({ kind: 'details', jobId }), [])
+  const openTrain = useCallback(
+    (jobId: string) => {
+      rememberSelection('training', jobId)
+      setView({ kind: 'details', jobId })
+    },
+    [],
+  )
 
   /** Per-train delete (details → Operations → Delete, issue #105). */
   const handleDeleteJob = useCallback(
@@ -253,8 +270,11 @@ export function TrainingConsole() {
       setJobs((prev) => prev.filter((j) => j.id !== jobId))
       void deleteJob(jobId)
       setView((v) => (v.kind === 'details' && v.jobId === jobId ? { kind: 'empty' } : v))
+      if (view.kind === 'details' && view.jobId === jobId) {
+        rememberSelection('training', null)
+      }
     },
-    [],
+    [view],
   )
 
   return (

@@ -66,6 +66,7 @@ export function useSourceConfig(
         noiseSuppression: s.mic.noiseSuppression ?? false,
         autoGainControl: s.mic.autoGainControl ?? false,
         channelCount: s.mic.channelCount ?? fallbackChannelCount,
+        monitor: s.mic.monitor ?? false,
       }
     }
     return {
@@ -97,9 +98,19 @@ export function useSourceConfig(
     files,
   }))
 
-  const updateMic = React.useCallback((next: MicSourceConfig) => {
-    setMic(next)
-  }, [])
+  const updateMic = React.useCallback(
+    (next: MicSourceConfig) => {
+      setMic(next)
+      // Mic knobs (device, browser DSP, monitor) are LIVE config: sync the
+      // applied source + persist immediately, so the next Start uses them
+      // without an explicit Apply (the Apply button only tracks kind/file
+      // changes; monitor must reach the pipeline or there is no audio,
+      // issue #140).
+      setAppliedSource((prev) => ({ ...prev, mic: next }))
+      persistWs({ source: { kind: 'mic', mic: next } })
+    },
+    [persistWs],
+  )
 
   const updateKind = React.useCallback((next: 'mic' | 'file') => {
     setKind(next)

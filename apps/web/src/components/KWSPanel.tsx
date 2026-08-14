@@ -162,6 +162,13 @@ export const KWSPanel = memo(function KWSPanel({
   const [artifact, setArtifact] = useState<UserArtifact | null>(null)
   const [detecting, setDetecting] = useState(false)
   const { projectConfig: fsProjCfg, persist: persistFs } = useProjectStageConfig('fewShot')
+  // Mic monitor flag from the workspace source config (issue #140): recording
+  // only plays through the speakers when the user opted in — otherwise the
+  // mic feeds back into itself without headphones.
+  const { projectConfig: wsProjCfg } = useProjectStageConfig('workspace')
+  const monitorRecording = wsProjCfg?.source?.kind === 'mic'
+    ? wsProjCfg.source.mic.monitor ?? false
+    : false
   const [fsConfig, setFsConfig] = useState<{
     threshold: number
     minDurationMs: number
@@ -609,7 +616,9 @@ export const KWSPanel = memo(function KWSPanel({
           if (e.data.type === 'chunk') chunks.push(e.data.samples)
         }
         source.connect(node)
-        node.connect(ctx.destination)
+        // Monitor (speaker) only when the source config opted in — the mic
+        // feeds back into itself without headphones (issue #140).
+        if (monitorRecording) node.connect(ctx.destination)
 
         await new Promise((r) => setTimeout(r, RECORD_MS))
         node.disconnect()
@@ -639,7 +648,7 @@ export const KWSPanel = memo(function KWSPanel({
         if (ctx) await ctx.close().catch(() => {})
       }
     },
-    [ensureFsEngines],
+    [ensureFsEngines, monitorRecording],
   )
 
   const handleBuildPrototype = useCallback(async () => {
