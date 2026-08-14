@@ -61,7 +61,10 @@ def main(argv: list[str] | None = None) -> int:
         print("[wake-service] create one (see README.md §Registry) or pass --registry", file=sys.stderr)
         return 2
 
-    registry = Registry.load(registry_path, base_dir=Path.cwd())
+    # Relative cwd entries in the registry resolve against the registry file's
+    # directory (Registry.load default), not the process cwd - so the service
+    # can be launched from anywhere (README: run from the repo root).
+    registry = Registry.load(registry_path)
     store = Store(args.db)
     auth = Auth(args.token or None)
     manager = JobManager(
