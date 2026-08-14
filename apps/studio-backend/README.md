@@ -27,6 +27,18 @@ Defaults: `127.0.0.1:4824`, single-concurrency, SQLite at
 > launcher always sets `--token` (mutating endpoints require it; reads stay
 > open — the tunnel URL is unguessable but public, ADR-036 §5).
 
+## Data sources (training-time only)
+
+Module train adapters prepare a `label/*.wav` tree through
+`wake_train_kit.data_sources` (ADR-022, `docs/modules/data-sources.md`):
+
+- **Speech Commands V2** (CC BY 4.0) — download + extract.
+- **user-url** — a user-provided `.tar.gz`/`.tgz`/`.tar`/`.zip` dataset archive.
+- **edge-tts** — multi-language TTS synthesis. Optional extra:
+  `uv sync --project apps/studio-backend --extra tts` (installs `edge-tts`;
+  `ffmpeg` is also required to convert mp3 → 16 kHz WAV). The helpers guard the
+  import and raise a clear error when the extra is missing.
+
 ## CLI
 
 | Flag | Default | Meaning |
