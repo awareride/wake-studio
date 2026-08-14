@@ -1,5 +1,10 @@
 # WakeStudio
 
+> ⚠️ **Work in progress.** WakeStudio is under active development — APIs, module
+> contracts, and UI are evolving and **may change without notice**. Not yet
+> production-ready. See [`docs/roadmap.md`](./docs/roadmap.md) for where things
+> stand.
+
 > Go from "I have a wake-word idea" to "a deployable, testable KWS bundle for my
 > target chip" - **without installing any toolchain, runtime, or Python.**
 
@@ -17,11 +22,11 @@ models.**
 
 ## Status
 
-Phases 0–3 shipped (AFE, KWS, Few-Shot, console/studio productization), and
-the module platform migration (ADR-025) is complete: all functional areas
-(AFE stages, KWS engine + drivers, Few-Shot, Training) are self-contained
-modules with specs + generated panels. Phase 4 (device SDK + export kits) is
-next. See [`docs/roadmap.md`](./docs/roadmap.md) for the full phased roadmap and
+**This project is work in progress (WIP).** While phases 0–3 shipped (AFE,
+KWS, Few-Shot, console/studio productization) and the module platform
+migration (ADR-025) is complete, v1 is not released: everything below can
+change. Phase 4 (device SDK + export kits) is next. See
+[`docs/roadmap.md`](./docs/roadmap.md) for the full phased roadmap and
 [`DECISIONS.md`](./DECISIONS.md) for recorded decisions.
 
 | Phase | Goal | Status |
@@ -102,6 +107,24 @@ pnpm fetch:all
 ```
 
 > The first `pnpm install` requires authorization per `AGENTS.md`.
+
+## WIP tips (working conventions)
+
+Conventions collected during development. Keep them in mind when working on
+WIP code; the full list lives in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+- **App UI: Radix first.** Build every piece of app UI on `@radix-ui/*` before
+  hand-rolling CSS or adding a new dependency:
+  - **Basic components** — `@radix-ui/themes` (Button, Card, Dialog, Select,
+    Tabs, …); Radix primitives (`react-dialog`, `react-dropdown-menu`,
+    `react-toast`, `react-tooltip`) when Themes doesn't cover the interaction.
+  - **Colors** — `@radix-ui/colors` scales (see
+    `apps/web/src/settings/accent-colors.ts`); no hand-picked hex values.
+  - **Icons** — `@radix-ui/react-icons` (see `apps/web/src/components/icons.tsx`);
+    no emoji or ad-hoc SVGs.
+  - **Themes** — `@radix-ui/themes` `<Theme>` wrapper (App.tsx `ThemedShell`)
+    owns appearance + accent; don't fork your own theming.
+  - Fall back to custom CSS only when Radix genuinely can't express the design.
 
 ## Key docs
 
