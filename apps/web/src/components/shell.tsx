@@ -27,7 +27,19 @@ import {
   Cross2Icon,
   HamburgerMenuIcon,
   StopIcon,
+  SunIcon,
+  MoonIcon,
+  LaptopIcon,
+  CheckIcon,
 } from '@radix-ui/react-icons'
+import { useAppSettings } from '../settings'
+import type { ThemeMode } from '../settings'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui'
 import { PRIMARY_NAV, SECONDARY_NAV, isSettingsRoute, type NavItem } from './shell-nav'
 import { useLiveAfe, useLiveKws } from '../workspace/live'
 import { cn } from './cn'
@@ -281,6 +293,51 @@ export function Sidebar({
   )
 }
 
+/**
+ * Theme mode switch — top-bar dropdown (Light / Dark / System, issue #142).
+ * Writes the same persisted setting as Settings -> General -> Theme, so both
+ * stay in sync; System follows the OS preference live.
+ */
+const THEME_OPTIONS: ReadonlyArray<{ mode: ThemeMode; label: string; Icon: typeof SunIcon }> = [
+  { mode: 'light', label: 'Light', Icon: SunIcon },
+  { mode: 'dark', label: 'Dark', Icon: MoonIcon },
+  { mode: 'system', label: 'System', Icon: LaptopIcon },
+]
+
+function ThemeSwitchButton() {
+  const { platform, set } = useAppSettings()
+  const mode: ThemeMode = platform.theme ?? 'light'
+  const current = THEME_OPTIONS.find((o) => o.mode === mode) ?? THEME_OPTIONS[0]
+  const CurrentIcon = current.Icon
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <IconButton
+          variant="ghost"
+          size="2"
+          aria-label={`Theme: ${current.label}`}
+          title="Theme"
+          className="text-ink-3"
+        >
+          <CurrentIcon className="h-4 w-4" />
+        </IconButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-44">
+        {THEME_OPTIONS.map(({ mode: m, label, Icon }) => (
+          <DropdownMenuItem key={m} onSelect={() => set('theme', m)}>
+            <span className="flex flex-1 items-center gap-2">
+              <Icon className="h-3.5 w-3.5 text-ink-3" />
+              <span className="text-sm">{label}</span>
+            </span>
+            {mode === m && <CheckIcon className="h-3.5 w-3.5 text-brand-11" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 /** Drivers with a spec, for the Modules sub-menu (registry-driven, ADR-024). */
 function useSettingsDrivers(): ReadonlyArray<{ backendId: string; label: string }> {
   // The KWS backend registry is populated at import time by driver modules;
@@ -318,6 +375,7 @@ export function TopBar({
         <h1 className="truncate text-sm font-semibold text-ink-1">{title}</h1>
       </div>
       <div className="flex items-center gap-2">
+        <ThemeSwitchButton />
         <MiniPipelineBar open={barOpen} onToggle={() => setBarOpen((v) => !v)} />
       </div>
     </header>

@@ -50,19 +50,20 @@ export default function App() {
 /**
  * Radix Themes wrapper - accent comes from the saved platform setting
  * (Settings -> General -> Accent color; default gray). Gray is the default;
- * Sky is the classic WakeStudio look. Dark mode (appearance) lands with the
- * dark token set - today the app is light-only.
+ * Sky is the classic WakeStudio look. appearance follows the resolved
+ * theme mode (Light/Dark/System, Settings or the top-bar switch) so Radix
+ * components match the token layer (issue #142).
  */
 function ThemedShell() {
-  const { platform } = useAppSettings();
+  const { platform, resolvedTheme } = useAppSettings();
   const accent = platform['theme.accent'] ?? 'gray';
   // Sync the brand CSS vars (module-kit rendered panels read them) to the
-  // selected accent scale, alongside the Themes accentColor.
+  // selected accent scale (light + dark), alongside the Themes accentColor.
   React.useEffect(() => {
     setBrandAccentVars(accent);
   }, [accent]);
   return (
-    <Theme appearance="light" accentColor={accent} grayColor="slate">
+    <Theme appearance={resolvedTheme} accentColor={accent} grayColor="slate">
       <AppShell />
     </Theme>
   );
