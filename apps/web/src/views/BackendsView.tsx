@@ -400,7 +400,7 @@ function BackendSummary({ backend }: { backend: ManagedBackend }) {
   )
 }
 
-/** Operations: inline Edit (Save confirms changes) + Delete on its own line. */
+/** Operations: the edit form is always visible; Save confirms via dialog, Reset reverts. */
 function BackendOperations({
   backend,
   onSave,
@@ -410,10 +410,17 @@ function BackendOperations({
   onSave: (input: EditorInput) => void
   onDelete: () => void
 }) {
-  const [editing, setEditing] = useState(false)
   const [name, setName] = useState(backend.name)
   const [baseUrl, setBaseUrl] = useState(backend.baseUrl)
   const [token, setToken] = useState(backend.token ?? '')
+  const [confirmSave, setConfirmSave] = useState(false)
+
+  // Re-seed the form when a different backend is selected.
+  useEffect(() => {
+    setName(backend.name)
+    setBaseUrl(backend.baseUrl)
+    setToken(backend.token ?? '')
+  }, [backend.id, backend.name, backend.baseUrl, backend.token])
 
   const dirty =
     name.trim() !== backend.name ||
@@ -422,71 +429,63 @@ function BackendOperations({
   const urlValid = /^https?:\/\/.+/.test(baseUrl.trim())
   const valid = name.trim() !== '' && urlValid
 
-  const startEdit = useCallback(() => {
+  const reset = useCallback(() => {
     setName(backend.name)
     setBaseUrl(backend.baseUrl)
     setToken(backend.token ?? '')
-    setEditing(true)
   }, [backend])
 
   return (
     <section className="rounded-xl border border-danger/25 bg-surface-2 p-4">
       <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Operations</h4>
 
-      {editing ? (
-        <div className="mt-3 space-y-3">
-          <label className="block space-y-1">
-            <span className="block text-xs font-medium text-ink-2">Name</span>
-            <TextField.Root
-              size="2"
-              className="w-full"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="block text-xs font-medium text-ink-2">Endpoint URL</span>
-            <TextField.Root
-              size="2"
-              className="w-full"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="block text-xs font-medium text-ink-2">Access token</span>
-            <TextField.Root
-              size="2"
-              className="w-full"
-              type="password"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-            />
-          </label>
-          <div className="flex items-center justify-end gap-2">
-            <Button type="button" size="1" variant="ghost" onClick={() => setEditing(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              size="1"
-              disabled={!valid || !dirty}
-              onClick={() => {
-                onSave({ name: name.trim(), baseUrl: baseUrl.trim(), token: token.trim() })
-                setEditing(false)
-              }}
-            >
-              Save
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-2">
-          <Button type="button" size="1" variant="outline" onClick={startEdit}>
-            Edit
+      {/* Edit form — always visible (no Edit button). */}
+      <div className="mt-3 space-y-3">
+        <label className="block space-y-1">
+          <span className="block text-xs font-medium text-ink-2">Name</span>
+          <TextField.Root
+            size="2"
+            className="w-full"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="block text-xs font-medium text-ink-2">Endpoint URL</span>
+          <TextField.Root
+            size="2"
+            className="w-full"
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+          />
+          {baseUrl !== '' && !urlValid && (
+            <span className="block text-[11px] text-danger">Must start with http(s)://</span>
+          )}
+        </label>
+        <label className="block space-y-1">
+          <span className="block text-xs font-medium text-ink-2">Access token</span>
+          <TextField.Root
+            size="2"
+            className="w-full"
+            type="password"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+          />
+        </label>
+        <div className="flex items-center justify-end gap-2">
+          <Button type="button" size="1" variant="ghost" disabled={!dirty} onClick={reset}>
+            Reset
+          </Button>
+          <Button
+            type="button"
+            size="1"
+            disabled={!valid || !dirty}
+            onClick={() => setConfirmSave(true)}
+          >
+            Save
           </Button>
         </div>
-      )}
+      </div>
 
       {/* Delete on its own line. */}
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
@@ -505,6 +504,18 @@ function BackendOperations({
           Delete
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirmSave}
+        title="Save backend changes?"
+        message="Updates name, endpoint URL and token for this backend. Jobs already started keep their recorded endpoint in the Training list."
+        confirmLabel="Save"
+        onConfirm={() => {
+          onSave({ name: name.trim(), baseUrl: baseUrl.trim(), token: token.trim() })
+          setConfirmSave(false)
+        }}
+        onCancel={() => setConfirmSave(false)}
+      />
     </section>
   )
 }
@@ -683,14 +694,21 @@ export function BackendsView() {
               <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
                 Backends
               </h3>
-              {backends.length > 0 && (
-                <span className="ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[9px] leading-none text-ink-3">
-                  {backends.length}
-                </span>
-              )}
-              <Button type="button" size="1" variant="ghost" onClick={() => void runHealthChecks()}>
-                Check health
-              </Button>
+              <div className="ml-auto flex items-center gap-1.5">
+                {backends.length > 0 && (
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[9px] leading-none text-ink-3">
+                    {backends.length}
+                  </span>
+                )}
+                <Button
+                  type="button"
+                  size="1"
+                  variant="ghost"
+                  onClick={() => void runHealthChecks()}
+                >
+                  Check health
+                </Button>
+              </div>
             </div>
 
             <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-4">
