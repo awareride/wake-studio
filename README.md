@@ -103,15 +103,23 @@ pnpm fetch:all
 
 > The first `pnpm install` requires authorization per `AGENTS.md`.
 
-## UI conventions
+## WIP tips (working conventions)
 
-- **Radix-first.** The app UI builds on `@radix-ui/*` before hand-rolling CSS or
-  adding new dependencies:
-  - **Basic components + theming** — `@radix-ui/themes` (`<Theme>` wrapper owns appearance + accent)
-  - **Colors** — `@radix-ui/colors` scales (no hand-picked hex values)
-  - **Icons** — `@radix-ui/react-icons` (no emoji or ad-hoc SVGs)
-  - Hand-rolled CSS only when Radix can't express the design.
-- Full working-conventions list (WIP tips): [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+Conventions collected during development. Keep them in mind when working on
+WIP code; the full list lives in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+- **App UI: Radix first.** Build every piece of app UI on `@radix-ui/*` before
+  hand-rolling CSS or adding a new dependency:
+  - **Basic components** — `@radix-ui/themes` (Button, Card, Dialog, Select,
+    Tabs, …); Radix primitives (`react-dialog`, `react-dropdown-menu`,
+    `react-toast`, `react-tooltip`) when Themes doesn't cover the interaction.
+  - **Colors** — `@radix-ui/colors` scales (see
+    `apps/web/src/settings/accent-colors.ts`); no hand-picked hex values.
+  - **Icons** — `@radix-ui/react-icons` (see `apps/web/src/components/icons.tsx`);
+    no emoji or ad-hoc SVGs.
+  - **Themes** — `@radix-ui/themes` `<Theme>` wrapper (App.tsx `ThemedShell`)
+    owns appearance + accent; don't fork your own theming.
+  - Fall back to custom CSS only when Radix genuinely can't express the design.
 
 ## Key docs
 
