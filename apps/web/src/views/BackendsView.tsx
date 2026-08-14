@@ -28,6 +28,7 @@ import { NotebookReviewView } from '../training/console/NotebookReviewView'
 import { ConsolePanel } from '../components/ConsolePanel'
 import { ConfirmDialog } from '../training/console/ConfirmDialog'
 import { BACKENDS_HASH_PREFIX, backendsSubFromHash } from '../router'
+import { rememberSelection, rememberedSelection } from '../view-selection'
 
 const HEALTH_POLL_MS = 30_000
 
@@ -554,9 +555,19 @@ function modeFromHash(): BackendsViewMode {
 export function BackendsView() {
   const { backends, upsertBackend, removeBackend } = useAppSettings()
   const [view, setView] = useState<BackendsViewMode>(modeFromHash)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    rememberedSelection('backends'),
+  )
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
+
+  // Drop a remembered selection whose backend no longer exists (deleted).
+  useEffect(() => {
+    if (backends.length > 0 && selectedId && !backends.some((b) => b.id === selectedId)) {
+      setSelectedId(null)
+      rememberSelection('backends', null)
+    }
+  }, [selectedId, backends])
 
   // Full-panel modes are hash-encoded (`#/backends/new`, `#/backends/colab[/preview]`,
   // issue #136): each is its own history entry, so browser back/forward walk
@@ -733,7 +744,9 @@ export function BackendsView() {
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedId(b.id === selected?.id ? null : b.id)
+                    const next = b.id === selected?.id ? null : b.id
+                    setSelectedId(next)
+                    rememberSelection('backends', next)
                     close()
                   }}
                   aria-pressed={selected?.id === b.id}
@@ -805,7 +818,10 @@ export function BackendsView() {
         onConfirm={() => {
           if (confirmDelete) {
             removeBackend(confirmDelete)
-            if (selectedId === confirmDelete) setSelectedId(null)
+            if (selectedId === confirmDelete) {
+              setSelectedId(null)
+              rememberSelection('backends', null)
+            }
           }
           setConfirmDelete(null)
         }}

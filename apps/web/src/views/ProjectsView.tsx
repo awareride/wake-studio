@@ -4,16 +4,17 @@
  * Left rail: the project list (name, domain badge, last-updated). Right
  * pane: the selected project's details (wake word, target, samples,
  * prototypes, notes) — read-only; project creation stays in the Workspace.
- * Selection is shared with the workspace via the projects context
- * (selectProject/current).
+ * Selection is INDEPENDENT of the Workspace's active project (issue #138)
+ * and remembered across view switches (issue #139).
  */
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@radix-ui/themes'
 import { ConsolePanel } from '../components/ConsolePanel'
 import { useProjects } from '../projects'
 import { ConfirmDialog } from '../training/console/ConfirmDialog'
 import { cn } from '../components/cn'
+import { rememberSelection, rememberedSelection } from '../view-selection'
 
 const DOMAIN_STYLE: Record<string, string> = {
   mcu: 'bg-surface-3 text-ink-2',
@@ -22,8 +23,24 @@ const DOMAIN_STYLE: Record<string, string> = {
 }
 
 export function ProjectsView() {
-  const { projects, current, selectProject, deleteProject } = useProjects()
+  const { projects, deleteProject } = useProjects()
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Own selection — not the Workspace's current project (issue #138), and
+  // remembered across view switches (issue #139).
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    rememberedSelection('projects'),
+  )
+
+  const selected = projects.find((p) => p.id === selectedId) ?? null
+
+  // Drop a remembered selection whose project no longer exists (deleted
+  // here or from the Workspace).
+  useEffect(() => {
+    if (projects.length > 0 && selectedId && !projects.some((p) => p.id === selectedId)) {
+      setSelectedId(null)
+      rememberSelection('projects', null)
+    }
+  }, [selectedId, projects])
 
   const ordered = useMemo(
     () => [...projects].sort((a, b) => b.updatedAtMs - a.updatedAtMs),
@@ -45,13 +62,14 @@ export function ProjectsView() {
             </li>
           )}
           {ordered.map((p) => {
-            const selected = current?.id === p.id
+            const selected = selectedId === p.id
             return (
               <li key={p.id}>
                 <button
                   type="button"
                   onClick={() => {
-                    selectProject(p.id)
+                    setSelectedId(p.id)
+                    rememberSelection('projects', p.id)
                     close()
                   }}
                   aria-pressed={selected}
@@ -88,55 +106,55 @@ export function ProjectsView() {
         </ul>
       )}
       details={
-        current ? (
+        selected ? (
           <>
             <section className="rounded-xl border border-line bg-surface-2 p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-semibold text-ink-1">{current.name}</h3>
+              <h3 className="text-base font-semibold text-ink-1">{selected.name}</h3>
               <span
                 className={cn(
                   'rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide',
-                  DOMAIN_STYLE[current.domain] ?? 'bg-surface-3 text-ink-3',
+                  DOMAIN_STYLE[selected.domain] ?? 'bg-surface-3 text-ink-3',
                 )}
               >
-                {current.domain}
+                {selected.domain}
               </span>
             </div>
             <dl className="mt-3 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
               <div className="flex justify-between gap-3">
                 <dt className="text-ink-3">Wake word</dt>
-                <dd className="truncate font-mono text-ink-1">{current.targetWord || '—'}</dd>
+                <dd className="truncate font-mono text-ink-1">{selected.targetWord || '—'}</dd>
               </div>
-              {current.targetChip && (
+              {selected.targetChip && (
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-3">Target chip</dt>
-                  <dd className="truncate font-mono text-ink-1">{current.targetChip}</dd>
+                  <dd className="truncate font-mono text-ink-1">{selected.targetChip}</dd>
                 </div>
               )}
               <div className="flex justify-between gap-3">
                 <dt className="text-ink-3">Samples</dt>
-                <dd className="font-mono text-ink-1">{current.sampleIds.length}</dd>
+                <dd className="font-mono text-ink-1">{selected.sampleIds.length}</dd>
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-ink-3">Prototypes</dt>
-                <dd className="font-mono text-ink-1">{current.prototypeIds.length}</dd>
+                <dd className="font-mono text-ink-1">{selected.prototypeIds.length}</dd>
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-ink-3">Created</dt>
                 <dd className="font-mono text-ink-1">
-                  {new Date(current.createdAtMs).toLocaleString()}
+                  {new Date(selected.createdAtMs).toLocaleString()}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-ink-3">Updated</dt>
                 <dd className="font-mono text-ink-1">
-                  {new Date(current.updatedAtMs).toLocaleString()}
+                  {new Date(selected.updatedAtMs).toLocaleString()}
                 </dd>
               </div>
             </dl>
-            {current.notes && (
+            {selected.notes && (
               <p className="mt-3 rounded-lg border border-line bg-surface-1 px-3 py-2 text-xs leading-relaxed text-ink-2">
-                {current.notes}
+                {selected.notes}
               </p>
             )}
             <p className="mt-3 text-[11px] text-ink-3">
@@ -184,7 +202,11 @@ export function ProjectsView() {
         message="Deletes the project and its stored config, samples and prototypes. This cannot be undone."
         confirmLabel="Delete"
         onConfirm={() => {
-          if (current) void deleteProject(current.id)
+          if (selected) {
+            void deleteProject(selected.id)
+            setSelectedId(null)
+            rememberSelection('projects', null)
+          }
           setConfirmDelete(false)
         }}
         onCancel={() => setConfirmDelete(false)}

@@ -100,6 +100,8 @@ export class AFEPipeline {
     const fileSource = (source as FileSourceConfig | undefined)?.nodes
       ? (source as FileSourceConfig)
       : null
+    // Mic config (used below for getUserMedia options + monitor routing).
+    const micSource = source as MicSourceConfig | undefined
 
     if (fileSource) {
       // File source (epic #53 P3): the host already decoded + scheduled the
@@ -107,7 +109,6 @@ export class AFEPipeline {
       this._fileNodes = fileSource.nodes
       this._fileDispose = fileSource.dispose
     } else {
-      const micSource = source as MicSourceConfig | undefined
       // Request microphone. Browser DSP toggles + device come from the source
       // config (epic #53 P2); defaults keep the current behavior (browser DSP
       // off so ours is the only processing, default device).
@@ -146,8 +147,12 @@ export class AFEPipeline {
       this._source = this._ctx.createMediaStreamSource(this._stream!)
       this._source.connect(this._node)
     }
-    // Connect to destination so the user can monitor the processed audio.
-    this._node.connect(this._ctx.destination)
+    // Connect to destination so the user can monitor the processed audio —
+    // only when the mic config opts in (monitor, issue #140): speaker output
+    // feeds back into the mic without headphones, so it is off by default.
+    // File sources keep monitoring (no mic -> no feedback loop).
+    const monitor = fileSource ? true : (micSource?.monitor ?? false)
+    if (monitor) this._node.connect(this._ctx.destination)
 
     // Message handling.
     this._node.port.onmessage = (e: MessageEvent<WorkletMessage>) => {
