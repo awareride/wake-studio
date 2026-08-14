@@ -17,17 +17,15 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Button, IconButton, TextField } from '@radix-ui/themes'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../components/ui'
+import { Button, TextField } from '@radix-ui/themes'
 import { useAppSettings } from '../settings'
 import { createStudioClient } from '../training/studio-client'
 import type { StudioJob } from '../training/studio-client'
 import type { ManagedBackend, ManagedBackendStatus } from '../backends/types'
 import { cn } from '../components/cn'
-import { IconMenu } from '../components/icons'
 import { BACKEND_NOTEBOOK_FILENAME, downloadBackendNotebook } from '../backends/backend-notebook'
 import { NotebookReviewView } from '../training/console/NotebookReviewView'
-import { useIsDesktop } from '../training/console/useIsDesktop'
+import { ConsolePanel } from '../components/ConsolePanel'
 import { ConfirmDialog } from '../training/console/ConfirmDialog'
 
 const HEALTH_POLL_MS = 30_000
@@ -550,10 +548,6 @@ export function BackendsView() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
 
-  const isDesktop = useIsDesktop()
-  const [railCollapsed, setRailCollapsed] = useState(false)
-  const [drawerOpen, setDrawerOpen] = useState(false)
-
   // Health checks: mount + every 30s + manual refresh (list read via ref).
   const backendsRef = useRef(backends)
   backendsRef.current = backends
@@ -600,11 +594,6 @@ export function BackendsView() {
   }, [view.kind, blobUrl])
 
   const selected = backends.find((b) => b.id === selectedId) ?? null
-
-  const handleRailToggle = useCallback(() => {
-    if (isDesktop) setRailCollapsed((c) => !c)
-    else setDrawerOpen(true)
-  }, [isDesktop])
 
   // --- Full-panel modes (editor / colab guide / preview) ------------------
   if (view.kind === 'new-editor') {
@@ -663,217 +652,120 @@ export function BackendsView() {
     )
   }
 
-  // --- List mode: header + left rail + right details (Trains-style) --------
+  // --- List mode: the shared ConsolePanel (Trains-style) -------------------
   return (
-    <div className="flex h-[calc(100dvh-7.5rem)] min-h-[24rem] flex-col gap-6">
-      {/* Header (hidden in editor/colab modes — they have their own chrome). */}
-      <div className="flex shrink-0 items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-ink-1">Backends</h2>
-          <p className="mt-1 max-w-2xl text-sm text-ink-2">
-            Your studio-backend endpoints for the{' '}
-            <span className="font-medium text-ink-1">Studio-backend</span> train method (ADR-036).
-            Health is checked automatically; kind (long-term / short-term) is detected from the
-            service. Jobs and logs here are read-only — train and control jobs from the Training
-            view.
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button type="button" size="2" variant="soft" onClick={() => setView({ kind: 'colab-guide' })}>
-            Free On Google Colab
-          </Button>
+    <>
+      <ConsolePanel
+        title="Backends"
+        description="Your studio-backend endpoints for the Studio-backend train method (ADR-036). Health is checked automatically; kind (long-term / short-term) is detected from the service. Jobs and logs here are read-only — train and control jobs from the Training view."
+        actions={
+          <>
+            <Button
+              type="button"
+              size="2"
+              variant="soft"
+              onClick={() => setView({ kind: 'colab-guide' })}
+            >
+              Free On Google Colab
+            </Button>
+            <Button
+              type="button"
+              size="2"
+              onClick={() => setView({ kind: 'new-editor', mode: 'new' })}
+            >
+              New
+            </Button>
+          </>
+        }
+        railTitle="Backends"
+        railCount={backends.length}
+        railActions={
           <Button
             type="button"
-            size="2"
-            onClick={() => setView({ kind: 'new-editor', mode: 'new' })}
+            size="1"
+            variant="ghost"
+            onClick={() => void runHealthChecks()}
           >
-            New
+            Check health
           </Button>
-        </div>
-      </div>
-
-      {/* Split-scroll: left rail + right details (mirrors the Training console). */}
-      <div className="flex min-h-0 flex-1 gap-6">
-        {!railCollapsed && (
-          <aside className="hidden min-h-0 w-72 shrink-0 flex-col border-r border-line lg:flex">
-            {/* Rail header with the menu toggle (TrainList pattern). */}
-            <div className="flex items-center gap-1.5 px-4 pb-2 pt-3">
-              <IconButton
-                type="button"
-                onClick={handleRailToggle}
-                aria-label="Toggle backend list"
-                variant="ghost"
-                size="1"
-                className="text-ink-3"
-              >
-                <IconMenu className="h-4 w-4" />
-              </IconButton>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-                Backends
-              </h3>
-              <div className="ml-auto flex items-center gap-1.5">
-                {backends.length > 0 && (
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[9px] leading-none text-ink-3">
-                    {backends.length}
-                  </span>
-                )}
-                <Button
-                  type="button"
-                  size="1"
-                  variant="ghost"
-                  onClick={() => void runHealthChecks()}
-                >
-                  Check health
-                </Button>
-              </div>
-            </div>
-
-            <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-4">
-              {backends.length === 0 && (
-                <li className="rounded-lg border border-dashed border-line px-3 py-3 text-xs text-ink-3">
-                  No backends yet — press{' '}
-                  <span className="font-medium text-ink-1">New</span> to add one, or{' '}
-                  <span className="font-medium text-ink-1">Free On Google Colab</span> for a
-                  short-term runtime.
-                </li>
-              )}
-              {backends.map((b) => (
-                <li key={b.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(b.id === selected?.id ? null : b.id)}
-                    aria-pressed={selected?.id === b.id}
-                    className={cn(
-                      'w-full rounded-lg border px-3 py-2 text-left transition-colors',
-                      selected?.id === b.id
-                        ? 'border-brand-9/50 bg-brand-9/5'
-                        : 'border-transparent hover:border-line hover:bg-surface-2',
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span
-                        className={cn(
-                          'rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide',
-                          STATUS_STYLE[b.status],
-                        )}
-                      >
-                        {b.status}
-                      </span>
-                      <span
-                        className={cn(
-                          'rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide',
-                          KIND_STYLE[b.kind],
-                        )}
-                      >
-                        {b.kind === 'short-term' ? 'short-term' : 'long-term'}
-                      </span>
-                    </div>
-                    <div className="mt-1 truncate text-xs font-medium text-ink-1">{b.name}</div>
-                    <div className="mt-0.5 truncate font-mono text-[10px] text-ink-3">
-                      {b.baseUrl}
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </aside>
-        )}
-
-        {/* Right details pane (own scroll). */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          {/* Re-open the rail when hidden (Trains-style toggle). */}
-          {(!isDesktop || railCollapsed) && (
-            <div className="mb-2 flex shrink-0 items-center gap-2">
-              <IconButton
-                type="button"
-                onClick={handleRailToggle}
-                aria-label={isDesktop ? 'Show backend list' : 'Open backend list'}
-                variant="ghost"
-                size="1"
-                className="text-ink-3"
-              >
-                <IconMenu className="h-4 w-4" />
-              </IconButton>
-              <span className="text-[11px] text-ink-3">Backend list</span>
-            </div>
-          )}
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-            {selected ? (
-              <>
-                <BackendSummary key={`${selected.id}-summary`} backend={selected} />
-                <BackendDetail key={`${selected.id}-jobs`} backend={selected} />
-                <BackendOperations
-                  backend={selected}
-                  onSave={(input) => upsertBackend({ ...selected, ...input })}
-                  onDelete={() => setConfirmDelete(selected.id)}
-                />
-              </>
-            ) : (
-              <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
-                <p className="text-sm font-medium text-ink-1">No backend selected</p>
-                <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
-                  Pick a backend from the left to see its jobs and logs (read-only). Use{' '}
-                  <span className="font-medium text-ink-2">New</span> to add an endpoint, or{' '}
-                  <span className="font-medium text-ink-2">Free On Google Colab</span> to
-                  generate a short-term runtime notebook.
-                </p>
-              </div>
+        }
+        rail={(close) => (
+          <ul className="space-y-1 px-2 pb-4">
+            {backends.length === 0 && (
+              <li className="rounded-lg border border-dashed border-line px-3 py-3 text-xs text-ink-3">
+                No backends yet — press <span className="font-medium text-ink-1">New</span> to add
+                one, or <span className="font-medium text-ink-1">Free On Google Colab</span> for
+                a short-term runtime.
+              </li>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile drawer (matches the shell's sidebar pattern). */}
-      <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DialogContent
-          centered={false}
-          className="drawer-content left-0 top-0 h-screen w-[min(80vw,18rem)] max-w-[calc(100vw-2rem)] rounded-r-xl border-l border-t-0 border-r-0 border-b-0 p-0 data-[state=open]:animate-[drawer-in_180ms_ease-out] data-[state=closed]:animate-[drawer-out_160ms_ease-in]"
-        >
-          <DialogTitle className="sr-only">Backend list</DialogTitle>
-          <DialogDescription className="sr-only">Your managed backends</DialogDescription>
-          <div className="flex items-center justify-between border-b border-line px-4 py-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-              Backend list
-            </span>
-            <IconButton
-              type="button"
-              onClick={() => setDrawerOpen(false)}
-              aria-label="Close backend list"
-              variant="ghost"
-              size="1"
-              className="text-ink-3"
-            >
-              ✕
-            </IconButton>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <ul className="space-y-2 p-3">
-              {backends.map((b) => (
-                <li key={b.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedId(b.id)
-                      setDrawerOpen(false)
-                    }}
-                    className={cn(
-                      'w-full rounded-lg border px-3 py-2 text-left text-xs',
-                      selected?.id === b.id
-                        ? 'border-brand-9/50 bg-brand-9/5'
-                        : 'border-line bg-surface-2',
-                    )}
-                  >
-                    <span className="block font-medium text-ink-1">{b.name}</span>
-                    <span className="block truncate font-mono text-[10px] text-ink-3">
-                      {b.baseUrl}
+            {backends.map((b) => (
+              <li key={b.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(b.id === selected?.id ? null : b.id)
+                    close()
+                  }}
+                  aria-pressed={selected?.id === b.id}
+                  className={cn(
+                    'w-full rounded-lg border px-3 py-2 text-left transition-colors',
+                    selected?.id === b.id
+                      ? 'border-brand-9/50 bg-brand-9/5'
+                      : 'border-transparent hover:border-line hover:bg-surface-2',
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={cn(
+                        'rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide',
+                        STATUS_STYLE[b.status],
+                      )}
+                    >
+                      {b.status}
                     </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    <span
+                      className={cn(
+                        'rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide',
+                        KIND_STYLE[b.kind],
+                      )}
+                    >
+                      {b.kind === 'short-term' ? 'short-term' : 'long-term'}
+                    </span>
+                  </div>
+                  <div className="mt-1 truncate text-xs font-medium text-ink-1">{b.name}</div>
+                  <div className="mt-0.5 truncate font-mono text-[10px] text-ink-3">
+                    {b.baseUrl}
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        details={
+          selected ? (
+            <>
+              <BackendSummary key={`${selected.id}-summary`} backend={selected} />
+              <BackendDetail key={`${selected.id}-jobs`} backend={selected} />
+              <BackendOperations
+                backend={selected}
+                onSave={(input) => upsertBackend({ ...selected, ...input })}
+                onDelete={() => setConfirmDelete(selected.id)}
+              />
+            </>
+          ) : null
+        }
+        detailsEmpty={
+          <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
+            <p className="text-sm font-medium text-ink-1">No backend selected</p>
+            <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
+              Pick a backend from the left to see its jobs and logs (read-only). Use{' '}
+              <span className="font-medium text-ink-2">New</span> to add an endpoint, or{' '}
+              <span className="font-medium text-ink-2">Free On Google Colab</span> to generate a
+              short-term runtime notebook.
+            </p>
           </div>
-        </DialogContent>
-      </Dialog>
+        }
+      />
 
       <ConfirmDialog
         open={confirmDelete !== null}
@@ -889,8 +781,9 @@ export function BackendsView() {
         }}
         onCancel={() => setConfirmDelete(null)}
       />
-    </div>
+    </>
   )
 }
+
 
 export default BackendsView

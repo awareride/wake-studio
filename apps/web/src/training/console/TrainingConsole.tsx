@@ -7,14 +7,15 @@
  *   Right pane: the selected train's details (status / notifications /
  *               results / inputs review), or an empty state.
  *
- * The New-train wizard is a FULL panel of the Training view (no dialog, no
- * left rail while it is open, so the steps cannot be interrupted).
+ * The layout itself (header + rail + details + mobile drawer) is the shared
+ * ConsolePanel; the New-train wizard is a FULL panel that replaces it (no
+ * dialog, no left rail while it is open, so the steps cannot be interrupted).
  * Confirming a train records the job and opens its review immediately;
  * Colab imports record/update the job and open its review too.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Button, IconButton } from '@radix-ui/themes'
+import { Button } from '@radix-ui/themes'
 import {
   backendForMethod,
   importedJob,
@@ -25,14 +26,13 @@ import {
   type TrainMethodId,
 } from '@wake-studio/module-training'
 import { deleteJob, listJobs, saveJob } from '@wake-studio/module-training'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui'
-import { IconMenu, IconWand } from '../../components/icons'
+import { ConsolePanel } from '../../components/ConsolePanel'
+import { IconWand } from '../../components/icons'
 import { useAppSettings } from '../../settings'
 import { NewTrainWizard } from './NewTrainWizard'
 import { TrainDetails } from './TrainDetails'
 import { TrainList } from './TrainList'
 import { ConfirmDialog } from './ConfirmDialog'
-import { useIsDesktop } from './useIsDesktop'
 import { fetchTrainableModules, type TrainableModule } from '../train-modules'
 import { createStudioClient, type StudioJobPatch } from '../studio-client'
 import type { ColabImportResult } from '../colab-import'
@@ -221,17 +221,6 @@ export function TrainingConsole() {
 
   const openTrain = useCallback((jobId: string) => setView({ kind: 'details', jobId }), [])
 
-  // Rail visibility: desktop collapses the inline rail horizontally; on
-  // mobile the train list is a left-edge drawer (shell-sidebar pattern).
-  const isDesktop = useIsDesktop()
-  const [railCollapsed, setRailCollapsed] = useState(false)
-  const [drawerOpen, setDrawerOpen] = useState(false)
-
-  const handleRailToggle = useCallback(() => {
-    if (isDesktop) setRailCollapsed((c) => !c)
-    else setDrawerOpen(true)
-  }, [isDesktop])
-
   /** Per-train delete (details → Operations → Delete, issue #105). */
   const handleDeleteJob = useCallback(
     (jobId: string) => {
@@ -243,35 +232,10 @@ export function TrainingConsole() {
   )
 
   return (
-    <div className="flex h-[calc(100dvh-7.5rem)] min-h-[24rem] flex-col gap-6">
-      {/* Header (hidden while the wizard is open — the wizard has its own
-          header, and a constant chrome keeps the pinned footer stable on
-          PC and mobile, issue #105). */}
-      {view.kind !== 'wizard' && (
-        <div className="flex shrink-0 items-start justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-ink-1">Training</h2>
-            <p className="mt-1 max-w-2xl text-sm text-ink-2">
-              Train a custom model end to end: pick a trainable module, configure it,
-              choose a train method (Colab / self-hosted / CI), then review the run.
-              Training never runs in the browser (ADR-013).
-            </p>
-          </div>
-          <Button
-            type="button"
-            onClick={() => setView({ kind: 'wizard', from: view })}
-            size="2"
-            className="shrink-0 gap-1.5 font-semibold"
-          >
-            <IconWand className="h-4 w-4" />
-            New
-          </Button>
-        </div>
-      )}
-
+    <>
       {view.kind === 'wizard' ? (
-        /* The New-train wizard as a FULL panel of the Training view — no
-           dialog, no left rail to interrupt the steps (issue #105). */
+        /* The New-train wizard as a FULL panel — no dialog, no left rail to
+           interrupt the steps (issue #105). */
         <NewTrainWizard
           modules={modules}
           onStarted={handleWizardStarted}
@@ -279,124 +243,75 @@ export function TrainingConsole() {
           onDirtyChange={handleDirtyChange}
         />
       ) : (
-        /* Split-scroll panel: the train list and the details each scroll
-           independently within the panel's height (issue #105). */
-        <div className="flex min-h-0 flex-1 gap-6">
-          {/* Left rail (desktop): the train list — hidden when collapsed.
-              On mobile the rail is a drawer (below). */}
-          {!railCollapsed && (
-            <aside className="hidden min-h-0 w-72 shrink-0 flex-col border-r border-line lg:flex">
-              <TrainList
-                jobs={jobs}
-                selectedId={selectedJob?.id ?? null}
-                onSelect={openTrain}
-                onToggle={handleRailToggle}
-              />
-            </aside>
-          )}
-
-          {/* Right pane: details or empty state — its own scroll. */}
-          <div className="flex min-w-0 flex-1 flex-col">
-            {/* Re-open the train list when it is not visible: the primary
-                toggle lives in the TRAINS header (issue #105). */}
-            {(!isDesktop || railCollapsed) && (
-              <div className="mb-2 flex shrink-0 items-center gap-2">
-                <IconButton
-                  type="button"
-                  onClick={handleRailToggle}
-                  aria-label={isDesktop ? 'Show train list' : 'Open train list'}
-                  variant="ghost"
-                  size="1"
-                  className="text-ink-3"
-                >
-                  <IconMenu className="h-4 w-4" />
-                </IconButton>
-                <span className="text-[11px] text-ink-3">Train list</span>
-              </div>
-            )}
-            {/* The details content scrolls independently of the train list. */}
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-              {view.kind === 'details' &&
-                (selectedJob ? (
-                  <TrainDetails
-                    key={selectedJob.id}
-                    job={selectedJob}
-                    modules={modules}
-                    onImported={handleImported}
-                    onTunnelUrlChange={(url) =>
-                      patchJob(selectedJob.id, { tunnelUrl: url }, true)
-                    }
-                    onConnectColab={() => handleConnectColab(selectedJob)}
-                    onLiveUpdate={(patch: StudioJobPatch) =>
-                      patchJob(selectedJob.id, patch)
-                    }
-                    onDelete={() => handleDeleteJob(selectedJob.id)}
-                  />
-                ) : (
-                  <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
-                    This train is no longer in the list (deleted?). Pick another from the rail.
-                  </div>
-                ))}
-
-              {view.kind === 'empty' && (
-                <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
-                  <p className="text-sm font-medium text-ink-1">No train selected</p>
-                  <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
-                    Press <span className="font-medium text-ink-2">New</span> (the wizard wand) to
-                    pick a trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure
-                    it, choose a train method, and confirm. Past trains stay in the left rail.
-                  </p>
-                </div>
-              )}
-
-              {modulesError && (
-                <div className="mt-4 rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
-                  Could not load the trainable-modules catalog: {modulesError}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Mobile train-list drawer — matches the shell's mobile sidebar
-          exactly (drawer-content, slide-in animation, default overlay). */}
-      <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DialogContent
-          centered={false}
-          className="drawer-content left-0 top-0 h-screen w-[min(80vw,18rem)] max-w-[calc(100vw-2rem)] rounded-r-xl border-l border-t-0 border-r-0 border-b-0 p-0 data-[state=open]:animate-[drawer-in_180ms_ease-out] data-[state=closed]:animate-[drawer-out_160ms_ease-in]"
-        >
-          <DialogTitle className="sr-only">Train list</DialogTitle>
-          <DialogDescription className="sr-only">
-            Your saved training jobs
-          </DialogDescription>
-          <div className="flex items-center justify-between border-b border-line px-4 py-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-              Train list
-            </span>
-            <IconButton
+        <ConsolePanel
+          title="Training"
+          description="Train a custom model end to end: pick a trainable module, configure it, choose a train method (Colab / Studio-backend / CI), then review the run. Training never runs in the browser (ADR-013)."
+          actions={
+            <Button
               type="button"
-              onClick={() => setDrawerOpen(false)}
-              aria-label="Close train list"
-              variant="ghost"
-              size="1"
-              className="text-ink-3"
+              onClick={() => setView({ kind: 'wizard', from: view })}
+              size="2"
+              className="shrink-0 gap-1.5 font-semibold"
             >
-              ✕
-            </IconButton>
-          </div>
-          <div className="flex-1 overflow-y-auto">
+              <IconWand className="h-4 w-4" />
+              New
+            </Button>
+          }
+          railTitle="Trains"
+          railCount={jobs.length}
+          rail={(close) => (
             <TrainList
               jobs={jobs}
               selectedId={selectedJob?.id ?? null}
               onSelect={(id) => {
                 openTrain(id)
-                setDrawerOpen(false)
+                close()
               }}
-              onToggle={() => setDrawerOpen(false)}
             />
-          </div>
-        </DialogContent>
-      </Dialog>
+          )}
+          details={
+            view.kind === 'details' && selectedJob ? (
+              <>
+                <TrainDetails
+                  key={selectedJob.id}
+                  job={selectedJob}
+                  modules={modules}
+                  onImported={handleImported}
+                  onTunnelUrlChange={(url) => patchJob(selectedJob.id, { tunnelUrl: url }, true)}
+                  onConnectColab={() => handleConnectColab(selectedJob)}
+                  onLiveUpdate={(patch: StudioJobPatch) => patchJob(selectedJob.id, patch)}
+                  onDelete={() => handleDeleteJob(selectedJob.id)}
+                />
+                {modulesError && (
+                  <div className="rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
+                    Could not load the trainable-modules catalog: {modulesError}
+                  </div>
+                )}
+              </>
+            ) : modulesError ? (
+              <div className="rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
+                Could not load the trainable-modules catalog: {modulesError}
+              </div>
+            ) : null
+          }
+          detailsEmpty={
+            view.kind === 'details' ? (
+              <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
+                This train is no longer in the list (deleted?). Pick another from the rail.
+              </div>
+            ) : (
+              <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
+                <p className="text-sm font-medium text-ink-1">No train selected</p>
+                <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
+                  Press <span className="font-medium text-ink-2">New</span> (the wizard wand) to
+                  pick a trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure
+                  it, choose a train method, and confirm. Past trains stay in the left rail.
+                </p>
+              </div>
+            )
+          }
+        />
+      )}
 
       {/* Leaving mid-wizard via another menu (issue #105). */}
       <ConfirmDialog
@@ -413,7 +328,7 @@ export function TrainingConsole() {
         }}
         onCancel={() => setConfirmNav(null)}
       />
-    </div>
+    </>
   )
 }
 
