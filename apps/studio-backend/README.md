@@ -48,10 +48,13 @@ Defaults: `127.0.0.1:4824`, single-concurrency, SQLite at
 {
   "kws-openwakeword": {
     "cwd": "../../packages/modules/kws/openwakeword/train",
-    "engine": "uv",                    // uv = `uv run <entry>` (ADR-028); direct = python
-    "entry": "train/train.py",
-    "args": ["--epochs", "{params.epochs}"],   // optional templating
-    "env": { "DATA_DIR": "{env.DATA_DIR}" }    // optional templating
+    "engine": "direct",                 // direct = python; uv = `uv run` (ADR-028)
+    "entry": "train_adapter.py",        // the module's train adapter (issue #127)
+    "env": {
+      "WAKE_PHRASE": "{params.wakePhrase}",   // job params -> notebook env convention
+      "WAKE_STEPS": "{params.steps}",
+      "UPSTREAM_PYTHON": "{env.UPSTREAM_PYTHON}"  // the env that has torch
+    }
   }
 }
 ```

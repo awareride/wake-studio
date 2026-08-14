@@ -223,10 +223,9 @@ and pull artifacts — no zip download.
    mutations are token-gated, ADR-036 §5).
 4. If Colab drops the runtime, re-run this cell — a **fresh URL** is printed.
 
-> The service runs the module's `train` script via its registry. The
-> openwakeword train adapter (writes the YAML config from job params + emits
-> NDJSON progress reports) lands with Phase 5 (`docs/modules/training.md` §4);
-> until then, Steps 4–6 below remain the manual training path.
+The service runs the module's **train adapter** (`train_adapter.py`, issue
+#127) which wraps the upstream `train.py` unchanged (ADR-031) — same logic as
+Steps 4–5 below, service-driven. Steps 4–6 remain as the manual fallback.
 """)
 
 CELL4c = code("""# --- Step 1.5 · Expose this runtime to WakeStudio via a tunnel ---------------
@@ -234,9 +233,12 @@ import os, secrets
 
 if ENABLE_TUNNEL:
     # 1) Install the studio-backend service from this repo (pinned to main).
-    #    It brings wake-service + the colab launcher (issue #123).
+    #    It brings wake-service + the colab launcher (issue #123) and the
+    #    openwakeword train adapter is fetched next (single self-contained
+    #    file, served from the repo).
     !pip install -q "git+https://github.com/awareride/wake-studio@main#subdirectory=apps/studio-backend"
     !pip install -q uv  # the service's train runner (ADR-028)
+    !wget -q https://raw.githubusercontent.com/awareride/wake-studio/main/packages/modules/kws/openwakeword/train/train_adapter.py -O train_adapter.py
 
     from wake_training_service.colab_launcher import launch
 
@@ -244,14 +246,19 @@ if ENABLE_TUNNEL:
     #    Settings -> Security -> backend secret so the app can submit/control.
     WAKE_SERVICE_TOKEN = WAKE_SERVICE_TOKEN or secrets.token_urlsafe(24)
 
-    # 3) Registry: point the service at THIS session's openwakeword install.
-    #    engine=direct -> the notebook's own Python (all deps installed here).
+    # 3) Registry: the adapter wraps THIS session's upstream openwakeword
+    #    install (Step 1) and runs with the notebook's own Python (has torch).
     launcher = launch(
         registry={
             MODULE_ID: {
-                "cwd": os.path.abspath("./openwakeword"),
+                "cwd": os.path.abspath("."),
                 "engine": "direct",
-                "entry": "train.py",  # adapter path - lands with Phase 5
+                "entry": "train_adapter.py",
+                "env": {
+                    "UPSTREAM_DIR": os.path.abspath("./openwakeword"),
+                    "UPSTREAM_TRAIN": os.path.abspath("./openwakeword/openwakeword/train.py"),
+                    "WORK_DIR": os.path.abspath("."),
+                },
             },
         },
         port=int(os.environ.get("WAKE_SERVICE_PORT", "4824")),

@@ -1,0 +1,4 @@
+# Minimal upstream config (the real one has many more keys; the adapter
+# overrides the training-relevant ones and leaves the rest untouched).
+model_type: dnn
+layer_size: 32

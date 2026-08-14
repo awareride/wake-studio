@@ -1,7 +1,7 @@
 {
   "$schema": "./train-modules.schema.json",
   "version": 1,
-  "updated": "2026-08-13",
+  "updated": "2026-08-14",
   "note": "Catalog of trainable modules (spec.train, issue #105). Generated from the module specs - the single shared fact source (ADR-025). The training console picks the model type (openwakeword / streaming / rnnoise), renders its train config, and offers the invocation methods the module declares.",
   "modules": [
     {
@@ -32,6 +32,7 @@
       "train": {
         "notebookLocal": "packages/modules/kws/openwakeword/train/colab/train.ipynb",
         "invocation": [
+          "subprocess",
           "colab"
         ],
         "params": [
@@ -102,7 +103,8 @@
         "outputs": {
           "checkpoint": "out/model.onnx",
           "metrics": "out/metrics.json"
-        }
+        },
+        "entry": "train/train_adapter.py"
       }
     },
     {
