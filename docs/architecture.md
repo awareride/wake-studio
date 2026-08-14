@@ -257,8 +257,15 @@ reference C/C++ pipelines for target chips.
 | Audio capture/processing | Web Audio API + AudioWorklet | W3C standard |
 | TTS for synthetic training data | **Piper** (`OHF-Voice/piper1-gpl` GPL-3.0 active / `rhasspy/piper` MIT archived) | GPL-3.0 / MIT (verify voices) |
 | Visualization | Canvas 2D / WebGL (custom, or `regl`-based) | MIT |
-| UI (ADR-004) | React 18 + Vite 5 + TypeScript 5 + Tailwind 3 | MIT |
+| UI (ADR-004) | React 18 + Vite 5 + TypeScript 5 + Tailwind 3; **Radix-first** — `@radix-ui/themes` (components + theming), `@radix-ui/colors` (scales), `@radix-ui/react-icons` | MIT |
 
+> **UI convention (WIP tip):** app UI is **Radix-first** — basic components
+> and theming come from `@radix-ui/themes`, color scales from
+> `@radix-ui/colors`, icons from `@radix-ui/react-icons` (plus Radix primitive
+> packages when a Themes component doesn't cover the interaction). Hand-rolled
+> CSS only when Radix can't express the design. See the WIP tips section in
+> `CONTRIBUTING.md`.
+>
 > **Training-data sources (ADR-022):** audio generation and datasets are a
 > pluggable, in-app-configurable data-source layer (local services / project APIs /
 > public TTS endpoints); generation **never runs in WASM** - it runs in the selected

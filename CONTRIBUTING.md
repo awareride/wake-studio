@@ -84,6 +84,26 @@ pnpm dev
 | `pnpm fetch:all` | Sync every CI-built artifact. |
 | `pnpm pwa-assets` | Regenerate raster PWA icons from `public/icon.svg`. |
 
+## WIP tips (working conventions)
+
+Conventions collected during development. Keep this list short and actionable —
+add a tip only when it saved real time or prevented a mistake.
+
+- **App UI: Radix first.** Build every piece of app UI on `@radix-ui/*` before
+  reaching for hand-rolled CSS or a new dependency:
+  - **Basic components** — `@radix-ui/themes` (Button, Card, Dialog, Select,
+    Tabs, …); add primitive packages (`@radix-ui/react-dialog`,
+    `react-dropdown-menu`, `react-toast`, `react-tooltip`) when a Themes
+    component doesn't cover the interaction.
+  - **Colors** — `@radix-ui/colors` scales (see `apps/web/src/settings/accent-colors.ts`);
+    no hand-picked hex values.
+  - **Icons** — `@radix-ui/react-icons` (see `apps/web/src/components/icons.tsx`);
+    no emoji or ad-hoc SVGs.
+  - **Themes** — `@radix-ui/themes` `<Theme>` wrapper (`ThemedShell` in
+    `apps/web/src/App.tsx`) owns appearance + accent; don't fork your own
+    theming.
+  - Fall back to custom CSS only when Radix genuinely can't express the design.
+
 ## Testing layers (ADR-026)
 
 - **L1 unit (vitest, fast):** pure logic - DSP (in `@wake-studio/dsp`, ADR-032),
