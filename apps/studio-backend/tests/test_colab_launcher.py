@@ -7,13 +7,21 @@ the real service (uvicorn thread) with a fake tunnel and checks /health.
 
 import io
 import json
+import shutil
 import socket
+import subprocess
 import threading
 import time
+import urllib.error
 import urllib.request
+from pathlib import Path
+
+import pytest
 
 from wake_training_service.colab_launcher import (
     ColabLauncher,
+    cloudflared_download_url,
+    find_or_install_cloudflared,
     launch,
     parse_tunnel_url,
 )
@@ -134,6 +142,87 @@ def test_stop_terminates_monitor():
     launcher.stop()
     thread.join(timeout=5)
     assert not thread.is_alive()
+
+
+def test_cloudflared_download_url_mapping():
+    # arch -> GitHub latest-release asset name for the standalone binary
+    assert cloudflared_download_url("x86_64") == (
+        "https://github.com/cloudflare/cloudflared/releases/latest/download/"
+        "cloudflared-linux-amd64"
+    )
+    assert cloudflared_download_url("aarch64") == (
+        "https://github.com/cloudflare/cloudflared/releases/latest/download/"
+        "cloudflared-linux-arm64"
+    )
+    assert cloudflared_download_url("armv7l") == (
+        "https://github.com/cloudflare/cloudflared/releases/latest/download/"
+        "cloudflared-linux-arm"
+    )
+    with pytest.raises(RuntimeError, match="unsupported platform"):
+        cloudflared_download_url("sparc64")
+
+
+def test_find_or_install_uses_path_binary(monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/local/bin/cloudflared")
+    assert find_or_install_cloudflared(quiet) == "/usr/local/bin/cloudflared"
+
+
+def test_find_or_install_downloads_binary(monkeypatch, tmp_path):
+    # pip is dead (PyPI 404): the fallback downloads the GitHub binary
+    # into ~/.local/bin, chmods it, and sanity-checks it runs.
+    calls: dict[str, object] = {}
+
+    class FakeResp:
+        def __init__(self, data: bytes) -> None:
+            self._data = data
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self, n: int = -1) -> bytes:
+            data = self._data
+            self._data = b""
+            return data
+
+    def fake_urlopen(url: str, timeout: int = 180):
+        calls["url"] = url
+        return FakeResp(b"#!/bin/sh\necho cloudflared 2024.1.1\n")
+
+    def fake_run(cmd: list[str], **_kwargs):
+        calls["cmd"] = cmd
+
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr(
+        "wake_training_service.colab_launcher.urllib.request.urlopen", fake_urlopen
+    )
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    out = find_or_install_cloudflared(quiet)
+    assert out == str(tmp_path / ".local" / "bin" / "cloudflared")
+    assert "cloudflared-linux-" in str(calls["url"])
+    # sanity-check runs against the .part file BEFORE the final rename
+    assert calls["cmd"] == [
+        str(tmp_path / ".local" / "bin" / "cloudflared.part"), "--version"
+    ]
+    assert Path(out).is_file()
+
+
+def test_find_or_install_download_failure_raises(monkeypatch, tmp_path):
+    def boom(url: str, timeout: int = 180):
+        raise urllib.error.URLError("no network")
+
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr(
+        "wake_training_service.colab_launcher.urllib.request.urlopen", boom
+    )
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+
+    with pytest.raises(RuntimeError, match="Install it manually"):
+        find_or_install_cloudflared(quiet)
 
 
 def test_launch_starts_service_health_ok(tmp_path):

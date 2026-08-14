@@ -84,8 +84,9 @@ manual zip round-trip).
 ### Details
 
 - cloudflared works from Colab: it makes an *outbound* connection to
-  Cloudflare's edge, which Colab's sandbox allows. Install via
-  `pip install cloudflared` or the static binary; no root needed.
+  Cloudflare's edge, which Colab's sandbox allows. Install via the
+  launcher's automatic binary download (GitHub latest release →
+  `~/.local/bin`) or a static binary; no root needed.
 - CORS: the in-notebook server sets `Access-Control-Allow-Origin: *` (we own
   it, so this is trivial). No mixed-content issue — PWA and tunnel are both HTTPS.
 - Security: the URL is unguessable but treat it as public; never send
