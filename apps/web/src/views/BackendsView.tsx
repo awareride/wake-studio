@@ -163,7 +163,7 @@ function BackendEditor({
   )
 }
 
-/** Colab guide — clear 3-step stepper; top bar carries only Back. */
+/** Colab guide — three step cards, no redundant stepper pills on top. */
 const COLAB_STEPS: Array<{ title: string; detail: string }> = [
   {
     title: 'Download',
@@ -205,21 +205,6 @@ function ColabGuide({
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-        {/* Stepper pills (wizard-style). */}
-        <nav aria-label="Setup steps" className="flex flex-wrap items-center gap-1.5">
-          {COLAB_STEPS.map((s, i) => (
-            <span
-              key={s.title}
-              className="inline-flex items-center gap-2 rounded-full border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink-2"
-            >
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-surface-3 text-[10px] font-bold text-ink-3">
-                {i + 1}
-              </span>
-              {s.title}
-            </span>
-          ))}
-        </nav>
-
         {/* Step cards. */}
         <div className="grid gap-4 lg:grid-cols-3">
           {COLAB_STEPS.map((s, i) => (
@@ -242,6 +227,15 @@ function ColabGuide({
                   )}
                   <Button type="button" size="1" variant="soft" onClick={onPreview}>
                     Review
+                  </Button>
+                </div>
+              )}
+              {i === 1 && (
+                <div className="mt-3">
+                  <Button type="button" size="1" asChild>
+                    <a href="https://colab.research.google.com" target="_blank" rel="noreferrer">
+                      Open Google Colab
+                    </a>
                   </Button>
                 </div>
               )}
@@ -373,6 +367,148 @@ function BackendDetail({ backend }: { backend: ManagedBackend }) {
   )
 }
 
+/** Backend basic info — shown at the top of the details pane. */
+function BackendSummary({ backend }: { backend: ManagedBackend }) {
+  return (
+    <section className="rounded-xl border border-line bg-surface-2 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-base font-semibold text-ink-1">{backend.name}</h3>
+        <span
+          className={cn(
+            'rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide',
+            KIND_STYLE[backend.kind],
+          )}
+        >
+          {backend.kind === 'short-term' ? 'short-term' : 'long-term'}
+        </span>
+        <span
+          className={cn(
+            'rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide',
+            STATUS_STYLE[backend.status],
+          )}
+        >
+          {backend.status}
+        </span>
+      </div>
+      <p className="mt-1 truncate font-mono text-xs text-ink-3">{backend.baseUrl}</p>
+      <p className="mt-1 text-[10px] text-ink-3">
+        {backend.lastSeenMs
+          ? `last seen ${new Date(backend.lastSeenMs).toLocaleString()} (auto health check every 30s)`
+          : 'not checked yet — the first health check is running'}
+      </p>
+    </section>
+  )
+}
+
+/** Operations: inline Edit (Save confirms changes) + Delete on its own line. */
+function BackendOperations({
+  backend,
+  onSave,
+  onDelete,
+}: {
+  backend: ManagedBackend
+  onSave: (input: EditorInput) => void
+  onDelete: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(backend.name)
+  const [baseUrl, setBaseUrl] = useState(backend.baseUrl)
+  const [token, setToken] = useState(backend.token ?? '')
+
+  const dirty =
+    name.trim() !== backend.name ||
+    baseUrl.trim() !== backend.baseUrl ||
+    token.trim() !== (backend.token ?? '')
+  const urlValid = /^https?:\/\/.+/.test(baseUrl.trim())
+  const valid = name.trim() !== '' && urlValid
+
+  const startEdit = useCallback(() => {
+    setName(backend.name)
+    setBaseUrl(backend.baseUrl)
+    setToken(backend.token ?? '')
+    setEditing(true)
+  }, [backend])
+
+  return (
+    <section className="rounded-xl border border-danger/25 bg-surface-2 p-4">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Operations</h4>
+
+      {editing ? (
+        <div className="mt-3 space-y-3">
+          <label className="block space-y-1">
+            <span className="block text-xs font-medium text-ink-2">Name</span>
+            <TextField.Root
+              size="2"
+              className="w-full"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="block text-xs font-medium text-ink-2">Endpoint URL</span>
+            <TextField.Root
+              size="2"
+              className="w-full"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="block text-xs font-medium text-ink-2">Access token</span>
+            <TextField.Root
+              size="2"
+              className="w-full"
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+            />
+          </label>
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" size="1" variant="ghost" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="1"
+              disabled={!valid || !dirty}
+              onClick={() => {
+                onSave({ name: name.trim(), baseUrl: baseUrl.trim(), token: token.trim() })
+                setEditing(false)
+              }}
+            >
+              Save
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-2">
+          <Button type="button" size="1" variant="outline" onClick={startEdit}>
+            Edit
+          </Button>
+        </div>
+      )}
+
+      {/* Delete on its own line. */}
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
+        <p className="text-xs text-ink-3">
+          Remove this backend. Jobs already started keep their recorded endpoint in the Training
+          list.
+        </p>
+        <Button
+          type="button"
+          size="1"
+          variant="outline"
+          color="red"
+          className="shrink-0"
+          onClick={onDelete}
+        >
+          Delete
+        </Button>
+      </div>
+    </section>
+  )
+}
+
 type BackendsViewMode =
   | { kind: 'list' }
   | { kind: 'new-editor'; mode: 'new' | 'edit'; backendId?: string }
@@ -486,14 +622,16 @@ export function BackendsView() {
     )
   }
 
-  // Notebook preview fills the whole panel (Trains-style review on demand).
   if (view.kind === 'colab-preview' && blobUrl) {
+    // Bounded container like Trains (the review fills the panel, never crosses it).
     return (
-      <NotebookReviewView
-        fileName={BACKEND_NOTEBOOK_FILENAME}
-        rawUrl={blobUrl}
-        onBack={() => setView({ kind: 'colab-guide' })}
-      />
+      <div className="flex h-[calc(100dvh-7.5rem)] min-h-[24rem] flex-col">
+        <NotebookReviewView
+          fileName={BACKEND_NOTEBOOK_FILENAME}
+          rawUrl={blobUrl}
+          onBack={() => setView({ kind: 'colab-guide' })}
+        />
+      </div>
     )
   }
 
@@ -546,7 +684,7 @@ export function BackendsView() {
                 Backends
               </h3>
               {backends.length > 0 && (
-                <span className="ml-auto rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] text-ink-3">
+                <span className="ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[9px] leading-none text-ink-3">
                   {backends.length}
                 </span>
               )}
@@ -555,7 +693,7 @@ export function BackendsView() {
               </Button>
             </div>
 
-            <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-4">
+            <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-4">
               {backends.length === 0 && (
                 <li className="rounded-lg border border-dashed border-line px-3 py-3 text-xs text-ink-3">
                   No backends yet — press{' '}
@@ -569,38 +707,35 @@ export function BackendsView() {
                   <button
                     type="button"
                     onClick={() => setSelectedId(b.id === selected?.id ? null : b.id)}
+                    aria-pressed={selected?.id === b.id}
                     className={cn(
-                      'w-full rounded-xl border p-3 text-left transition-colors',
+                      'w-full rounded-lg border px-3 py-2 text-left transition-colors',
                       selected?.id === b.id
                         ? 'border-brand-9/50 bg-brand-9/5'
-                        : 'border-line bg-surface-2 hover:border-brand-9/30',
+                        : 'border-transparent hover:border-line hover:bg-surface-2',
                     )}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-sm font-semibold text-ink-1">{b.name}</span>
-                          <span
-                            className={cn(
-                              'rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide',
-                              KIND_STYLE[b.kind],
-                            )}
-                          >
-                            {b.kind === 'short-term' ? 'short-term' : 'long-term'}
-                          </span>
-                        </div>
-                        <p className="mt-1 truncate font-mono text-[11px] text-ink-3">
-                          {b.baseUrl}
-                        </p>
-                      </div>
+                    <div className="flex items-center justify-between gap-2">
                       <span
                         className={cn(
-                          'mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide',
+                          'rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide',
                           STATUS_STYLE[b.status],
                         )}
                       >
                         {b.status}
                       </span>
+                      <span
+                        className={cn(
+                          'rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide',
+                          KIND_STYLE[b.kind],
+                        )}
+                      >
+                        {b.kind === 'short-term' ? 'short-term' : 'long-term'}
+                      </span>
+                    </div>
+                    <div className="mt-1 truncate text-xs font-medium text-ink-1">{b.name}</div>
+                    <div className="mt-0.5 truncate font-mono text-[10px] text-ink-3">
+                      {b.baseUrl}
                     </div>
                   </button>
                 </li>
@@ -630,40 +765,13 @@ export function BackendsView() {
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             {selected ? (
               <>
-                <BackendDetail key={selected.id} backend={selected} />
-                {/* Operations (Trains-style): edit / delete live here. */}
-                <section className="rounded-xl border border-danger/25 bg-surface-2 p-4">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-                    Operations
-                  </h4>
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-xs text-ink-3">
-                      Edit the endpoint/token, or remove this backend. Jobs already started keep
-                      their recorded endpoint in the Training list.
-                    </p>
-                    <div className="flex shrink-0 gap-2">
-                      <Button
-                        type="button"
-                        size="1"
-                        variant="outline"
-                        onClick={() =>
-                          setView({ kind: 'new-editor', mode: 'edit', backendId: selected.id })
-                        }
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        type="button"
-                        size="1"
-                        variant="outline"
-                        color="red"
-                        onClick={() => setConfirmDelete(selected.id)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                </section>
+                <BackendSummary key={`${selected.id}-summary`} backend={selected} />
+                <BackendDetail key={`${selected.id}-jobs`} backend={selected} />
+                <BackendOperations
+                  backend={selected}
+                  onSave={(input) => upsertBackend({ ...selected, ...input })}
+                  onDelete={() => setConfirmDelete(selected.id)}
+                />
               </>
             ) : (
               <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
