@@ -5,11 +5,11 @@
  *   POST /jobs (create+enqueue) · GET /jobs/{id} · lifecycle actions ·
  *   GET /jobs/{id}/logs · GET /artifacts/{job_id}/{name} · GET /stream (SSE)
  *
- * One client serves BOTH the self-hosted studio-backend (Settings
- * `backend.endpoint`) and the Colab tunnel (the notebook exposes the same
- * contract — ADR-023 amendment, "one HTTP client, N backends"). Read
- * endpoints are open; mutating endpoints carry the Settings token
- * (`backend.apiKey` / `backend.secret`) as Bearer when set (ADR-036 §5).
+ * One client serves BOTH a managed backend (the Backends menu URL) and the
+ * Colab tunnel (the notebook exposes the same contract — ADR-023 amendment,
+ * "one HTTP client, N backends"). Read endpoints are open; mutating
+ * endpoints carry the backend token (or the Settings secrets as fallback)
+ * as Bearer when set (ADR-036 §5).
  */
 
 import type { TrainingJob } from '@wake-studio/module-training'
@@ -56,8 +56,19 @@ export class StudioClientError extends Error {
   }
 }
 
+export interface StudioHealth {
+  status: string
+  service: string
+  modules: number
+  gpu: { cuda: boolean; device: string | null; vram_bytes: number | null; label: string | null }
+  concurrency: number
+  authEnabled: boolean
+  jobs: Record<string, number>
+}
+
 export interface StudioClient {
   readonly baseUrl: string
+  health(): Promise<StudioHealth>
   createJob(
     moduleId: string,
     params: Record<string, string>,
@@ -126,6 +137,7 @@ export function createStudioClient(baseUrl: string, token?: string): StudioClien
 
   return {
     baseUrl: normalized,
+    health: () => request<StudioHealth>('/health'),
     createJob(moduleId, params, id) {
       return request<StudioJob>('/jobs', {
         method: 'POST',

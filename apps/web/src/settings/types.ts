@@ -44,7 +44,6 @@ export interface PlatformSettings {
   'theme.accent': AccentTheme
   locale: AppLocale
   'kws.executionProvider': ExecutionProvider
-  'backend.endpoint': string
   /** Secret - stored locally only; masked on export. */
   'backend.apiKey': string
   /** Secret - stored locally only; masked on export. */

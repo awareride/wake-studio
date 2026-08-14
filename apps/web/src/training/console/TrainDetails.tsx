@@ -8,8 +8,8 @@
  * started").
  *
  * Live tracking (issue #122, ADR-036): when the job has an endpoint (the
- * Settings `backend.endpoint` for self-hosted trains, or a pasted Colab
- * tunnel URL after Connect), this pane subscribes to the studio-backend job
+ * managed backend URL for Studio-backend trains, or a pasted Colab tunnel
+ * URL after Connect), this pane subscribes to the studio-backend job
  * API — SSE when available, polling fallback — and shows live progress,
  * metrics, logs, checkpoint, artifacts and lifecycle actions.
  */
@@ -62,7 +62,7 @@ export function TrainDetails({
   onLiveUpdate,
   onDelete,
 }: TrainDetailsProps) {
-  const { platform } = useAppSettings()
+  const { platform, backends } = useAppSettings()
   const module = findTrainableModule(modules, job.moduleId)
   const exportable = job.license === 'user-owned'
   const metrics = job.metrics ?? {}
@@ -72,7 +72,9 @@ export function TrainDetails({
   const messages = deriveMessages(job)
 
   // Live tracking: only while the job is active on an endpoint.
-  const token = platform['backend.apiKey'] || platform['backend.secret'] || undefined
+  const managedBackend = job.backendId ? backends.find((b) => b.id === job.backendId) : undefined
+  const token =
+    managedBackend?.token || platform['backend.apiKey'] || platform['backend.secret'] || undefined
   const tracked = !!job.endpoint
   const { live, mode, error: liveError, actions } = useStudioJob({
     jobId: tracked ? job.id : undefined,

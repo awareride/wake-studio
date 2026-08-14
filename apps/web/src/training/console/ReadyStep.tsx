@@ -9,6 +9,7 @@
 
 import { type TrainMethodId } from '@wake-studio/module-training'
 import type { TrainableModule } from '../train-modules'
+import type { ManagedBackend } from '../../backends/types'
 import { FileReviewCard } from './FileReviewCard'
 import { trainInputFile } from './train-files'
 
@@ -16,6 +17,8 @@ export interface ReadyStepProps {
   module: TrainableModule
   method: TrainMethodId
   params: Record<string, string>
+  /** The managed backend for the Studio-backend method (Backends menu). */
+  backend?: ManagedBackend | null
   /** Open the full notebook review panel (issue #105). */
   onReview: () => void
 }
@@ -28,7 +31,7 @@ function methodLabel(method: TrainMethodId): string {
       : 'CI'
 }
 
-export function ReadyStep({ module, method, params, onReview }: ReadyStepProps) {
+export function ReadyStep({ module, method, params, backend, onReview }: ReadyStepProps) {
   const file = trainInputFile(module, method)
   const labels = new Map((module.train.params ?? []).map((p) => [p.id, p.label]))
   const paramRows = Object.entries(params)
@@ -56,6 +59,14 @@ export function ReadyStep({ module, method, params, onReview }: ReadyStepProps) 
               </dd>
             </div>
           ))}
+          {method === 'studio-backend' && (
+            <div className="flex justify-between gap-3 sm:col-span-2">
+              <dt className="text-ink-3">Backend</dt>
+              <dd className="truncate font-mono text-ink-1" title={backend?.baseUrl}>
+                {backend ? `${backend.name} · ${backend.baseUrl}` : '—'}
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
 

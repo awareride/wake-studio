@@ -11,6 +11,7 @@ import {
   IconWorkspace,
   IconLibrary,
   IconTrain,
+  IconServer,
   IconFolder,
   IconSettings,
   IconChip,
@@ -36,6 +37,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { route: 'workspace', label: 'Workspace', icon: IconWorkspace },
   { route: 'library', label: 'Model Registry', icon: IconLibrary },
   { route: 'training', label: 'Training', icon: IconTrain },
+  { route: 'backends', label: 'Backends', icon: IconServer },
   { route: 'projects', label: 'Projects', icon: IconFolder },
   { route: 'console', label: 'Console', icon: IconConsole },
 ]

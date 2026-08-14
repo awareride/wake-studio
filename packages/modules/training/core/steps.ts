@@ -52,9 +52,9 @@ export const STEP_DEFS: readonly TrainingStepDef[] = [
     label: 'Choose train method',
     summary: 'Pick where training runs, from the methods the module supports.',
     help: [
-      'The methods come from the module\'s spec.train.invocation: Google Colab (free GPU, your account), Self-hosted service (local endpoint), CI (GitHub Actions).',
+      'The methods come from the module\'s spec.train.invocation: Google Colab (free GPU, your account), Studio-backend (one of your managed backends — Backends menu), CI (GitHub Actions).',
+      'Studio-backend runs the module\'s train adapter as a subprocess on the chosen backend (ADR-036): pick the backend in this step; connection details are saved in the Backends menu.',
       'Colab is the v1 path: run the module-owned notebook in your own session, then bring results back in the train details pane (tunnel URL or manual zip submit, ADR-023 amendment, issue #106).',
-      'Connection details are generated at run time, not here — the URL does not exist yet.',
     ],
   },
   {

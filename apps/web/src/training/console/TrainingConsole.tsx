@@ -43,7 +43,7 @@ type View =
   | { kind: 'wizard'; from: { kind: 'empty' } | { kind: 'details'; jobId: string } }
 
 export function TrainingConsole() {
-  const { platform } = useAppSettings()
+  const { platform, backends } = useAppSettings()
   const [jobs, setJobs] = useState<HistoryJob[]>([])
   const [modules, setModules] = useState<TrainableModule[]>([])
   const [modulesError, setModulesError] = useState<string | null>(null)
@@ -131,10 +131,15 @@ export function TrainingConsole() {
   }, [view, jobs])
 
   // Wizard "Save/Start": record the job, open its review (issue #105).
-  // For the self-hosted method the job is ALSO submitted to the studio-backend
-  // (POST /jobs) and tracked live (issue #122, ADR-036).
+  // For the Studio-backend method the job is submitted to the chosen managed
+  // backend (Backends menu) — POST /jobs — and tracked live (issue #122).
   const handleWizardStarted = useCallback(
-    (moduleId: string, method: TrainMethodId, params: Record<string, string>) => {
+    (
+      moduleId: string,
+      method: TrainMethodId,
+      params: Record<string, string>,
+      backendId?: string,
+    ) => {
       const id = `train-${Date.now()}`
       const job = startedJob({
         id,
@@ -144,9 +149,20 @@ export function TrainingConsole() {
         params,
       })
       if (method === 'studio-backend') {
-        const endpoint = platform['backend.endpoint']
-        const token = platform['backend.apiKey'] || platform['backend.secret'] || undefined
-        recordJob({ ...job, endpoint })
+        const backend = backends.find((b) => b.id === backendId)
+        if (!backend) {
+          recordJob({
+            ...job,
+            status: 'failed',
+            error: 'The chosen backend no longer exists — add it again in the Backends menu.',
+            finishedAtMs: Date.now(),
+          })
+          setView({ kind: 'details', jobId: job.id })
+          return
+        }
+        const endpoint = backend.baseUrl
+        const token = backend.token || undefined
+        recordJob({ ...job, endpoint, backendId: backend.id })
         setView({ kind: 'details', jobId: job.id })
         const client = createStudioClient(endpoint, token)
         void client
@@ -164,7 +180,7 @@ export function TrainingConsole() {
         setView({ kind: 'details', jobId: job.id })
       }
     },
-    [platform, recordJob, patchJob],
+    [backends, recordJob, patchJob],
   )
 
   // Colab "Connect": once the notebook's tunnel URL is pasted, submit the job

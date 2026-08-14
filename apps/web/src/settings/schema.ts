@@ -20,7 +20,6 @@ export const PLATFORM_DEFAULTS: PlatformSettings = {
   'theme.accent': 'gray',
   locale: 'en',
   'kws.executionProvider': 'wasm',
-  'backend.endpoint': 'http://127.0.0.1:4824',
   'backend.apiKey': '',
   'backend.secret': '',
   'data.upload': false,
@@ -90,19 +89,10 @@ export const PLATFORM_SETTING_DESCRIPTORS: ReadonlyArray<SettingDescriptor> = [
 
   // ---- Security ----
   {
-    id: 'backend.endpoint',
-    label: 'Backend endpoint',
-    description:
-      'Self-hosted service base URL (ADR-005). Used by future training/data jobs.',
-    type: 'string',
-    default: 'http://127.0.0.1:4824',
-    group: 'security',
-  },
-  {
     id: 'backend.apiKey',
     label: 'API key',
     description:
-      'Credential for the backend. Stored locally only, never sent to a WakeStudio server, never logged or exported.',
+      'Fallback credential for Colab tunnel jobs (the notebook service token, ADR-036 §5). Managed backends carry their own token. Stored locally only, never sent to a WakeStudio server, never logged or exported.',
     type: 'secret',
     default: '',
     group: 'security',
@@ -111,7 +101,7 @@ export const PLATFORM_SETTING_DESCRIPTORS: ReadonlyArray<SettingDescriptor> = [
     id: 'backend.secret',
     label: 'Secret',
     description:
-      'Shared secret for the backend. Same storage guarantees as the API key.',
+      'Fallback shared secret for Colab tunnel jobs. Same storage guarantees as the API key.',
     type: 'secret',
     default: '',
     group: 'security',
