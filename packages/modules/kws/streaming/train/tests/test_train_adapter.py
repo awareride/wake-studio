@@ -254,3 +254,63 @@ def test_non_streamable_missing_model_fails(tmp_path):
     assert res.returncode == 1
     assert events[-1]["event"] == "error"
     assert "streaming tflite not found" in events[-1]["message"]
+
+
+def test_prepare_data_edge_tts(monkeypatch, tmp_path):
+    """The edge-tts source builds the label tree + derives wanted words."""
+    import train_adapter
+
+    class FakeDs:
+        @staticmethod
+        def build_edge_tts_kws_dataset(phrases, languages, out, samples_per_phrase=3,
+                                       unknown_words=None, sample_rate=16000,
+                                       voices=None, reporter=None):
+            (out / "hey_studio").mkdir(parents=True, exist_ok=True)
+            return {"name": "edge-tts", "commercialUse": True}
+
+    monkeypatch.setattr(train_adapter, "_import_data_sources", lambda: FakeDs)
+    params = train_adapter.read_params(
+        {"STREAM_DATA_SOURCE": "edge-tts", "STREAM_WAKE_PHRASES": "hey studio,ok studio"}
+    )
+
+    class R:
+        def emit(self, event, **fields):
+            pass
+
+    data_dir, sources, wanted = train_adapter.prepare_data(
+        params, tmp_path, R()
+    )
+    assert wanted == "hey_studio,ok_studio"
+    assert sources[0]["commercialUse"] is True
+    assert (Path(data_dir) / "hey_studio").is_dir()
+
+
+def test_prepare_data_user_url(monkeypatch, tmp_path):
+    """The user-url source passes the URL through and keeps wanted words."""
+    import train_adapter
+
+    class FakeDs:
+        @staticmethod
+        def prepare_user_archive(url, data_dir, reporter=None):
+            assert url == "https://example.com/ds.tar.gz"
+            (data_dir / "up").mkdir(parents=True, exist_ok=True)
+            return data_dir, {"name": "user", "commercialUse": False}
+
+    monkeypatch.setattr(train_adapter, "_import_data_sources", lambda: FakeDs)
+    params = train_adapter.read_params(
+        {
+            "STREAM_DATA_SOURCE": "user-url",
+            "STREAM_DATA_URL": "https://example.com/ds.tar.gz",
+            "STREAM_WANTED_WORDS": "up,down",
+        }
+    )
+
+    class R:
+        def emit(self, event, **fields):
+            pass
+
+    data_dir, sources, wanted = train_adapter.prepare_data(params, tmp_path, R())
+    assert wanted == "up,down"
+    assert sources[0]["commercialUse"] is False
+    assert (Path(data_dir) / "up").is_dir()
+

@@ -290,7 +290,6 @@ def build_edge_tts_kws_dataset(
     if not languages:
         raise DataSourceError("edge-tts source requires at least one language")
 
-    positive_labels: list[str] = []
     total = 0
 
     # positives: the wake phrase(s)
@@ -298,7 +297,6 @@ def build_edge_tts_kws_dataset(
         if not phrase.strip():
             continue
         label = _sanitize_label(phrase)
-        positive_labels.append(label)
         label_dir = out_dir / label
         for lang in languages:
             lang_voices = voices.get(lang, voices.get("en-US", []))
