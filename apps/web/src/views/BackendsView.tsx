@@ -220,7 +220,7 @@ function ColabGuide({
               </div>
               <p className="mt-2 flex-1 text-xs leading-relaxed text-ink-2">{s.detail}</p>
               {i === 0 && (
-                <div className="mt-3 flex gap-2 border-t border-line pt-3">
+                <div className="mt-3 flex min-h-9 items-center gap-2 border-t border-line pt-2">
                   {blobUrl && (
                     <Button type="button" size="1" asChild className="flex-1">
                       <a href={blobUrl} download={BACKEND_NOTEBOOK_FILENAME}>
@@ -240,7 +240,7 @@ function ColabGuide({
                 </div>
               )}
               {i === 1 && (
-                <div className="mt-3 border-t border-line pt-3">
+                <div className="mt-3 flex min-h-9 items-center border-t border-line pt-2">
                   <Button type="button" size="1" asChild className="w-full">
                     <a href="https://colab.research.google.com" target="_blank" rel="noreferrer">
                       Open Google Colab
@@ -249,10 +249,10 @@ function ColabGuide({
                 </div>
               )}
               {i === 2 && (
-                <div className="mt-3 border-t border-line pt-3">
-                  <p className="text-[10px] leading-relaxed text-ink-3">
-                    Then press <span className="font-medium text-ink-2">Run all</span> in Colab
-                    and copy the printed URL + token.
+                <div className="mt-3 flex min-h-9 items-center border-t border-line pt-2">
+                  <p className="text-[10px] leading-4 text-ink-3">
+                    Then press <span className="font-medium text-ink-2">Run all</span> and copy
+                    the URL + token.
                   </p>
                 </div>
               )}
