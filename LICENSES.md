@@ -85,6 +85,7 @@ Every model or component that enters an **export bundle** is classified:
 | Piper voices | `rhasspy/piper-voices` | **Per-voice** (CC BY 4.0, Blizzard research-only, etc.) | Varies | 🟡 per voice | Each voice's `MODEL_CARD`; some are research-only (Blizzard). |
 | espeak-ng phonemizer (used by Piper) | `espeak-ng/espeak-ng` | GPL | — | 🟡 | Linked into Piper; copyleft implications for distributed bundles. |
 | `piper-sample-generator` | `rhasspy/piper-sample-generator` | MIT | Yes (tool) | ✅ | Used by microWakeWord for sample generation (training-time only, not distributed). |
+| **edge-tts** (multi-language synthesis, ADR-022 data sources) | `rany2/edge-tts` | MIT (client) | Yes (client) | ✅ (tool) | PyPI `edge-tts` is MIT; it calls Microsoft's online TTS service, so the *generated audio's* commercial-use terms follow Microsoft's service terms — verify before commercial redistribution of synthesized clips. Training-time only; the model we train is ours. |
 
 > **Phase 5 implication (newly surfaced in Phase 0 audit):** The Piper engine
 > is now **GPL-3.0** (active) or archived-MIT. Because the Studio Engine runs
