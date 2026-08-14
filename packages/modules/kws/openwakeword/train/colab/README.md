@@ -24,17 +24,22 @@ upstream `automatic_model_training_simple` notebook, which runs on Colab's
    sample-generator, using `piper-phonemize-cross` (wheels for modern Python)
    and `onnx2tf` for TFLite export (the legacy ``piper-phonemize`` /
    `tensorflow-cpu==2.8.1` stack only ships wheels up to Python 3.10).
-2. (Optional) generates one sample clip so you can hear that the wake phrase
+2. **(Optional) Step 1.5** — starts the **WakeStudio studio-backend service**
+   in this runtime and exposes it through a free **trycloudflare tunnel**
+   (ADR-023 amendment, issue #123): the WakeStudio app can then drive this
+   Colab session directly through the same jobs API as the self-hosted
+   service — submit, live progress, pause/resume/cancel, artifact pull.
+3. (Optional) generates one sample clip so you can hear that the wake phrase
    sounds right before a long training run.
-3. Downloads the same public training data as the upstream notebook (MIT
+4. Downloads the same public training data as the upstream notebook (MIT
    RIRs, AudioSet, FMA, precomputed ACAV100M features, validation feature set).
-4. Writes the training YAML config from the Step 0 parameters and runs the
+5. Writes the training YAML config from the Step 0 parameters and runs the
    **upstream `train.py` unchanged** (`--generate_clips`, `--augment_clips`,
    `--train_model`) — we adapt to the script, we never rewrite it
    (`docs/modules/training.md` §4).
-5. Normalizes the trained model into the **standard artifact bundle**
+6. Normalizes the trained model into the **standard artifact bundle**
    (`docs/modules/training.md` §6) and zips it.
-6. The user downloads the zip and imports it back via **"Import Colab
+7. The user downloads the zip and imports it back via **"Import Colab
    results"** in the WakeStudio app.
 
 ## Manual run steps
@@ -55,6 +60,25 @@ upstream `automatic_model_training_simple` notebook, which runs on Colab's
 5. In WakeStudio, open the **Training** view and **Import Colab results**;
    pick the zip. The importer validates the manifest and registers the model
    for in-browser test + export.
+
+### Tunnel mode (Step 1.5, optional)
+
+Instead of the manual zip round-trip, the **Step 1.5** cell starts the
+studio-backend service in this runtime and exposes it via a free
+trycloudflare tunnel (ADR-023 amendment, issue #123):
+
+1. Run **Step 1.5** → it prints a **tunnel URL** and a **service token**.
+2. In WakeStudio, open the train details → paste the URL under *Colab tunnel
+   URL* → **Connect to tunnel & submit**.
+3. Paste the token into **Settings → Security → backend secret** (job
+   mutations are token-gated, ADR-036 §5).
+4. The WakeStudio app then drives this session like a self-hosted backend
+   (submit, live progress, pause/resume/cancel, artifact pull).
+5. If Colab drops the runtime, **re-run Step 1.5** — a fresh URL is printed.
+
+> The openwakeword train adapter (writes the YAML config from job params +
+> emits NDJSON progress reports) lands with Phase 5 (`docs/modules/training.md`
+> §4); until then, Steps 4–6 remain the manual training path.
 
 ## Regenerating the notebook
 

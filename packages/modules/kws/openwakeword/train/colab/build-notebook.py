@@ -46,19 +46,23 @@ environment and no legacy pins.
    training stack + the [`piper-sample-generator`](https://github.com/rhasspy/piper-sample-generator)
    TTS dependencies. Uses `piper-phonemize-cross` (wheels for modern Python)
    and `onnx2tf` for TFLite export, mirroring the upstream simple notebook.
-3. **Step 2** — (optional) generates one sample clip so you can hear that your
+3. **Step 1.5** — (optional) starts the **WakeStudio studio-backend service**
+   in this runtime and exposes it through a free **trycloudflare tunnel** — the
+   WakeStudio app then drives this Colab session directly (submit, live
+   progress, pause/resume/cancel, artifact pull; ADR-023 amendment, issue #123).
+4. **Step 2** — (optional) generates one sample clip so you can hear that your
    wake phrase sounds right before a long training run.
-4. **Step 3** — downloads the same public training data the upstream notebook
+5. **Step 3** — downloads the same public training data the upstream notebook
    uses (MIT room impulse responses, a slice of AudioSet, the FMA sample,
    precomputed ACAV100M openWakeWord features, and the validation feature set).
-5. **Step 4** — writes the training **YAML config** and runs the **upstream
+6. **Step 4** — writes the training **YAML config** and runs the **upstream
    `train.py` unchanged** (bytes-identical, never rewritten — WakeStudio
    adapts to the script, per `docs/modules/training.md` §4): `--generate_clips`,
    `--augment_clips`, `--train_model`. The model is exported to ONNX (and
    TFLite via `onnx2tf` when possible) into `my_custom_model/`.
-6. **Step 5** — nests the trained model + metadata into the **standard
+7. **Step 5** — nests the trained model + metadata into the **standard
    artifact bundle** and zips it.
-7. **Step 6** — download the bundle and use **"Import Colab results"** in the
+8. **Step 6** — download the bundle and use **"Import Colab results"** in the
    WakeStudio app.
 
 ## Expected runtime
@@ -128,6 +132,16 @@ QUANTIZE     = os.environ.get("WAKE_QUANTIZE", "true").lower() in ("1", "true", 
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 TTS_ENDPOINT_TOKEN = os.environ.get("TTS_ENDPOINT_TOKEN", "")
 
+# Expose this runtime to the WakeStudio app through a free trycloudflare
+# tunnel (ADR-023 amendment, issue #123): the app drives this Colab session
+# via the same jobs API as the self-hosted service. Set 0 to keep the manual
+# zip flow (Steps 4-6).
+ENABLE_TUNNEL = os.environ.get("WAKE_ENABLE_TUNNEL", "1").lower() in ("1", "true", "yes")
+# Service token - the app sends it as Bearer on job mutations (ADR-036 §5).
+# If empty, Step 1.5 generates one and prints it for you to paste into
+# Settings -> Security -> backend secret.
+WAKE_SERVICE_TOKEN = os.environ.get("WAKE_SERVICE_TOKEN", "")
+
 # WakeStudio job metadata
 JOB_ID   = os.environ.get("WAKE_JOB_ID", f"kws-openwakeword-{int(time.time()*1000)}")
 MODULE_ID = "kws-openwakeword"
@@ -139,6 +153,7 @@ print("target     :", WAKE_TARGET)
 print("n_samples  :", N_SAMPLES, "| n_samples_val:", N_SAMPLES_VAL)
 print("steps      :", STEPS, "| augment:", AUGMENT, "| quantize:", QUANTIZE)
 print("jobId      :", JOB_ID)
+print("tunnel     :", "enabled" if ENABLE_TUNNEL else "disabled (manual import)")
 """)
 
 CELL3 = md("""## Step 1 · Environment setup
@@ -190,6 +205,72 @@ os.makedirs("./openwakeword/openwakeword/resources/models", exist_ok=True)
 !wget -q https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/melspectrogram.tflite -O ./openwakeword/openwakeword/resources/models/melspectrogram.tflite
 
 print("environment ready")
+""")
+
+CELL4b = md("""## Step 1.5 · (Optional) Expose this runtime to WakeStudio (tunnel)
+
+Instead of the manual zip round-trip, this cell starts the **WakeStudio
+studio-backend service** inside this Colab runtime and exposes it through a
+free **trycloudflare tunnel** (ADR-023 amendment, issue #123). The WakeStudio
+app then drives this session directly through the same jobs API as the
+self-hosted service: submit the job, watch live progress, pause/resume/cancel,
+and pull artifacts — no zip download.
+
+1. Run this cell → it prints a **tunnel URL** and a **service token**.
+2. In WakeStudio, open the train details → paste the URL under *Colab tunnel
+   URL* → **Connect to tunnel & submit**.
+3. Paste the token into **Settings → Security → backend secret** (job
+   mutations are token-gated, ADR-036 §5).
+4. If Colab drops the runtime, re-run this cell — a **fresh URL** is printed.
+
+> The service runs the module's `train` script via its registry. The
+> openwakeword train adapter (writes the YAML config from job params + emits
+> NDJSON progress reports) lands with Phase 5 (`docs/modules/training.md` §4);
+> until then, Steps 4–6 below remain the manual training path.
+""")
+
+CELL4c = code("""# --- Step 1.5 · Expose this runtime to WakeStudio via a tunnel ---------------
+import os, secrets
+
+if ENABLE_TUNNEL:
+    # 1) Install the studio-backend service from this repo (pinned to main).
+    #    It brings wake-service + the colab launcher (issue #123).
+    !pip install -q "git+https://github.com/awareride/wake-studio@main#subdirectory=apps/studio-backend"
+    !pip install -q uv  # the service's train runner (ADR-028)
+
+    from wake_training_service.colab_launcher import launch
+
+    # 2) The service token - generated here and printed; paste it into
+    #    Settings -> Security -> backend secret so the app can submit/control.
+    WAKE_SERVICE_TOKEN = WAKE_SERVICE_TOKEN or secrets.token_urlsafe(24)
+
+    # 3) Registry: point the service at THIS session's openwakeword install.
+    #    engine=direct -> the notebook's own Python (all deps installed here).
+    launcher = launch(
+        registry={
+            MODULE_ID: {
+                "cwd": os.path.abspath("./openwakeword"),
+                "engine": "direct",
+                "entry": "train.py",  # adapter path - lands with Phase 5
+            },
+        },
+        port=int(os.environ.get("WAKE_SERVICE_PORT", "4824")),
+        token=WAKE_SERVICE_TOKEN,
+        db=os.path.abspath("./wake-studio-runtime/wake-service.db"),
+        artifacts_dir=os.path.abspath("./wake-studio-runtime/artifacts"),
+    )
+
+    # 4) Print the URL once the tunnel is up (blocking up to 2 minutes).
+    url = launcher.wait_for_url(timeout=120)
+    if url:
+        print(f"\n🔗 WakeStudio tunnel URL: {url}\n")
+        print(f"Paste it into the train details pane -> 'Connect to tunnel & submit'.")
+    else:
+        print("\nTunnel did not come up - check the [cloudflared] output above.")
+    print(f"Service token (Settings -> Security -> backend secret): {WAKE_SERVICE_TOKEN}")
+    print("The service keeps running in the background - re-run this cell after a reconnect.")
+else:
+    print("Tunnel disabled (ENABLE_TUNNEL=0) - use the manual Steps 4-6 flow.")
 """)
 
 CELL5 = md("""## Step 2 · (Optional) Hear your wake phrase first
@@ -472,15 +553,17 @@ CELL13 = md("""## Step 6 · Import the bundle back into WakeStudio
    and **export** (the export license gate reads `provenance.json` — this
    model is `user-owned`, so it is exportable).
 
-No WakeStudio server is involved at any point — your Google account is the
-only credential.
+No WakeStudio-hosted server is involved — with Step 1.5 the tunnel is your
+own Colab runtime (ADR-023 amendment); your Google account is the only
+credential either way.
 """)
 
 # Stable cell ids so Colab can deep-link to Step 0 (params cell) via #scrollTo.
-IDS = ["intro", "step0", "params", "step1", "env", "step2", "test-clip",
-       "step3", "data", "step4", "train", "step5", "bundle", "step6"]
-cells = [CELL0, CELL1, CELL2, CELL3, CELL4, CELL5, CELL6, CELL7, CELL8,
-         CELL9, CELL10, CELL11, CELL12, CELL13]
+IDS = ["intro", "step0", "params", "step1", "env", "step1b", "tunnel",
+       "step2", "test-clip", "step3", "data", "step4", "train", "step5",
+       "bundle", "step6"]
+cells = [CELL0, CELL1, CELL2, CELL3, CELL4, CELL4b, CELL4c,
+         CELL5, CELL6, CELL7, CELL8, CELL9, CELL10, CELL11, CELL12, CELL13]
 for cell, cid in zip(cells, IDS):
     cell["id"] = cid
 
