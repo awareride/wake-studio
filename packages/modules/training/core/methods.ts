@@ -2,12 +2,30 @@
  * Training methods — invocation → method descriptors (issue #105).
  *
  * A trainable module declares its train methods in `spec.train.invocation`
- * (`subprocess` | `ci` | `colab`, module-spec schema). This module maps those
- * ids to the method cards the wizard's "Choose train method" step renders,
- * including the method-specific config each one needs. Pure + L1-testable.
+ * (`studio-backend` | `ci` | `colab`, module-spec schema). This module maps
+ * those ids to the method cards the wizard's "Choose train method" step
+ * renders, including the method-specific config each one needs. Pure +
+ * L1-testable.
+ *
+ * `studio-backend` = a runner service spawns the module's train script as a
+ * child process (ADR-036; WakeStudio's implementation is `apps/studio-backend`,
+ * but the PWA may point at a user-supplied backend API — the wizard's next
+ * step can offer a backend picker).
  */
 
-export type TrainMethodId = 'colab' | 'subprocess' | 'ci'
+export type TrainMethodId = 'colab' | 'studio-backend' | 'ci'
+
+/** Legacy persisted value (pre-rename HistoryJob rows): normalize on read. */
+const LEGACY_SUBPROCESS = 'subprocess'
+
+/** Map any stored method string onto a valid TrainMethodId. */
+export function normalizeMethod(method: string | undefined): TrainMethodId {
+  if (method === LEGACY_SUBPROCESS) return 'studio-backend'
+  if (method === 'colab' || method === 'studio-backend' || method === 'ci') {
+    return method
+  }
+  return 'ci'
+}
 
 export interface TrainMethod {
   id: TrainMethodId
@@ -18,7 +36,7 @@ export interface TrainMethod {
 
 export const TRAIN_METHOD_ORDER: readonly TrainMethodId[] = [
   'colab',
-  'subprocess',
+  'studio-backend',
   'ci',
 ]
 
@@ -29,11 +47,11 @@ export const TRAIN_METHODS: Record<TrainMethodId, TrainMethod> = {
     blurb:
       'Free GPU under your Google account (ADR-023). Run the module-owned notebook in your own Colab session, then bring results back in the train details pane — paste the Cloudflare tunnel URL the notebook prints (ADR-023 amendment, issue #106), or download the results zip and submit it. The URL is generated at run time, not here.',
   },
-  subprocess: {
-    id: 'subprocess',
-    label: 'Self-hosted service',
+  'studio-backend': {
+    id: 'studio-backend',
+    label: 'Studio-backend',
     blurb:
-      'Your own studio-backend endpoint (ADR-005/013). The module\'s train script (spec.train.script / entry) runs locally via uv (ADR-028). Lands in a later Phase 5 slice.',
+      'A backend of your choice runs the train script (ADR-005/013/036): the WakeStudio studio-backend (uv / direct subprocess, ADR-028) or a backend you created in the app. The next step picks which backend — the train then runs there with live status.',
   },
   ci: {
     id: 'ci',

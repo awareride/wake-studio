@@ -445,7 +445,7 @@
           "type": "array",
           "items": {
             "enum": [
-              "subprocess",
+              "studio-backend",
               "ci",
               "colab"
             ]

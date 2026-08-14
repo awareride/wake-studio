@@ -73,12 +73,10 @@ trycloudflare tunnel (ADR-023 amendment, issue #123):
 3. Paste the token into **Settings → Security → backend secret** (job
    mutations are token-gated, ADR-036 §5).
 4. The WakeStudio app then drives this session like a self-hosted backend
-   (submit, live progress, pause/resume/cancel, artifact pull).
+   (submit, live progress, pause/resume/cancel, artifact pull). The module's
+   **train adapter** (`train_adapter.py`, issue #127) wraps the upstream
+   `train.py` unchanged and produces the standard bundle.
 5. If Colab drops the runtime, **re-run Step 1.5** — a fresh URL is printed.
-
-> The openwakeword train adapter (writes the YAML config from job params +
-> emits NDJSON progress reports) lands with Phase 5 (`docs/modules/training.md`
-> §4); until then, Steps 4–6 remain the manual training path.
 
 ## Regenerating the notebook
 

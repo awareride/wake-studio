@@ -21,7 +21,11 @@ export interface ReadyStepProps {
 }
 
 function methodLabel(method: TrainMethodId): string {
-  return method === 'colab' ? 'Google Colab' : method === 'subprocess' ? 'Self-hosted service' : 'CI'
+  return method === 'colab'
+    ? 'Google Colab'
+    : method === 'studio-backend'
+      ? 'Studio-backend'
+      : 'CI'
 }
 
 export function ReadyStep({ module, method, params, onReview }: ReadyStepProps) {

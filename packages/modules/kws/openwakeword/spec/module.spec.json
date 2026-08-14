@@ -50,6 +50,7 @@
   "train": {
     "notebookLocal": "packages/modules/kws/openwakeword/train/colab/train.ipynb",
     "invocation": [
+      "studio-backend",
       "colab"
     ],
     "params": [
@@ -59,7 +60,7 @@
         "group": "primary",
         "type": "string",
         "default": "hey studio",
-        "description": "The wake phrase to train (notebook env WAKE_PHRASE). Spell phonetically with underscores if the default pronunciation is off, e.g. \"hey siri\" \u2192 \"hey_seer_e\".",
+        "description": "The wake phrase to train (notebook env WAKE_PHRASE). Spell phonetically with underscores if the default pronunciation is off, e.g. \"hey siri\" → \"hey_seer_e\".",
         "env": "WAKE_PHRASE"
       },
       {
@@ -120,7 +121,8 @@
     "outputs": {
       "checkpoint": "out/model.onnx",
       "metrics": "out/metrics.json"
-    }
+    },
+    "entry": "train/train_adapter.py"
   },
   "build": {
     "recipe": "none",
@@ -130,7 +132,7 @@
       "releaseTag": "models-openwakeword-v1",
       "pattern": "*.tar.gz"
     },
-    "notes": "melspectrogram/embedding (Apache-2.0, upstream openWakeWord) + hey-buddy classifier (CC-BY-4.0) hosted as a GitHub Release (ADR-027 \u00a76.7); fetched via scripts/fetch-artifact.mjs. The tar.gz preserves the module asset layout (openWakeWord/ + hey-buddy/models/)."
+    "notes": "melspectrogram/embedding (Apache-2.0, upstream openWakeWord) + hey-buddy classifier (CC-BY-4.0) hosted as a GitHub Release (ADR-027 §6.7); fetched via scripts/fetch-artifact.mjs. The tar.gz preserves the module asset layout (openWakeWord/ + hey-buddy/models/)."
   },
   "tests": {
     "l1": "packages/modules/kws/openwakeword/tests/backend.test.ts",

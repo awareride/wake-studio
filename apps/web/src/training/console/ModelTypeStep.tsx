@@ -18,7 +18,7 @@ function invocationSummary(module: TrainableModule): string {
   const inv = module.train.invocation ?? []
   const labels: Record<string, string> = {
     colab: 'Colab',
-    subprocess: 'Self-hosted',
+    'studio-backend': 'Studio-backend',
     ci: 'CI',
   }
   return inv.length ? inv.map((i) => labels[i] ?? i).join(' · ') : 'Colab'

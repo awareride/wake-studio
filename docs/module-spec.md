@@ -99,7 +99,7 @@ below is filled in **and** the referenced deliverables exist.
     "entry": "train/train.py",        //   local uv script - OR (ADR-031):
     "python": "3.11",                //   "script": { pinned upstream repo script }
     "deps": "train/pyproject.toml",   //   "notebook": { upstream .ipynb }
-    "invocation": ["subprocess", "ci"],   // who may invoke: subprocess (studio-backend), ci, colab
+    "invocation": ["studio-backend", "ci"],   // who may invoke: studio-backend (runner service), ci, colab
     "outputs": { "checkpoint": "out/model.onnx", "metrics": "out/metrics.json" },
     "adapter": "standardize-results"  // optional: normalize ANY run dir into
                                         //   the standard bundle (ADR-031)

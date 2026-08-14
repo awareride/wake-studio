@@ -143,7 +143,7 @@ export function TrainingConsole() {
         backend: backendForMethod(method),
         params,
       })
-      if (method === 'subprocess') {
+      if (method === 'studio-backend') {
         const endpoint = platform['backend.endpoint']
         const token = platform['backend.apiKey'] || platform['backend.secret'] || undefined
         recordJob({ ...job, endpoint })

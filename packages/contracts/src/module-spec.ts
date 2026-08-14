@@ -116,8 +116,8 @@ export interface ModuleTrain {
    * top-level `params`. Mirrors the module-spec JSON schema `train.params`.
    */
   params?: ModuleParam[]
-  /** Who may invoke: "subprocess" (studio-backend), "ci", "colab". */
-  invocation: Array<'subprocess' | 'ci' | 'colab'>
+  /** Who may invoke: "studio-backend" (runner service), "ci", "colab". */
+  invocation: Array<'studio-backend' | 'ci' | 'colab'>
   outputs: Record<string, string>
   /**
    * Upstream-script adapter (human decision 2026-08-05): invoke a pinned

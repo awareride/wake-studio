@@ -68,7 +68,7 @@ describe('startedJob', () => {
 describe('backendToMethod', () => {
   it('maps bundle backends to train methods', () => {
     expect(backendToMethod('colab')).toBe('colab')
-    expect(backendToMethod('self-hosted')).toBe('subprocess')
+    expect(backendToMethod('self-hosted')).toBe('studio-backend')
     expect(backendToMethod('cloud')).toBe('ci')
   })
 })

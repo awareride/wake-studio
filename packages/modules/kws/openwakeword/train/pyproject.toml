@@ -1,0 +1,14 @@
+[project]
+name = "kws-openwakeword-train"
+version = "0.1.0"
+description = "kws-openwakeword module train scripts (ADR-028): train_adapter.py wraps the upstream openWakeWord train.py UNCHANGED (ADR-031) and normalizes into the standard bundle (docs/modules/training.md 4/6)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["PyYAML>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

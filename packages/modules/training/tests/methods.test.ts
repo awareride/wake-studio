@@ -12,22 +12,30 @@ import {
   methodsFor,
   supportsMethod,
   backendForMethod,
+  normalizeMethod,
 } from '../core/methods'
 
 describe('TRAIN_METHODS', () => {
   it('defines the three methods with labels and blurbs', () => {
-    expect(TRAIN_METHOD_ORDER).toEqual(['colab', 'subprocess', 'ci'])
+    expect(TRAIN_METHOD_ORDER).toEqual(['colab', 'studio-backend', 'ci'])
     for (const id of TRAIN_METHOD_ORDER) {
       expect(TRAIN_METHODS[id].label.length).toBeGreaterThan(0)
       expect(TRAIN_METHODS[id].blurb.length).toBeGreaterThan(0)
     }
   })
+
+  it('normalizeMethod maps the legacy subprocess value to studio-backend', () => {
+    expect(normalizeMethod('subprocess')).toBe('studio-backend')
+    expect(normalizeMethod('studio-backend')).toBe('studio-backend')
+    expect(normalizeMethod('colab')).toBe('colab')
+    expect(normalizeMethod(undefined)).toBe('ci')
+  })
 })
 
 describe('methodsFor', () => {
   it('maps a module invocation to ordered method cards', () => {
-    const methods = methodsFor(['subprocess', 'ci', 'colab'])
-    expect(methods.map((m) => m.id)).toEqual(['colab', 'subprocess', 'ci'])
+    const methods = methodsFor(['studio-backend', 'ci', 'colab'])
+    expect(methods.map((m) => m.id)).toEqual(['colab', 'studio-backend', 'ci'])
   })
 
   it('respects the module\u2019s declared subset', () => {
@@ -48,7 +56,7 @@ describe('methodsFor', () => {
 describe('supportsMethod', () => {
   it('checks membership in the declared invocation', () => {
     expect(supportsMethod(['colab'], 'colab')).toBe(true)
-    expect(supportsMethod(['colab'], 'subprocess')).toBe(false)
+    expect(supportsMethod(['colab'], 'studio-backend')).toBe(false)
     expect(supportsMethod(undefined, 'colab')).toBe(true)
   })
 })
@@ -56,7 +64,7 @@ describe('supportsMethod', () => {
 describe('backendForMethod', () => {
   it('maps Colab → colab and the rest → self-hosted (ADR-013 values)', () => {
     expect(backendForMethod('colab')).toBe('colab')
-    expect(backendForMethod('subprocess')).toBe('self-hosted')
+    expect(backendForMethod('studio-backend')).toBe('self-hosted')
     expect(backendForMethod('ci')).toBe('self-hosted')
   })
 })

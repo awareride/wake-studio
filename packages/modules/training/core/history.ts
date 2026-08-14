@@ -8,7 +8,7 @@
  */
 
 import type { TrainingJob } from './job'
-import type { TrainMethodId } from './methods'
+import { normalizeMethod, type TrainMethodId } from './methods'
 import type { ArtifactBundleMetadata, ArtifactProvenance } from './manifest'
 
 /** A past training job shown in the train list. */
@@ -90,7 +90,7 @@ export function backendToMethod(backend: TrainingJob['backend']): TrainMethodId 
     case 'colab':
       return 'colab'
     case 'self-hosted':
-      return 'subprocess'
+      return 'studio-backend'
     default:
       return 'ci'
   }
@@ -162,7 +162,9 @@ export interface TrainMessage {
  */
 export function deriveMessages(job: HistoryJob): TrainMessage[] {
   const messages: TrainMessage[] = []
-  const method = job.method === 'colab' ? 'Colab' : job.method === 'subprocess' ? 'self-hosted' : 'CI'
+  const m = normalizeMethod(job.method)
+  const method =
+    m === 'colab' ? 'Colab' : m === 'studio-backend' ? 'studio-backend' : 'CI'
 
   messages.push({
     kind: 'started',
