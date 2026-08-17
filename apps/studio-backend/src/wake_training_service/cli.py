@@ -42,6 +42,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="prune oldest artifacts above this total size (0 = unlimited)")
     p.add_argument("--registry", default=None,
                    help="module registry JSON (default: registry.json next to this app)")
+    p.add_argument("--staged-dir", default=None,
+                   help="staging root for generic runtimes (Colab): registered modules are "
+                        "fetched from the repo tarball on demand when their cwd is absent")
     return p
 
 
@@ -56,6 +59,11 @@ def main(argv: list[str] | None = None) -> int:
             if cand.is_file():
                 registry_path = cand
                 break
+    # bundled copy inside the wheel (hatch force-include) as a last resort
+    if not registry_path:
+        cand = Path(__file__).resolve().parent / "registry.json"
+        if cand.is_file():
+            registry_path = cand
     if not registry_path or not Path(registry_path).is_file():
         print(f"[wake-service] registry not found: {registry_path}", file=sys.stderr)
         print("[wake-service] create one (see README.md §Registry) or pass --registry", file=sys.stderr)
@@ -74,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
         concurrency=args.concurrency,
         heartbeat_timeout=args.heartbeat_timeout,
         max_artifacts_mb=args.max_artifacts_mb,
+        staged_dir=args.staged_dir,
     )
     app = create_app(manager, auth, instance=args.instance)
 

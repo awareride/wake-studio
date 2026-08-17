@@ -1,51 +1,71 @@
 {
-  "kws-openwakeword": {
-    "cwd": "../../packages/modules/kws/openwakeword/train",
-    "engine": "direct",
-    "entry": "train_adapter.py",
-    "env": {
-      "WAKE_PHRASE": "{params.wakePhrase}",
-      "WAKE_N_SAMPLES": "{params.nSamples}",
-      "WAKE_STEPS": "{params.steps}",
-      "WAKE_FALSE_ACTIVATION": "{params.falseActivationPenalty}",
-      "WAKE_AUGMENT": "{params.augment}",
-      "WAKE_QUANTIZE": "{params.quantize}",
-      "WAKE_BACKEND": "self-hosted",
-      "UPSTREAM_PYTHON": "{env.UPSTREAM_PYTHON}"
-    }
-  },
-  "kws-streaming": {
-    "cwd": "../../packages/modules/kws/streaming/train",
-    "engine": "uv",
-    "extras": ["tf", "tts"],
-    "entry": "train_adapter.py",
-    "env": {
-      "STREAM_MODEL": "{params.model}",
-      "STREAM_WANTED_WORDS": "{params.wantedWords}",
-      "STREAM_WAKE_PHRASES": "{params.wakePhrases}",
-      "STREAM_TTS_LANGUAGES": "{params.ttsLanguages}",
-      "STREAM_TTS_SAMPLES": "{params.ttsSamples}",
-      "STREAM_DATA_SOURCE": "{params.dataSource}",
-      "STREAM_POSITIVE_SOURCE": "{params.positiveSource}",
-      "STREAM_NEGATIVE_SOURCE": "{params.negativeSource}",
-      "STREAM_DATA_URL": "{params.dataUrl}",
-      "STREAM_FEATURE_TYPE": "{params.featureType}",
-      "STREAM_PREPROCESS": "{params.preprocess}",
-      "STREAM_HOW_MANY_TRAINING_STEPS": "{params.howManyTrainingSteps}",
-      "STREAM_LEARNING_RATE": "{params.learningRate}",
-      "STREAM_SPLIT_DATA": "{params.splitData}",
-      "STREAM_BACKEND": "self-hosted",
-      "UPSTREAM_PYTHON": "{env.UPSTREAM_PYTHON}"
-    }
-  },
-  "dry-run": {
-    "cwd": "../../packages/modules/dry-run/train",
-    "engine": "direct",
-    "entry": "dry_run.py",
-    "env": {
-      "WAKE_PHRASE": "{params.wakePhrase}",
-      "WAKE_STEPS": "{params.steps}",
-      "WAKE_BACKEND": "self-hosted"
-    }
+ "kws-openwakeword": {
+  "cwd": "../../packages/modules/kws/openwakeword/train",
+  "engine": "direct",
+  "entry": "train_adapter.py",
+  "env": {
+   "WAKE_PHRASE": "{params.wakePhrase}",
+   "WAKE_N_SAMPLES": "{params.nSamples}",
+   "WAKE_STEPS": "{params.steps}",
+   "WAKE_FALSE_ACTIVATION": "{params.falseActivationPenalty}",
+   "WAKE_AUGMENT": "{params.augment}",
+   "WAKE_QUANTIZE": "{params.quantize}",
+   "WAKE_BACKEND": "self-hosted",
+   "UPSTREAM_PYTHON": "{env.UPSTREAM_PYTHON}"
   }
+ },
+ "kws-streaming": {
+  "cwd": "../../packages/modules/kws/streaming/train",
+  "engine": "uv",
+  "extras": [
+   "tf",
+   "tts"
+  ],
+  "entry": "train_adapter.py",
+  "env": {
+   "STREAM_MODEL": "{params.model}",
+   "STREAM_WANTED_WORDS": "{params.wantedWords}",
+   "STREAM_WAKE_PHRASES": "{params.wakePhrases}",
+   "STREAM_TTS_LANGUAGES": "{params.ttsLanguages}",
+   "STREAM_TTS_SAMPLES": "{params.ttsSamples}",
+   "STREAM_DATA_SOURCE": "{params.dataSource}",
+   "STREAM_POSITIVE_SOURCE": "{params.positiveSource}",
+   "STREAM_NEGATIVE_SOURCE": "{params.negativeSource}",
+   "STREAM_DATA_URL": "{params.dataUrl}",
+   "STREAM_FEATURE_TYPE": "{params.featureType}",
+   "STREAM_PREPROCESS": "{params.preprocess}",
+   "STREAM_HOW_MANY_TRAINING_STEPS": "{params.howManyTrainingSteps}",
+   "STREAM_LEARNING_RATE": "{params.learningRate}",
+   "STREAM_SPLIT_DATA": "{params.splitData}",
+   "STREAM_BACKEND": "self-hosted",
+   "UPSTREAM_PYTHON": "{env.UPSTREAM_PYTHON}"
+  },
+  "stage": {
+   "paths": [
+    "packages/modules/kws/streaming/train",
+    "third_party/kws_streaming"
+   ],
+   "cwd": "packages/modules/kws/streaming/train",
+   "env": {
+    "UPSTREAM_DIR": "third_party"
+   }
+  }
+ },
+ "dry-run": {
+  "cwd": "../../packages/modules/dry-run/train",
+  "engine": "direct",
+  "entry": "dry_run.py",
+  "env": {
+   "WAKE_PHRASE": "{params.wakePhrase}",
+   "WAKE_STEPS": "{params.steps}",
+   "WAKE_BACKEND": "self-hosted"
+  },
+  "stage": {
+   "paths": [
+    "packages/modules/dry-run/train"
+   ],
+   "cwd": "packages/modules/dry-run/train",
+   "env": {}
+  }
+ }
 }

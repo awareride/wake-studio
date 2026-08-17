@@ -126,7 +126,7 @@ class ColabLauncher:
 
     def __init__(
         self,
-        registry: dict[str, Any],
+        registry: dict[str, Any] | None = None,
         port: int = 4824,
         token: str | None = None,
         db: str | Path | None = None,
@@ -137,6 +137,7 @@ class ColabLauncher:
         restart_delay: float = RESTART_DELAY_SECONDS,
         print_fn: Callable[[str], None] = print,
         process_factory: Callable[[], TunnelProc] | None = None,
+        staged_dir: str | Path | None = None,
     ) -> None:
         from .app import create_app
         from .auth import Auth
@@ -144,6 +145,11 @@ class ColabLauncher:
         from .registry import Registry
         from .store import Store
 
+        if registry is None:
+            # bundled registry (wheel force-include / repo copy): the service
+            # supports ALL registered modules; assets are staged on demand
+            # via staged_dir (ModuleStager) - the notebook stays generic.
+            registry = _bundled_registry()
         self.registry_entries = registry
         self.port = int(port)
         self.token = token or secrets.token_urlsafe(24)
@@ -158,6 +164,7 @@ class ColabLauncher:
             registry=self._registry,
             artifacts_dir=artifacts_dir or (workdir / "data" / "artifacts"),
             heartbeat_timeout=heartbeat_timeout,
+            staged_dir=staged_dir,
         )
         self._app = create_app(self._manager, self._auth, instance=instance)
 
@@ -290,6 +297,17 @@ class ColabLauncher:
                 self._server_thread.join(timeout=8)
         # close any cloudflared child (monitor restarts are gated by _stop)
         self._store.close()
+
+
+def _bundled_registry() -> dict[str, Any]:
+    """The service's own registry (wheel force-include / repo copy)."""
+    here = Path(__file__).resolve().parent
+    for cand in (here / "registry.json", here.parent.parent / "registry.json"):
+        if cand.is_file():
+            return json.loads(cand.read_text())
+    raise RuntimeError(
+        "no bundled registry.json found; pass registry= explicitly"
+    )
 
 
 def launch(**kwargs: Any) -> ColabLauncher:
