@@ -1,0 +1,14 @@
+[project]
+name = "kws-streaming-train"
+version = "0.1.0"
+description = "kws-streaming module train scripts (ADR-028): train_adapter.py wraps the upstream google-research/kws_streaming model_train_eval.py UNCHANGED (ADR-031) and normalizes into the standard bundle (docs/modules/training.md 4/6)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

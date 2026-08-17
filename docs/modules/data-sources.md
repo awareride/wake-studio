@@ -48,25 +48,41 @@ possible without the user hand-collecting audio.
 - **Downstream (provides to):** Training module (Phase 5) feeds generated/fetched
   audio into the selected backend's training pipeline.
 - **External libraries / models:** Piper TTS (GPL-3.0 active / MIT archived - see
-  `LICENSES.md`), `piper-sample-generator` (MIT, training-time only). Generation
-  runs in the backend, not in the browser, so copyleft does not infect exported
-  device bundles. Generated audio owned by the user feeds commercially-ownable
-  models.
+  `LICENSES.md`), `piper-sample-generator` (MIT, training-time only), and
+  **edge-tts** (MIT, Microsoft Edge TTS client; used for multi-language synthesis
+  via the studio-backend `tts` extra). Generation runs in the backend, not in the
+  browser, so copyleft does not infect exported device bundles. Generated audio
+  owned by the user feeds commercially-ownable models.
 
 ## 4. Public API & types
 
-_To be specified at Phase 5 start._ Will define at minimum:
+The layer is implemented in `apps/studio-backend/src/wake_train_kit/data_sources.py`
+(training-time only; never imported by the browser). It exposes:
 
-- A `DataSource` descriptor (kind, endpoint/config, license, commercial-use flag).
-- The generate/fetch interface returning audio + metadata.
-- The endpoint-configuration schema persisted in-app (ADR-017 config panel).
+- `prepare_speech_commands_v2(data_dir, reporter) -> (root, provenance)` —
+  download + extract Speech Commands V2 (CC BY 4.0).
+- `prepare_user_archive(url, data_dir, reporter) -> (root, provenance)` —
+  download + extract a user-provided `.tar.gz`/`.tgz`/`.tar`/`.zip` archive.
+- `build_edge_tts_kws_dataset(phrases, languages, out_dir, ...) -> provenance` —
+  multi-language wake-word positives + "unknown" negatives + `_background_noise_`
+  silence clips, arranged as a `label/*.wav` tree.
+- Lower-level helpers: `download_file`, `extract_archive`, `find_data_root`,
+  `synthesize`, `mp3_to_wav`, `write_silence_wav`.
+
+Each source returns a **provenance** dict (name/license/source/commercialUse)
+recorded into the bundle's `provenance.json` — the Phase 4 license-gate input.
 
 ## 5. Data flow / sequence
 
-_To be specified._ High level: user configures sources in-app -> Training module
-requests positive/negative audio -> data-source layer generates (via backend) or
-fetches (via endpoint) -> audio + provenance returned -> backend trains -> model
-artifact.
+1. The user picks a data source in the module's train params
+   (`spec.train.params.dataSource`: `speech-commands-v2` | `user-url` |
+   `edge-tts` | `local-dir`).
+2. The module's train adapter calls the matching helper, which downloads /
+   synthesizes a `label/*.wav` tree (plus `_background_noise_`).
+3. The adapter runs the upstream trainer on that tree (`--wanted_words` = the
+   wake-word folder(s); everything else folds into `_unknown_`).
+4. The adapter writes the returned provenance into `provenance.json` and the
+   model/metrics into the standard artifact bundle.
 
 ## 6. Configuration & constants
 
@@ -75,9 +91,12 @@ TTS voice selection, sample counts, augmentation flags, per-source license tags.
 
 ## 7. Error model & failure modes
 
-_To be specified._ Will cover endpoint unreachable / auth failure / generation
-timeout, with fallback across configured sources. Per the standing ops rule, the
-agent asks the human on asset/download failures rather than getting stuck.
+- `DataSourceError` on an unsupported archive type, a missing `dataUrl`, a
+  missing `edge-tts` install, or a missing `ffmpeg` (edge-tts emits mp3; ffmpeg
+  converts to 16 kHz WAV).
+- `find_data_root` raises when no `label/*.wav` tree is found after extraction.
+- Network downloads stream with heartbeats; a failure surfaces as an
+  `error` NDJSON event from the adapter (the job is marked `failed`).
 
 ## 8. Observability
 
@@ -86,8 +105,10 @@ log shown in-app before export.
 
 ## 9. Testing strategy
 
-_To be specified._ Fixture-based tests for the interface; backend integration
-tested via the Self-hosted/Colab backends.
+`apps/studio-backend/tests/test_data_sources.py`: archive extraction + root
+finding, `file://` downloads (no network), and a monkeypatched edge-tts run that
+asserts the label-tree layout + provenance. Adapter-level coverage lives in
+`packages/modules/kws/streaming/train/tests/` (fake upstream, no GPU/network).
 
 ## 10. Security & privacy
 
@@ -99,7 +120,9 @@ tested via the Self-hosted/Colab backends.
 ## 11. Open questions
 
 - `[Q-DS-1]` Canonical default public-TTS endpoint(s) to ship pre-configured
-  (resolved at Phase 5 start).
+  — *answered (2026-08-14):* **edge-tts** is the default multi-language TTS
+  path (studio-backend `tts` extra); Speech Commands V2 (CC BY 4.0) is the
+  default corpus. Piper remains an option for the openwakeword path.
 - `[Q-DS-2]` Whether project server APIs are WakeStudio-hosted or
   community/self-hosted (resolved at Phase 5 start).
 
@@ -114,3 +137,4 @@ tested via the Self-hosted/Colab backends.
 | Date | Change | Author |
 |---|---|---|
 | 2026-07-27 | Initial stub (ADR-022 recorded; full contract deferred to Phase 5 start). | WakeStudio team |
+| 2026-08-14 | **Data-source layer shipped (#152):** `wake_train_kit/data_sources.py` with Speech Commands V2 download (CC BY 4.0), user-URL archives, and multi-language edge-tts synthesis; provenance records per source; deterministic backend tests. Q-DS-1 answered. | agent |

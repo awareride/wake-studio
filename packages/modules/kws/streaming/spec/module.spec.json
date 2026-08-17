@@ -116,6 +116,7 @@
     }
   },
   "train": {
+    "entry": "train/train_adapter.py",
     "script": {
       "repo": "https://github.com/google-research/google-research",
       "path": "kws_streaming/train/model_train_eval.py",
@@ -136,64 +137,114 @@
     },
     "invocation": [
       "studio-backend",
-      "ci",
-      "colab"
+      "ci"
     ],
     "params": [
       {
-        "id": "wantedWords",
-        "label": "Wake word (label)",
+        "id": "model",
+        "label": "Model topology",
         "group": "primary",
         "type": "select",
-        "default": "yes",
+        "default": "ds_tc_resnet",
         "options": [
-          "yes",
-          "no",
-          "up",
-          "down",
-          "left",
-          "right",
-          "on",
-          "off",
-          "stop",
-          "go"
+          "ds_tc_resnet",
+          "bc_resnet",
+          "cnn",
+          "ds_cnn",
+          "svdf",
+          "svdf_resnet",
+          "crnn",
+          "dnn",
+          "gru",
+          "lstm",
+          "dnn_raw"
         ],
-        "description": "The class label to train as the wake word (upstream --wanted_words)."
+        "description": "Upstream model topology (positional arg). Only streamable topologies are listed; non-streamable ones (att_*, tc_resnet, mobilenet*, xception, inception*) cannot be converted to external-state streaming."
+      },
+      {
+        "id": "wantedWords",
+        "label": "Wake word(s)",
+        "group": "primary",
+        "type": "string",
+        "default": "yes",
+        "description": "Comma-separated label folders to train as the wake word (upstream --wanted_words). All other labels fold into _unknown_. For the edge-tts data source this is derived from wakePhrases."
+      },
+      {
+        "id": "dataSource",
+        "label": "Data source",
+        "group": "primary",
+        "type": "select",
+        "default": "speech-commands-v2",
+        "options": [
+          "speech-commands-v2",
+          "user-url",
+          "edge-tts",
+          "local-dir"
+        ],
+        "description": "speech-commands-v2 = Google Speech Commands V2 (CC BY 4.0); user-url = a user-provided dataset archive URL; edge-tts = multi-language TTS synthesis; local-dir = a pre-prepared label/*.wav tree."
+      },
+      {
+        "id": "dataUrl",
+        "label": "Dataset archive URL",
+        "group": "advanced",
+        "type": "string",
+        "default": "",
+        "description": "Required when dataSource is user-url. .tar.gz/.tgz/.tar/.zip of a label/*.wav tree."
+      },
+      {
+        "id": "wakePhrases",
+        "label": "Wake phrases (TTS)",
+        "group": "advanced",
+        "type": "string",
+        "default": "hey studio",
+        "description": "Comma-separated wake phrases to synthesize when dataSource is edge-tts. Folder name = phrase with spaces -> underscores."
+      },
+      {
+        "id": "ttsLanguages",
+        "label": "TTS languages",
+        "group": "advanced",
+        "type": "string",
+        "default": "en-US",
+        "description": "Comma-separated language codes for edge-tts voices (e.g. en-US,zh-CN,ja-JP)."
+      },
+      {
+        "id": "ttsSamples",
+        "label": "TTS samples per phrase",
+        "group": "advanced",
+        "type": "number",
+        "default": 3,
+        "min": 1,
+        "max": 50,
+        "step": 1,
+        "description": "Clips per wake phrase per language when dataSource is edge-tts."
       },
       {
         "id": "featureType",
         "label": "Feature type",
         "group": "primary",
         "type": "select",
-        "default": "micro",
+        "default": "mfcc_op",
         "options": [
-          "micro",
-          "mfcc",
-          "raw"
+          "mfcc_op",
+          "mfcc_tf"
         ],
-        "description": "Input features (upstream --feature_type). 'micro' matches the on-device streaming model."
+        "description": "Input features (upstream --feature_type). 'mfcc_op' keeps the feature extractor FFT-based inside the graph (the recommended raw-preprocess export)."
       },
       {
         "id": "howManyTrainingSteps",
         "label": "Training steps",
         "group": "advanced",
-        "type": "number",
-        "default": 30000,
-        "min": 1000,
-        "max": 500000,
-        "step": 1000,
-        "description": "Upstream --how_many_training_steps."
+        "type": "string",
+        "default": "10000,10000,10000",
+        "description": "Upstream --how_many_training_steps (comma-separated staged schedule)."
       },
       {
         "id": "learningRate",
         "label": "Learning rate",
         "group": "advanced",
-        "type": "number",
-        "default": 0.001,
-        "min": 1e-05,
-        "max": 0.1,
-        "step": 0.0001,
-        "description": "Upstream --learning_rate."
+        "type": "string",
+        "default": "0.0005,0.0001,0.00002",
+        "description": "Upstream --learning_rate (comma-separated, paired with the staged steps)."
       }
     ],
     "outputs": {

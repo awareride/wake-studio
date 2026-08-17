@@ -1,0 +1,443 @@
+#!/usr/bin/env python3
+"""kws-streaming train adapter (google-research/kws_streaming, ADR-031, #152).
+
+Module-owned wrapper that runs the **upstream** ``kws_streaming`` trainer
+UNCHANGED (``python -m kws_streaming.train.model_train_eval``) and normalizes
+its run directory into the standard WakeStudio artifact bundle
+(docs/modules/training.md §6) — the same contract the openwakeword adapter
+implements for its upstream (#127).
+
+Params arrive as env vars (the notebook convention — the studio-backend
+registry maps job params to ``STREAM_*``):
+
+    STREAM_MODEL, STREAM_WANTED_WORDS, STREAM_WAKE_PHRASES,
+    STREAM_TTS_LANGUAGES, STREAM_TTS_SAMPLES, STREAM_DATA_SOURCE,
+    STREAM_DATA_URL, STREAM_DATA_DIR, STREAM_FEATURE_TYPE, STREAM_PREPROCESS,
+    STREAM_HOW_MANY_TRAINING_STEPS, STREAM_LEARNING_RATE, STREAM_SPLIT_DATA,
+    STREAM_BACKGROUND_VOLUME, STREAM_BACKGROUND_FREQUENCY,
+    STREAM_SILENCE_PERCENTAGE, STREAM_UNKNOWN_PERCENTAGE, STREAM_JOB_ID,
+    STREAM_BACKEND
+
+Paths (env, with defaults):
+
+    UPSTREAM_DIR    default ./google-research          (upstream clone root)
+    UPSTREAM_PYTHON default sys.executable             (the env with tensorflow)
+    WORK_DIR        default cwd
+    OUT_DIR         default <WORK_DIR>/wake-studio-results
+
+Data sources (``STREAM_DATA_SOURCE``):
+
+    speech-commands-v2  download + extract Speech Commands V2 (CC BY 4.0)
+    user-url            download + extract a user-provided dataset archive
+    edge-tts            synthesize a multi-language label tree via edge-tts
+    local-dir           use STREAM_DATA_DIR as-is (tests / pre-prepared data)
+
+Emits the NDJSON reporting protocol (docs/modules/training.md §4.4) on stdout:
+``log`` (streamed upstream output), ``progress`` (per stage), ``heartbeat``,
+``metrics`` (parsed from the accuracy files), ``artifact`` (the bundle zip),
+``error``/``done``.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+import zipfile
+from pathlib import Path
+from typing import Any
+
+try:  # the service's reporter (installed with wake-service / the launcher)
+    from wake_train_kit.report import Reporter
+except ImportError:  # standalone fallback: plain NDJSON prints
+    class Reporter:  # type: ignore[no-redef]
+        def emit(self, event: str, **fields: Any) -> None:
+            print(json.dumps({"event": event, **fields}), flush=True)
+
+
+DEFAULTS: dict[str, Any] = {
+    "model": "ds_tc_resnet",
+    "wantedWords": "yes",
+    "wakePhrases": "hey studio",
+    "ttsLanguages": "en-US",
+    "ttsSamples": 3,
+    "dataSource": "speech-commands-v2",
+    "dataUrl": "",
+    "dataDir": "./data2",
+    "featureType": "mfcc_op",
+    "preprocess": "raw",
+    "howManyTrainingSteps": "10000,10000,10000",
+    "learningRate": "0.0005,0.0001,0.00002",
+    "splitData": 1,
+    "backgroundVolume": 0.1,
+    "backgroundFrequency": 0.8,
+    "silencePercentage": 10.0,
+    "unknownPercentage": 10.0,
+    "jobId": None,
+    "backend": "colab",
+}
+
+ENV_MAP: dict[str, str] = {
+    "STREAM_MODEL": "model",
+    "STREAM_WANTED_WORDS": "wantedWords",
+    "STREAM_WAKE_PHRASES": "wakePhrases",
+    "STREAM_TTS_LANGUAGES": "ttsLanguages",
+    "STREAM_TTS_SAMPLES": "ttsSamples",
+    "STREAM_DATA_SOURCE": "dataSource",
+    "STREAM_DATA_URL": "dataUrl",
+    "STREAM_DATA_DIR": "dataDir",
+    "STREAM_FEATURE_TYPE": "featureType",
+    "STREAM_PREPROCESS": "preprocess",
+    "STREAM_HOW_MANY_TRAINING_STEPS": "howManyTrainingSteps",
+    "STREAM_LEARNING_RATE": "learningRate",
+    "STREAM_SPLIT_DATA": "splitData",
+    "STREAM_BACKGROUND_VOLUME": "backgroundVolume",
+    "STREAM_BACKGROUND_FREQUENCY": "backgroundFrequency",
+    "STREAM_SILENCE_PERCENTAGE": "silencePercentage",
+    "STREAM_UNKNOWN_PERCENTAGE": "unknownPercentage",
+    "STREAM_JOB_ID": "jobId",
+    "STREAM_BACKEND": "backend",
+}
+
+STAGES = ["prepare_data", "train", "bundle"]
+
+
+def _coerce(value: Any, default: Any) -> Any:
+    """Coerce an env string to the type of its default."""
+    if isinstance(default, bool):
+        return str(value).lower() in ("1", "true", "yes")
+    if isinstance(default, int):
+        return int(value)
+    if isinstance(default, float):
+        return float(value)
+    return str(value)
+
+
+def read_params(env: dict[str, str] | None = None) -> dict[str, Any]:
+    """Job params from STREAM_* env vars + WAKE_PARAMS JSON (both conventions).
+
+    The studio-backend registry always sets WAKE_PARAMS (JSON) plus one
+    WAKE_<KEY> per param; the STREAM_* names are the explicit registry mapping.
+    An empty value is treated as "unset" (fall back to the default).
+    """
+    env = env if env is not None else os.environ
+    params: dict[str, Any] = dict(DEFAULTS)
+
+    raw_json = env.get("WAKE_PARAMS", "")
+    if raw_json:
+        try:
+            for key, value in json.loads(raw_json).items():
+                if key in DEFAULTS:
+                    params[key] = _coerce(value, DEFAULTS[key])
+        except (ValueError, TypeError):
+            pass
+
+    for var, key in ENV_MAP.items():
+        raw = env.get(var, "")
+        if raw != "":
+            params[key] = _coerce(raw, DEFAULTS[key])
+
+    if not params["jobId"]:
+        params["jobId"] = f"kws-streaming-{int(time.time() * 1000)}"
+    return params
+
+
+def _sanitize_label(text: str) -> str:
+    return "_".join(text.strip().lower().split()) or "word"
+
+
+def _import_data_sources() -> Any:
+    try:
+        from wake_train_kit import data_sources
+    except ImportError as exc:  # pragma: no cover - service installs wake_train_kit
+        raise RuntimeError(
+            "wake_train_kit.data_sources is not importable; run the adapter "
+            "under the studio-backend (uv run wake-service) or install it"
+        ) from exc
+    return data_sources
+
+
+def prepare_data(
+    params: dict[str, Any], work_dir: Path, reporter: Reporter
+) -> tuple[str, list[dict[str, Any]], str]:
+    """Prepare the `label/*.wav` tree. -> (data_dir, provenance, wanted_words)."""
+    source = params["dataSource"]
+    wanted = params["wantedWords"]
+    sources: list[dict[str, Any]] = []
+
+    if source == "local-dir":
+        data_dir = Path(params["dataDir"])
+        if not data_dir.is_absolute():
+            data_dir = work_dir / data_dir
+        data_dir = data_dir.resolve()
+        if not data_dir.is_dir():
+            raise FileNotFoundError(f"local data dir not found: {data_dir}")
+        return str(data_dir), sources, wanted
+
+    ds = _import_data_sources()
+
+    if source == "speech-commands-v2":
+        root, prov = ds.prepare_speech_commands_v2(work_dir / "data2", reporter)
+        sources.append(prov)
+        return str(root), sources, wanted
+
+    if source == "user-url":
+        root, prov = ds.prepare_user_archive(params["dataUrl"], work_dir / "data", reporter)
+        sources.append(prov)
+        return str(root), sources, wanted
+
+    if source == "edge-tts":
+        phrases = [p.strip() for p in params["wakePhrases"].split(",") if p.strip()]
+        languages = [l.strip() for l in params["ttsLanguages"].split(",") if l.strip()]
+        out = work_dir / "data_tts"
+        prov = ds.build_edge_tts_kws_dataset(
+            phrases,
+            languages,
+            out,
+            samples_per_phrase=params["ttsSamples"],
+            reporter=reporter,
+        )
+        sources.append(prov)
+        wanted = ",".join(_sanitize_label(p) for p in phrases)
+        return str(out), sources, wanted
+
+    raise ValueError(f"unknown dataSource '{source}'")
+
+
+def build_command(
+    params: dict[str, Any],
+    python: str,
+    data_dir: str,
+    train_dir: str,
+    wanted_words: str,
+) -> list[str]:
+    """The unmodified upstream invocation (base flags only; model defaults)."""
+    return [
+        python, "-m", "kws_streaming.train.model_train_eval",
+        "--data_url", "",
+        "--data_dir", data_dir,
+        "--train_dir", train_dir,
+        "--wanted_words", wanted_words,
+        "--split_data", str(params["splitData"]),
+        "--preprocess", params["preprocess"],
+        "--feature_type", params["featureType"],
+        "--how_many_training_steps", params["howManyTrainingSteps"],
+        "--learning_rate", params["learningRate"],
+        "--background_volume", str(params["backgroundVolume"]),
+        "--background_frequency", str(params["backgroundFrequency"]),
+        "--silence_percentage", str(params["silencePercentage"]),
+        "--unknown_percentage", str(params["unknownPercentage"]),
+        "--train", "1",
+        "--alsologtostderr",
+        params["model"],
+    ]
+
+
+_FLOAT_RE = re.compile(r"([0-9]+\.[0-9]+)")
+
+
+def parse_metrics(train_dir: Path, log_text: str) -> dict[str, Any]:
+    """Best-effort accuracy extraction from the upstream run directory."""
+    metrics: dict[str, Any] = {
+        "status": "ok",
+        "note": "parsed best-effort from the upstream accuracy files",
+    }
+    candidates = [
+        ("streaming_accuracy_reset0", train_dir / "tflite_stream_state_external"
+         / "tflite_stream_state_external_model_accuracy_reset0.txt"),
+        ("streaming_accuracy_reset1", train_dir / "tflite_stream_state_external"
+         / "tflite_stream_state_external_model_accuracy_reset1.txt"),
+        ("last_training_accuracy", train_dir / "accuracy_last.txt"),
+    ]
+    for key, path in candidates:
+        if path.is_file():
+            text = path.read_text(encoding="utf-8", errors="replace")
+            m = _FLOAT_RE.search(text)
+            if m:
+                metrics[key] = float(m.group(1))
+    if log_text:
+        metrics["log_tail"] = log_text.strip().splitlines()[-20:]
+    return metrics
+
+
+def run_upstream(
+    cmd: list[str],
+    cwd: str,
+    env: dict[str, str],
+    reporter: Reporter,
+    log_lines: list[str],
+) -> int:
+    """Run the upstream trainer, streaming its output as NDJSON log lines."""
+    reporter.emit("log", level="info", message=f"upstream: {' '.join(cmd)}")
+    proc = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    assert proc.stdout is not None
+    last = time.monotonic()
+    for line in proc.stdout:
+        line = line.rstrip("\n")
+        log_lines.append(line)
+        reporter.emit("log", level="debug", message=line)
+        if time.monotonic() - last > 30:
+            reporter.emit("heartbeat")
+            last = time.monotonic()
+    return proc.wait()
+
+
+def build_bundle(
+    params: dict[str, Any],
+    wanted_words: str,
+    train_dir: Path,
+    out_root: Path,
+    sources: list[dict[str, Any]],
+    log_text: str,
+    reporter: Reporter,
+) -> Path:
+    """Normalize the upstream run dir into the standard bundle (§6) and zip it."""
+    model_src = train_dir / "tflite_stream_state_external" / "stream_state_external.tflite"
+    if not model_src.is_file():
+        raise FileNotFoundError(
+            f"streaming tflite not found: {model_src} — the model is non-streamable "
+            f"or the upstream train step did not produce it"
+        )
+
+    bundle_dir = Path(out_root) / params["jobId"]
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy(model_src, bundle_dir / "model.tflite")
+    for name in ("labels.txt", "flags.json"):
+        p = train_dir / name
+        if p.is_file():
+            shutil.copy(p, bundle_dir / name)
+
+    metrics = parse_metrics(train_dir, log_text)
+    metrics["training_steps"] = params["howManyTrainingSteps"]
+    (bundle_dir / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+
+    metadata = {
+        "jobId": params["jobId"],
+        "moduleId": "kws-streaming",
+        "backend": params["backend"],
+        "provider": params["backend"],
+        "params": {
+            "model": params["model"],
+            "wantedWords": wanted_words,
+            "featureType": params["featureType"],
+            "preprocess": params["preprocess"],
+            "dataSource": params["dataSource"],
+            "trainingSteps": params["howManyTrainingSteps"],
+            "learningRate": params["learningRate"],
+        },
+        "trainedAtMs": int(time.time() * 1000),
+    }
+    (bundle_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+
+    provenance = {
+        "license": "user-owned",
+        "sourceData": sources or [
+            {"name": "Google Speech Commands V2", "license": "CC BY 4.0",
+             "source": "https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz"}
+        ],
+        "notes": (
+            "Classifier trained from the Apache-2.0 google-research/kws_streaming "
+            "code (no restricted pre-trained weights). The model is commercially "
+            "ownable; verify any user-provided dataset license before commercial use."
+        ),
+    }
+    (bundle_dir / "provenance.json").write_text(json.dumps(provenance, indent=2), encoding="utf-8")
+
+    config_snapshot = {
+        "model": params["model"],
+        "wantedWords": wanted_words,
+        "featureType": params["featureType"],
+        "preprocess": params["preprocess"],
+        "dataSource": params["dataSource"],
+        "sampleRate": 16000,
+        "clipDurationMs": 1000,
+        "backend": params["backend"],
+    }
+    (bundle_dir / "config.json").write_text(json.dumps(config_snapshot, indent=2), encoding="utf-8")
+
+    zip_path = bundle_dir / "wake-studio-results.zip"
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name in ("model.tflite", "labels.txt", "flags.json", "metrics.json",
+                     "metadata.json", "provenance.json", "config.json"):
+            p = bundle_dir / name
+            if p.is_file():
+                zf.write(p, arcname=f"{params['jobId']}/{name}")
+    reporter.emit("log", level="info", message=f"bundle ready: {zip_path}")
+    return zip_path
+
+
+def main(argv: list[str] | None = None) -> int:
+    reporter = Reporter()
+    params = read_params()
+
+    upstream_dir = Path(os.environ.get("UPSTREAM_DIR", "./google-research"))
+    python = os.environ.get("UPSTREAM_PYTHON") or sys.executable
+    work_dir = Path(os.environ.get("WORK_DIR", ".")).resolve()
+    out_root = Path(os.environ.get("OUT_DIR", work_dir / "wake-studio-results"))
+    train_dir = work_dir / "train" / params["model"]
+
+    reporter.emit("log", level="info", message=(
+        f"kws-streaming adapter: model={params['model']} "
+        f"source={params['dataSource']} steps={params['howManyTrainingSteps']} "
+        f"upstream={upstream_dir} python={python}"
+    ))
+
+    if not (upstream_dir / "kws_streaming").is_dir():
+        reporter.emit("error", message=(
+            f"upstream kws_streaming not found under {upstream_dir} "
+            f"(set UPSTREAM_DIR to a google-research clone)"
+        ))
+        return 1
+
+    # stage 1: data
+    reporter.emit("progress", step=1, total=len(STAGES), progress=1 / len(STAGES),
+                  message="prepare_data")
+    try:
+        data_dir, sources, wanted = prepare_data(params, work_dir, reporter)
+    except Exception as exc:  # noqa: BLE001
+        reporter.emit("error", message=f"data error: {exc}")
+        return 1
+
+    # stage 2: upstream train (unmodified)
+    reporter.emit("progress", step=2, total=len(STAGES), progress=2 / len(STAGES),
+                  message="train")
+    train_dir.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(upstream_dir) + os.pathsep + env.get("PYTHONPATH", "")
+    cmd = build_command(params, python, data_dir, str(train_dir), wanted)
+    log_lines: list[str] = []
+    code = run_upstream(cmd, str(upstream_dir), env, reporter, log_lines)
+    if code != 0:
+        reporter.emit("error", message=f"upstream train exited with code {code}")
+        return code
+
+    # stage 3: bundle
+    reporter.emit("progress", step=3, total=len(STAGES), progress=1.0,
+                  message="bundle")
+    try:
+        bundle_zip = build_bundle(
+            params, wanted, train_dir, out_root, sources,
+            "\n".join(log_lines), reporter,
+        )
+    except Exception as exc:  # noqa: BLE001
+        reporter.emit("error", message=f"bundle error: {exc}")
+        return 1
+
+    reporter.emit("artifact", path=str(bundle_zip))
+    reporter.emit("done", exitCode=0)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
