@@ -120,7 +120,7 @@
     "script": {
       "repo": "https://github.com/google-research/google-research",
       "path": "kws_streaming/train/model_train_eval.py",
-      "ref": "master",
+      "ref": "cf61877d4c0021ff40ec3ecc0334aaa3937a1fcb",
       "language": "python",
       "entrypoint": "python -m kws_streaming.train.model_train_eval",
       "args": [

@@ -20,7 +20,9 @@ registry maps job params to ``STREAM_*``):
 
 Paths (env, with defaults):
 
-    UPSTREAM_DIR    default ./google-research          (upstream clone root)
+    UPSTREAM_DIR    default <repo>/third_party         (vendored upstream, ADR-037;
+                                                      auto-detected; override only
+                                                      for a custom clone)
     UPSTREAM_PYTHON default sys.executable             (the env with tensorflow)
     WORK_DIR        default cwd
     OUT_DIR         default <WORK_DIR>/wake-studio-results
@@ -377,11 +379,28 @@ def build_bundle(
     return zip_path
 
 
+def default_upstream_dir() -> Path:
+    """Locate the vendored upstream (ADR-037 Tier 3, #156).
+
+    Copies of this adapter live at different depths (module train dir, PWA
+    ``public/train`` copy), so probe ancestors for a ``third_party`` dir that
+    contains the vendored ``kws_streaming`` package. Falls back to the
+    historical ``./google-research`` clone layout so existing setups keep
+    working.
+    """
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        candidate = parent / "third_party"
+        if (candidate / "kws_streaming" / "train" / "model_train_eval.py").is_file():
+            return candidate
+    return Path("./google-research")
+
+
 def main(argv: list[str] | None = None) -> int:
     reporter = Reporter()
     params = read_params()
 
-    upstream_dir = Path(os.environ.get("UPSTREAM_DIR", "./google-research"))
+    upstream_dir = Path(os.environ.get("UPSTREAM_DIR") or default_upstream_dir())
     python = os.environ.get("UPSTREAM_PYTHON") or sys.executable
     work_dir = Path(os.environ.get("WORK_DIR", ".")).resolve()
     out_root = Path(os.environ.get("OUT_DIR", work_dir / "wake-studio-results"))
@@ -396,7 +415,8 @@ def main(argv: list[str] | None = None) -> int:
     if not (upstream_dir / "kws_streaming").is_dir():
         reporter.emit("error", message=(
             f"upstream kws_streaming not found under {upstream_dir} "
-            f"(set UPSTREAM_DIR to a google-research clone)"
+            f"(expected the vendored third_party/kws_streaming; or set "
+            f"UPSTREAM_DIR to a google-research clone)"
         ))
         return 1
 
