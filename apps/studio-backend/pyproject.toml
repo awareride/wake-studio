@@ -37,6 +37,7 @@ tts = [
 # extra: studio-backend[tf] @ git+...). Hardening log: third_party/README.md.
 tf = [
   "tensorflow==2.15.1",
+  "tensorflow-model-optimization==0.7.5",  # tfmot: upstream quantize layers (#159)
   "numpy==1.26.4",
   "protobuf==3.20.3",
   "absl-py>=1.4",
