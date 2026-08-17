@@ -52,11 +52,26 @@ def _baked_revision() -> str:
     return rev if rev else "main"
 
 
+def _staging_revision() -> str:
+    """Revision used for module staging: explicit override > baked wheel > main.
+
+    The Colab launcher notebook passes the Params-form ``REVISION`` value via
+    ``WAKE_REVISION`` (option A', #159) so the user's explicit choice wins
+    even if a stale wheel cached a different baked revision; self-hosted/CLI
+    runs without the env fall back to the wheel's baked revision (the two are
+    identical when the wheel was built from the pinned commit).
+    """
+    override = os.environ.get("WAKE_REVISION", "").strip()
+    if override:
+        return override
+    return _baked_revision()
+
+
 def repo_tarball_url(revision: str | None = None) -> str:
     """GitHub API tarball endpoint - accepts a branch, tag, or commit SHA."""
     return (
         "https://api.github.com/repos/awareride/wake-studio/tarball/"
-        f"{revision or _baked_revision()}"
+        f"{revision or _staging_revision()}"
     )
 
 

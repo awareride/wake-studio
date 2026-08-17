@@ -71,6 +71,26 @@ def test_repo_tarball_url_falls_back_to_baked_or_main(monkeypatch):
     assert registry.repo_tarball_url().endswith("/tarball/deadbeef")
 
 
+def test_staging_revision_prefers_env_override(monkeypatch):
+    # the Colab form passes WAKE_REVISION - explicit choice wins over baked
+    monkeypatch.setattr(registry, "_baked_revision", lambda: "deadbeef")
+    monkeypatch.setenv("WAKE_REVISION", "cafebabe")
+    assert registry._staging_revision() == "cafebabe"
+    assert registry.repo_tarball_url().endswith("/tarball/cafebabe")
+
+
+def test_staging_revision_falls_back_to_baked_without_env(monkeypatch):
+    monkeypatch.delenv("WAKE_REVISION", raising=False)
+    monkeypatch.setattr(registry, "_baked_revision", lambda: "deadbeef")
+    assert registry._staging_revision() == "deadbeef"
+
+
+def test_staging_revision_ignores_blank_env(monkeypatch):
+    monkeypatch.setenv("WAKE_REVISION", "  ")
+    monkeypatch.setattr(registry, "_baked_revision", lambda: "deadbeef")
+    assert registry._staging_revision() == "deadbeef"
+
+
 def test_stager_default_url_uses_repo_tarball_url(monkeypatch, tmp_path):
     monkeypatch.setattr(registry, "repo_tarball_url", lambda: "https://example.com/tarball/x")
     stager = registry.ModuleStager(staged_root=tmp_path / "staged")

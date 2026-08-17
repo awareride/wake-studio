@@ -84,6 +84,10 @@ from wake_training_service.colab_launcher import launch
 
 WAKE_SERVICE_TOKEN = WAKE_SERVICE_TOKEN or secrets.token_urlsafe(24)
 
+# Hand the Params-form REVISION to the service: module staging (ModuleStager /
+# _staging_revision) prefers this explicit value over the wheel's baked one.
+os.environ["WAKE_REVISION"] = REVISION
+
 RUNTIME = os.path.abspath("./wake-studio-runtime")
 os.makedirs(RUNTIME, exist_ok=True)
 

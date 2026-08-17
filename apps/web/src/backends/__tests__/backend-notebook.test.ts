@@ -70,6 +70,8 @@ describe('backend notebook template', () => {
     expect(src).toContain('REVISION = "main" #@param {type:"string"}')
     // the install line reads the form value (IPython $-expansion), not a baked string
     expect(src).toContain('@$REVISION#subdirectory=apps/studio-backend')
+    // the form value is handed to the service for staging (WAKE_REVISION)
+    expect(src).toContain('os.environ["WAKE_REVISION"] = REVISION')
   })
 
   it('seeds the REVISION form field with the resolved revision when given (#159)', () => {
