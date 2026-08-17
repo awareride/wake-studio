@@ -20,7 +20,7 @@ dev = ["pytest>=8.0"]
 # quantize layers + spectrogram_augment. Pins and rationale: third_party/
 # README.md hardening log.
 tf = [
-  "tensorflow==2.15.1",
+  "tensorflow[and-cuda]==2.15.1",
   "tensorflow-model-optimization==0.7.5",
   "numpy==1.26.4",
   "protobuf==3.20.3",

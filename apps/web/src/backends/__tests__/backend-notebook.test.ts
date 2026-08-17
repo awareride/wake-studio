@@ -2,12 +2,11 @@
  * "Free On Google Colab" notebook template tests.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   BACKEND_NOTEBOOK_FILENAME,
   buildBackendNotebook,
   buildBackendNotebookJson,
-  resolveColabRevision,
 } from '../backend-notebook'
 
 describe('backend notebook template', () => {
@@ -62,46 +61,23 @@ describe('backend notebook template', () => {
     expect(BACKEND_NOTEBOOK_FILENAME).toBe('studio-backend.ipynb')
   })
 
-  it('renders a Colab form panel for token / port / revision (#159)', () => {
+  it('renders a Colab form panel for token / port / revisions (#159)', () => {
     const src = buildBackendNotebook().map((c) => c.source.join('')).join('\n')
     expect(src).toContain('#@title Params')
     expect(src).toContain('WAKE_SERVICE_TOKEN = "" #@param {type:"string"}')
     expect(src).toContain('WAKE_SERVICE_PORT = 4824 #@param {type:"integer"}')
     expect(src).toContain('REVISION = "main" #@param {type:"string"}')
+    expect(src).toContain('STAGING_REVISION = "" #@param {type:"string"}')
     // the install line reads the form value (IPython $-expansion), not a baked string
     expect(src).toContain('@$REVISION#subdirectory=apps/studio-backend')
-    // the form value is handed to the service for staging (WAKE_REVISION)
-    expect(src).toContain('os.environ["WAKE_REVISION"] = REVISION')
+    // staging revision: empty follows REVISION, explicit choice wins
+    expect(src).toContain('os.environ["WAKE_REVISION"] = STAGING_REVISION or REVISION')
   })
 
-  it('seeds the REVISION form field with the resolved revision when given (#159)', () => {
-    const src = buildBackendNotebook('a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2')
-      .map((c) => c.source.join(''))
-      .join('\n')
-    expect(src).toContain('REVISION = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" #@param')
-    expect(src).toContain('Service revision: {REVISION}')
-  })
-
-  it('resolves the latest main revision from the GitHub API, falling back to main', async () => {
-    const realFetch = globalThis.fetch
-    try {
-      globalThis.fetch = vi.fn(async () =>
-        new Response(JSON.stringify({ sha: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
-      ) as unknown as typeof fetch
-      expect(await resolveColabRevision()).toBe('deadbeefdeadbeefdeadbeefdeadbeefdeadbeef')
-
-      globalThis.fetch = vi.fn(async () => new Response('nope', { status: 500 })) as unknown as typeof fetch
-      expect(await resolveColabRevision()).toBe('main')
-
-      globalThis.fetch = vi.fn(async () => {
-        throw new Error('offline')
-      }) as unknown as typeof fetch
-      expect(await resolveColabRevision()).toBe('main')
-    } finally {
-      globalThis.fetch = realFetch
-    }
+  it('checks for a GPU first, with CPU fallback guidance', () => {
+    const src = buildBackendNotebook().map((c) => c.source.join('')).join('\n')
+    expect(src).toContain('GPU first')
+    expect(src).toContain('nvidia-smi')
+    expect(src).toContain('Change runtime type')
   })
 })
