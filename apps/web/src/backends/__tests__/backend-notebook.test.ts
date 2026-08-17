@@ -62,17 +62,22 @@ describe('backend notebook template', () => {
     expect(BACKEND_NOTEBOOK_FILENAME).toBe('studio-backend.ipynb')
   })
 
-  it('pins the notebook to the resolved revision when one is given (#159)', () => {
+  it('renders a Colab form panel for token / port / revision (#159)', () => {
+    const src = buildBackendNotebook().map((c) => c.source.join('')).join('\n')
+    expect(src).toContain('#@title Params')
+    expect(src).toContain('WAKE_SERVICE_TOKEN = "" #@param {type:"string"}')
+    expect(src).toContain('WAKE_SERVICE_PORT = 4824 #@param {type:"integer"}')
+    expect(src).toContain('REVISION = "main" #@param {type:"string"}')
+    // the install line reads the form value (IPython $-expansion), not a baked string
+    expect(src).toContain('@$REVISION#subdirectory=apps/studio-backend')
+  })
+
+  it('seeds the REVISION form field with the resolved revision when given (#159)', () => {
     const src = buildBackendNotebook('a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2')
       .map((c) => c.source.join(''))
       .join('\n')
-    expect(src).toContain('@a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2#subdirectory=apps/studio-backend')
-    expect(src).toContain('Service revision: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2')
-  })
-
-  it('defaults to main when no revision is passed', () => {
-    const src = buildBackendNotebook().map((c) => c.source.join('')).join('\n')
-    expect(src).toContain('@main#subdirectory=apps/studio-backend')
+    expect(src).toContain('REVISION = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" #@param')
+    expect(src).toContain('Service revision: {REVISION}')
   })
 
   it('resolves the latest main revision from the GitHub API, falling back to main', async () => {

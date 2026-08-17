@@ -44,28 +44,31 @@ training jobs, watch live progress, pause/resume/cancel, and pull artifacts
 > going; see the notebook output for details).
 `
 
-const CODE_PARAMS = `# --- Params (edit if needed) ---------------------------------------------
-import os
+const CODE_PARAMS = (revision: string) => `#@title Params
+# Colab input panel - edit before running, or run as-is.
 
-# Leave empty to generate a random token (printed in the last cell).
-WAKE_SERVICE_TOKEN = os.environ.get("WAKE_SERVICE_TOKEN", "")
-WAKE_SERVICE_PORT = int(os.environ.get("WAKE_SERVICE_PORT", "4824"))
+# Leave empty to auto-generate a random token (printed in the last cell).
+WAKE_SERVICE_TOKEN = "" #@param {type:"string"}
+WAKE_SERVICE_PORT = 4824 #@param {type:"integer"}
+
+# Service revision (option A', #159): the wheel bakes it and module staging
+# fetches it - the notebook, the installed service, and the staged module
+# code are one commit. Default = latest main resolved at download time;
+# override to pin an older commit.
+REVISION = "${revision}" #@param {type:"string"}
 `
 
-function codeLaunch(revision: string): string {
-  // The service is installed from the pinned revision the PWA resolved at
-  // download time (#159, option A'): the wheel bakes that same revision, and
-  // ModuleStager stages module assets from it - one commit for notebook,
-  // service, and staged module code. Falls back to main when the resolve
-  // failed (offline / rate limit) - the baked fallback then keeps wheel and
-  // staging consistent with each other.
-  const install =
-    `!pip install -q "studio-backend @ git+https://github.com/awareride/wake-studio@${revision}#subdirectory=apps/studio-backend"`
+function codeLaunch(): string {
+  // The service is installed at $REVISION - the value from the Params form
+  // (default = the revision the PWA resolved at download time, #159 option
+  // A'). The wheel bakes that same revision and ModuleStager stages module
+  // assets from it: one commit for notebook, service, and staged module
+  // code. IPython ! shell lines expand $REVISION from the Python namespace.
   return `# --- Start the studio-backend service + tunnel -----------------------------
-# Installs the service from this repo at revision \`${revision}\` (pinned at
-# download time; the wheel bakes the same revision and module staging fetches
-# the same commit - see ModuleStager / repo_tarball_url, #159). instance=short-
-# term so /health reports the Colab nature.
+# Installs the service from this repo at revision \`$REVISION\` (Params form;
+# the wheel bakes the same revision and module staging fetches the same
+# commit - see ModuleStager / repo_tarball_url, #159). instance=short-term so
+# /health reports the Colab nature.
 #
 # This notebook is GENERIC - it knows no module names. The service loads its
 # bundled registry (all registered modules) and stages each module's assets
@@ -74,7 +77,7 @@ function codeLaunch(revision: string): string {
 # without notebook changes.
 import os, secrets
 
-${install}
+!pip install -q "studio-backend @ git+https://github.com/awareride/wake-studio@$REVISION#subdirectory=apps/studio-backend"
 !pip install -q uv  # the service's train runner (ADR-028)
 
 from wake_training_service.colab_launcher import launch
@@ -84,7 +87,7 @@ WAKE_SERVICE_TOKEN = WAKE_SERVICE_TOKEN or secrets.token_urlsafe(24)
 RUNTIME = os.path.abspath("./wake-studio-runtime")
 os.makedirs(RUNTIME, exist_ok=True)
 
-print(f"Service revision: ${revision}")
+print(f"Service revision: {REVISION}")
 
 launcher = launch(
     port=WAKE_SERVICE_PORT,
@@ -144,8 +147,8 @@ function cell(cellType: 'markdown' | 'code', source: string): NotebookCell {
 export function buildBackendNotebook(revision: string = 'main'): NotebookCell[] {
   return [
     cell('markdown', MD_INTRO),
-    cell('code', CODE_PARAMS),
-    cell('code', codeLaunch(revision)),
+    cell('code', CODE_PARAMS(revision)),
+    cell('code', codeLaunch()),
   ]
 }
 
