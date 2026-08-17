@@ -53,46 +53,63 @@ WAKE_SERVICE_PORT = int(os.environ.get("WAKE_SERVICE_PORT", "4824"))
 `
 
 const CODE_LAUNCH = `# --- Start the studio-backend service + tunnel -----------------------------
-# Installs the service from this repo (pinned to main) and starts it with the
-# colab launcher: service thread + cloudflared, URL printed, fresh URL on
-# reconnect (issue #123). The service reports instance=short-term via /health.
-# The dry-run demo module is fetched alongside (stdlib-only trainer: ~1s, no
-# GPU/data) and registered as 'dry-run', so the full wizard flow can be
-# exercised against this runtime too.
-import os, secrets
+# Installs the service from this repo (pinned to main) with the training
+# extras and starts it with the colab launcher: service thread + cloudflared,
+# URL printed, fresh URL on reconnect (issue #123). instance=short-term so
+# /health reports the Colab nature.
+#
+# Two modules are staged into ./wake-studio-runtime so real jobs can run:
+#   - dry-run: the stdlib-only demo trainer (~1s, no GPU/data)
+#   - kws-streaming: the train adapter + its vendored upstream
+#     (third_party/kws_streaming) + the service registry, all from the repo
+#     tarball, so dataSource=speech-commands-v2 / edge-tts / mixed training
+#     works against the pinned upstream (ADR-037).
+import json, os, secrets, urllib.request
 
-!pip install -q "git+https://github.com/awareride/wake-studio@main#subdirectory=apps/studio-backend"
+!pip install -q "studio-backend[tf,tts] @ git+https://github.com/awareride/wake-studio@main#subdirectory=apps/studio-backend"
 !pip install -q uv  # the service's train runner (ADR-028)
 
 from wake_training_service.colab_launcher import launch
 
 WAKE_SERVICE_TOKEN = WAKE_SERVICE_TOKEN or secrets.token_urlsafe(24)
 
+RUNTIME = os.path.abspath("./wake-studio-runtime")
+os.makedirs(RUNTIME, exist_ok=True)
+
 # Fetch the dry-run demo trainer (runs anywhere: stdlib only, ~1s, no GPU/data).
-DRY_RUN_DIR = os.path.abspath("./wake-studio-runtime/dry-run")
+DRY_RUN_DIR = os.path.join(RUNTIME, "dry-run")
 os.makedirs(DRY_RUN_DIR, exist_ok=True)
 !curl -fsSL "https://raw.githubusercontent.com/awareride/wake-studio/main/packages/modules/dry-run/train/dry_run.py" -o "{DRY_RUN_DIR}/dry_run.py"
 if not os.path.isfile(os.path.join(DRY_RUN_DIR, "dry_run.py")):
     raise SystemExit("failed to fetch the dry-run demo module - check your network")
 
+# Fetch the kws-streaming train adapter + vendored upstream + service registry
+# from the repo tarball (single download, pinned to main).
+!curl -fsSL "https://codeload.github.com/awareride/wake-studio/tar.gz/refs/heads/main" -o "{RUNTIME}/wake-studio.tar.gz"
+!tar -xzf "{RUNTIME}/wake-studio.tar.gz" -C "{RUNTIME}" --strip-components=1 \
+    "wake-studio-main/third_party/kws_streaming" \
+    "wake-studio-main/packages/modules/kws/streaming/train" \
+    "wake-studio-main/apps/studio-backend/registry.json"
+KWS_TRAIN_DIR = os.path.join(RUNTIME, "packages", "modules", "kws", "streaming", "train")
+UPSTREAM_DIR = os.path.join(RUNTIME, "third_party")  # dir CONTAINING kws_streaming/
+if not os.path.isfile(os.path.join(KWS_TRAIN_DIR, "train_adapter.py")):
+    raise SystemExit("failed to fetch the kws-streaming train module - check your network")
+
+# Build the module registry from the service's own registry.json (single
+# source of truth), pointing each entry's cwd at the locally staged module.
+REG = json.load(urllib.request.urlopen(
+    "file://" + os.path.join(RUNTIME, "apps", "studio-backend", "registry.json")))
+REG["dry-run"]["cwd"] = DRY_RUN_DIR
+REG["kws-streaming"]["cwd"] = KWS_TRAIN_DIR
+REG["kws-streaming"]["env"]["UPSTREAM_DIR"] = UPSTREAM_DIR
+
 launcher = launch(
-    registry={
-        "dry-run": {
-            "cwd": DRY_RUN_DIR,
-            "engine": "direct",
-            "entry": "dry_run.py",
-            "env": {
-                "WAKE_PHRASE": "{params.wakePhrase}",
-                "WAKE_STEPS": "{params.steps}",
-                "WAKE_BACKEND": "self-hosted",
-            },
-        },
-    },
+    registry=REG,
     port=WAKE_SERVICE_PORT,
     token=WAKE_SERVICE_TOKEN,
     instance="short-term",
-    db=os.path.abspath("./wake-studio-runtime/wake-service.db"),
-    artifacts_dir=os.path.abspath("./wake-studio-runtime/artifacts"),
+    db=os.path.join(RUNTIME, "wake-service.db"),
+    artifacts_dir=os.path.join(RUNTIME, "artifacts"),
 )
 
 url = launcher.wait_for_url(timeout=120)

@@ -28,3 +28,12 @@ on the record instead of pointing at a moving (or frozen) remote.
 
 Import details live in each pristine-import commit message; the policy
 itself is ADR-037 in `DECISIONS.md`.
+
+## Hardening log
+
+Compatibility changes on top of the pristine import, newest first. Each entry
+is a separate commit on the import; the vendored code is never restyled.
+
+| Date | Change | Why | Where the pin lives |
+|---|---|---|---|
+| 2026-08-17 | **TF env pin for real training (#159).** The upstream is 2020-era: Keras 2 (`tf.keras.backend.set_session` / `set_learning_phase` in `train/train.py`, removed in Keras 3 / TF 2.16+) and `tf.compat.v1` sessions. Pin `tensorflow==2.15.1` (last Keras-2 line), `numpy==1.26.4`, `protobuf==3.20.3`, `absl-py>=1.4` on Python 3.10/3.11. `engine=direct` registry jobs run with the service's python, so the extra lives on the service: `studio-backend[tf]`; the Colab launcher notebook installs `studio-backend[tf,tts]`. No vendored code changed - the pin is purely environmental. | upstream Keras-2/`compat.v1` API surface | `apps/studio-backend/pyproject.toml` (`tf` extra), Colab notebook (`backend-notebook.ts`) |

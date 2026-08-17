@@ -28,6 +28,19 @@ dev = [
 tts = [
   "edge-tts>=6.1",
 ]
+# Real kws-streaming training env (#159). The vendored upstream
+# (third_party/kws_streaming) is 2020-era: it uses Keras 2 + tf.compat.v1
+# sessions (tf.keras.backend.set_session / set_learning_phase), which were
+# removed in Keras 3 (TF 2.16+), so pin TF 2.15.x - the last Keras-2 line - on
+# Python 3.10/3.11. engine=direct registry jobs run with the service's own
+# python, so TF must live here (the Colab launcher notebook installs this
+# extra: studio-backend[tf] @ git+...). Hardening log: third_party/README.md.
+tf = [
+  "tensorflow==2.15.1",
+  "numpy==1.26.4",
+  "protobuf==3.20.3",
+  "absl-py>=1.4",
+]
 
 [build-system]
 requires = ["hatchling"]

@@ -44,9 +44,24 @@ describe('backend notebook template', () => {
     const src = buildBackendNotebook()
       .map((c) => c.source.join(''))
       .join('\n')
-    expect(src).toContain('"dry-run": {')
+    expect(src).toContain('dry-run')
     expect(src).toContain('dry_run.py')
-    expect(src).toContain('WAKE_PHRASE')
+  })
+
+  it('stages the kws-streaming module + vendored upstream for real training', () => {
+    const src = buildBackendNotebook()
+      .map((c) => c.source.join(''))
+      .join('\n')
+    // installs the service with the real-training extras (TF pins, #159)
+    expect(src).toContain('studio-backend[tf,tts] @')
+    // fetches the adapter + third_party/kws_streaming from the repo tarball
+    expect(src).toContain('codeload.github.com/awareride/wake-studio/tar.gz')
+    expect(src).toContain('third_party/kws_streaming')
+    expect(src).toContain('KWS_TRAIN_DIR')
+    expect(src).toContain('UPSTREAM_DIR')
+    // registry comes from the service's own registry.json (single source)
+    expect(src).toContain('registry.json')
+    expect(src).toContain('REG["kws-streaming"]["cwd"]')
   })
 
   it('downloads under the stable filename', () => {
