@@ -15,7 +15,8 @@ import pytest
 from wake_training_service.app import create_app
 from wake_training_service.auth import Auth
 from wake_training_service.models import JobStatus
-from wake_training_service.registry import ModuleStager, Registry
+from wake_training_service.registry import Registry
+from wake_training_service.staging import ModuleStager
 
 from conftest import FAKE_SCRIPT, make_manager
 
