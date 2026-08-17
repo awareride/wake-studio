@@ -22,7 +22,8 @@ from typing import Any
 
 from .models import CAN_CANCEL, CAN_PAUSE, CAN_START, Job, JobStatus, now_ms
 from .ndjson import parse_report_line
-from .registry import ModuleStager, Registry, RegistryError
+from .registry import Registry, RegistryError
+from .staging import ModuleStager
 from .store import Store
 
 TERM_GRACE_SECONDS = 5.0

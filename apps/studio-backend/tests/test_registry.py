@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from wake_training_service import registry
+from wake_training_service import registry, staging
 from wake_training_service.registry import Registry
 
 
@@ -58,20 +58,40 @@ def test_params_env_templating(tmp_path):
 
 def test_repo_tarball_url_pins_revision():
     # a SHA pins the tarball to that commit (GitHub API endpoint)
-    url = registry.repo_tarball_url("abc123")
+    url = staging.repo_tarball_url("abc123")
     assert url == "https://api.github.com/repos/awareride/wake-studio/tarball/abc123"
 
 
 def test_repo_tarball_url_falls_back_to_baked_or_main(monkeypatch):
-    # no baked _revision (repo checkout / sdist) -> main
-    monkeypatch.setattr(registry, "_baked_revision", lambda: "main")
-    assert registry.repo_tarball_url().endswith("/tarball/main")
+    # no baked revision (repo checkout / sdist) -> main
+    monkeypatch.setattr(staging, "baked_revision", lambda: "")
+    assert staging.repo_tarball_url().endswith("/tarball/main")
     # baked revision (wheel build) wins
-    monkeypatch.setattr(registry, "_baked_revision", lambda: "deadbeef")
-    assert registry.repo_tarball_url().endswith("/tarball/deadbeef")
+    monkeypatch.setattr(staging, "baked_revision", lambda: "deadbeef")
+    assert staging.repo_tarball_url().endswith("/tarball/deadbeef")
+
+
+def test_staging_revision_prefers_env_override(monkeypatch):
+    # the Colab form passes WAKE_REVISION - explicit choice wins over baked
+    monkeypatch.setattr(staging, "baked_revision", lambda: "deadbeef")
+    monkeypatch.setenv("WAKE_REVISION", "cafebabe")
+    assert staging.staging_revision() == "cafebabe"
+    assert staging.repo_tarball_url().endswith("/tarball/cafebabe")
+
+
+def test_staging_revision_falls_back_to_baked_without_env(monkeypatch):
+    monkeypatch.delenv("WAKE_REVISION", raising=False)
+    monkeypatch.setattr(staging, "baked_revision", lambda: "deadbeef")
+    assert staging.staging_revision() == "deadbeef"
+
+
+def test_staging_revision_ignores_blank_env(monkeypatch):
+    monkeypatch.setenv("WAKE_REVISION", "  ")
+    monkeypatch.setattr(staging, "baked_revision", lambda: "deadbeef")
+    assert staging.staging_revision() == "deadbeef"
 
 
 def test_stager_default_url_uses_repo_tarball_url(monkeypatch, tmp_path):
-    monkeypatch.setattr(registry, "repo_tarball_url", lambda: "https://example.com/tarball/x")
-    stager = registry.ModuleStager(staged_root=tmp_path / "staged")
+    monkeypatch.setattr(staging, "repo_tarball_url", lambda: "https://example.com/tarball/x")
+    stager = staging.ModuleStager(staged_root=tmp_path / "staged")
     assert stager.repo_url == "https://example.com/tarball/x"
