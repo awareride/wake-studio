@@ -44,31 +44,48 @@ training jobs, watch live progress, pause/resume/cancel, and pull artifacts
 > going; see the notebook output for details).
 `
 
-const CODE_PARAMS = (revision: string) => `#@title Params
+const CODE_PARAMS = `#@title Params
 # Colab input panel - edit before running, or run as-is.
 
 # Leave empty to auto-generate a random token (printed in the last cell).
 WAKE_SERVICE_TOKEN = "" #@param {type:"string"}
 WAKE_SERVICE_PORT = 4824 #@param {type:"integer"}
 
-# Service revision (option A', #159): the wheel bakes it and module staging
-# fetches it - the notebook, the installed service, and the staged module
-# code are one commit. Default = latest main resolved at download time;
-# override to pin an older commit.
-REVISION = "${revision}" #@param {type:"string"}
+# Service revision: the branch/commit the pip-installed studio-backend comes
+# from. Default: main.
+REVISION = "main" #@param {type:"string"}
+
+# Staging revision: the branch/commit module assets are staged from
+# (ModuleStager). Empty = follow REVISION. Set a branch/SHA to test module
+# code without changing the installed service.
+STAGING_REVISION = "" #@param {type:"string"}
 `
 
 function codeLaunch(): string {
-  // The service is installed at $REVISION - the value from the Params form
-  // (default = the revision the PWA resolved at download time, #159 option
-  // A'). The wheel bakes that same revision and ModuleStager stages module
-  // assets from it: one commit for notebook, service, and staged module
-  // code. IPython ! shell lines expand $REVISION from the Python namespace.
-  return `# --- Start the studio-backend service + tunnel -----------------------------
-# Installs the service from this repo at revision \`$REVISION\` (Params form;
-# the wheel bakes the same revision and module staging fetches the same
-# commit - see ModuleStager / repo_tarball_url, #159). instance=short-term so
-# /health reports the Colab nature.
+  // Revisions come from the Params form (#159): REVISION pins the pip install
+  // (default main); STAGING_REVISION pins module staging (empty = follow
+  // REVISION) - so module code from any branch can be tested against the
+  // installed service. IPython ! shell lines expand $VARS from the Python
+  // namespace.
+  return `# --- GPU first: check the accelerator before anything else ---------------
+import subprocess
+
+try:
+    _gpu = subprocess.run(["nvidia-smi", "-L"], capture_output=True, text=True, timeout=10)
+    _gpu = _gpu.stdout.strip()
+except Exception:
+    _gpu = ""
+if _gpu:
+    print(f"GPU detected: {_gpu}")
+else:
+    print("No GPU detected - training will run on CPU (slow).")
+    print("Runtime -> Change runtime type -> Hardware accelerator: T4 GPU, then re-run.")
+
+# --- Start the studio-backend service + tunnel -----------------------------
+# Installs the service from this repo at revision \`$REVISION\` (Params form)
+# and stages module assets at \`$STAGING_REVISION or REVISION\` (see
+# ModuleStager / staging_revision, #159). instance=short-term so /health
+# reports the Colab nature.
 #
 # This notebook is GENERIC - it knows no module names. The service loads its
 # bundled registry (all registered modules) and stages each module's assets
@@ -84,14 +101,14 @@ from wake_training_service.colab_launcher import launch
 
 WAKE_SERVICE_TOKEN = WAKE_SERVICE_TOKEN or secrets.token_urlsafe(24)
 
-# Hand the Params-form REVISION to the service: module staging (ModuleStager /
-# _staging_revision) prefers this explicit value over the wheel's baked one.
-os.environ["WAKE_REVISION"] = REVISION
+# Hand the staging revision to the service: empty STAGING_REVISION follows
+# REVISION (explicit form choice > wheel's baked revision > main).
+os.environ["WAKE_REVISION"] = STAGING_REVISION or REVISION
 
 RUNTIME = os.path.abspath("./wake-studio-runtime")
 os.makedirs(RUNTIME, exist_ok=True)
 
-print(f"Service revision: {REVISION}")
+print(f"Service revision: {REVISION} | staging revision: {os.environ['WAKE_REVISION']}")
 
 launcher = launch(
     port=WAKE_SERVICE_PORT,
@@ -113,27 +130,6 @@ print("The service keeps running in the background - re-run this cell after a re
 `
 }
 
-/**
- * Resolve the latest main revision to pin the notebook to (option A', #159).
- *
- * The PWA fetches it at download time from the public GitHub API; any failure
- * (offline, rate limit) falls back to "main" - the wheel's baked revision then
- * keeps install + staging consistent with each other.
- */
-export async function resolveColabRevision(): Promise<string> {
-  try {
-    const res = await fetch(
-      'https://api.github.com/repos/awareride/wake-studio/commits/main',
-      { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(8000) },
-    )
-    if (!res.ok) return 'main'
-    const data = (await res.json()) as { sha?: unknown }
-    return typeof data.sha === 'string' && data.sha.length > 0 ? data.sha : 'main'
-  } catch {
-    return 'main'
-  }
-}
-
 function cell(cellType: 'markdown' | 'code', source: string): NotebookCell {
   const base: NotebookCell = {
     cell_type: cellType,
@@ -148,15 +144,15 @@ function cell(cellType: 'markdown' | 'code', source: string): NotebookCell {
 }
 
 /** Build the standalone studio-backend notebook (nbformat 4). */
-export function buildBackendNotebook(revision: string = 'main'): NotebookCell[] {
+export function buildBackendNotebook(): NotebookCell[] {
   return [
     cell('markdown', MD_INTRO),
-    cell('code', CODE_PARAMS(revision)),
+    cell('code', CODE_PARAMS),
     cell('code', codeLaunch()),
   ]
 }
 
-export function buildBackendNotebookJson(revision: string = 'main'): string {
+export function buildBackendNotebookJson(): string {
   const nb = {
     nbformat: 4,
     nbformat_minor: 0,
@@ -165,17 +161,14 @@ export function buildBackendNotebookJson(revision: string = 'main'): string {
       kernelspec: { name: 'python3', display_name: 'Python 3' },
       language_info: { name: 'python' },
     },
-    cells: buildBackendNotebook(revision),
+    cells: buildBackendNotebook(),
   }
   return JSON.stringify(nb, null, 1)
 }
 
-/**
- * Resolve the pinned revision and trigger a browser download of the notebook.
- */
-export async function downloadBackendNotebook(): Promise<string> {
-  const revision = await resolveColabRevision()
-  const blob = new Blob([buildBackendNotebookJson(revision)], {
+/** Trigger a browser download of the generated notebook. */
+export function downloadBackendNotebook(): string {
+  const blob = new Blob([buildBackendNotebookJson()], {
     type: 'application/x-ipynb+json',
   })
   return URL.createObjectURL(blob)
