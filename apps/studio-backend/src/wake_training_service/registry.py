@@ -38,10 +38,26 @@ from typing import Any, Callable
 _TMPL = re.compile(r"\{([^}]+)\}")
 
 #: Repo tarball used by ModuleStager to stage module assets on demand.
-#: Pinned to main - the same ref the Colab launcher notebook installs.
-REPO_TARBALL_URL = (
-    "https://codeload.github.com/awareride/wake-studio/tar.gz/refs/heads/main"
-)
+#: Fetch from the GitHub API tarball endpoint at the service's OWN build
+#: revision (baked into the wheel at build time, #159 option A) so the
+#: installed wheel and the staged module code can never drift; falls back to
+#: "main" when the revision metadata is absent (plain-directory builds).
+def _baked_revision() -> str:
+    try:
+        from wake_training_service import _revision  # type: ignore[attr-defined]
+
+        rev = getattr(_revision, "REVISION", "") or ""
+    except Exception:  # noqa: BLE001 - baked file missing (repo checkout / sdist)
+        rev = ""
+    return rev if rev else "main"
+
+
+def repo_tarball_url(revision: str | None = None) -> str:
+    """GitHub API tarball endpoint - accepts a branch, tag, or commit SHA."""
+    return (
+        "https://api.github.com/repos/awareride/wake-studio/tarball/"
+        f"{revision or _baked_revision()}"
+    )
 
 
 class RegistryError(ValueError):
@@ -172,11 +188,11 @@ class ModuleStager:
     def __init__(
         self,
         staged_root: str | Path,
-        repo_url: str = REPO_TARBALL_URL,
+        repo_url: str | None = None,
         fetch: Callable[[str, Path], None] | None = None,
     ) -> None:
         self.staged_root = Path(staged_root)
-        self.repo_url = repo_url
+        self.repo_url = repo_url or repo_tarball_url()
         self._fetch = fetch or _default_fetch
         self._fetched = False
 

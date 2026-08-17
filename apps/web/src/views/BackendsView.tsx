@@ -615,8 +615,12 @@ export function BackendsView() {
   }, [runHealthChecks])
 
   // Blob URL for the generated notebook lives as long as the colab modes.
+  // The revision is resolved (GitHub API) before the download is prepared
+  // (#159, option A'): the notebook pins the commit it installs + stages.
   useEffect(() => {
-    if (view.kind === 'colab-guide' && !blobUrl) setBlobUrl(downloadBackendNotebook())
+    if (view.kind === 'colab-guide' && !blobUrl) {
+      void downloadBackendNotebook().then(setBlobUrl)
+    }
     if (view.kind !== 'colab-guide' && view.kind !== 'colab-preview' && blobUrl) {
       URL.revokeObjectURL(blobUrl)
       setBlobUrl(null)

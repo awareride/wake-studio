@@ -52,11 +52,20 @@ WAKE_SERVICE_TOKEN = os.environ.get("WAKE_SERVICE_TOKEN", "")
 WAKE_SERVICE_PORT = int(os.environ.get("WAKE_SERVICE_PORT", "4824"))
 `
 
-const CODE_LAUNCH = `# --- Start the studio-backend service + tunnel -----------------------------
-# Installs the service from this repo (pinned to main) and starts it with the
-# colab launcher: service thread + cloudflared, URL printed, fresh URL on
-# reconnect (issue #123). instance=short-term so /health reports the Colab
-# nature.
+function codeLaunch(revision: string): string {
+  // The service is installed from the pinned revision the PWA resolved at
+  // download time (#159, option A'): the wheel bakes that same revision, and
+  // ModuleStager stages module assets from it - one commit for notebook,
+  // service, and staged module code. Falls back to main when the resolve
+  // failed (offline / rate limit) - the baked fallback then keeps wheel and
+  // staging consistent with each other.
+  const install =
+    `!pip install -q "studio-backend @ git+https://github.com/awareride/wake-studio@${revision}#subdirectory=apps/studio-backend"`
+  return `# --- Start the studio-backend service + tunnel -----------------------------
+# Installs the service from this repo at revision \`${revision}\` (pinned at
+# download time; the wheel bakes the same revision and module staging fetches
+# the same commit - see ModuleStager / repo_tarball_url, #159). instance=short-
+# term so /health reports the Colab nature.
 #
 # This notebook is GENERIC - it knows no module names. The service loads its
 # bundled registry (all registered modules) and stages each module's assets
@@ -65,7 +74,7 @@ const CODE_LAUNCH = `# --- Start the studio-backend service + tunnel -----------
 # without notebook changes.
 import os, secrets
 
-!pip install -q "studio-backend @ git+https://github.com/awareride/wake-studio@main#subdirectory=apps/studio-backend"
+${install}
 !pip install -q uv  # the service's train runner (ADR-028)
 
 from wake_training_service.colab_launcher import launch
@@ -74,6 +83,8 @@ WAKE_SERVICE_TOKEN = WAKE_SERVICE_TOKEN or secrets.token_urlsafe(24)
 
 RUNTIME = os.path.abspath("./wake-studio-runtime")
 os.makedirs(RUNTIME, exist_ok=True)
+
+print(f"Service revision: ${revision}")
 
 launcher = launch(
     port=WAKE_SERVICE_PORT,
@@ -93,6 +104,28 @@ print(f"Token: {WAKE_SERVICE_TOKEN}")
 print("Paste both into WakeStudio -> Backends -> New.")
 print("The service keeps running in the background - re-run this cell after a reconnect.")
 `
+}
+
+/**
+ * Resolve the latest main revision to pin the notebook to (option A', #159).
+ *
+ * The PWA fetches it at download time from the public GitHub API; any failure
+ * (offline, rate limit) falls back to "main" - the wheel's baked revision then
+ * keeps install + staging consistent with each other.
+ */
+export async function resolveColabRevision(): Promise<string> {
+  try {
+    const res = await fetch(
+      'https://api.github.com/repos/awareride/wake-studio/commits/main',
+      { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(8000) },
+    )
+    if (!res.ok) return 'main'
+    const data = (await res.json()) as { sha?: unknown }
+    return typeof data.sha === 'string' && data.sha.length > 0 ? data.sha : 'main'
+  } catch {
+    return 'main'
+  }
+}
 
 function cell(cellType: 'markdown' | 'code', source: string): NotebookCell {
   const base: NotebookCell = {
@@ -108,11 +141,15 @@ function cell(cellType: 'markdown' | 'code', source: string): NotebookCell {
 }
 
 /** Build the standalone studio-backend notebook (nbformat 4). */
-export function buildBackendNotebook(): NotebookCell[] {
-  return [cell('markdown', MD_INTRO), cell('code', CODE_PARAMS), cell('code', CODE_LAUNCH)]
+export function buildBackendNotebook(revision: string = 'main'): NotebookCell[] {
+  return [
+    cell('markdown', MD_INTRO),
+    cell('code', CODE_PARAMS),
+    cell('code', codeLaunch(revision)),
+  ]
 }
 
-export function buildBackendNotebookJson(): string {
+export function buildBackendNotebookJson(revision: string = 'main'): string {
   const nb = {
     nbformat: 4,
     nbformat_minor: 0,
@@ -121,14 +158,17 @@ export function buildBackendNotebookJson(): string {
       kernelspec: { name: 'python3', display_name: 'Python 3' },
       language_info: { name: 'python' },
     },
-    cells: buildBackendNotebook(),
+    cells: buildBackendNotebook(revision),
   }
   return JSON.stringify(nb, null, 1)
 }
 
-/** Trigger a browser download of the generated notebook. */
-export function downloadBackendNotebook(): string {
-  const blob = new Blob([buildBackendNotebookJson()], {
+/**
+ * Resolve the pinned revision and trigger a browser download of the notebook.
+ */
+export async function downloadBackendNotebook(): Promise<string> {
+  const revision = await resolveColabRevision()
+  const blob = new Blob([buildBackendNotebookJson(revision)], {
     type: 'application/x-ipynb+json',
   })
   return URL.createObjectURL(blob)

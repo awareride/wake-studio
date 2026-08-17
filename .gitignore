@@ -70,3 +70,4 @@ apps/studio-backend/*.egg-info/
 
 # standard artifact bundle output (docs/modules/training.md §6)
 **/wake-studio-results/
+apps/studio-backend/src/wake_training_service/_revision.py
