@@ -22,6 +22,7 @@ dev = ["pytest>=8.0"]
 tf = [
   "tensorflow[and-cuda]==2.15.1",
   "tensorflow-model-optimization==0.7.5",
+  "tensorflow-addons==0.23.0",  # upstream train.py imports tfa unguarded (#159)
   "numpy==1.26.4",
   "protobuf==3.20.3",
   "absl-py>=1.4",

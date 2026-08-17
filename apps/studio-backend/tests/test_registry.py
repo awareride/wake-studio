@@ -92,6 +92,8 @@ def test_staging_revision_ignores_blank_env(monkeypatch):
 
 
 def test_stager_default_url_uses_repo_tarball_url(monkeypatch, tmp_path):
-    monkeypatch.setattr(staging, "repo_tarball_url", lambda: "https://example.com/tarball/x")
-    stager = staging.ModuleStager(staged_root=tmp_path / "staged")
-    assert stager.repo_url == "https://example.com/tarball/x"
+    monkeypatch.setattr(staging, "repo_tarball_url", lambda rev=None: f"https://example.com/tarball/{rev}")
+    stager = staging.ModuleStager(staged_root=tmp_path / "staged", revision="xyz")
+    assert stager.repo_url == "https://example.com/tarball/xyz"
+    # revision-scoped staged tree
+    assert stager.base == tmp_path / "staged" / "xyz"
