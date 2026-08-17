@@ -16,7 +16,6 @@
 """Utility functions for operations on Model."""
 import os.path
 import tempfile
-import importlib
 from typing import List, Optional, Sequence
 import numpy as np
 import tensorflow as tf
@@ -30,25 +29,17 @@ from kws_streaming.models import model_utils
 from kws_streaming.models import models as kws_models
 
 
-def _resolve_keras_internals():
-  """Locate the internal Keras modules that host the model clone helpers.
+def _clone_model(model, input_tensors):
+  """Clone model with configs, except of weights.
 
-  TensorFlow <= 2.15 bundles Keras inside ``tf._keras_internal``. From
-  TensorFlow 2.16 Keras was split into a standalone package and
-  ``tf._keras_internal`` was removed, so we fall back to the package that
-  actually backs ``tf.keras`` (``tf_keras`` when the legacy Keras backend is
-  enabled, otherwise ``keras``).
+  Uses the public ``tf.keras.models.clone_model`` API so the code works across
+  TensorFlow releases: the bundled Keras in TF <= 2.15 as well as the standalone
+  Keras 3 / tf_keras backends shipped with TF >= 2.16. The original code reached
+  into private ``tf._keras_internal`` helpers that no longer exist in TF 2.16+,
+  and the equivalent private helpers were refactored out of the public module
+  paths in Keras 3.
   """
-  if hasattr(tf, '_keras_internal'):
-    return tf._keras_internal.models, tf._keras_internal.engine.functional  # pylint: disable=protected-access
-
-  backend_name = getattr(tf.keras, '__name__', '')
-  pkg_name = 'tf_keras' if 'tf_keras' in backend_name else 'keras'
-  pkg = importlib.import_module(pkg_name)  # pytype: disable=import-error
-  return pkg.src.models.functional, pkg.src.engine.functional
-
-
-models_utils, functional = _resolve_keras_internals()
+  return tf.keras.models.clone_model(model, input_tensors=input_tensors)
 
 
 def save_model_summary(model, path, file_name='model_summary.txt'):
@@ -104,33 +95,6 @@ def _get_input_output_states(model):
       if output_state not in ([], [None]):
         output_states.append(output_state)
   return input_states, output_states
-
-
-def _clone_model(model, input_tensors):
-  """Clone model with configs, except of weights."""
-  new_input_layers = {}  # Cache for created layers.
-  # pylint: disable=protected-access
-  if input_tensors is not None:
-    # Make sure that all input tensors come from a Keras layer.
-    input_tensors = tf.nest.flatten(input_tensors)
-    for i, input_tensor in enumerate(input_tensors):
-      if not tf.keras.backend.is_keras_tensor(input_tensor):
-        raise ValueError('Expected keras tensor but get', input_tensor)
-      original_input_layer = model._input_layers[i]
-      newly_created_input_layer = input_tensor._keras_history.layer
-      new_input_layers[original_input_layer] = newly_created_input_layer
-
-  model_config, created_layers = models_utils._clone_layers_and_model_config(  # pylint:disable=protected-access,line-too-long
-      model, new_input_layers, models_utils._clone_layer)
-  # pylint: enable=protected-access
-
-  # Reconstruct model from the config, using the cloned layers.
-  input_tensors, output_tensors, created_layers = (
-      functional.reconstruct_from_config(  # pylint:disable=protected-access
-          model_config, created_layers=created_layers))
-
-  new_model = tf.keras.Model(input_tensors, output_tensors, name=model.name)
-  return new_model
 
 
 def _weight_get_basename(weight):
