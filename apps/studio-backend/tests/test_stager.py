@@ -66,23 +66,63 @@ def test_stager_without_stage_spec_returns_none(tmp_path):
 def test_stager_prepare_extracts_and_resolves(tmp_path):
     archive = _make_repo_tarball(tmp_path / "src", tmp_path / "repo.tar.gz")
     fetch, calls = _make_fetch(archive)
-    stager = ModuleStager(staged_root=tmp_path / "staged", fetch=fetch)
-    entry, _ = _staged_entry(tmp_path / "staged", fetch)
+    stager = ModuleStager(staged_root=tmp_path / "staged", fetch=fetch, revision="t1")
+    entry = {
+        "fake": {
+            "cwd": "../../packages/modules/fake/train",
+            "engine": "direct",
+            "entry": "fake_train.py",
+            "stage": {
+                "paths": [FAKE_TRAIN],
+                "cwd": FAKE_TRAIN,
+                "env": {"FAKE_UPSTREAM": "third_party/fake"},
+            },
+        }
+    }
 
     cwd, env = stager.prepare(entry["fake"], tmp_path)
     assert (cwd / "fake_train.py").is_file()
-    assert env["FAKE_UPSTREAM"] == str((tmp_path / "staged" / "third_party" / "fake").resolve())
+    # revision-scoped: staged under staged_root/<rev>/
+    assert str(cwd).startswith(str(tmp_path / "staged" / "t1"))
+    assert env["FAKE_UPSTREAM"] == str(
+        (tmp_path / "staged" / "t1" / "third_party" / "fake").resolve()
+    )
     assert calls["n"] == 1
+
+
+def test_stager_restages_when_revision_changes(tmp_path):
+    """A different STAGING_REVISION stages a fresh tree (no silent reuse)."""
+    archive = _make_repo_tarball(tmp_path / "src", tmp_path / "repo.tar.gz")
+    fetch, calls = _make_fetch(archive)
+    entry = {
+        "cwd": "x",
+        "engine": "direct",
+        "entry": "fake_train.py",
+        "stage": {"paths": [FAKE_TRAIN], "cwd": FAKE_TRAIN, "env": {}},
+    }
+
+    s1 = ModuleStager(staged_root=tmp_path / "staged", fetch=fetch, revision="t1")
+    c1, _ = s1.prepare(entry, tmp_path)
+    s2 = ModuleStager(staged_root=tmp_path / "staged", fetch=fetch, revision="t2")
+    c2, _ = s2.prepare(entry, tmp_path)
+    assert c1 != c2  # different revision -> different staged tree
+    assert (c1 / "fake_train.py").is_file() and (c2 / "fake_train.py").is_file()
+    assert calls["n"] == 2  # each revision fetched its own tarball
 
 
 def test_stager_is_idempotent_no_second_fetch(tmp_path):
     archive = _make_repo_tarball(tmp_path / "src", tmp_path / "repo.tar.gz")
     fetch, calls = _make_fetch(archive)
-    stager = ModuleStager(staged_root=tmp_path / "staged", fetch=fetch)
-    entry, _ = _staged_entry(tmp_path / "staged", fetch)
+    stager = ModuleStager(staged_root=tmp_path / "staged", fetch=fetch, revision="t1")
+    entry = {
+        "cwd": "x",
+        "engine": "direct",
+        "entry": "fake_train.py",
+        "stage": {"paths": [FAKE_TRAIN], "cwd": FAKE_TRAIN, "env": {}},
+    }
 
-    stager.prepare(entry["fake"], tmp_path)
-    stager.prepare(entry["fake"], tmp_path)
+    stager.prepare(entry, tmp_path)
+    stager.prepare(entry, tmp_path)
     assert calls["n"] == 1  # staged tree reused
 
 
@@ -94,7 +134,7 @@ def test_staged_job_runs_from_the_staged_cwd(tmp_path):
         fetch, _ = _make_fetch(archive)
         staged_root = tmp_path / "staged"
         entries, _ = _staged_entry(staged_root, fetch)
-        stager = ModuleStager(staged_root=staged_root, fetch=fetch)
+        stager = ModuleStager(staged_root=staged_root, fetch=fetch, revision="t1")
         registry = Registry(entries, base_dir=tmp_path)  # cwd does NOT exist here
         store = tmp_path / "db"
         from wake_training_service.store import Store
@@ -120,6 +160,6 @@ def test_staged_job_runs_from_the_staged_cwd(tmp_path):
                 assert time.monotonic() < deadline, f"timeout: {job.status}"
                 await asyncio.sleep(0.1)
             assert s.get_job("sj1").status is JobStatus.SUCCEEDED
-            assert (staged_root / FAKE_TRAIN / "fake_train.py").is_file()
+            assert (stager.base / FAKE_TRAIN / "fake_train.py").is_file()
 
     asyncio.run(scenario())

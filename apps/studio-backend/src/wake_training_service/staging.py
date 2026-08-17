@@ -71,13 +71,21 @@ def _default_fetch(url: str, dest: Path) -> None:
             out.write(chunk)
 
 
+def _rev_dir(rev: str) -> str:
+    """Filesystem-safe directory name for a revision (branch/tag/SHA)."""
+    return "".join(c if c.isalnum() or c in "._-" else "_" for c in rev)[:48] or "main"
+
+
 class ModuleStager:
     """Stage registered-module assets on demand (generic runtimes, #159).
 
     On the first job for a module with a ``stage`` spec, the repo tarball is
     fetched once (at :func:`staging_revision`) and the module's declared paths
-    are extracted under ``staged_root``. Subsequent jobs reuse the staged tree
-    (idempotent, no re-fetch).
+    are extracted under ``staged_root/<rev>/`` - **revision-scoped**, so
+    changing the staging revision (e.g. the Colab ``STAGING_REVISION`` form)
+    re-stages automatically instead of silently reusing the old tree.
+    Subsequent jobs at the same revision reuse the staged tree (idempotent,
+    no re-fetch).
 
     Stage spec (per registry entry):
 
@@ -93,9 +101,14 @@ class ModuleStager:
         staged_root: str | Path,
         repo_url: str | None = None,
         fetch: Callable[[str, Path], None] | None = None,
+        revision: str | None = None,
     ) -> None:
+        self.rev = (revision or staging_revision()).strip() or "main"
+        # per-revision base: staged_root/<rev-prefix>/ - a different revision
+        # stages into a different subtree (and keeps the old one for rollback)
         self.staged_root = Path(staged_root)
-        self.repo_url = repo_url or repo_tarball_url()
+        self.base = self.staged_root / _rev_dir(self.rev)
+        self.repo_url = repo_url or repo_tarball_url(self.rev)
         self._fetch = fetch or _default_fetch
         self._fetched = False
 
@@ -111,7 +124,7 @@ class ModuleStager:
         if not stage:
             return None
         script = entry.get("entry")
-        target = (self.staged_root / stage["cwd"]).resolve()
+        target = (self.base / stage["cwd"]).resolve()
         if (target / script).is_file():
             return target, self._env_overrides(stage)
         self._ensure_tarball()
@@ -125,21 +138,21 @@ class ModuleStager:
 
     def _env_overrides(self, stage: dict[str, Any]) -> dict[str, str]:
         return {
-            k: str((self.staged_root / v).resolve())
+            k: str((self.base / v).resolve())
             for k, v in stage.get("env", {}).items()
         }
 
     def _ensure_tarball(self) -> None:
         if self._fetched:
             return
-        dest = self.staged_root / "_download" / "wake-studio.tar.gz"
+        dest = self.staged_root / "_download" / f"wake-studio-{self.rev}.tar.gz"
         dest.parent.mkdir(parents=True, exist_ok=True)
         self._fetch(self.repo_url, dest)
         self._fetched = True
 
     def _extract(self, paths: list[str]) -> None:
-        """Extract repo-root-relative ``paths`` under staged_root (strip top dir)."""
-        archive = self.staged_root / "_download" / "wake-studio.tar.gz"
+        """Extract repo-root-relative ``paths`` under the rev base (strip top dir)."""
+        archive = self.staged_root / "_download" / f"wake-studio-{self.rev}.tar.gz"
         with tarfile.open(archive) as tf:
             top = next(
                 (m.name.split("/", 1)[0] for m in tf.getmembers() if m.name.count("/")),
@@ -158,8 +171,8 @@ class ModuleStager:
             members = [m for m in tf.getmembers() if m.name in wanted]
             for m in members:
                 m.name = m.name[len(top) + 1:]
+            self.base.mkdir(parents=True, exist_ok=True)
             try:
-                tf.extractall(self.staged_root, members=members, filter="data")
+                tf.extractall(self.base, members=members, filter="data")
             except TypeError:  # python < 3.12 (tarfile without filter kwarg)
-                tf.extractall(self.staged_root, members=members)
-            self.staged_root.mkdir(parents=True, exist_ok=True)
+                tf.extractall(self.base, members=members)
