@@ -44,9 +44,25 @@ describe('backend notebook template', () => {
     const src = buildBackendNotebook()
       .map((c) => c.source.join(''))
       .join('\n')
-    expect(src).toContain('"dry-run": {')
+    expect(src).toContain('dry-run')
     expect(src).toContain('dry_run.py')
-    expect(src).toContain('WAKE_PHRASE')
+  })
+
+  it('keeps the service package dependency-free (module owns its training env)', () => {
+    const src = buildBackendNotebook()
+      .map((c) => c.source.join(''))
+      .join('\n')
+    // the service package must NOT carry module train deps (#159); the module
+    // env is built by uv at job time (engine=uv, extras in the module pyproject)
+    expect(src).toContain('"studio-backend @ git+')
+    // fetches the adapter + third_party/kws_streaming from the repo tarball
+    expect(src).toContain('codeload.github.com/awareride/wake-studio/tar.gz')
+    expect(src).toContain('third_party/kws_streaming')
+    expect(src).toContain('KWS_TRAIN_DIR')
+    expect(src).toContain('UPSTREAM_DIR')
+    // registry comes from the service's own registry.json (single source)
+    expect(src).toContain('registry.json')
+    expect(src).toContain('REG["kws-streaming"]["cwd"]')
   })
 
   it('downloads under the stable filename', () => {

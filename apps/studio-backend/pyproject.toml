@@ -22,12 +22,6 @@ dev = [
   "pytest>=8.0",
   "httpx>=0.27",
 ]
-# Training-time data synthesis (docs/modules/data-sources.md, ADR-022).
-# Optional: the data_sources helpers guard the import and raise a clear error
-# when the extra is missing.
-tts = [
-  "edge-tts>=6.1",
-]
 
 [build-system]
 requires = ["hatchling"]

@@ -50,7 +50,9 @@ possible without the user hand-collecting audio.
 - **External libraries / models:** Piper TTS (GPL-3.0 active / MIT archived - see
   `LICENSES.md`), `piper-sample-generator` (MIT, training-time only), and
   **edge-tts** (MIT, Microsoft Edge TTS client; used for multi-language synthesis
-  via the studio-backend `tts` extra). Generation runs in the backend, not in the
+  via the kws-streaming module train `tts` extra - the module owns its training
+  env per ADR-028; the backend stays generic). Generation runs in the backend
+  runtime (module env), not in the browser:
   browser, so copyleft does not infect exported device bundles. Generated audio
   owned by the user feeds commercially-ownable models.
 

@@ -1,14 +1,39 @@
 [project]
 name = "kws-streaming-train"
 version = "0.1.0"
-description = "kws-streaming module train scripts (ADR-028): train_adapter.py wraps the upstream google-research/kws_streaming model_train_eval.py UNCHANGED (ADR-031) and normalizes into the standard bundle (docs/modules/training.md 4/6)."
+description = "kws-streaming module train scripts (ADR-028): train_adapter.py wraps the upstream google-research/kws_streaming model_train_eval.py UNCHANGED (ADR-031) and normalizes into the standard bundle (docs/modules/training.md 4/6). The module owns its training env (ADR-028): the studio-backend stays generic and never depends on module train deps (#159)."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-dependencies = []
+# The adapter imports wake_train_kit.data_sources at runtime; the module env
+# is self-contained per ADR-028, so it depends on the studio-backend package
+# (provides wake_train_kit) via git. Locked to the resolved rev in uv.lock.
+dependencies = [
+  "studio-backend",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+# Real training env for the vendored upstream (#159): the upstream is
+# 2020-era (Keras 2, tf.compat.v1 sessions - removed in Keras 3 / TF 2.16+),
+# so pin TF 2.15.x (last Keras-2 line). tfmot is imported unguarded by the
+# quantize layers + spectrogram_augment. Pins and rationale: third_party/
+# README.md hardening log.
+tf = [
+  "tensorflow==2.15.1",
+  "tensorflow-model-optimization==0.7.5",
+  "numpy==1.26.4",
+  "protobuf==3.20.3",
+  "absl-py>=1.4",
+]
+# edge-tts multi-language synthesis (ADR-022); needed by dataSource=edge-tts
+# and mixed mode. ffmpeg (system) is also required for mp3->wav conversion.
+tts = [
+  "edge-tts>=6.1",
+]
+
+[tool.uv.sources]
+studio-backend = { git = "https://github.com/awareride/wake-studio.git", rev = "main", subdirectory = "apps/studio-backend" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

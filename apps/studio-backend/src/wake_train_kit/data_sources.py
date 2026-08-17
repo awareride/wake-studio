@@ -203,7 +203,7 @@ def synthesize(
         import edge_tts  # type: ignore
     except ImportError as exc:  # pragma: no cover - depends on the extra
         raise DataSourceError(
-            "edge-tts is not installed; add the studio-backend 'tts' extra "
+            "edge-tts is not installed; add the module train 'tts' extra "
             "(`uv sync --extra tts` or `pip install edge-tts`)"
         ) from exc
     mp3_path.parent.mkdir(parents=True, exist_ok=True)
@@ -280,7 +280,7 @@ def build_edge_tts_kws_dataset(
         import edge_tts  # noqa: F401  (fail fast with a clear error)
     except ImportError as exc:  # pragma: no cover
         raise DataSourceError(
-            "edge-tts is not installed; add the studio-backend 'tts' extra"
+            "edge-tts is not installed; add the module train 'tts' extra"
         ) from exc
 
     out_dir = Path(out_dir)
