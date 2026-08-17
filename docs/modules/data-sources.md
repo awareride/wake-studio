@@ -66,6 +66,13 @@ The layer is implemented in `apps/studio-backend/src/wake_train_kit/data_sources
 - `build_edge_tts_kws_dataset(phrases, languages, out_dir, ...) -> provenance` —
   multi-language wake-word positives + "unknown" negatives + `_background_noise_`
   silence clips, arranged as a `label/*.wav` tree.
+- `merge_label_trees(positive_root, negative_root, out_dir) -> Path` — merge a
+  positive tree (wake-word positives) with a negative tree (real-speech
+  unknowns + real `_background_noise_`) into one data root. Positive labels
+  are authoritative: a folder present in both trees is a **collision** and
+  raises `DataSourceError` (never silently mixed). Real noise wins over
+  synthesized silence; with `negative_root=None` the positive tree's silence
+  is kept.
 - Lower-level helpers: `download_file`, `extract_archive`, `find_data_root`,
   `synthesize`, `mp3_to_wav`, `write_silence_wav`.
 
@@ -76,7 +83,10 @@ recorded into the bundle's `provenance.json` — the Phase 4 license-gate input.
 
 1. The user picks a data source in the module's train params
    (`spec.train.params.dataSource`: `speech-commands-v2` | `user-url` |
-   `edge-tts` | `local-dir`).
+   `edge-tts` | `local-dir` | `mixed`). For `mixed`, `positiveSource`
+   (`edge-tts` | `user-url`) supplies the wake-word positives and
+   `negativeSource` (`speech-commands-v2` | `user-url` | `none`) supplies
+   real-speech unknowns + real noise.
 2. The module's train adapter calls the matching helper, which downloads /
    synthesizes a `label/*.wav` tree (plus `_background_noise_`).
 3. The adapter runs the upstream trainer on that tree (`--wanted_words` = the
@@ -138,3 +148,4 @@ asserts the label-tree layout + provenance. Adapter-level coverage lives in
 |---|---|---|
 | 2026-07-27 | Initial stub (ADR-022 recorded; full contract deferred to Phase 5 start). | WakeStudio team |
 | 2026-08-14 | **Data-source layer shipped (#152):** `wake_train_kit/data_sources.py` with Speech Commands V2 download (CC BY 4.0), user-URL archives, and multi-language edge-tts synthesis; provenance records per source; deterministic backend tests. Q-DS-1 answered. | agent |
+| 2026-08-17 | **Mixed mode (#158):** `merge_label_trees` merges a positive tree (wake word) with a negative tree (real unknowns + real noise); collisions raise; real noise wins over synthesized silence. `dataSource=mixed` in the kws-streaming adapter + spec params + registry wiring; 4 new backend tests. | agent |

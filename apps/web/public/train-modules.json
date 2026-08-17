@@ -214,9 +214,35 @@
               "speech-commands-v2",
               "user-url",
               "edge-tts",
-              "local-dir"
+              "local-dir",
+              "mixed"
             ],
-            "description": "speech-commands-v2 = Google Speech Commands V2 (CC BY 4.0); user-url = a user-provided dataset archive URL; edge-tts = multi-language TTS synthesis; local-dir = a pre-prepared label/*.wav tree."
+            "description": "speech-commands-v2 = Google Speech Commands V2 (CC BY 4.0); user-url = a user-provided dataset archive URL; edge-tts = multi-language TTS synthesis; local-dir = a pre-prepared label/*.wav tree; mixed = merge positiveSource (wake word) with negativeSource (real speech / noise -> _unknown_)."
+          },
+          {
+            "id": "positiveSource",
+            "label": "Positive source (wake word)",
+            "group": "primary",
+            "type": "select",
+            "default": "edge-tts",
+            "options": [
+              "edge-tts",
+              "user-url"
+            ],
+            "description": "For dataSource=mixed: the source whose label folders are trained as the wake word (land in --wanted_words). edge-tts uses wakePhrases/ttsLanguages/ttsSamples; user-url uses dataUrl."
+          },
+          {
+            "id": "negativeSource",
+            "label": "Negative source (unknowns + noise)",
+            "group": "primary",
+            "type": "select",
+            "default": "speech-commands-v2",
+            "options": [
+              "speech-commands-v2",
+              "user-url",
+              "none"
+            ],
+            "description": "For dataSource=mixed: the source providing real-speech unknowns (fold into _unknown_) and real _background_noise_. none = synthesize silence only."
           },
           {
             "id": "dataUrl",

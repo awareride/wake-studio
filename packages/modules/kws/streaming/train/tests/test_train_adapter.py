@@ -93,6 +93,25 @@ def test_read_params_env_overrides():
     assert params["backend"] == "self-hosted"
 
 
+def test_read_params_mixed_sources():
+    from train_adapter import read_params
+
+    params = read_params(
+        {
+            "STREAM_DATA_SOURCE": "mixed",
+            "STREAM_POSITIVE_SOURCE": "edge-tts",
+            "STREAM_NEGATIVE_SOURCE": "user-url",
+        }
+    )
+    assert params["dataSource"] == "mixed"
+    assert params["positiveSource"] == "edge-tts"
+    assert params["negativeSource"] == "user-url"
+    # defaults remain for unset params
+    params = read_params({})
+    assert params["positiveSource"] == "edge-tts"
+    assert params["negativeSource"] == "speech-commands-v2"
+
+
 def test_read_params_wake_params_json():
     from train_adapter import read_params
 
@@ -269,7 +288,89 @@ def test_non_streamable_missing_model_fails(tmp_path):
     assert "streaming tflite not found" in events[-1]["message"]
 
 
-def test_prepare_data_edge_tts(monkeypatch, tmp_path):
+def test_prepare_data_mixed_edge_tts_plus_sc2(monkeypatch, tmp_path):
+    """Mixed mode: TTS positives + SC2 negatives merge, wanted = phrases."""
+    import train_adapter
+
+    class FakeDs:
+        @staticmethod
+        def build_edge_tts_kws_dataset(phrases, languages, out, samples_per_phrase=3,
+                                       unknown_words=None, sample_rate=16000,
+                                       voices=None, reporter=None):
+            (out / "hey_studio").mkdir(parents=True, exist_ok=True)
+            return {"name": "edge-tts", "commercialUse": True}
+
+        @staticmethod
+        def prepare_speech_commands_v2(data_dir, reporter=None):
+            (data_dir / "yes").mkdir(parents=True, exist_ok=True)
+            (data_dir / "_background_noise_").mkdir(exist_ok=True)
+            return data_dir, {"name": "sc2", "commercialUse": True}
+
+        @staticmethod
+        def merge_label_trees(positive_root, negative_root, out_dir):
+            (out_dir / "hey_studio").mkdir(parents=True, exist_ok=True)
+            (out_dir / "yes").mkdir()
+            return out_dir
+
+    monkeypatch.setattr(train_adapter, "_import_data_sources", lambda: FakeDs)
+    params = train_adapter.read_params(
+        {
+            "STREAM_DATA_SOURCE": "mixed",
+            "STREAM_POSITIVE_SOURCE": "edge-tts",
+            "STREAM_NEGATIVE_SOURCE": "speech-commands-v2",
+            "STREAM_WAKE_PHRASES": "hey studio",
+        }
+    )
+
+    class R:
+        def emit(self, event, **fields):
+            pass
+
+    data_dir, sources, wanted = train_adapter.prepare_data(params, tmp_path, R())
+    assert wanted == "hey_studio"
+    assert len(sources) == 2
+    assert sources[0]["commercialUse"] is True  # edge-tts
+    assert sources[1]["commercialUse"] is True  # sc2
+    assert (Path(data_dir) / "hey_studio").is_dir()
+    assert (Path(data_dir) / "yes").is_dir()
+
+
+def test_prepare_data_mixed_negative_none(monkeypatch, tmp_path):
+    """Mixed mode with negativeSource=none keeps only TTS positives."""
+    import train_adapter
+
+    class FakeDs:
+        @staticmethod
+        def build_edge_tts_kws_dataset(phrases, languages, out, samples_per_phrase=3,
+                                       unknown_words=None, sample_rate=16000,
+                                       voices=None, reporter=None):
+            (out / "hey_studio").mkdir(parents=True, exist_ok=True)
+            (out / "_background_noise_").mkdir(exist_ok=True)
+            return {"name": "edge-tts", "commercialUse": True}
+
+        @staticmethod
+        def merge_label_trees(positive_root, negative_root, out_dir):
+            assert negative_root is None
+            (out_dir / "hey_studio").mkdir(parents=True, exist_ok=True)
+            return out_dir
+
+    monkeypatch.setattr(train_adapter, "_import_data_sources", lambda: FakeDs)
+    params = train_adapter.read_params(
+        {
+            "STREAM_DATA_SOURCE": "mixed",
+            "STREAM_NEGATIVE_SOURCE": "none",
+            "STREAM_WAKE_PHRASES": "hey studio",
+        }
+    )
+
+    class R:
+        def emit(self, event, **fields):
+            pass
+
+    data_dir, sources, wanted = train_adapter.prepare_data(params, tmp_path, R())
+    assert wanted == "hey_studio"
+    assert len(sources) == 1
+    assert (Path(data_dir) / "hey_studio").is_dir()
     """The edge-tts source builds the label tree + derives wanted words."""
     import train_adapter
 
