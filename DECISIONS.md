@@ -1194,3 +1194,68 @@ applied per this log and may be overridden._
   now runs the Python runner). No package depends on the removed Node package;
   the PWA was already client-side only. All references in this ADR and
   `docs/modules/training.md` use `apps/studio-backend` (Python) going forward.
+
+---
+
+## ADR-037 - Upstream integration is tiered by upstream vitality: pin -> patch -> vendor -> fork
+
+- **Status:** Accepted (2026-08-17; tiered policy + initial classification
+  confirmed by human - #155)
+- **Origin:** Human question (2026-08-17, #155): vendor projects our modules
+  build on are stale or inactive (`google-research/kws_streaming` is archived
+  in the google-research monorepo; `dscripka/openWakeWord` moves slowly and
+  pins a legacy training stack). When upstream rot forces changes to *their*
+  files, do we integrate them into our repos or fork them?
+- **Decision:** ADR-031's "adapt, never rewrite" holds **while upstream is
+  viable**. When it stops being viable, the integration mode is chosen by a
+  tiered ladder (upstream vitality x size of our changes):
+  1. **Pin (default):** upstream works as-is at a pinned ref; the adapter
+     wraps it (ADR-031 unchanged).
+  2. **Patch:** small surgical fixes (dependency pins, path fixes) stay
+     out-of-tree - the adapter applies versioned `.patch` files at setup.
+     Each patch documents its intent in a header and is upstreamed (PR)
+     wherever a maintainer still exists.
+  3. **Vendor:** upstream archived/dead AND our changes become structural -
+     extract into `third_party/<name>` in this monorepo:
+     - Commit 1 is a **pristine import** at a pinned upstream SHA (provenance
+       in the commit message; upstream LICENSE/NOTICE preserved verbatim).
+     - Every change lands as its own commit on top; the diff against the
+       import commit *is* the patch set, reviewable in every PR.
+     - Vendored code is exempt from our lint/format/refactor tooling - it is
+       hardened, never restyled.
+  4. **Fork:** upstream alive AND ongoing divergence - fork under org
+     `awareride`, pin tags, contribute back. Reserved for living projects.
+
+  Initial classification:
+  - `kws_streaming` -> **Tier 3** (archived, so nobody upstreams fixes; a
+    monorepo subtree, so forking is impractical anyway; modern-Python/TF
+    compatibility is ours to own forever - vendoring is the honest choice).
+  - `openWakeWord` -> **Tier 1-2** (still merges PRs occasionally; keep
+    pinning, patch only when forced). Escalate to Tier 4 if the patch set
+    grows past a handful or we need to publish an installable wheel.
+
+  This amends ADR-031 rather than contradicting it: upstream stays
+  byte-identical *while it is viable*; once it is dead, WakeStudio takes
+  ownership on the record. It is the "harden" step of the
+  select-integrate-harden-package principle, made explicit.
+- **Rationale:** (a) the two axes that matter - is anyone maintaining
+  upstream, and how much must we change - map cleanly onto four modes with
+  escalating ownership cost; (b) the usual "just fork it" advice fails
+  exactly where we hurt most, because `kws_streaming` cannot be forked
+  sanely (monorepo subtree, archived); (c) vendoring with a pristine-import
+  commit keeps our delta visible in this repo's git history instead of
+  hiding it inside a fork; (d) license hygiene is preserved by keeping
+  upstream LICENSE/NOTICE intact and listing vendored trees in `LICENSES.md`.
+- **Consequences:**
+  - A `third_party/` top-level directory appears when `kws_streaming` is
+    first vendored; this ADR records the policy only - the import itself is
+    a separate task/issue.
+  - Module specs (`docs/modules/training.md`, `docs/modules/kws-streaming.md`)
+    record each upstream's tier in the `spec.train` wiring when implemented
+    (patch list or vendored source), so escalation is a conscious, reviewable
+    act rather than silent drift.
+  - `LICENSES.md` gains a third-party **source-code** section (distinct from
+    the model/component matrix): origin repo, pinned SHA, license per
+    vendored tree.
+  - Tier-2 patch files live next to the module's train adapter and are
+    covered by its tests (adapter applies them in CI).
