@@ -16,7 +16,7 @@
  * - Health: `GET /health` on mount + every 30s + manual refresh.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, TextField } from '@radix-ui/themes'
 import { useAppSettings } from '../settings'
 import { createStudioClient } from '../training/studio-client'
@@ -278,7 +278,10 @@ function BackendDetail({ backend }: { backend: ManagedBackend }) {
   const [jobs, setJobs] = useState<StudioJob[] | null>(null)
   const [logs, setLogs] = useState<{ jobId: string; lines: string[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const client = createStudioClient(backend.baseUrl, backend.token)
+  const client = useMemo(
+    () => createStudioClient(backend.baseUrl, backend.token),
+    [backend.baseUrl, backend.token],
+  )
 
   const loadJobs = useCallback(async () => {
     setError(null)
