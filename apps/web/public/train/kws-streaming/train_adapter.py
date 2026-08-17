@@ -492,7 +492,12 @@ def main(argv: list[str] | None = None) -> int:
     # stage 2: upstream train (unmodified)
     reporter.emit("progress", step=2, total=len(STAGES), progress=2 / len(STAGES),
                   message="train")
-    train_dir.mkdir(parents=True, exist_ok=True)
+    # The upstream trainer (model_train_eval.py) creates ``train_dir`` itself and
+    # aborts with "model already exists" if the directory is already present, so
+    # we must not pre-create it here. Remove any output left by a previous run
+    # so each training pass starts from a clean directory.
+    if train_dir.exists():
+        shutil.rmtree(train_dir)
     env = dict(os.environ)
     env["PYTHONPATH"] = str(upstream_dir) + os.pathsep + env.get("PYTHONPATH", "")
     cmd = build_command(params, python, data_dir, str(train_dir), wanted)

@@ -17,6 +17,7 @@
 import tensorflow as tf
 
 from kws_streaming.layers.compat import tf
+from kws_streaming.layers.compat import smart_cond
 from tensorflow.python.ops import array_ops  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -162,7 +163,7 @@ class SpecCutout(tf.keras.layers.Layer):
       net = tf.keras.backend.squeeze(net, axis=-1)
       return net
 
-    outputs = tf._keras_internal.utils.control_flow_util.smart_cond(  # pylint:disable=protected-access
+    outputs = smart_cond(  # pylint:disable=protected-access
         training,
         masked_inputs,
         lambda: array_ops.identity(inputs),
