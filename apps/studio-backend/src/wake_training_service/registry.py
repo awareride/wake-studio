@@ -97,7 +97,10 @@ class Registry:
         if engine == "direct":
             cmd = [sys_executable(), str(cwd / script)]
         else:  # uv (ADR-028)
-            cmd = ["uv", "run", str(cwd / script)]
+            cmd = ["uv", "run"]
+            for extra in entry.get("extras", []):
+                cmd += ["--extra", str(extra)]
+            cmd.append(str(cwd / script))
 
         for arg in entry.get("args", []):
             cmd.append(_render(arg, params, env))

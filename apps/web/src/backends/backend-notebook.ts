@@ -66,7 +66,7 @@ const CODE_LAUNCH = `# --- Start the studio-backend service + tunnel -----------
 #     works against the pinned upstream (ADR-037).
 import json, os, secrets, urllib.request
 
-!pip install -q "studio-backend[tf,tts] @ git+https://github.com/awareride/wake-studio@main#subdirectory=apps/studio-backend"
+!pip install -q "studio-backend @ git+https://github.com/awareride/wake-studio@main#subdirectory=apps/studio-backend"
 !pip install -q uv  # the service's train runner (ADR-028)
 
 from wake_training_service.colab_launcher import launch

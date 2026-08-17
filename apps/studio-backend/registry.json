@@ -16,7 +16,8 @@
   },
   "kws-streaming": {
     "cwd": "../../packages/modules/kws/streaming/train",
-    "engine": "direct",
+    "engine": "uv",
+    "extras": ["tf", "tts"],
     "entry": "train_adapter.py",
     "env": {
       "STREAM_MODEL": "{params.model}",

@@ -48,12 +48,13 @@ describe('backend notebook template', () => {
     expect(src).toContain('dry_run.py')
   })
 
-  it('stages the kws-streaming module + vendored upstream for real training', () => {
+  it('keeps the service package dependency-free (module owns its training env)', () => {
     const src = buildBackendNotebook()
       .map((c) => c.source.join(''))
       .join('\n')
-    // installs the service with the real-training extras (TF pins, #159)
-    expect(src).toContain('studio-backend[tf,tts] @')
+    // the service package must NOT carry module train deps (#159); the module
+    // env is built by uv at job time (engine=uv, extras in the module pyproject)
+    expect(src).toContain('"studio-backend @ git+')
     // fetches the adapter + third_party/kws_streaming from the repo tarball
     expect(src).toContain('codeload.github.com/awareride/wake-studio/tar.gz')
     expect(src).toContain('third_party/kws_streaming')
