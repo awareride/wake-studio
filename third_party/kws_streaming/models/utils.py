@@ -16,6 +16,7 @@
 """Utility functions for operations on Model."""
 import os.path
 import tempfile
+import importlib
 from typing import List, Optional, Sequence
 import numpy as np
 import tensorflow as tf
@@ -28,8 +29,26 @@ from kws_streaming.models import model_params
 from kws_streaming.models import model_utils
 from kws_streaming.models import models as kws_models
 
-models_utils = tf._keras_internal.models  # pylint: disable=protected-access
-functional = tf._keras_internal.engine.functional  # pylint: disable=protected-access
+
+def _resolve_keras_internals():
+  """Locate the internal Keras modules that host the model clone helpers.
+
+  TensorFlow <= 2.15 bundles Keras inside ``tf._keras_internal``. From
+  TensorFlow 2.16 Keras was split into a standalone package and
+  ``tf._keras_internal`` was removed, so we fall back to the package that
+  actually backs ``tf.keras`` (``tf_keras`` when the legacy Keras backend is
+  enabled, otherwise ``keras``).
+  """
+  if hasattr(tf, '_keras_internal'):
+    return tf._keras_internal.models, tf._keras_internal.engine.functional  # pylint: disable=protected-access
+
+  backend_name = getattr(tf.keras, '__name__', '')
+  pkg_name = 'tf_keras' if 'tf_keras' in backend_name else 'keras'
+  pkg = importlib.import_module(pkg_name)  # pytype: disable=import-error
+  return pkg.src.models.functional, pkg.src.engine.functional
+
+
+models_utils, functional = _resolve_keras_internals()
 
 
 def save_model_summary(model, path, file_name='model_summary.txt'):
@@ -101,13 +120,13 @@ def _clone_model(model, input_tensors):
       newly_created_input_layer = input_tensor._keras_history.layer
       new_input_layers[original_input_layer] = newly_created_input_layer
 
-  model_config, created_layers = tf._keras_internal.models._clone_layers_and_model_config(  # pylint:disable=protected-access,line-too-long
-      model, new_input_layers, tf._keras_internal.models._clone_layer)
+  model_config, created_layers = models_utils._clone_layers_and_model_config(  # pylint:disable=protected-access,line-too-long
+      model, new_input_layers, models_utils._clone_layer)
   # pylint: enable=protected-access
 
   # Reconstruct model from the config, using the cloned layers.
   input_tensors, output_tensors, created_layers = (
-      tf._keras_internal.engine.functional.reconstruct_from_config(  # pylint:disable=protected-access
+      functional.reconstruct_from_config(  # pylint:disable=protected-access
           model_config, created_layers=created_layers))
 
   new_model = tf.keras.Model(input_tensors, output_tensors, name=model.name)
@@ -215,11 +234,11 @@ def get_stride(model):
 
 
 def convert_to_inference_model(model, input_tensors, mode):
-  """Convert tf._keras_internal.engine.functional `Model` instance to a streaming inference.
+  """Convert a Keras functional `Model` instance to a streaming inference.
 
   It will create a new model with new inputs: input_tensors.
   All weights will be copied. Internal states for streaming mode will be created
-  Only tf._keras_internal.engine.functional Keras model is supported!
+  Only a Keras functional `Model` instance is supported!
 
   Args:
       model: Instance of `Model`.
@@ -578,7 +597,7 @@ def traverse_graph(prev_layer, layers):
 
 
 def sequential_to_functional(model):
-  """Converts keras sequential model to tf._keras_internal.engine.functional one."""
+  """Converts a keras sequential model to a Keras functional one."""
   input_layer = tf.keras.Input(
       batch_input_shape=model.layers[0].input_shape[0])
   prev_layer = input_layer

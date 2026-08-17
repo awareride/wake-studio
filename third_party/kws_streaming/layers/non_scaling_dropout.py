@@ -18,6 +18,7 @@
 import tensorflow as tf
 
 from kws_streaming.layers.compat import tf
+from kws_streaming.layers.compat import smart_cond
 from tensorflow.python.ops import array_ops  # pylint: disable=g-direct-tensorflow-import
 # TODO(b/171351822) migrate to tf v2 and improve imported dependency
 
@@ -40,7 +41,7 @@ class NonScalingDropout(tf.keras.layers.Dropout):
     if self.noise_shape is None:
       self.noise_shape = tf.shape(inputs)
 
-    return tf._keras_internal.utils.control_flow_util.smart_cond(  # pylint:disable=protected-access
+    return smart_cond(  # pylint:disable=protected-access
         training,
         lambda: self._non_scaling_drop_op(inputs),
         lambda: array_ops.identity(inputs),

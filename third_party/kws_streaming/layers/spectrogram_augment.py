@@ -20,6 +20,7 @@ import tensorflow as tf
 import tensorflow_model_optimization as tfmot
 
 from kws_streaming.layers.compat import tf
+from kws_streaming.layers.compat import smart_cond
 from tensorflow.python.ops import array_ops  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -98,7 +99,7 @@ class SpecAugment(tf.keras.layers.Layer):
       )
       return net
 
-    outputs = tf._keras_internal.utils.control_flow_util.smart_cond(  # pylint:disable=protected-access
+    outputs = smart_cond(  # pylint:disable=protected-access
         training,
         masked_inputs,
         lambda: array_ops.identity(inputs),
