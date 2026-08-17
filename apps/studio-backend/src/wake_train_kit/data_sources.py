@@ -347,3 +347,59 @@ def build_edge_tts_kws_dataset(
         "clips": total,
     }
     return provenance
+
+
+def merge_label_trees(
+    positive_root: Path,
+    negative_root: Path | None,
+    out_dir: Path,
+) -> Path:
+    """Merge positive + negative `label/*.wav` trees into one data root (#158).
+
+    Rules (ADR-022 mixed data sources):
+
+    - The positive tree is copied first and is authoritative: if a label
+      folder exists in both trees it is a collision and we fail loudly
+      (never silently mix clips under one label).
+    - The negative tree contributes every label folder NOT colliding with
+      the positive tree - those folders are not in ``--wanted_words``, so
+      upstream folds them into ``_unknown_``.
+    - ``_background_noise_``: the negative tree's real noise wins; the
+      positive tree's synthesized silence is only kept when there is no
+      real noise (i.e. ``negative_root`` is None).
+
+    ``positive_root`` is copied; ``negative_root`` is copied when given.
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    positive_root = Path(positive_root)
+
+    # 1. copy positives first (authoritative)
+    for src in positive_root.iterdir():
+        if not src.is_dir():
+            continue
+        shutil.copytree(src, out_dir / src.name, dirs_exist_ok=True)
+
+    # 2. merge negatives, failing on label collisions
+    if negative_root is not None:
+        negative_root = Path(negative_root)
+        for src in negative_root.iterdir():
+            if not src.is_dir():
+                continue
+            if src.name == "_background_noise_":
+                # real noise wins: copy over any synthesized silence
+                shutil.copytree(
+                    src, out_dir / "_background_noise_", dirs_exist_ok=True
+                )
+                continue
+            if src.name.startswith("_"):
+                continue
+            dst = out_dir / src.name
+            if dst.exists():
+                raise DataSourceError(
+                    f"label collision between mixed data sources: '{src.name}' "
+                    f"exists in both the positive and negative tree"
+                )
+            shutil.copytree(src, dst)
+
+    return out_dir

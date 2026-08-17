@@ -12,6 +12,7 @@ registry maps job params to ``STREAM_*``):
 
     STREAM_MODEL, STREAM_WANTED_WORDS, STREAM_WAKE_PHRASES,
     STREAM_TTS_LANGUAGES, STREAM_TTS_SAMPLES, STREAM_DATA_SOURCE,
+    STREAM_POSITIVE_SOURCE, STREAM_NEGATIVE_SOURCE,
     STREAM_DATA_URL, STREAM_DATA_DIR, STREAM_FEATURE_TYPE, STREAM_PREPROCESS,
     STREAM_HOW_MANY_TRAINING_STEPS, STREAM_LEARNING_RATE, STREAM_SPLIT_DATA,
     STREAM_BACKGROUND_VOLUME, STREAM_BACKGROUND_FREQUENCY,
@@ -33,6 +34,9 @@ Data sources (``STREAM_DATA_SOURCE``):
     user-url            download + extract a user-provided dataset archive
     edge-tts            synthesize a multi-language label tree via edge-tts
     local-dir           use STREAM_DATA_DIR as-is (tests / pre-prepared data)
+    mixed               merge two sources: positiveSource (positives =
+                        wanted words) + negativeSource (real speech /
+                        noise; folds into _unknown_)
 
 Emits the NDJSON reporting protocol (docs/modules/training.md §4.4) on stdout:
 ``log`` (streamed upstream output), ``progress`` (per stage), ``heartbeat``,
@@ -68,6 +72,8 @@ DEFAULTS: dict[str, Any] = {
     "ttsLanguages": "en-US",
     "ttsSamples": 3,
     "dataSource": "speech-commands-v2",
+    "positiveSource": "edge-tts",
+    "negativeSource": "speech-commands-v2",
     "dataUrl": "",
     "dataDir": "./data2",
     "featureType": "mfcc_op",
@@ -90,6 +96,8 @@ ENV_MAP: dict[str, str] = {
     "STREAM_TTS_LANGUAGES": "ttsLanguages",
     "STREAM_TTS_SAMPLES": "ttsSamples",
     "STREAM_DATA_SOURCE": "dataSource",
+    "STREAM_POSITIVE_SOURCE": "positiveSource",
+    "STREAM_NEGATIVE_SOURCE": "negativeSource",
     "STREAM_DATA_URL": "dataUrl",
     "STREAM_DATA_DIR": "dataDir",
     "STREAM_FEATURE_TYPE": "featureType",
@@ -206,6 +214,58 @@ def prepare_data(
         sources.append(prov)
         wanted = ",".join(_sanitize_label(p) for p in phrases)
         return str(out), sources, wanted
+
+    if source == "mixed":
+        # positives come from the positive source (edge-tts today; user-url /
+        # local-dir later); negatives from the negative source (real speech /
+        # noise). Both trees are merged into one data root; positive labels
+        # are the wanted words, everything else folds into _unknown_ upstream.
+        positive_source = params["positiveSource"]
+        negative_source = params["negativeSource"]
+        pos_root: Path
+        pos_prov: dict[str, Any]
+
+        if positive_source == "edge-tts":
+            phrases = [
+                p.strip() for p in params["wakePhrases"].split(",") if p.strip()
+            ]
+            languages = [
+                l.strip() for l in params["ttsLanguages"].split(",") if l.strip()
+            ]
+            pos_root = work_dir / "data_tts_pos"
+            pos_prov = ds.build_edge_tts_kws_dataset(
+                phrases,
+                languages,
+                pos_root,
+                samples_per_phrase=params["ttsSamples"],
+                reporter=reporter,
+            )
+            wanted = ",".join(_sanitize_label(p) for p in phrases)
+        elif positive_source == "user-url":
+            pos_root, pos_prov = ds.prepare_user_archive(
+                params["dataUrl"], work_dir / "data_pos", reporter
+            )
+            wanted = params["wantedWords"]
+        else:
+            raise ValueError(f"mixed: unsupported positiveSource '{positive_source}'")
+        sources.append(pos_prov)
+
+        neg_root: Path | None = None
+        if negative_source == "speech-commands-v2":
+            neg_root, neg_prov = ds.prepare_speech_commands_v2(
+                work_dir / "data_neg", reporter
+            )
+            sources.append(neg_prov)
+        elif negative_source == "user-url":
+            neg_root, neg_prov = ds.prepare_user_archive(
+                params["dataUrl"], work_dir / "data_neg", reporter
+            )
+            sources.append(neg_prov)
+        elif negative_source != "none":
+            raise ValueError(f"mixed: unsupported negativeSource '{negative_source}'")
+
+        merged = ds.merge_label_trees(pos_root, neg_root, work_dir / "data_mixed")
+        return str(merged), sources, wanted
 
     raise ValueError(f"unknown dataSource '{source}'")
 

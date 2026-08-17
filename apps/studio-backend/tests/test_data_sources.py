@@ -11,6 +11,8 @@ import tarfile
 import wave
 from pathlib import Path
 
+import pytest
+
 from wake_train_kit import data_sources as ds
 
 
@@ -55,6 +57,59 @@ def test_prepare_user_archive_file_url(tmp_path):
     assert (found / "yes" / "a.wav").is_file()
     assert prov["commercialUse"] is False
     assert prov["source"] == archive.as_uri()
+
+
+def _mk_label_tree(root: Path, labels: dict[str, list[str]], noise: list[str] | None = None):
+    """Build a label/*.wav tree: {label: [wav names]} + optional noise files."""
+    root.mkdir(parents=True, exist_ok=True)
+    for label, files in labels.items():
+        (root / label).mkdir(parents=True, exist_ok=True)
+        for f in files:
+            (root / label / f).write_bytes(b"RIFFxxxx")
+    if noise:
+        (root / "_background_noise_").mkdir(exist_ok=True)
+        for f in noise:
+            (root / "_background_noise_" / f).write_bytes(b"RIFFxxxx")
+    return root
+
+
+def test_merge_label_trees_merges_positives_and_negatives(tmp_path):
+    pos = _mk_label_tree(tmp_path / "pos", {"hey_studio": ["a.wav"]})
+    neg = _mk_label_tree(
+        tmp_path / "neg",
+        {"yes": ["a.wav"], "no": ["b.wav"]},
+        noise=["bg.wav"],
+    )
+    out = tmp_path / "merged"
+    merged = ds.merge_label_trees(pos, neg, out)
+    assert (merged / "hey_studio" / "a.wav").is_file()
+    assert (merged / "yes" / "a.wav").is_file()
+    assert (merged / "no" / "b.wav").is_file()
+    assert (merged / "_background_noise_" / "bg.wav").is_file()
+
+
+def test_merge_label_trees_collision_fails(tmp_path):
+    pos = _mk_label_tree(tmp_path / "pos", {"hey_studio": ["a.wav"]})
+    neg = _mk_label_tree(tmp_path / "neg", {"hey_studio": ["b.wav"]})
+    with pytest.raises(ds.DataSourceError, match="collision"):
+        ds.merge_label_trees(pos, neg, tmp_path / "merged")
+
+
+def test_merge_label_trees_real_noise_wins_over_silence(tmp_path):
+    pos = _mk_label_tree(tmp_path / "pos", {"hey_studio": ["a.wav"]}, noise=["silence.wav"])
+    neg = _mk_label_tree(tmp_path / "neg", {"yes": ["a.wav"]}, noise=["real_bg.wav"])
+    out = tmp_path / "merged"
+    merged = ds.merge_label_trees(pos, neg, out)
+    assert (merged / "_background_noise_" / "real_bg.wav").is_file()
+    assert (merged / "_background_noise_" / "silence.wav").is_file()
+
+
+def test_merge_label_trees_negative_none_keeps_silence(tmp_path):
+    pos = _mk_label_tree(tmp_path / "pos", {"hey_studio": ["a.wav"]}, noise=["silence.wav"])
+    out = tmp_path / "merged"
+    merged = ds.merge_label_trees(pos, None, out)
+    assert (merged / "hey_studio" / "a.wav").is_file()
+    assert (merged / "_background_noise_" / "silence.wav").is_file()
 
 
 def test_prepare_speech_commands_v2(monkeypatch, tmp_path):

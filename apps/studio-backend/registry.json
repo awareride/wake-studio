@@ -25,6 +25,8 @@
       "STREAM_TTS_LANGUAGES": "{params.ttsLanguages}",
       "STREAM_TTS_SAMPLES": "{params.ttsSamples}",
       "STREAM_DATA_SOURCE": "{params.dataSource}",
+      "STREAM_POSITIVE_SOURCE": "{params.positiveSource}",
+      "STREAM_NEGATIVE_SOURCE": "{params.negativeSource}",
       "STREAM_DATA_URL": "{params.dataUrl}",
       "STREAM_FEATURE_TYPE": "{params.featureType}",
       "STREAM_PREPROCESS": "{params.preprocess}",
