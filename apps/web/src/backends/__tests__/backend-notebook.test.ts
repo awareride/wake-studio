@@ -2,11 +2,12 @@
  * "Free On Google Colab" notebook template tests.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   BACKEND_NOTEBOOK_FILENAME,
   buildBackendNotebook,
   buildBackendNotebookJson,
+  resolveColabRevision,
 } from '../backend-notebook'
 
 describe('backend notebook template', () => {
@@ -40,32 +41,60 @@ describe('backend notebook template', () => {
     expect(src).toContain('trycloudflare')
   })
 
-  it('registers the dry-run demo module so jobs work on a generic runtime', () => {
-    const src = buildBackendNotebook()
-      .map((c) => c.source.join(''))
-      .join('\n')
-    expect(src).toContain('dry-run')
-    expect(src).toContain('dry_run.py')
-  })
-
-  it('keeps the service package dependency-free (module owns its training env)', () => {
+  it('stays fully generic - no module names, no tarball fetching (#159)', () => {
     const src = buildBackendNotebook()
       .map((c) => c.source.join(''))
       .join('\n')
     // the service package must NOT carry module train deps (#159); the module
     // env is built by uv at job time (engine=uv, extras in the module pyproject)
     expect(src).toContain('"studio-backend @ git+')
-    // fetches the adapter + third_party/kws_streaming from the repo tarball
-    expect(src).toContain('codeload.github.com/awareride/wake-studio/tar.gz')
-    expect(src).toContain('third_party/kws_streaming')
-    expect(src).toContain('KWS_TRAIN_DIR')
-    expect(src).toContain('UPSTREAM_DIR')
-    // registry comes from the service's own registry.json (single source)
-    expect(src).toContain('registry.json')
-    expect(src).toContain('REG["kws-streaming"]["cwd"]')
+    // module staging is the SERVICE's job (ModuleStager, staged_dir) - the
+    // notebook only points at the staging root
+    expect(src).toContain('staged_dir')
+    expect(src).toContain('wake-studio-runtime')
+    // no per-module knowledge may leak into the notebook
+    for (const forbidden of ['dry-run', 'dry_run.py', 'kws-streaming', 'codeload', 'third_party', 'UPSTREAM_DIR', 'registry=']) {
+      expect(src).not.toContain(forbidden)
+    }
   })
 
   it('downloads under the stable filename', () => {
     expect(BACKEND_NOTEBOOK_FILENAME).toBe('studio-backend.ipynb')
+  })
+
+  it('pins the notebook to the resolved revision when one is given (#159)', () => {
+    const src = buildBackendNotebook('a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2')
+      .map((c) => c.source.join(''))
+      .join('\n')
+    expect(src).toContain('@a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2#subdirectory=apps/studio-backend')
+    expect(src).toContain('Service revision: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2')
+  })
+
+  it('defaults to main when no revision is passed', () => {
+    const src = buildBackendNotebook().map((c) => c.source.join('')).join('\n')
+    expect(src).toContain('@main#subdirectory=apps/studio-backend')
+  })
+
+  it('resolves the latest main revision from the GitHub API, falling back to main', async () => {
+    const realFetch = globalThis.fetch
+    try {
+      globalThis.fetch = vi.fn(async () =>
+        new Response(JSON.stringify({ sha: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      ) as unknown as typeof fetch
+      expect(await resolveColabRevision()).toBe('deadbeefdeadbeefdeadbeefdeadbeefdeadbeef')
+
+      globalThis.fetch = vi.fn(async () => new Response('nope', { status: 500 })) as unknown as typeof fetch
+      expect(await resolveColabRevision()).toBe('main')
+
+      globalThis.fetch = vi.fn(async () => {
+        throw new Error('offline')
+      }) as unknown as typeof fetch
+      expect(await resolveColabRevision()).toBe('main')
+    } finally {
+      globalThis.fetch = realFetch
+    }
   })
 })

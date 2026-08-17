@@ -22,7 +22,7 @@ from typing import Any
 
 from .models import CAN_CANCEL, CAN_PAUSE, CAN_START, Job, JobStatus, now_ms
 from .ndjson import parse_report_line
-from .registry import Registry, RegistryError
+from .registry import ModuleStager, Registry, RegistryError
 from .store import Store
 
 TERM_GRACE_SECONDS = 5.0
@@ -41,6 +41,8 @@ class JobManager:
         concurrency: int = 1,
         heartbeat_timeout: float = 300.0,
         max_artifacts_mb: int = 0,
+        staged_dir: str | Path | None = None,
+        stager: ModuleStager | None = None,
     ) -> None:
         self.store = store
         self.registry = registry
@@ -49,6 +51,11 @@ class JobManager:
         self.concurrency = max(1, concurrency)
         self.heartbeat_timeout = heartbeat_timeout
         self.max_artifacts_mb = max_artifacts_mb
+        #: generic-runtime module staging (Colab: no repo checkout); None when
+        #: the service runs against a local repo checkout (self-hosted)
+        self._stager = stager or (
+            ModuleStager(staged_root=staged_dir) if staged_dir else None
+        )
 
         self.queue: asyncio.Queue[str] = asyncio.Queue()
         self._enqueued: set[str] = set()
@@ -200,7 +207,14 @@ class JobManager:
         self._pending.pop(job_id, None)
 
         try:
-            cmd, cwd, env = self.registry.resolve(job.module_id, job.params)
+            staged = None
+            if self._stager:
+                staged = self._stager.prepare(
+                    self.registry.entry(job.module_id), self.registry.base_dir
+                )
+            cmd, cwd, env = self.registry.resolve(
+                job.module_id, job.params, staged=staged
+            )
         except RegistryError as exc:
             job.set_status(JobStatus.FAILED, error=str(exc))
             self.store.update_job(job)
