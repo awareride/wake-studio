@@ -236,6 +236,19 @@ def test_missing_upstream_fails_cleanly(tmp_path):
     assert "not found" in events[-1]["message"]
 
 
+def test_default_upstream_dir_resolves_vendored():
+    """ADR-037 Tier 3 (#156): the default must find third_party/kws_streaming.
+
+    Every other test pins UPSTREAM_DIR to the fake upstream; this one guards
+    the vendored import itself - it fails if the vendor is deleted, relocated,
+    or loses train/model_train_eval.py.
+    """
+    from train_adapter import default_upstream_dir
+
+    resolved = default_upstream_dir()
+    assert (resolved / "kws_streaming" / "train" / "model_train_eval.py").is_file()
+
+
 def test_non_streamable_missing_model_fails(tmp_path):
     work = tmp_path / "work"
     out = tmp_path / "out"

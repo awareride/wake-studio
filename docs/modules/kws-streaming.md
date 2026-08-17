@@ -103,9 +103,12 @@ Why this module exists (and is not "just another backend"):
   the standard `KWSScoreSample` / `KWSTriggerEvent` shapes (ADR-024 §5.2 — the
   UI must not be able to tell which category fired).
 - **External libraries / models** (see `LICENSES.md`):
-  - **`google-research/kws_streaming`** (Apache-2.0) — the model definitions +
-    training/conversion scripts. Used as a **pinned upstream script** at train
-    time (ADR-031); never vendored, never forked.
+  - **`google-research/kws_streaming`** (Apache-2.0) - the model definitions +
+    training/conversion scripts. **Vendored pristine** at
+    `third_party/kws_streaming` (ADR-037 Tier 3, import at `cf61877d`, #156):
+    the upstream is archived, so WakeStudio owns compatibility hardening on
+    top of the pinned import; the adapter still invokes it unmodified
+    (ADR-031).
   - **onnxruntime-web** (Apache-2.0) — already a dependency of the
     `kws-openwakeword` driver; reused here. No TFLite runtime is introduced:
     the upstream TFLite artifact is converted to ONNX at build time (§6.4).
