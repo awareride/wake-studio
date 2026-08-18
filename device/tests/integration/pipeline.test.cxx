@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include <string>
 #include "doctest/doctest.h"
 #include "wake/afe_graph.h"
 #include "wake/capabilities.h"

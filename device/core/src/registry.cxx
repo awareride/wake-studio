@@ -8,7 +8,7 @@
 #include "wake/capabilities.h"
 #include "wake/kws_backend.h"
 
-#include <cstring>
+#include <string.h>
 
 #include "internal.h"
 

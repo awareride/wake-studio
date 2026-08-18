@@ -4,7 +4,7 @@
  */
 #include "wake/detection.h"
 
-#include <cstdlib>
+#include <stdlib.h>
 #include <new>
 
 /* --- ScoreSmoother: sliding-window max-pooling ----------------------------- */

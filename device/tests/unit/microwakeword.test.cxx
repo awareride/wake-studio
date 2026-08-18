@@ -6,6 +6,7 @@
  * process_frame() must stay in warmup (-1) — never crash, never fabricate
  * a score.
  */
+#include <string>
 #include "doctest/doctest.h"
 #include "wake/kws_backend.h"
 

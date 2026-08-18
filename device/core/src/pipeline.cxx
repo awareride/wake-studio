@@ -3,8 +3,8 @@
  */
 #include "wake/pipeline.h"
 
-#include <cstdlib>
-#include <cstring>
+#include <stdlib.h>
+#include <string.h>
 #include <new>
 
 #include "wake/afe_graph.h"
@@ -25,7 +25,7 @@ wake_pipeline_t *wake_pipeline_create(wake_sdk_t *sdk, const char *backend_id,
     return nullptr;
   }
 
-  void *mem = std::calloc(1, sizeof(wake_pipeline));
+  void *mem = calloc(1, sizeof(wake_pipeline));
   if (mem == nullptr) {
     return nullptr;
   }
@@ -40,7 +40,7 @@ wake_pipeline_t *wake_pipeline_create(wake_sdk_t *sdk, const char *backend_id,
    * composition root registered. Missing stages degrade gracefully. */
   p->graph = wake_afe_graph_create();
   if (p->graph == nullptr) {
-    std::free(p);
+    free(p);
     return nullptr;
   }
   const char *kOrder[] = {"aec", "bss", "ns"};
@@ -55,20 +55,20 @@ wake_pipeline_t *wake_pipeline_create(wake_sdk_t *sdk, const char *backend_id,
   p->backend_ops = wake_sdk_backend_by_id(sdk, backend_id);
   if (p->backend_ops == nullptr || p->backend_ops->create == nullptr) {
     wake_afe_graph_destroy(p->graph);
-    std::free(p);
+    free(p);
     return nullptr;
   }
   p->backend_impl = p->backend_ops->create(&p->cfg);
   if (p->backend_impl == nullptr) {
     wake_afe_graph_destroy(p->graph);
-    std::free(p);
+    free(p);
     return nullptr;
   }
   if (p->backend_ops->load != nullptr &&
       p->backend_ops->load(p->backend_impl, models, &p->cfg) != 0) {
     p->backend_ops->destroy(p->backend_impl);
     wake_afe_graph_destroy(p->graph);
-    std::free(p);
+    free(p);
     return nullptr;
   }
 
@@ -92,7 +92,7 @@ void wake_pipeline_destroy(wake_pipeline_t *p) {
   wake_afe_graph_destroy(p->graph);
   wake_score_smoother_destroy(p->smoother);
   wake_trigger_detector_destroy(p->trigger);
-  std::free(p);
+  free(p);
 }
 
 int wake_pipeline_process(wake_pipeline_t *p, int16_t *frames, size_t n,

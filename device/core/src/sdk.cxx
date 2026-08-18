@@ -7,7 +7,7 @@
  */
 #include "wake/sdk.h"
 
-#include <cstdlib>
+#include <stdlib.h>
 #include <new>
 
 #include "internal.h"
