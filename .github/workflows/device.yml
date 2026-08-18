@@ -52,3 +52,21 @@ jobs:
           PY
           ./build/tools/wake-sdk-demo/wake-sdk-demo tone.wav && echo "tone triggered: OK"
           ! ./build/tools/wake-sdk-demo/wake-sdk-demo silence.wav && echo "silence stayed quiet: OK"
+
+  cross-mcu:
+    name: Cross-compile (Cortex-M4, arm-none-eabi)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ARM toolchain
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi
+
+      # mcu profile + cross toolchain: build + link only (no board, no OS).
+      # Executables (tests/CLI) are host-only and are gated in the top-level
+      # CMakeLists by CMAKE_CROSSCOMPILING (#186).
+      - name: Configure (mcu profile)
+        run: cmake -S device -B build -DWAKE_SDK_PROFILE=mcu -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/arm-none-eabi.cmake
+
+      - name: Build libraries
+        run: cmake --build build -j

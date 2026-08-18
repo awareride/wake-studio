@@ -41,14 +41,11 @@ add_subdirectory(
 )
 
 # --- composition roots (ADR-040 §3) -----------------------------------------
-add_subdirectory(composition)
-
-# --- target adapters --------------------------------------------------------
-add_subdirectory(adapters)
-
-# --- tools -------------------------------------------------------------------
-add_subdirectory(tools)
-
-# --- tests (L1 unit + composition-root integration, ADR-026) ---------------
-enable_testing()
-add_subdirectory(tests)
+# --- target adapters / tools / tests are HOST-ONLY (stdio/OS) ----------------
+if(NOT CMAKE_CROSSCOMPILING)
+  add_subdirectory(composition)
+  add_subdirectory(adapters)
+  add_subdirectory(tools)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
