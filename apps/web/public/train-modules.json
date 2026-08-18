@@ -1,7 +1,7 @@
 {
   "$schema": "./train-modules.schema.json",
   "version": 1,
-  "updated": "2026-08-17",
+  "updated": "2026-08-18",
   "note": "Catalog of trainable modules (spec.train, issue #105). Generated from the module specs - the single shared fact source (ADR-025). The training console picks the model type (openwakeword / streaming / rnnoise), renders its train config, and offers the invocation methods the module declares.",
   "modules": [
     {

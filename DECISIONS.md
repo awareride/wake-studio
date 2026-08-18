@@ -1259,3 +1259,59 @@ applied per this log and may be overridden._
     vendored tree.
   - Tier-2 patch files live next to the module's train adapter and are
     covered by its tests (adapter applies them in CI).
+
+---
+
+## ADR-038 — kws-streaming keeps the patched upstream on the pinned TF 2.15.1 env, drift-guarded
+
+- **Status:** Accepted (2026-08-18)
+- **Origin:** Issue #170 (decision task after #168 / #169); human decision
+  "keep upstream unless it can't work" + "minimal changes; main trains"
+  (2026-08-18)
+- **Decision (final):** Keep the vendored `kws_streaming` **exactly as on
+  main**: pristine import (`cf61877d`, ADR-037 Tier 3) + the two TF >= 2.16
+  compat patches (`2fad2cf`, `bfda6ec`) — an **explicit maintained mini-fork**
+  — and keep the pinned env that is proven to install and train:
+  `tensorflow[and-cuda]==2.15.1`, `numpy==1.26.4`, `protobuf==3.20.3`,
+  `tfmot==0.7.5`, `tfa==0.23.0`, Python 3.11, locked in the module
+  `uv.lock`. The single addition is a **TF drift guard**: the train adapter
+  probes the upstream python's TF before training and fails loudly unless it
+  is the declared 2.15 line.
+- **Why the alternatives were rejected:**
+  - *Strategy A (pristine upstream, revert the patches):* **empirically
+    falsified** — pristine `models/utils.py` reads `tf._keras_internal`
+    through `tensorflow.compat.v2` (via `layers/compat.py`), which no longer
+    exposes it even on TF 2.15.1 (verified on the real runtime with the
+    guard passing at 2.15.1 and pristine still crashing).
+  - *Strategy B-keras3 (modern TF + Keras 3):* ~14 vendored files edited for
+    sure plus a ~48-file `keras.backend` risk surface, and it drops QAT /
+    `novograd` unless reworked. Too large for no training benefit.
+  - *B-legacy modernization (TF 2.16.2 + `tf_keras`):* not necessary — the
+    existing 2.15.1 stack already trains; modernizing only added install
+    churn (`tfa` 0.23.0 is cp311-only, `tfmot` 0.7.5 breaks on the Keras 3
+    that TF 2.16 pulls in) without a training benefit.
+- **No silent drift rule:** the module `uv.lock` is the single source of
+  truth for the TensorFlow version actually trained on. Changing the TF pin
+  requires re-locking and updating the adapter's declared TF line in the
+  **same commit**; the drift guard turns any runtime mismatch into a loud
+  failure instead of silent divergence.
+- **Rationale:** (a) `kws_streaming` is archived (ADR-037 Tier 3), so
+  ADR-031's "run upstream unchanged" cannot hold — the patches are the
+  Tier-3 hardening commits; (b) main's declared env (TF 2.15.1) is proven
+  to install and train on the module-owned uv env (ADR-028), so no
+  modernization is required; (c) the stack is reproducible (uv lock) and its
+  exact versions are recorded in `third_party/README.md`; (d) the guard is
+  the small piece that actually fulfils the issue's "no silent drift"
+  acceptance criterion.
+- **Consequences:**
+  - `third_party/kws_streaming/` stays an explicit maintained fork (pristine
+    import + the two TF >= 2.16 compat patches).
+  - The train adapter gains a drift guard + plain-text env banner; it fails
+    loudly unless the runtime TF is the declared 2.15 line (env opt-out for
+    the fake-upstream unit tests).
+  - The kws-streaming training stack stays on the 2024-era TF 2.15.1 line;
+    this is an accepted cost. If it stops being installable/runnable,
+    escalate via the ADR-037 ladder (e.g. the B-legacy or B-keras3 paths
+    already analysed here).
+  - `third_party/README.md` hardening log, `docs/modules/kws-streaming.md`,
+    `LICENSES.md`, and the train `README.md` record this decision.

@@ -27,6 +27,7 @@ def run_adapter(
     out_dir: Path,
     env: dict[str, str],
     data_dir: Path | None = None,
+    skip_tf_guard: bool = True,
 ):
     if data_dir is None:
         data_dir = work_dir / "data_local"
@@ -41,6 +42,8 @@ def run_adapter(
         "STREAM_DATA_DIR": str(data_dir),
         **env,
     }
+    if skip_tf_guard:  # the fake-upstream tests run without TensorFlow (ADR-038)
+        full_env["STREAM_SKIP_TF_GUARD"] = "1"
     res = subprocess.run(
         [sys.executable, str(ADAPTER)],
         cwd=str(work_dir),
@@ -253,6 +256,26 @@ def test_missing_upstream_fails_cleanly(tmp_path):
     assert res.returncode == 1
     assert events[-1]["event"] == "error"
     assert "not found" in events[-1]["message"]
+
+
+def test_tf_drift_guard_fails_loudly(tmp_path):
+    """ADR-038 (#170): with the TF drift guard enabled and no TensorFlow in the
+    upstream python, the adapter must fail loudly (exit 1 + error event) before
+    training instead of silently running on a different TF. Uses a nonexistent
+    python so the probe is deterministic regardless of the local env."""
+    work = tmp_path / "work"
+    work.mkdir()
+    res, events = run_adapter(
+        work,
+        FAKE_UPSTREAM,
+        tmp_path / "out",
+        env={"UPSTREAM_PYTHON": "/nonexistent/venv/bin/python"},
+        skip_tf_guard=False,
+    )
+    assert res.returncode == 1
+    errors = [e for e in events if e.get("event") == "error"]
+    assert errors, "expected an NDJSON error event from the TF drift guard"
+    assert "TensorFlow" in errors[0]["message"]
 
 
 def test_default_upstream_dir_resolves_vendored():
