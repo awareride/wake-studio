@@ -26,6 +26,7 @@ tf = [
   "numpy==1.26.4",
   "protobuf==3.20.3",
   "absl-py>=1.4",
+  "pydot>=1.4",  # upstream train/test.py calls tf.keras.utils.plot_model (graphviz binary is a runtime system dep)
 ]
 # edge-tts multi-language synthesis (ADR-022); needed by dataSource=edge-tts
 # and mixed mode. ffmpeg (system) is also required for mp3->wav conversion.

@@ -106,9 +106,13 @@ Why this module exists (and is not "just another backend"):
   - **`google-research/kws_streaming`** (Apache-2.0) - the model definitions +
     training/conversion scripts. **Vendored pristine** at
     `third_party/kws_streaming` (ADR-037 Tier 3, import at `cf61877d`, #156):
-    the upstream is archived, so WakeStudio owns compatibility hardening on
-    top of the pinned import; the adapter still invokes it unmodified
-    (ADR-031).
+    the upstream is archived, so WakeStudio owns compatibility through a
+    maintained mini-fork on the pinned Keras-2 line (ADR-038 — TF
+    2.15.1, numpy 1.26.4, protobuf 3.20.3, Python 3.11, proven to train);
+    the two TF >= 2.16 compat patches are the fork's delta. The
+    adapter invokes the upstream script itself unchanged (ADR-031) and its
+    TF drift guard fails loudly if the runtime TF drifts from the declared
+    line.
   - **onnxruntime-web** (Apache-2.0) — already a dependency of the
     `kws-openwakeword` driver; reused here. No TFLite runtime is introduced:
     the upstream TFLite artifact is converted to ONNX at build time (§6.4).

@@ -115,6 +115,11 @@ ENV_MAP: dict[str, str] = {
 
 STAGES = ["prepare_data", "train", "bundle"]
 
+# Declared TensorFlow line the patched upstream runs on (ADR-038). This is the
+# only place the adapter knows the pin: keep it in sync with the module `tf`
+# extra (pyproject.toml) and re-lock uv.lock in the same commit as any change.
+REQUIRED_TF_LINE = "2.15"
+
 
 def _coerce(value: Any, default: Any) -> Any:
     """Coerce an env string to the type of its default."""
@@ -456,6 +461,63 @@ def default_upstream_dir() -> Path:
     return Path("./google-research")
 
 
+def upstream_tf_version(
+    python: str, cwd: str | None = None, env: dict[str, str] | None = None
+) -> str | None:
+    """Report the TensorFlow version the given python actually provides, or
+    None if TensorFlow is not importable there (or the probe fails).
+
+    Runs with the same cwd/env the training subprocess will use, so the probe
+    reflects exactly what upstream training will import."""
+    try:
+        probe = subprocess.run(
+            [python, "-c", "import tensorflow as tf; print(tf.__version__)"],
+            cwd=cwd, env=env, capture_output=True, text=True, timeout=120,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if probe.returncode != 0:
+        return None
+    return probe.stdout.strip().splitlines()[-1].strip() or None
+
+
+def check_upstream_tf(
+    python: str,
+    reporter: Reporter,
+    cwd: str | None = None,
+    env: dict[str, str] | None = None,
+) -> bool:
+    """Fail loudly if the upstream python's TF drifts from the declared pin
+    (ADR-038: no silent divergence between declared and trained-on TF)."""
+    version = upstream_tf_version(python, cwd=cwd, env=env)
+    # Plain-text line (non-NDJSON) so the probed TF is visible in the raw job
+    # log even if NDJSON events are filtered - cannot be missed.
+    print(
+        f"[tf-guard] probe: python={python} -> "
+        f"tensorflow {version or 'MISSING'} (required {REQUIRED_TF_LINE}.x)",
+        flush=True,
+    )
+    if version is None:
+        reporter.emit("error", message=(
+            f"TensorFlow not found in the upstream python ({python}); "
+            f"kws-streaming requires the declared TF {REQUIRED_TF_LINE}.x env "
+            f"(module tf extra, ADR-038)."
+        ))
+        return False
+    if not version.startswith(REQUIRED_TF_LINE + "."):
+        reporter.emit("error", message=(
+            f"TensorFlow drift: upstream python ({python}) has TF {version}, "
+            f"declared pin is TF {REQUIRED_TF_LINE}.x (module tf extra, "
+            f"ADR-038). Re-lock uv.lock and update REQUIRED_TF_LINE together."
+        ))
+        return False
+    reporter.emit("log", level="info", message=(
+        f"TF check ok: TensorFlow {version} matches the declared "
+        f"{REQUIRED_TF_LINE}.x line"
+    ))
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     reporter = Reporter()
     params = read_params()
@@ -471,6 +533,14 @@ def main(argv: list[str] | None = None) -> int:
         f"source={params['dataSource']} steps={params['howManyTrainingSteps']} "
         f"upstream={upstream_dir} python={python}"
     ))
+    # Plain-text banner (non-NDJSON) emitted before anything else: names the
+    # interpreter the adapter runs under and the one that will train, so the
+    # raw job log's first lines identify the environment unambiguously.
+    print(
+        f"[tf-guard] adapter python: {sys.executable} | "
+        f"training python: {python} | skip={bool(os.environ.get('STREAM_SKIP_TF_GUARD'))}",
+        flush=True,
+    )
 
     if not (upstream_dir / "kws_streaming").is_dir():
         reporter.emit("error", message=(
@@ -479,6 +549,24 @@ def main(argv: list[str] | None = None) -> int:
             f"UPSTREAM_DIR to a google-research clone)"
         ))
         return 1
+
+    # The upstream subprocess env (PYTHONPATH to the vendored upstream). Built
+    # once and shared by the drift-guard probe AND the training run, so the
+    # probe can never observe a different TensorFlow than training imports.
+    upstream_env = dict(os.environ)
+    upstream_env["PYTHONPATH"] = (
+        str(upstream_dir) + os.pathsep + upstream_env.get("PYTHONPATH", "")
+    )
+
+    # stage 0: TF drift guard (ADR-038) - fail loudly before any download/train
+    # if the runtime TF drifts from the declared pin, instead of training on a
+    # silently different TensorFlow. The fake-upstream tests opt out via
+    # STREAM_SKIP_TF_GUARD (they run without TensorFlow).
+    if not os.environ.get("STREAM_SKIP_TF_GUARD"):
+        if not check_upstream_tf(
+            python, reporter, cwd=str(upstream_dir), env=upstream_env
+        ):
+            return 1
 
     # stage 1: data
     reporter.emit("progress", step=1, total=len(STAGES), progress=1 / len(STAGES),
@@ -498,11 +586,9 @@ def main(argv: list[str] | None = None) -> int:
     # so each training pass starts from a clean directory.
     if train_dir.exists():
         shutil.rmtree(train_dir)
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(upstream_dir) + os.pathsep + env.get("PYTHONPATH", "")
     cmd = build_command(params, python, data_dir, str(train_dir), wanted)
     log_lines: list[str] = []
-    code = run_upstream(cmd, str(upstream_dir), env, reporter, log_lines)
+    code = run_upstream(cmd, str(upstream_dir), upstream_env, reporter, log_lines)
     if code != 0:
         reporter.emit("error", message=f"upstream train exited with code {code}")
         return code
