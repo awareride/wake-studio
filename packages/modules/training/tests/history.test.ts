@@ -64,6 +64,17 @@ describe('startedJob', () => {
     expect(job.startedAtMs).toBeGreaterThanOrEqual(before)
     expect(job.phrase).toBe('')
   })
+
+  it('reads the kws-streaming wakePhrases key (plural) too', () => {
+    const job = startedJob({
+      id: 'train-3',
+      moduleId: 'kws-streaming',
+      method: 'studio-backend',
+      backend: 'self-hosted',
+      params: { wakePhrases: 'hey studio', model: 'ds_tc_resnet' },
+    })
+    expect(job.phrase).toBe('hey studio')
+  })
 })
 
 describe('retriedJob', () => {

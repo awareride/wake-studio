@@ -15,6 +15,7 @@ export {
   validateBundle,
   hasBundleModel,
   importColabBundle,
+  importResultBundle,
   BundleImportError,
   type BundleImportErrorCode,
   BUNDLE_IMPORT_ERROR_MESSAGES,

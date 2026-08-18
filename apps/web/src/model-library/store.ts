@@ -87,7 +87,9 @@ export async function importModelFile(
     role,
     name: file.name,
     sizeBytes: file.size,
-    format: 'onnx',
+    // Derive the format from the file extension so trained tflite models are
+    // not mislabelled as onnx (kws-streaming exports model.tflite).
+    format: file.name.toLowerCase().endsWith('.tflite') ? 'tflite' : 'onnx',
     createdAtMs: Date.now(),
     notes,
     blob: file,

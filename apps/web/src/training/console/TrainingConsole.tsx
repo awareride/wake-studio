@@ -29,6 +29,7 @@ import {
 import { deleteJob, listJobs, saveJob } from '@wake-studio/module-training'
 import { ConsolePanel } from '../../components/ConsolePanel'
 import { IconWand } from '../../components/icons'
+import { useToast } from '../../components/toast'
 import { useAppSettings } from '../../settings'
 import { TRAIN_NEW_HASH_PREFIX, trainReviewJobFromHash } from '../../router'
 import { rememberSelection, rememberedSelection } from '../../view-selection'
@@ -46,7 +47,8 @@ type View =
   | { kind: 'wizard'; from: { kind: 'empty' } | { kind: 'details'; jobId: string } }
 
 export function TrainingConsole() {
-  const { platform, backends } = useAppSettings()
+  const { platform, backends, kwsSources, setKwsSources } = useAppSettings()
+  const { toast } = useToast()
   const [jobs, setJobs] = useState<HistoryJob[]>([])
   const [modules, setModules] = useState<TrainableModule[]>([])
   const [modulesError, setModulesError] = useState<string | null>(null)
@@ -149,7 +151,8 @@ export function TrainingConsole() {
           patch.endpoint !== undefined ||
           patch.tunnelUrl !== undefined ||
           patch.submitted !== undefined ||
-          patch.error !== undefined
+          patch.error !== undefined ||
+          patch.resultArtifact !== undefined
         if (persist || meaningful) void saveJob(next)
         return upsertJob(prev, next)
       })
@@ -301,6 +304,42 @@ export function TrainingConsole() {
     [backends, platform, recordJob, patchJob],
   )
 
+  // Auto-pull + import (issue #159): a tracked job finished successfully and
+  // the backend published the results zip — pull it and register the trained
+  // model into the user library, then mark THIS train (same id) as imported.
+  // Contrast with handleImported (manual zip upload), which records a new
+  // history entry because an untracked Colab run has no backend job id to
+  // reuse.
+  const handleAutoImported = useCallback(
+    (jobId: string, result: ColabImportResult) => {
+      const phrase =
+        jobs.find((j) => j.id === jobId)?.phrase ||
+        String(result.bundle.files.metadata.params.wakePhrase ?? result.bundle.jobId)
+      // Point the KWS classifier role at the freshly imported model (same as
+      // the manual zip import): the next Load in the KWS panel tests it.
+      setKwsSources({
+        ...kwsSources,
+        modelSources: {
+          ...kwsSources.modelSources,
+          classifier: result.classifierRef,
+        },
+      })
+      patchJob(jobId, {
+        status: 'succeeded',
+        metrics: result.bundle.files.metrics ?? {},
+        license: result.bundle.files.provenance.license,
+        artifactRef: result.classifierRef,
+        finishedAtMs: Date.now(),
+      })
+      toast({
+        title: 'Trained model imported',
+        description: `“${phrase}” — pulled from the backend and ready to test in-browser.`,
+        variant: 'success',
+      })
+    },
+    [jobs, patchJob, kwsSources, setKwsSources, toast],
+  )
+
   // Colab import success: record/update the job, open its review.
   const handleImported = useCallback(
     (result: ColabImportResult) => {
@@ -395,6 +434,7 @@ export function TrainingConsole() {
                   job={selectedJob}
                   modules={modules}
                   onImported={handleImported}
+                  onAutoImported={handleAutoImported}
                   onTunnelUrlChange={(url) => patchJob(selectedJob.id, { tunnelUrl: url }, true)}
                   onConnectColab={() => handleConnectColab(selectedJob)}
                   onRetry={() => handleRetry(selectedJob)}

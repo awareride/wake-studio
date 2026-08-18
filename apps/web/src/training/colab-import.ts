@@ -1,8 +1,9 @@
 /**
- * Colab results registration (issue #97 - 'Import Colab results' flow).
- *
- * After `importColabBundle` (training module) validates the picked zip, this
- * helper registers the trained model for the rest of the PWA:
+ * Trained-results registration (issue #97 'Import Colab results'; issue #159
+ * auto pull + import). One registration path serves every backend: after the
+ * single bundle importer validates a bundle (Colab zip or a pulled
+ * studio-backend / tunnel artifact), this helper registers the trained model
+ * for the rest of the PWA:
  *
  *   1. the model binary lands in the user model library (IndexedDB) under the
  *      `classifier` role - the existing KWS load path (ADR-024) consumes it,
@@ -15,7 +16,7 @@
  * involved (ADR-013/023).
  */
 
-import { importColabBundle } from '@wake-studio/module-training'
+import { importResultBundle } from '@wake-studio/module-training'
 import type { ArtifactBundle } from '@wake-studio/module-training'
 import { importModelFile, saveProvisionArtifact } from '../model-library'
 import type { UserModel, UserArtifact } from '../model-library'
@@ -54,7 +55,12 @@ export async function registerColabBundle(
     type: 'application/octet-stream',
   })
 
-  const phrase = String(bundle.files.metadata.params.wakePhrase ?? '')
+  // The wake phrase key varies by producer: the Colab notebook writes
+  // `wakePhrase`, the studio-backend kws-streaming runner writes
+  // `wakePhrases` (and the wizard may record it under either).
+  const metaParams = bundle.files.metadata.params ?? {}
+  const phrase =
+    String(metaParams.wakePhrase ?? metaParams.wakePhrases ?? '')
   const jobId = bundle.jobId
   const license = bundle.files.provenance.license
 
@@ -90,6 +96,36 @@ export async function registerColabBundle(
 export async function importColabResultsZip(
   file: File,
 ): Promise<ColabImportResult> {
-  const bundle = await importColabBundle(file)
+  const bundle = await importResultBundle(file)
+  return registerColabBundle(bundle)
+}
+
+/**
+ * Pull a trained-results bundle from a backend and register it (issue #159):
+ * fetch the zip from the studio-backend / Colab-tunnel artifact endpoint
+ * (`GET /artifacts/{jobId}/{name}`, ADR-036 §3), validate it with the single
+ * bundle importer, and persist it into the user library.
+ *
+ * This is the auto/on-demand counterpart to the manual zip upload — the PWA
+ * no longer needs the download-then-upload round trip for tracked jobs.
+ */
+export async function pullAndImportBundle(
+  artifactUrl: string,
+): Promise<ColabImportResult> {
+  let res: Response
+  try {
+    res = await fetch(artifactUrl)
+  } catch (err) {
+    throw new Error(
+      `Could not reach the backend to pull the artifact: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
+  }
+  if (!res.ok) {
+    throw new Error(`Pulling the artifact failed (HTTP ${res.status}).`)
+  }
+  const bytes = new Uint8Array(await res.arrayBuffer())
+  const bundle = await importResultBundle(bytes)
   return registerColabBundle(bundle)
 }

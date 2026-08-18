@@ -68,6 +68,9 @@ apps/studio-backend/.pytest_cache/
 **/__pycache__/
 apps/studio-backend/*.egg-info/
 
+# repo-root studio-backend runtime state (default --db/--artifacts-dir paths)
+data/
+
 # standard artifact bundle output (docs/modules/training.md §6)
 **/wake-studio-results/
 apps/studio-backend/src/wake_training_service/_revision.py

@@ -132,25 +132,30 @@ export const BUNDLE_IMPORT_ERROR_MESSAGES: Record<BundleImportErrorCode, string>
   'missing-metadata': 'metadata.json is missing from the zip (the artifact bundle manifest).',
   'missing-provenance': 'provenance.json is missing — the license gate needs it.',
   'invalid-metadata':
-    'metadata.json is invalid — it must declare jobId, moduleId and backend: "colab".',
+    'metadata.json is invalid — it must declare jobId, moduleId and a known backend (colab, self-hosted or cloud).',
   'invalid-provenance':
     'provenance.json is invalid — it must declare a license (e.g. “user-owned”).',
   'missing-model': 'No model found — the zip should contain model.onnx or model.tflite.',
 }
 
 /**
- * Parse a `File` (or node Buffer) that is a Colab results zip into an
+ * Parse a `File` (or node Buffer) that is a trained-results zip into an
  * {@link ArtifactBundle}. Client-side only — no WakeStudio server involved.
  *
- * The zip layout (produced by the module-owned notebook, ADR-035):
+ * ONE importer serves every backend (ADR-013 / docs/modules/training.md §4):
+ * the same standard bundle shape is produced by the module-owned Colab
+ * notebook (ADR-035), the studio-backend train runner (ADR-036) and future
+ * cloud adapters, so the PWA validates + imports any trained model with the
+ * same code path.
+ *
+ * The zip layout (wake-studio-results/<job-id>/):
  *
  * ```
- * wake-studio-results/<job-id>/
- *   model.onnx | model.tflite
- *   metrics.json
- *   metadata.json   (jobId, moduleId, backend='colab', params, trainedAtMs)
- *   provenance.json (license: user-owned → Phase 4 export gate)
- *   config.json
+ * model.onnx | model.tflite
+ * metrics.json
+ * metadata.json   (jobId, moduleId, backend: colab|self-hosted|cloud, params, trainedAtMs)
+ * provenance.json (license: user-owned → Phase 4 export gate)
+ * config.json
  * ```
  *
  * @throws {BundleImportError} with a stable `code` on any invalid/missing part.
@@ -203,6 +208,8 @@ export async function importColabBundle(
   const jobId = metadata.jobId
   const moduleId = metadata.moduleId
   const backend = metadata.backend
+  const isKnownBackend =
+    backend === 'colab' || backend === 'self-hosted' || backend === 'cloud'
   if (
     !jobId ||
     typeof jobId !== 'string' ||
@@ -210,7 +217,7 @@ export async function importColabBundle(
     !moduleId ||
     typeof moduleId !== 'string' ||
     moduleId.trim().length === 0 ||
-    backend !== 'colab'
+    !isKnownBackend
   ) {
     throw new BundleImportError('invalid-metadata', BUNDLE_IMPORT_ERROR_MESSAGES['invalid-metadata'])
   }
@@ -257,6 +264,14 @@ export async function importColabBundle(
   }
   return bundle
 }
+
+/**
+ * Generic alias for the single bundle importer (ADR-013 §6).
+ *
+ * `importColabBundle` predates the other backends and kept its name for
+ * back-compat; new callers that are not Colab-specific should use this name.
+ */
+export const importResultBundle = importColabBundle
 
 async function readZipBytes(input: File | ArrayBuffer): Promise<Uint8Array> {
   if (input instanceof ArrayBuffer) return new Uint8Array(input)

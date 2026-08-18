@@ -54,6 +54,12 @@ export interface HistoryJob {
   logTail?: string[]
   /** Last checkpoint reported by the backend (resume point). */
   checkpoint?: string
+  /**
+   * The backend artifact that carries the trained-results zip
+   * (e.g. `wake-studio-results.zip`). Persisted so the console can pull +
+   * import it even after the live track has ended (issue #159).
+   */
+  resultArtifact?: string
   /** Trained-model metrics (recall/accuracy/…) from the bundle. */
   metrics?: Record<string, number>
   /** Provenance license of the produced model ('user-owned' = exportable). */
@@ -77,7 +83,9 @@ export function startedJob(input: StartedJobInput): HistoryJob {
   return {
     id: input.id,
     status: 'queued',
-    phrase: String(input.params.wakePhrase ?? ''),
+    // Producers differ on the key: Colab notebooks use `wakePhrase`,
+    // the kws-streaming runner / wizard use `wakePhrases` (plural).
+    phrase: String(input.params.wakePhrase ?? input.params.wakePhrases ?? ''),
     params: input.params,
     moduleId: input.moduleId,
     method: input.method,
@@ -127,7 +135,9 @@ export function importedJob(input: ImportedJobInput): HistoryJob {
   return {
     id: input.jobId,
     status: 'succeeded',
-    phrase: String(input.metadata.params.wakePhrase ?? ''),
+    phrase: String(
+      input.metadata.params.wakePhrase ?? input.metadata.params.wakePhrases ?? '',
+    ),
     params: input.metadata.params,
     moduleId: input.metadata.moduleId,
     method: backendToMethod(input.metadata.backend),

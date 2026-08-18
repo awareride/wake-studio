@@ -43,6 +43,8 @@ export type StudioJobPatch = {
   finishedAtMs?: number
   checkpoint?: string
   logTail?: string[]
+  /** The backend artifact carrying the trained-results zip (if any). */
+  resultArtifact?: string
 }
 
 export class StudioClientError extends Error {
@@ -243,5 +245,6 @@ export function studioJobPatch(job: StudioJob): StudioJobPatch {
     finishedAtMs: job.finishedAtMs ?? undefined,
     checkpoint: job.checkpoint ?? undefined,
     logTail: job.logTail,
+    resultArtifact: job.artifacts?.find((n) => n.toLowerCase().endsWith('.zip')),
   }
 }
