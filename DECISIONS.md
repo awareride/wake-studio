@@ -1376,3 +1376,74 @@ applied per this log and may be overridden._
   - Follow-up implementation issues are tracked for: multi-word training
     (labels + wakePhrases + phrase selector), formats/quantization train
     params, and the module-owned convert stage.
+
+---
+
+## ADR-040 — SDK core: C++17 with a C ABI, device code inside modules, link-time composition root, profile-driven builds, native-first CI
+
+- **Status:** Accepted (2026-08-19)
+- **Origin:** Phase 4 SDK design discussion (epic #31); human decisions on
+  language, module placement, registration, low-power vs high-performance
+  split, and first target sequencing. Resolves Q13 (#35) and Q-SDK-1
+  (`docs/modules/sdk.md` §4.1).
+- **Decision:**
+  1. **Core language: C++17 with a strict C ABI.** Public API is `extern "C"`
+     headers (`wake/kws_backend.h`, `wake/afe_graph.h`, …); the core compiles
+     freestanding-friendly (`-fno-exceptions -fno-rtti`, arena allocator, no
+     STL heap in hot paths). Rationale: every wrapped dependency is C/C++
+     (TFLite-Micro and micro-wake-word require C++; RNNoise/PocketSphinx are
+     C; onnxruntime/sherpa expose C APIs) while the C ABI binds to Python
+     (ctypes), Kotlin (JNI), Swift, and JS/WASM (emscripten). Rust/Zig were
+     considered and rejected: the ecosystem we wrap is C/C++, and Rust's
+     TFLite-Micro interop adds friction without benefit.
+  2. **Device code lives inside the module.** Each KWS backend / AFE stage
+     module owns `device/` (C/C++ driver + CMake target) next to its browser
+     driver, train adapter, assets, spec, and tests (ADR-025 extended; matches
+     the CONTRIBUTING layout `packages/modules/<category>/<name>/{core,web,
+     node,train,device,spec,tests}`). Top-level `device/` is the CMake
+     **aggregation tree** (core + selected module `device/` dirs + adapters),
+     not a mirrored tree. `packages/sdk` is the SDK's public binding package
+     (JS/WASM binding + bundle tooling + docs).
+  3. **Link-time registration via an explicit composition root** —
+     `wake_sdk_compose()` calls one registration entry per module
+     (`wake_register_kws_backend` / `wake_register_afe_stage`). This ports the
+     ADR-034 composition-root concept to C and preserves the ADR-024
+     decoupling rule on device: adding a backend/AFE stage = new module + one
+     line in the root; core never edited. Constructor attributes / linker
+     section magic are avoided (fragile on bare-metal).
+  4. **One core, two profiles — not forks.** `WAKE_SDK_PROFILE=mcu|app`
+     selects compile-time feature macros (linked module set, VAD, heap budget,
+     int16 vs float DSP, threading) and a runtime `wake_sdk_capabilities()`
+     query reports the build's reality (device twin of the browser registry's
+     `browserFeasible`). Bundle generation is data-driven end-to-end: export
+     UI picks (profile, backend, AFE mode) → generator emits the CMake target
+     list + composition root + defaults from `module.spec.json` (one schema,
+     two worlds).
+  5. **CI: native host first (Q13/#35 closed).** Native gcc/clang build +
+     unit tests + composition-root integration test on every PR; Cortex-M
+     `arm-none-eabi` cross-compile in the same job matrix; on-hardware
+     validation only for golden-path acceptance.
+  6. **First target sequencing:** (1) native test harness + CLI demo on the
+     dev host (macOS/Linux) validates the core; (2) Cortex-M cross-compile
+     build + tests (no hardware needed); (3) Raspberry Pi Python binding as
+     the app-class golden path; (4) one cheap STM32/Arduino board for final
+     MCU hardware validation; (5) Android/iOS/desktop bindings after the core
+     and one embedded target prove the abstractions. Android-first was
+     rejected: JNI + onnxruntime-android on an unvalidated core is the worst
+     place to debug the core.
+- **Rationale:** ADR-021 already committed to a layered C/C++ core; these
+  decisions pin the dialect/ABI, the module boundary (module-owned device
+  code keeps "a module is a thing you can fully add" true), the registration
+  mechanism that makes the ADR-024 rule hold on device, and the profile
+  mechanism that makes one core span Cortex-M to desktop without divergence.
+  Native-first CI matches the roadmap's Phase 4 risk mitigation ("validate
+  with one C unit-test harness + one golden-path target first").
+- **Consequences:**
+  - `docs/modules/sdk.md` upgraded from stub to Draft v2 (contract per §4–§12).
+  - New impl issues under epic #31 slice the epic into module-layout, core,
+    AFE, harness, CI, composition-root/profile, driver, and binding tasks
+    (see #31 scope).
+  - `packages/sdk` + `device/` gain their first code in the scaffolding task.
+  - Q-SDK-1 resolved (C op-struct mirrors the TS `KWSBackend`); Q-SDK-2 (iOS
+    CoreML vs onnxruntime) and Q-SDK-3 (ESP32 scope) remain open.
+  - #35 (Q13) closed by this ADR.
