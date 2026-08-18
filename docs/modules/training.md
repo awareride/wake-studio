@@ -313,9 +313,10 @@ The import half of the loop lives in `packages/modules/training/`:
   reaches `succeeded` and the backend lists a results zip in its artifacts
   (`GET /artifacts/{job}/{name}`, §3), the console **fetches the zip and
   imports it automatically** via the same importer + registration path — no
-  download-then-upload round trip. Runs once per job; a manual **Pull results
-  & import** button in the train details (Results section) covers retries and
-  jobs that were already finished when the pane opened.
+  download-then-upload round trip. Runs once per job; the train details
+  (Results section) also offers an explicit **Import** button (retries +
+  already-finished-on-load jobs) and a **Download** button that saves the raw
+  results zip to disk.
 - **UI** — the PWA's new **Training** view hosts the training module's
   spec-driven panel plus the "Import Colab results" section (zip picker,
   clear errors, success summary).

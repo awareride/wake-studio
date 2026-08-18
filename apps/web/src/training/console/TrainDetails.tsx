@@ -121,6 +121,7 @@ export function TrainDetails({
   // after a failure or when the job was already finished on load.
   const [pulling, setPulling] = useState(false)
   const [pullError, setPullError] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
   const pullingRef = useRef(false)
   const autoImportStartedRef = useRef<Set<string>>(new Set())
   const resultZipName = useMemo(() => {
@@ -152,6 +153,31 @@ export function TrainDetails({
       setPulling(false)
     }
   }, [tracked, resultZipName, job.id, actions, onAutoImported])
+
+  // Save the raw results zip to disk. A plain cross-origin <a download> is
+  // ignored by browsers, so fetch the bytes and download via a blob URL
+  // (the artifact endpoint is a read/open route, ADR-036 §5).
+  const downloadArtifact = useCallback(async () => {
+    if (!tracked || !resultZipName || downloading) return
+    setDownloading(true)
+    try {
+      const res = await fetch(actions.artifactUrl(job.id, resultZipName))
+      if (!res.ok) throw new Error(`Download failed (HTTP ${res.status}).`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = resultZipName
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setPullError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDownloading(false)
+    }
+  }, [tracked, resultZipName, downloading, job.id, actions])
 
   useEffect(() => {
     if (
@@ -378,7 +404,7 @@ export function TrainDetails({
           <>
             {/* Auto-pull state + manual fallback for a finished tracked job
                 whose results are still on the backend (issue #159). */}
-            {tracked && resultZipName && !job.artifactRef && (
+            {tracked && resultZipName && (
               <div className="mt-2 rounded-lg border border-brand-8/30 bg-brand-8/5 px-3 py-2 text-[11px] leading-relaxed text-ink-2">
                 {pulling ? (
                   <span className="flex items-center gap-2">
@@ -387,16 +413,49 @@ export function TrainDetails({
                     trained model…
                   </span>
                 ) : (
-                  <span className="flex flex-wrap items-center gap-2">
-                    Results are on the backend — pull them into your library.
-                    <Button type="button" size="1" onClick={doPull}>
-                      Pull results &amp; import
-                    </Button>
-                  </span>
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-ink-3">
+                        {resultZipName} is on the backend.
+                      </span>
+                      {!job.artifactRef && (
+                        <Button
+                          type="button"
+                          size="1"
+                          onClick={doPull}
+                          title="Fetch the results from the backend and register the trained model"
+                        >
+                          Import
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="1"
+                        variant="outline"
+                        onClick={downloadArtifact}
+                        disabled={downloading}
+                        title="Save the raw results zip to disk"
+                      >
+                        {downloading ? 'Downloading…' : 'Download'}
+                      </Button>
+                      {job.artifactRef && (
+                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-600">
+                          ✓ imported
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-[11px] text-ink-3">
+                      <span className="font-medium text-ink-2">Import</span>{' '}
+                      registers the trained model in your library (in-browser
+                      test + export);{' '}
+                      <span className="font-medium text-ink-2">Download</span>{' '}
+                      saves the raw zip.
+                    </p>
+                  </>
                 )}
                 {pullError && (
                   <span className="mt-1 block text-danger">
-                    Pull failed — {pullError}
+                    {pullError}
                   </span>
                 )}
               </div>
