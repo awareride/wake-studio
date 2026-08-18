@@ -68,6 +68,7 @@
       "maturity": "pilot",
       "train": {
         "notebookLocal": "packages/modules/kws/openwakeword/train/colab/train.ipynb",
+        "multiWord": false,
         "invocation": [
           "studio-backend",
           "colab"
@@ -174,6 +175,7 @@
           "studio-backend",
           "ci"
         ],
+        "multiWord": true,
         "params": [
           {
             "id": "model",

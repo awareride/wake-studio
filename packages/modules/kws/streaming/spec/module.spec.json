@@ -139,6 +139,7 @@
       "studio-backend",
       "ci"
     ],
+    "multiWord": true,
     "params": [
       {
         "id": "model",

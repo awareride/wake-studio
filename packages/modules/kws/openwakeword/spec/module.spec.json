@@ -49,6 +49,7 @@
   },
   "train": {
     "notebookLocal": "packages/modules/kws/openwakeword/train/colab/train.ipynb",
+    "multiWord": false,
     "invocation": [
       "studio-backend",
       "colab"

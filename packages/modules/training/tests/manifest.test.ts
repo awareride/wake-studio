@@ -96,6 +96,7 @@ function colabZip(opts: {
   withProvenance?: boolean
   withMetadata?: boolean
   prefix?: boolean
+  labels?: string[] | unknown
 } = {}): Uint8Array {
   const {
     jobId = 'kws-openwakeword-123',
@@ -105,6 +106,7 @@ function colabZip(opts: {
     withProvenance = true,
     withMetadata = true,
     prefix = true,
+    labels,
   } = opts
   const files: Record<string, Uint8Array> = {}
   const put = (name: string, obj: unknown) => {
@@ -134,6 +136,9 @@ function colabZip(opts: {
   }
   put('metrics.json', { recall: 0.9, accuracy: 0.8, steps: 10000 })
   put('config.json', { wakePhrase: 'hey studio', target: 'app-class' })
+  if (labels !== undefined) {
+    put('labels.json', labels)
+  }
   return zipSync(files, { level: 0 })
 }
 
@@ -152,6 +157,35 @@ describe('importColabBundle (the PWA Colab-results importer)', () => {
     expect(bundle.files.metrics?.accuracy).toBe(0.8)
     expect(bundle.files.configSnapshot?.target).toBe('app-class')
     expect(bundle.files.model?.byteLength).toBe('fake-onnx-bytes'.length)
+  })
+
+  it('imports labels.json into bundle.files.labels + metadata.labels (ADR-039)', async () => {
+    const zip = colabZip({ labels: ['yes', 'no'] })
+    const bundle = await importColabBundle(zip)
+    expect(bundle.files.labels).toEqual(['yes', 'no'])
+    expect(bundle.files.metadata.labels).toEqual(['yes', 'no'])
+  })
+
+  it('still imports a bundle without labels.json (back-compat, pre-ADR-039)', async () => {
+    const zip = colabZip()
+    const bundle = await importColabBundle(zip)
+    expect(bundle.files.labels).toBeUndefined()
+    expect(bundle.files.metadata.labels).toBeUndefined()
+  })
+
+  it('rejects an empty labels.json (invalid-labels)', async () => {
+    const zip = colabZip({ labels: [] })
+    await expect(importColabBundle(zip)).rejects.toMatchObject({ code: 'invalid-labels' })
+  })
+
+  it('rejects labels.json with a non-string entry (invalid-labels)', async () => {
+    const zip = colabZip({ labels: ['yes', 42] })
+    await expect(importColabBundle(zip)).rejects.toMatchObject({ code: 'invalid-labels' })
+  })
+
+  it('rejects labels.json whose entries are blank strings (invalid-labels)', async () => {
+    const zip = colabZip({ labels: ['yes', '   '] })
+    await expect(importColabBundle(zip)).rejects.toMatchObject({ code: 'invalid-labels' })
   })
 
   it('tolerates entries NOT prefixed by the job id (flat layout)', async () => {

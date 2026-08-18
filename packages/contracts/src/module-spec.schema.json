@@ -436,7 +436,7 @@
               },
               "env": {
                 "type": "string",
-                "description": "Notebook env var this train param maps to (issue #105) \u2014 the app bakes the user's value into the downloaded notebook by replacing the default in os.environ.get(\"ENV\", \"default\")."
+                "description": "Notebook env var this train param maps to (issue #105) — the app bakes the user's value into the downloaded notebook by replacing the default in os.environ.get(\"ENV\", \"default\")."
               }
             }
           }
@@ -520,6 +520,64 @@
         },
         "adapterOptions": {
           "type": "object"
+        },
+        "multiWord": {
+          "type": "boolean",
+          "description": "Multi-wake-word capability (ADR-039 §4.5): true -> the module trains ONE model for many wake words and the canonical input is wakePhrases (array); false -> single-phrase (wakePhrase)."
+        },
+        "formats": {
+          "type": "object",
+          "description": "Selectable output formats (ADR-039 §4.6); the canonical upstream-native artifact is always kept, others are derived.",
+          "properties": {
+            "default": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "quantization": {
+          "type": "object",
+          "description": "Selectable quantization schemes (ADR-039 §4.6).",
+          "properties": {
+            "default": {
+              "type": "string"
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "convert": {
+          "type": "object",
+          "description": "Module-owned convert script (ADR-039 §4.6): callable at train time AND standalone on an already-trained canonical model.",
+          "properties": {
+            "entry": {
+              "type": "string"
+            },
+            "from": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "to": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },
