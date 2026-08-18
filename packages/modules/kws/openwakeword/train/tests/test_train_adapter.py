@@ -143,6 +143,8 @@ def test_end_to_end_adapter(tmp_path):
     assert metadata["moduleId"] == "kws-openwakeword"
     assert metadata["params"]["wakePhrase"] == "hey studio"
     assert metadata["backend"] == "colab"
+    assert metadata["labels"] == ["hey studio"], "metadata.labels is the ADR-039 label list"
+    assert json.loads((bundle / "labels.json").read_text()) == ["hey studio"]
     provenance = json.loads((bundle / "provenance.json").read_text())
     assert provenance["license"] == "user-owned"
 
@@ -152,6 +154,7 @@ def test_end_to_end_adapter(tmp_path):
     with zipfile.ZipFile(zip_path) as zf:
         names = zf.namelist()
     assert any(n.endswith("model.onnx") for n in names)
+    assert any(n.endswith("labels.json") for n in names)
     assert any(n.endswith("metadata.json") for n in names)
 
 

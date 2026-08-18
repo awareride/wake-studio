@@ -385,6 +385,18 @@ def build_bundle(
         if p.is_file():
             shutil.copy(p, bundle_dir / name)
 
+    # Standard ordered label list (ADR-039 §4.5): upstream labels.txt (one
+    # label per line, class-index order) becomes the standard labels.json.
+    labels: list[str] = []
+    labels_txt = train_dir / "labels.txt"
+    if labels_txt.is_file():
+        labels = [
+            ln.strip() for ln in labels_txt.read_text(encoding="utf-8").splitlines()
+            if ln.strip()
+        ]
+    if labels:
+        (bundle_dir / "labels.json").write_text(json.dumps(labels), encoding="utf-8")
+
     metrics = parse_metrics(train_dir, log_text)
     metrics["training_steps"] = params["howManyTrainingSteps"]
     (bundle_dir / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
@@ -403,6 +415,7 @@ def build_bundle(
             "trainingSteps": params["howManyTrainingSteps"],
             "learningRate": params["learningRate"],
         },
+        "labels": labels or None,
         "trainedAtMs": int(time.time() * 1000),
     }
     (bundle_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
@@ -435,8 +448,9 @@ def build_bundle(
 
     zip_path = bundle_dir / "wake-studio-results.zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for name in ("model.tflite", "labels.txt", "flags.json", "metrics.json",
-                     "metadata.json", "provenance.json", "config.json"):
+        for name in ("model.tflite", "labels.txt", "labels.json", "flags.json",
+                     "metrics.json", "metadata.json", "provenance.json",
+                     "config.json"):
             p = bundle_dir / name
             if p.is_file():
                 zf.write(p, arcname=f"{params['jobId']}/{name}")

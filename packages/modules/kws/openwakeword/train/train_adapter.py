@@ -213,6 +213,10 @@ def build_bundle(
     if params["quantize"] and tflite_path.is_file():
         shutil.copy(tflite_path, bundle_dir / "model.tflite")
 
+    # Standard ordered label list (ADR-039 §4.5): single-phrase classifier.
+    labels = [params["wakePhrase"]]
+    (bundle_dir / "labels.json").write_text(json.dumps(labels), encoding="utf-8")
+
     metrics = parse_metrics(log_text)
     metrics["steps"] = params["steps"]
     metrics["epochs"] = params["steps"]  # upstream trains for `steps` optimizer steps
@@ -230,6 +234,7 @@ def build_bundle(
             "augment": str(params["augment"]).lower(),
             "quantize": str(params["quantize"]).lower(),
         },
+        "labels": labels,
         "trainedAtMs": int(time.time() * 1000),
     }
     (bundle_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
@@ -263,8 +268,8 @@ def build_bundle(
 
     zip_path = bundle_dir / "wake-studio-results.zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for name in ("model.onnx", "model.tflite", "metrics.json", "metadata.json",
-                     "provenance.json", "config.json"):
+        for name in ("model.onnx", "model.tflite", "labels.json", "metrics.json",
+                     "metadata.json", "provenance.json", "config.json"):
             p = bundle_dir / name
             if p.is_file():
                 zf.write(p, arcname=f"{params['jobId']}/{name}")

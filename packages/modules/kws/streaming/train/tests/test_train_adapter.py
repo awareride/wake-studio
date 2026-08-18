@@ -210,6 +210,8 @@ def test_end_to_end_adapter(tmp_path):
     assert (bundle / "flags.json").is_file()
     labels = (bundle / "labels.txt").read_text().splitlines()
     assert labels == ["_silence_", "_unknown_", "yes"]
+    assert json.loads((bundle / "labels.json").read_text()) == ["_silence_", "_unknown_", "yes"], \
+        "labels.json is the standard ADR-039 label list (from upstream labels.txt)"
 
     metrics = json.loads((bundle / "metrics.json").read_text())
     assert metrics["streaming_accuracy_reset0"] == 0.98
@@ -219,6 +221,7 @@ def test_end_to_end_adapter(tmp_path):
     assert metadata["moduleId"] == "kws-streaming"
     assert metadata["params"]["model"] == "ds_tc_resnet"
     assert metadata["backend"] == "self-hosted"
+    assert metadata["labels"] == ["_silence_", "_unknown_", "yes"]
 
     provenance = json.loads((bundle / "provenance.json").read_text())
     assert provenance["license"] == "user-owned"
@@ -226,6 +229,7 @@ def test_end_to_end_adapter(tmp_path):
     with zipfile.ZipFile(zip_path) as zf:
         names = zf.namelist()
     assert any(n.endswith("model.tflite") for n in names)
+    assert any(n.endswith("labels.json") for n in names)
     assert any(n.endswith("metadata.json") for n in names)
 
 
