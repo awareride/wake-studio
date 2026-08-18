@@ -73,23 +73,29 @@ exports stay consistent (ADR-021). A single op-struct + handle:
 /* core/include/wake/kws_backend.h */
 typedef struct wake_kws_backend wake_kws_backend_t;   /* opaque handle */
 
-typedef struct wake_kws_ops {
+typedef struct wake_kws_backend_ops {
     const char *id;                                    /* 'microwakeword' | 'plixkws' | ... */
     const char *label;
-    /* Load the backend's models. Returns 0 on success. */
-    int (*load)(wake_kws_backend_t *self, const wake_model_urls_t *urls,
+    void *(*create)(const wake_kws_config_t *cfg);     /* instance factory */
+    void (*destroy)(void *impl);
+    /* Load the backend's models from the bundle dir. Returns 0 on success. */
+    int (*load)(void *impl, const wake_model_bundle_t *models,
                 const wake_kws_config_t *cfg);
     /* Process one AFE frame (160 samples / 10 ms @ 16 kHz). Returns raw
        posterior [0,1], or -1 during warmup. */
-    float (*process_frame)(wake_kws_backend_t *self, const int16_t *samples);
-    void (*reset)(wake_kws_backend_t *self);
-    void (*dispose)(wake_kws_backend_t *self);
-} wake_kws_ops_t;
+    float (*process_frame)(void *impl, const int16_t *samples, size_t n);
+    void (*reset)(void *impl);
+} wake_kws_backend_ops_t;
 
-/* A backend instance is created by its module's registration entry. */
-int wake_register_kws_backend(wake_sdk_t *sdk, const wake_kws_ops_t *ops,
-                              void *(*create)(const wake_kws_config_t *cfg));
+/* A backend is registered by the composition root, one line per module. */
+int wake_sdk_register_kws_backend(wake_sdk_t *sdk,
+                                  const wake_kws_backend_ops_t *ops);
 ```
+
+On device, models are **files** in a bundle directory
+(`wake_model_bundle_t.model_dir` — the driver reads the names it declared),
+not URLs; the bundle generator (#189) emits the model files next to the
+config.
 
 The generic **detection loop lives in the core** (never in a module): VAD gate →
 smoothed score (sliding-window max) → threshold + min-duration → cooldown —

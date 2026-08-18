@@ -1,6 +1,8 @@
 # SDK core — target-agnostic C++17 with a strict C ABI (ADR-040 §1).
 add_library(wake_sdk_core STATIC
   src/sdk.cxx
+  src/registry.cxx
+  src/detection.cxx
 )
 target_include_directories(wake_sdk_core
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include

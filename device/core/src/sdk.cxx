@@ -1,21 +1,19 @@
 /*
- * sdk.cxx — wake_sdk_t lifecycle (scaffold).
+ * sdk.cxx — wake_sdk_t lifecycle (ADR-021).
  *
- * The registry (KWS backends + AFE stages), capabilities, and the detection
- * loop land in the core milestones (#180/#181); this translation unit only
- * owns the handle.
+ * The instance owns the registries (KWS backends + AFE stages) and the
+ * pipeline config; the composition root (ADR-040 §3) registers modules into
+ * it after create().
  */
 #include "wake/sdk.h"
 
 #include <cstdlib>
 #include <new>
 
-struct wake_sdk {
-  wake_sdk_config_t config;
-};
+#include "internal.h"
 
 wake_sdk_t *wake_sdk_create(const wake_sdk_config_t *config) {
-  void *mem = std::malloc(sizeof(wake_sdk));
+  void *mem = std::calloc(1, sizeof(wake_sdk));
   if (mem == nullptr) {
     return nullptr;
   }

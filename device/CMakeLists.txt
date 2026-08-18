@@ -14,6 +14,9 @@ project(wake-studio-sdk LANGUAGES C CXX)
 
 include(cmake/sdk-options.cmake)
 
+# Repository root (for third_party includes and module device/ paths).
+set(WAKE_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
+
 # --- core (target-agnostic) ------------------------------------------------
 add_subdirectory(core)
 
