@@ -76,12 +76,16 @@ describe('trainPanelSpec', () => {
       name: 'OpenWakeWord',
       category: 'kws',
       license: 'Apache-2.0',
-      formats: { default: ['onnx'], options: ['onnx', 'tflite-int8'] },
+      formats: { default: ['onnx', 'tflite-int8'], options: ['onnx', 'tflite-int8'] },
       quantization: { default: 'int8-static', options: ['none', 'int8-static'] },
     })
     const formats = spec.params.find((p) => p.id === 'formats')
     const quant = spec.params.find((p) => p.id === 'quantization')
-    expect(formats).toMatchObject({ type: 'select', default: 'onnx', options: ['onnx', 'tflite-int8'] })
+    expect(formats).toMatchObject({
+      type: 'multiselect',
+      default: 'onnx,tflite-int8',
+      options: ['onnx', 'tflite-int8'],
+    })
     expect(quant).toMatchObject({ type: 'select', default: 'int8-static', options: ['none', 'int8-static'] })
     expect(spec.params.map((p) => p.id)).toEqual(['formats', 'quantization'])
   })

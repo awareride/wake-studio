@@ -45,10 +45,10 @@ export function trainPanelSpec(module: TrainableModuleLike): TrainPanelSpec {
       id: 'formats',
       label: 'Output format(s)',
       group: 'primary',
-      type: 'select',
-      default: module.formats.default?.[0] ?? module.formats.options[0],
+      type: 'multiselect',
+      default: (module.formats.default ?? []).join(','),
       options: module.formats.options,
-      description: 'Target model format(s) to derive from the canonical artifact (ADR-039 §4.6).',
+      description: 'Target model format(s) to derive from the canonical artifact; pick several to zip them all (ADR-039 §4.6).',
     })
   }
   if (module.quantization?.options?.length) {

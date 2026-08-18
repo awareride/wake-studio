@@ -9,7 +9,7 @@
  */
 
 /** Param control kinds (ADR-017 leaf; panel generator maps 1:1). */
-export type ParamType = 'number' | 'boolean' | 'select' | 'enum' | 'slider' | 'secret' | 'string'
+export type ParamType = 'number' | 'boolean' | 'select' | 'enum' | 'slider' | 'secret' | 'string' | 'multiselect'
 
 export interface ParamValidation {
   required?: boolean

@@ -8,7 +8,7 @@
  */
 
 import type { ModuleParam, ModuleAction } from '@wake-studio/contracts'
-import { UiSlider, UiNumber, UiSelect, UiToggle, UiParamRow } from './controls'
+import { UiSlider, UiNumber, UiSelect, UiToggle, UiMultiselect, UiParamRow } from './controls'
 
 export interface ParamControlProps {
   param: ModuleParam
@@ -78,6 +78,19 @@ export function renderParamControl({ param, value, onChange, disabled }: ParamCo
       const options = normalizeSelectOptions(param.options)
       return (
         <UiSelect
+          value={typeof value === 'string' ? value : String(param.default ?? '')}
+          options={options}
+          onChange={(v) => onChange(v)}
+          disabled={disabled}
+        />
+      )
+    }
+    case 'multiselect': {
+      // Comma-joined string value ("a,b") so the job-params contract stays
+      // string-valued end-to-end (ADR-039 §4.6 formats selector).
+      const options = normalizeSelectOptions(param.options)
+      return (
+        <UiMultiselect
           value={typeof value === 'string' ? value : String(param.default ?? '')}
           options={options}
           onChange={(v) => onChange(v)}

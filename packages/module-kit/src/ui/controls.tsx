@@ -148,6 +148,59 @@ export function UiSelect({ value, options, onChange, disabled, placeholder = 'Se
 }
 
 // ---------------------------------------------------------------------------
+// Multiselect (param type: multiselect)
+// ---------------------------------------------------------------------------
+
+/** A toggle-chip group for a param type: multiselect (ADR-039 §4.6).
+ *  The value is a comma-joined string ("onnx,tflite-int8") so the job-params
+ *  contract stays string-valued across the wizard, registry and adapters. */
+export function UiMultiselect({
+  value,
+  options,
+  onChange,
+  disabled,
+}: {
+  value: string
+  options: ReadonlyArray<UiSelectOption>
+  onChange: (value: string) => void
+  disabled?: boolean
+}) {
+  const selected = new Set(value ? value.split(',').map((s) => s.trim()).filter(Boolean) : [])
+  const toggle = (v: string) => {
+    const next = new Set(selected)
+    if (next.has(v)) next.delete(v)
+    else next.add(v)
+    onChange([...next].join(','))
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((opt) => {
+        const on = selected.has(opt.value)
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            aria-pressed={on}
+            disabled={disabled}
+            onClick={() => toggle(opt.value)}
+            className={cn(
+              'rounded-full border px-2.5 py-1 text-xs transition-colors',
+              on
+                ? 'border-brand-9 bg-brand-9/15 text-brand-11'
+                : 'border-line bg-surface-3 text-ink-2 hover:border-ink-4',
+              disabled && 'opacity-40',
+            )}
+          >
+            {on ? '✓ ' : ''}
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Toggle (param type: boolean)
 // ---------------------------------------------------------------------------
 

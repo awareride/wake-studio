@@ -105,7 +105,8 @@
               "enum",
               "slider",
               "secret",
-              "string"
+              "string",
+              "multiselect"
             ]
           },
           "default": {},
