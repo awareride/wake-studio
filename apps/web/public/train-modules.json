@@ -149,6 +149,15 @@
             "none",
             "int8-static"
           ]
+        },
+        "convert": {
+          "entry": "train/convert.py",
+          "from": [
+            "onnx"
+          ],
+          "to": [
+            "onnx-fp16"
+          ]
         }
       }
     },
@@ -340,6 +349,15 @@
           "default": "none",
           "options": [
             "none"
+          ]
+        },
+        "convert": {
+          "entry": "train/convert.py",
+          "from": [
+            "tflite"
+          ],
+          "to": [
+            "onnx"
           ]
         }
       }

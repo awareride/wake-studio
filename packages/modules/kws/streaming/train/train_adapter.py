@@ -372,8 +372,16 @@ def build_bundle(
     sources: list[dict[str, Any]],
     log_text: str,
     reporter: Reporter,
+    data_dir: str | None = None,
 ) -> Path:
-    """Normalize the upstream run dir into the standard bundle (§6) and zip it."""
+    """Normalize the upstream run dir into the standard bundle (§6) and zip it.
+
+    ``data_dir`` (when available) is the prepared ``label/*.wav`` tree: used
+    to snapshot a tiny ``calibration/`` set (ADR-039 §4.6/§6) and, when the
+    requested formats include onnx, to attempt a train-time tflite→onnx derive
+    (opportunistic — tf2onnx lives in the CI convert stage, not the train env,
+    so a missing toolchain logs and ships the canonical tflite only).
+    """
     model_src = train_dir / "tflite_stream_state_external" / "stream_state_external.tflite"
     if not model_src.is_file():
         raise FileNotFoundError(
@@ -384,6 +392,25 @@ def build_bundle(
     bundle_dir = Path(out_root) / params["jobId"]
     bundle_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy(model_src, bundle_dir / "model.tflite")
+    shipped = ["tflite"]
+
+    # ADR-039 §4.6: train-time onnx derive (opportunistic). tf2onnx is a
+    # convert-stage tool, not a train-env dep, so a missing toolchain is not
+    # fatal — the standalone convert.py covers the full derive.
+    requested = [f.strip() for f in params["formats"].split(",") if f.strip()]
+    if "onnx" in requested:
+        try:
+            from wake_train_kit.convert import tflite_to_onnx
+
+            tflite_to_onnx(bundle_dir / "model.tflite", bundle_dir / "model.onnx")
+            shipped.append("onnx")
+            reporter.emit("log", level="info", message="derived model.onnx (tflite→onnx)")
+        except Exception as exc:  # noqa: BLE001 - toolchain missing/failed
+            reporter.emit(
+                "log", level="info",
+                message=f"train-time onnx derive skipped: {exc}",
+            )
+
     for name in ("labels.txt", "flags.json"):
         p = train_dir / name
         if p.is_file():
@@ -420,11 +447,12 @@ def build_bundle(
             "learningRate": params["learningRate"],
         },
         # ADR-039 §4.6: requested formats vs shipped. The derived .onnx for the
-        # browser lands with the module-owned convert stage (#177).
+        # browser is attempted at train time (opportunistic; see build_bundle)
+        # and always available via the module-owned convert stage (#177).
         "formats": {
             "requested": [f.strip() for f in params["formats"].split(",") if f.strip()]
             or ["tflite"],
-            "shipped": ["tflite"],
+            "shipped": shipped,
         },
         "labels": labels or None,
         "trainedAtMs": int(time.time() * 1000),
@@ -457,14 +485,30 @@ def build_bundle(
     }
     (bundle_dir / "config.json").write_text(json.dumps(config_snapshot, indent=2), encoding="utf-8")
 
+    # ADR-039 §6: tiny calibration/ set for later standalone int8 PTQ. Snapshotted
+    # from the prepared label/*.wav tree (best-effort; skipped when absent).
+    calibration: list[Path] = []
+    if data_dir:
+        try:
+            from wake_train_kit.convert import snapshot_calibration
+
+            wavs = sorted(Path(data_dir).rglob("*.wav"))
+            calibration = snapshot_calibration(
+                wavs, bundle_dir / "calibration", max_seconds=30.0, sample_rate=16000
+            )
+        except Exception as exc:  # noqa: BLE001
+            reporter.emit("log", level="info", message=f"calibration snapshot skipped: {exc}")
+
     zip_path = bundle_dir / "wake-studio-results.zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for name in ("model.tflite", "labels.txt", "labels.json", "flags.json",
-                     "metrics.json", "metadata.json", "provenance.json",
-                     "config.json"):
+        for name in ("model.tflite", "model.onnx", "labels.txt", "labels.json",
+                     "flags.json", "metrics.json", "metadata.json",
+                     "provenance.json", "config.json"):
             p = bundle_dir / name
             if p.is_file():
                 zf.write(p, arcname=f"{params['jobId']}/{name}")
+        for cal in calibration:
+            zf.write(cal, arcname=f"{params['jobId']}/calibration/{cal.name}")
     reporter.emit("log", level="info", message=f"bundle ready: {zip_path}")
     return zip_path
 
@@ -625,6 +669,7 @@ def main(argv: list[str] | None = None) -> int:
         bundle_zip = build_bundle(
             params, wanted, train_dir, out_root, sources,
             "\n".join(log_lines), reporter,
+            data_dir=data_dir,
         )
     except Exception as exc:  # noqa: BLE001
         reporter.emit("error", message=f"bundle error: {exc}")

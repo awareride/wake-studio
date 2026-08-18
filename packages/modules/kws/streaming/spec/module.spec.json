@@ -298,6 +298,15 @@
       "options": [
         "none"
       ]
+    },
+    "convert": {
+      "entry": "train/convert.py",
+      "from": [
+        "tflite"
+      ],
+      "to": [
+        "onnx"
+      ]
     }
   },
   "build": {
