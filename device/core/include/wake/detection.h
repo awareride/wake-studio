@@ -30,6 +30,9 @@ float wake_score_smoother_push(wake_score_smoother_t *s, float raw_score);
 /** Whether the buffer has been fully filled at least once. */
 int wake_score_smoother_warmed(const wake_score_smoother_t *s);
 
+/** Current max over the window without pushing (for VAD-gated frames). */
+float wake_score_smoother_peek(const wake_score_smoother_t *s);
+
 /** Reset the buffer. */
 void wake_score_smoother_reset(wake_score_smoother_t *s);
 

@@ -237,9 +237,18 @@ audio in → [adapter: capture] → [core: AFE graph 16 kHz, 10 ms frames]
 
 - Capture is adapter-owned (PCM16 frames at the device rate); the core
   resamples to 16 kHz at the AFE boundary (sample-rate support is a capability).
-- The detection loop emits score/trigger events the same shape as the browser
-  `KWSScoreSample` / `KWSTriggerEvent` (capturedAtMs, rawScore, smoothedScore,
-  triggered, vadProbability).
+- The per-pipeline runtime is `wake_pipeline_t` (core): it builds the AFE
+  graph from the registered stages (ADR-001 order), creates the named
+  backend, and wires smoothing → VAD gate → threshold + min-duration →
+  cooldown (`wake/detection.h`, port of `logic.ts`).
+- The loop emits score/trigger events the same shape as the browser
+  `KWSScoreSample` / `KWSTriggerEvent` (`wake_score_sample_t` /
+  `wake_trigger_event_t`: capturedAtMs, rawScore, smoothedScore, triggered,
+  vadProbability). VAD-gated frames skip inference and do not push into the
+  smoother window (max-pooling keeps the recent peak, browser parity).
+- The host CLI demo (`device/tools/wake-sdk-demo`, `wake-sdk-demo input.wav`)
+  drives this path end-to-end on the dev host: wav → AFE → RMS reference
+  backend → trigger print (exit 0 on trigger, 1 otherwise).
 
 ## 7. Error model & failure modes
 
@@ -268,11 +277,15 @@ target — this is the hard acceptance for #41.
 
 ## 10. Testing strategy (ADR-026 applied to the device world)
 
-- **L1 unit tests per module** (native build): e.g. RNNoise NS on a synthetic
-  16 kHz clip; microwakeword with a tiny int8 model.
-- **Composition-root integration test** (native harness, macOS/Linux): assemble
-  core + selected AFE stages + one backend, feed a wav, assert a trigger — the
-  L2-style boot test for device; runs on the developer's host, zero hardware.
+- **L1 unit tests per module** (native build): detection loop port fidelity,
+  backend/stage registries, AFE graph, RNNoise NS/VAD (silence vs loud-signal
+  VAD ordering), WAV reader.
+- **Composition-root integration test** (native harness, macOS/Linux):
+  assemble core + AFE stages (aec/bss/ns) + the RMS reference backend, feed
+  a tone wav, assert a trigger — the L2-style boot test for device; runs on
+  the developer's host, zero hardware. Tested in CI (`ctest`).
+- **CLI demo smoke** (CI): `wake-sdk-demo` on a generated tone wav exits 0
+  (trigger) and on silence exits 1 (no trigger).
 - **Cross-compile builds** (Cortex-M `arm-none-eabi`) in CI: build + link +
   unit tests, no hardware required.
 - **On-hardware validation**: final acceptance for golden paths only (Cortex-M

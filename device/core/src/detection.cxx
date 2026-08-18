@@ -63,6 +63,16 @@ int wake_score_smoother_warmed(const wake_score_smoother_t *s) {
   return s->filled;
 }
 
+float wake_score_smoother_peek(const wake_score_smoother_t *s) {
+  float max = s->buffer[0];
+  for (unsigned i = 1; i < s->window_size; ++i) {
+    if (s->buffer[i] > max) {
+      max = s->buffer[i];
+    }
+  }
+  return max;
+}
+
 void wake_score_smoother_reset(wake_score_smoother_t *s) {
   for (unsigned i = 0; i < s->window_size; ++i) {
     s->buffer[i] = 0.0f;

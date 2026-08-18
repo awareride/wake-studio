@@ -37,3 +37,18 @@ jobs:
 
       - name: Run tests (L1 + composition-root, ADR-026)
         run: ctest --test-dir build --output-on-failure
+
+      - name: CLI demo smoke (tone triggers, silence does not)
+        if: ${{ matrix.profile == 'app' && matrix.cc == 'gcc' }}
+        run: |
+          python3 - <<'PY'
+          import math, struct, wave
+          with wave.open('tone.wav','w') as w:
+              w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+              w.writeframes(b''.join(struct.pack('<h', int(0.3*32767*math.sin(2*math.pi*440*t/16000))) for t in range(16000*3)))
+          with wave.open('silence.wav','w') as w:
+              w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+              w.writeframes(b'\x00\x00'*(16000*2))
+          PY
+          ./build/tools/wake-sdk-demo/wake-sdk-demo tone.wav && echo "tone triggered: OK"
+          ! ./build/tools/wake-sdk-demo/wake-sdk-demo silence.wav && echo "silence stayed quiet: OK"

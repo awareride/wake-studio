@@ -43,6 +43,9 @@ add_subdirectory(
 # --- target adapters --------------------------------------------------------
 add_subdirectory(adapters)
 
+# --- tools -------------------------------------------------------------------
+add_subdirectory(tools)
+
 # --- tests (L1 unit + composition-root integration, ADR-026) ---------------
 enable_testing()
 add_subdirectory(tests)
