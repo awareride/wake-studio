@@ -286,25 +286,37 @@ user-set in the Settings panel security section (issue #52), client-side only
 
 The import half of the loop lives in `packages/modules/training/`:
 
-- **`core/manifest.ts` → `importColabBundle(file)`** — the single client-side
-  importer. It unzips the picked `wake-studio-results.zip` (via `fflate`, no
-  server), matches files by basename (the zip prefixes entries with the job
-  id), parses `metadata.json` + `provenance.json`, and returns an
+- **`core/manifest.ts` → `importColabBundle(file)`** (aliased as
+  `importResultBundle`) — the single client-side importer serving **every
+  backend** (ADR-013 §6). It unzips the picked `wake-studio-results.zip` (via
+  `fflate`, no server), matches files by basename (the zip prefixes entries
+  with the job id), parses `metadata.json` + `provenance.json`, and returns an
   `ArtifactBundle`. On any invalid/missing part it throws a typed
   `BundleImportError` with a stable `code` (`missing-metadata`,
   `missing-provenance`, `invalid-metadata`, `invalid-provenance`,
   `missing-model`, `no-zip`, `empty-zip`) so the UI shows a precise message.
 - **Validation** — `validateBundle` checks a non-empty job id, a metadata
-  block with a known backend, and a provenance block carrying a license (the
-  Phase 4 export-gate input). The Colab flow additionally requires
-  `backend === 'colab'` and a model file (`hasBundleModel`).
-- **Registration** (app layer, `apps/web/src/training/`) — on success the
-  model binary is saved into the user model library under the `classifier`
-  role (the existing KWS load path, ADR-024, consumes it for in-browser
-  test), and a `train` provisioning artifact (ADR-033) persists the bundle
-  metadata + provenance for the Phase 4 export gate. The app-level KWS
+  block with a known backend (`colab` | `self-hosted` | `cloud`), and a
+  provenance block carrying a license (the Phase 4 export-gate input). The
+  importer accepts **any** of the three known backends plus a model file
+  (`hasBundleModel`), so studio-backend and cloud bundles import through the
+  exact same code path as Colab ones.
+- **Registration** (app layer, `apps/web/src/training/colab-import.ts`) — on
+  success the model binary is saved into the user model library under the
+  `classifier` role (the existing KWS load path, ADR-024, consumes it for
+  in-browser test), and a `train` provisioning artifact (ADR-033) persists the
+  bundle metadata + provenance for the Phase 4 export gate. The app-level KWS
   model-source default for the classifier role is updated to point at the
   imported model, so the next Load in the KWS panel tests it immediately.
+- **Auto pull + import for tracked jobs (issue #159)** — a job submitted to a
+  studio-backend or Colab-tunnel endpoint is tracked live (§7.3). When it
+  reaches `succeeded` and the backend lists a results zip in its artifacts
+  (`GET /artifacts/{job}/{name}`, §3), the console **fetches the zip and
+  imports it automatically** via the same importer + registration path — no
+  download-then-upload round trip. Runs once per job; the train details
+  (Results section) also offers an explicit **Import** button (retries +
+  already-finished-on-load jobs) and a **Download** button that saves the raw
+  results zip to disk.
 - **UI** — the PWA's new **Training** view hosts the training module's
   spec-driven panel plus the "Import Colab results" section (zip picker,
   clear errors, success summary).
@@ -436,3 +448,4 @@ for every provider. Capability labels: train-capable vs inference-only.
 | 2026-08-14 | **Backends panel v2 (Trains-style) + kind auto-detection:** the Backends view mirrors the Training console layout (toolbar `New` + `Free On Google Colab`, left rail + details pane). **Kind is detected from the API** — the service reports `instance` in `/health` (`wake-service --instance short-term`; the Colab launcher always starts `short-term`), and the health check updates the badge; the manual kind field is gone. `New` takes endpoint URL + access token only. `Free On Google Colab` generates a standalone studio-backend notebook client-side (review + download; run in Colab, paste URL + token). | agent |
 | 2026-08-14 | **kws-streaming train adapter + data-source layer (#152):** `packages/modules/kws/streaming/train/train_adapter.py` runs the unpatched upstream `kws_streaming` trainer and normalizes into the standard bundle; `wake_train_kit/data_sources.py` adds Speech Commands V2 (CC BY 4.0), user-URL archives, and multi-language edge-tts synthesis; registry entry + fake-upstream tests. | agent |
 | 2026-08-17 | **Mixed data sources (#158):** kws-streaming `dataSource=mixed` merges TTS positives (wake word) with real-speech unknowns + real noise (SC2 / user-url / none) via `merge_label_trees` — collision-safe, per-source provenance into `provenance.json`. | agent |
+| 2026-08-18 | **§7.1 importer accepts all backends + auto pull & import (#159):** `importColabBundle` (aliased `importResultBundle`) now accepts `colab` | `self-hosted` | `cloud` bundles — the real studio-backend run's zip imports cleanly (was colab-only). Tracked jobs auto-pull their results when they succeed (`GET /artifacts/{job}/{name}`, one importer + registration path), persist `resultArtifact` on the job for post-refresh fallback, gain a manual **Pull results & import** button, and `HistoryJob`/registration read the kws-streaming `wakePhrases` key so the phrase shows for studio-backend trains. | agent |

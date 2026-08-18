@@ -14,7 +14,7 @@
  * metrics, logs, checkpoint, artifacts and lifecycle actions.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@radix-ui/themes'
 import {
   backendToMethod,
@@ -22,9 +22,11 @@ import {
   type HistoryJob,
 } from '@wake-studio/module-training'
 import { cn } from '../../components/cn'
+import { IconSpinner } from '../../components/icons'
 import { useAppSettings } from '../../settings'
 import { ImportColabResults } from '../ImportColabResults'
 import type { ColabImportResult } from '../colab-import'
+import { pullAndImportBundle } from '../colab-import'
 import { findTrainableModule, type TrainableModule } from '../train-modules'
 import { isActiveStatus, useStudioJob } from '../useStudioJob'
 import { studioJobPatch, type StudioJobPatch } from '../studio-client'
@@ -47,6 +49,8 @@ export interface TrainDetailsProps {
   onRetry: () => void
   /** Merge live studio-backend state into the recorded job (issue #122). */
   onLiveUpdate: (patch: StudioJobPatch) => void
+  /** Auto-pull + import of a finished tracked job's results (issue #159). */
+  onAutoImported: (jobId: string, result: ColabImportResult) => void
   /** Delete this train from history (confirmed by the details pane). */
   onDelete: () => void
 }
@@ -64,6 +68,7 @@ export function TrainDetails({
   onConnectColab,
   onRetry,
   onLiveUpdate,
+  onAutoImported,
   onDelete,
 }: TrainDetailsProps) {
   const { platform, backends } = useAppSettings()
@@ -75,16 +80,21 @@ export function TrainDetails({
   const file = module ? trainInputFile(module, isColab ? 'colab' : job.method) : null
   const messages = deriveMessages(job)
 
-  // Live tracking: only while the job is active on an endpoint.
+  // Live tracking (issue #122): while the job is active, AND while it has
+  // finished but not yet been imported — the backend /stream sends a snapshot
+  // of current jobs on connect, so an already-finished job still reports its
+  // artifacts and can be auto-pulled + imported (issue #159). Once imported,
+  // the track stops.
   const managedBackend = job.backendId ? backends.find((b) => b.id === job.backendId) : undefined
   const token =
     managedBackend?.token || platform['backend.apiKey'] || platform['backend.secret'] || undefined
   const tracked = !!job.endpoint
+  const trackForPull = job.status === 'succeeded' && !job.artifactRef
   const { live, mode, error: liveError, actions } = useStudioJob({
     jobId: tracked ? job.id : undefined,
     endpoint: tracked ? job.endpoint : undefined,
     token,
-    enabled: tracked && isActiveStatus(job.status),
+    enabled: tracked && (isActiveStatus(job.status) || trackForPull),
   })
 
   // Push live backend state into the recorded job (guarded against
@@ -98,10 +108,90 @@ export function TrainDetails({
       patch.error === job.error &&
       patch.finishedAtMs === job.finishedAtMs &&
       patch.checkpoint === job.checkpoint &&
+      patch.resultArtifact === job.resultArtifact &&
       JSON.stringify(patch.metrics) === JSON.stringify(job.metrics ?? {}) &&
       JSON.stringify(patch.logTail) === JSON.stringify(job.logTail ?? [])
     if (!same) onLiveUpdate(patch)
   }, [live, job, onLiveUpdate])
+
+  // Auto-pull + import (issue #159): once a tracked job finishes successfully
+  // and the backend published the results zip, fetch it and register the
+  // trained model — no manual download-then-upload round trip. Runs exactly
+  // once per job (guarded by a ref set), and the manual button below retries
+  // after a failure or when the job was already finished on load.
+  const [pulling, setPulling] = useState(false)
+  const [pullError, setPullError] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
+  const pullingRef = useRef(false)
+  const autoImportStartedRef = useRef<Set<string>>(new Set())
+  const resultZipName = useMemo(() => {
+    const names = live?.artifacts ?? []
+    if (names.includes('wake-studio-results.zip')) return 'wake-studio-results.zip'
+    return (
+      names.find((n) => n.toLowerCase().endsWith('.zip')) ??
+      job.resultArtifact
+    )
+  }, [live, job.resultArtifact])
+
+  const doPull = useCallback(async () => {
+    if (!tracked || !resultZipName || pullingRef.current) return
+    pullingRef.current = true
+    autoImportStartedRef.current.add(job.id)
+    setPulling(true)
+    setPullError(null)
+    try {
+      const result = await pullAndImportBundle(
+        actions.artifactUrl(job.id, resultZipName),
+      )
+      onAutoImported(job.id, result)
+    } catch (err) {
+      setPullError(err instanceof Error ? err.message : String(err))
+      // Allow a retry from the manual button.
+      autoImportStartedRef.current.delete(job.id)
+    } finally {
+      pullingRef.current = false
+      setPulling(false)
+    }
+  }, [tracked, resultZipName, job.id, actions, onAutoImported])
+
+  // Save the raw results zip to disk. A plain cross-origin <a download> is
+  // ignored by browsers, so fetch the bytes and download via a blob URL
+  // (the artifact endpoint is a read/open route, ADR-036 §5).
+  const downloadArtifact = useCallback(async () => {
+    if (!tracked || !resultZipName || downloading) return
+    setDownloading(true)
+    try {
+      const res = await fetch(actions.artifactUrl(job.id, resultZipName))
+      if (!res.ok) throw new Error(`Download failed (HTTP ${res.status}).`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = resultZipName
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setPullError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDownloading(false)
+    }
+  }, [tracked, resultZipName, downloading, job.id, actions])
+
+  useEffect(() => {
+    if (
+      !tracked ||
+      !resultZipName ||
+      live?.status !== 'succeeded' ||
+      job.artifactRef ||
+      pullingRef.current ||
+      autoImportStartedRef.current.has(job.id)
+    ) {
+      return
+    }
+    void doPull()
+  }, [tracked, resultZipName, live, job.id, job.artifactRef, doPull])
 
   // Full-panel notebook review, hash-driven (`#/training/review/<jobId>`,
   // issue #136): opening pushes an entry, browser back closes it. The hash
@@ -312,6 +402,64 @@ export function TrainDetails({
         <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Results</h4>
         {job.status === 'succeeded' ? (
           <>
+            {/* Auto-pull state + manual fallback for a finished tracked job
+                whose results are still on the backend (issue #159). */}
+            {tracked && resultZipName && (
+              <div className="mt-2 rounded-lg border border-brand-8/30 bg-brand-8/5 px-3 py-2 text-[11px] leading-relaxed text-ink-2">
+                {pulling ? (
+                  <span className="flex items-center gap-2">
+                    <IconSpinner className="h-3.5 w-3.5 text-brand-11" />
+                    Pulling {resultZipName} from the backend and importing the
+                    trained model…
+                  </span>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-ink-3">
+                        {resultZipName} is on the backend.
+                      </span>
+                      {!job.artifactRef && (
+                        <Button
+                          type="button"
+                          size="1"
+                          onClick={doPull}
+                          title="Fetch the results from the backend and register the trained model"
+                        >
+                          Import
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="1"
+                        variant="outline"
+                        onClick={downloadArtifact}
+                        disabled={downloading}
+                        title="Save the raw results zip to disk"
+                      >
+                        {downloading ? 'Downloading…' : 'Download'}
+                      </Button>
+                      {job.artifactRef && (
+                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-600">
+                          ✓ imported
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-[11px] text-ink-3">
+                      <span className="font-medium text-ink-2">Import</span>{' '}
+                      registers the trained model in your library (in-browser
+                      test + export);{' '}
+                      <span className="font-medium text-ink-2">Download</span>{' '}
+                      saves the raw zip.
+                    </p>
+                  </>
+                )}
+                {pullError && (
+                  <span className="mt-1 block text-danger">
+                    {pullError}
+                  </span>
+                )}
+              </div>
+            )}
             <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
               {typeof metrics.recall === 'number' && (
                 <div className="flex justify-between gap-3">

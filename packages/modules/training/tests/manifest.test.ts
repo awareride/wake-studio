@@ -4,6 +4,7 @@ import {
   validateBundle,
   hasBundleModel,
   importColabBundle,
+  importResultBundle,
   BundleImportError,
   BUNDLE_IMPORT_ERROR_MESSAGES,
 } from '../core/manifest'
@@ -173,9 +174,22 @@ describe('importColabBundle (the PWA Colab-results importer)', () => {
     await expect(importColabBundle(zip)).rejects.toMatchObject({ code: 'missing-provenance' })
   })
 
-  it('rejects metadata whose backend is not colab (invalid-metadata)', async () => {
+  it('imports a self-hosted (studio-backend) bundle too (one importer, all backends)', async () => {
     const zip = colabZip({ backend: 'self-hosted' })
+    const bundle = await importColabBundle(zip)
+    expect(bundle.files.metadata.backend).toBe('self-hosted')
+    expect(bundle.jobId).toBe('kws-openwakeword-123')
+  })
+
+  it('rejects metadata with an unknown backend (invalid-metadata)', async () => {
+    const zip = colabZip({ backend: 'quantum' })
     await expect(importColabBundle(zip)).rejects.toMatchObject({ code: 'invalid-metadata' })
+  })
+
+  it('importResultBundle is the same single importer (alias)', async () => {
+    const zip = colabZip({ backend: 'self-hosted' })
+    const bundle = await importResultBundle(zip)
+    expect(bundle.files.metadata.backend).toBe('self-hosted')
   })
 
   it('rejects metadata without a job id (invalid-metadata)', async () => {
