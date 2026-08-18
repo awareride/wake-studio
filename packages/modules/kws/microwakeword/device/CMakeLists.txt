@@ -1,12 +1,16 @@
-# Reference module device/ convention (ADR-040 §2 / CONTRIBUTING layout).
-#
-# Device code for a component lives INSIDE its module:
-#   packages/modules/<category>/<name>/device/{CMakeLists.txt,src,include}
-#
-# The driver itself lands with issue #185 (microwakeword + TFLite-Micro).
-# This INTERFACE target exists so the aggregation tree has a first module to
-# wire and the convention is visible.
-add_library(wake_kws_microwakeword INTERFACE)
-target_include_directories(wake_kws_microwakeword
-  INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+# microwakeword module — device target (ADR-021/040 §2, issue #185).
+
+# Optional TFLite-Micro runtime: -DWAKE_SDK_MICROWAKEWORD_HAS_RUNTIME=ON.
+# Default OFF — the driver module compiles and registers without it; load()
+# reports "runtime not linked" and process_frame() stays in warmup.
+option(WAKE_SDK_MICROWAKEWORD_HAS_RUNTIME "Link the TFLite-Micro runtime" OFF)
+
+add_library(wake_kws_microwakeword STATIC src/microwakeword_driver.c)
+target_link_libraries(wake_kws_microwakeword PUBLIC wake_sdk_core)
+
+if(WAKE_SDK_MICROWAKEWORD_HAS_RUNTIME)
+  target_compile_definitions(wake_kws_microwakeword
+    PRIVATE WAKE_SDK_MICROWAKEWORD_HAS_RUNTIME=1)
+  # TFLite-Micro sources land here (pinned third_party/tflite-micro) with the
+  # runtime integration; see README.
+endif()
