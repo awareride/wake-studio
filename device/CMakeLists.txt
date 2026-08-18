@@ -17,6 +17,11 @@ include(cmake/sdk-options.cmake)
 # Repository root (for third_party includes and module device/ paths).
 set(WAKE_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
+# Everything is PIC from the start: the shared binding library (Python
+# ctypes, #187) links every static lib, and Linux ld rejects non-PIC objects
+# in a .so (relocation against 'common'). Safe for static executables too.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # --- core (target-agnostic) ------------------------------------------------
 add_subdirectory(core)
 
@@ -53,7 +58,6 @@ if(NOT CMAKE_CROSSCOMPILING)
   # the composition root so wake_sdk_compose() is part of the public surface.
   # The core is force-loaded so the whole public API ships in the dylib (a
   # linker would otherwise only pull objects the anchor references).
-  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
   add_library(wake_sdk_shared SHARED composition/host_root.c)
   target_include_directories(wake_sdk_shared PUBLIC core/include)
   target_link_libraries(wake_sdk_shared PRIVATE

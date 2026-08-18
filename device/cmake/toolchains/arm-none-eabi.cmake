@@ -14,5 +14,7 @@ set(CMAKE_ASM_COMPILER arm-none-eabi-gcc)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
 # Cortex-M4 (STM32F4 family) baseline; the golden-path board lands later.
-set(CMAKE_C_FLAGS_INIT "-mcpu=cortex-m4 -mthumb -ffreestanding")
-set(CMAKE_CXX_FLAGS_INIT "-mcpu=cortex-m4 -mthumb -ffreestanding")
+# NOTE: no -ffreestanding here — it hides malloc/calloc/free in newlib's
+# stdlib.h (freestanding subset), which the core uses for its allocator seam.
+set(CMAKE_C_FLAGS_INIT "-mcpu=cortex-m4 -mthumb")
+set(CMAKE_CXX_FLAGS_INIT "-mcpu=cortex-m4 -mthumb")
