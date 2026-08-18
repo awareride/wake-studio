@@ -145,6 +145,8 @@ def test_end_to_end_adapter(tmp_path):
     assert metadata["backend"] == "colab"
     assert metadata["labels"] == ["hey studio"], "metadata.labels is the ADR-039 label list"
     assert json.loads((bundle / "labels.json").read_text()) == ["hey studio"]
+    assert metadata["formats"]["requested"] == ["onnx"], "requested formats (ADR-039 §4.6)"
+    assert metadata["formats"]["shipped"] == ["onnx"], "fake upstream produces only onnx"
     provenance = json.loads((bundle / "provenance.json").read_text())
     assert provenance["license"] == "user-owned"
 

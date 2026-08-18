@@ -283,6 +283,21 @@
       "modelRegex": "stream_state_external\\.tflite$",
       "labelsFile": "labels.txt",
       "flagsFile": "flags.json"
+    },
+    "formats": {
+      "default": [
+        "tflite"
+      ],
+      "options": [
+        "tflite",
+        "onnx"
+      ]
+    },
+    "quantization": {
+      "default": "none",
+      "options": [
+        "none"
+      ]
     }
   },
   "build": {

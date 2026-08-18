@@ -108,22 +108,29 @@
         "default": true,
         "description": "Background mixing + room impulse responses (notebook env WAKE_AUGMENT).",
         "env": "WAKE_AUGMENT"
-      },
-      {
-        "id": "quantize",
-        "label": "Quantize export",
-        "group": "advanced",
-        "type": "boolean",
-        "default": true,
-        "description": "Emit a TFLite model alongside the ONNX (best-effort, notebook env WAKE_QUANTIZE).",
-        "env": "WAKE_QUANTIZE"
       }
     ],
     "outputs": {
       "checkpoint": "out/model.onnx",
       "metrics": "out/metrics.json"
     },
-    "entry": "train/train_adapter.py"
+    "entry": "train/train_adapter.py",
+    "formats": {
+      "default": [
+        "onnx"
+      ],
+      "options": [
+        "onnx",
+        "tflite-int8"
+      ]
+    },
+    "quantization": {
+      "default": "none",
+      "options": [
+        "none",
+        "int8-static"
+      ]
+    }
   },
   "build": {
     "recipe": "none",

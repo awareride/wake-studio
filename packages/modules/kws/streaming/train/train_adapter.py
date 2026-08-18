@@ -85,6 +85,8 @@ DEFAULTS: dict[str, Any] = {
     "backgroundFrequency": 0.8,
     "silencePercentage": 10.0,
     "unknownPercentage": 10.0,
+    "formats": "tflite",
+    "quantization": "none",
     "jobId": None,
     "backend": "colab",
 }
@@ -109,6 +111,8 @@ ENV_MAP: dict[str, str] = {
     "STREAM_BACKGROUND_FREQUENCY": "backgroundFrequency",
     "STREAM_SILENCE_PERCENTAGE": "silencePercentage",
     "STREAM_UNKNOWN_PERCENTAGE": "unknownPercentage",
+    "STREAM_FORMATS": "formats",
+    "STREAM_QUANTIZATION": "quantization",
     "STREAM_JOB_ID": "jobId",
     "STREAM_BACKEND": "backend",
 }
@@ -414,6 +418,13 @@ def build_bundle(
             "dataSource": params["dataSource"],
             "trainingSteps": params["howManyTrainingSteps"],
             "learningRate": params["learningRate"],
+        },
+        # ADR-039 §4.6: requested formats vs shipped. The derived .onnx for the
+        # browser lands with the module-owned convert stage (#177).
+        "formats": {
+            "requested": [f.strip() for f in params["formats"].split(",") if f.strip()]
+            or ["tflite"],
+            "shipped": ["tflite"],
         },
         "labels": labels or None,
         "trainedAtMs": int(time.time() * 1000),

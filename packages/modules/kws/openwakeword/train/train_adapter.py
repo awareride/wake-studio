@@ -56,6 +56,8 @@ DEFAULTS = {
     "falseActivationPenalty": 1500,
     "augment": True,
     "quantize": True,
+    "formats": "onnx",
+    "quantization": "int8-static",
 }
 
 STAGES: list[tuple[str, str]] = [
@@ -91,6 +93,7 @@ def read_params(env: dict[str, str] | None = None) -> dict[str, Any]:
         raw = env.get(name, "").lower()
         return default if raw == "" else raw in ("1", "true", "yes")
 
+    quantize = flag("WAKE_QUANTIZE", DEFAULTS["quantize"])
     return {
         "wakePhrase": _s("WAKE_PHRASE", DEFAULTS["wakePhrase"]),
         "target": _s("WAKE_TARGET", DEFAULTS["target"]),
@@ -101,7 +104,13 @@ def read_params(env: dict[str, str] | None = None) -> dict[str, Any]:
             "WAKE_FALSE_ACTIVATION", DEFAULTS["falseActivationPenalty"]
         ),
         "augment": flag("WAKE_AUGMENT", DEFAULTS["augment"]),
-        "quantize": flag("WAKE_QUANTIZE", DEFAULTS["quantize"]),
+        "quantize": quantize,
+        # ADR-039 §4.6: formats/quantization selectors. Defaults preserve the
+        # legacy quantize flag behaviour (a quantized tflite is produced).
+        "formats": _s("WAKE_FORMATS", DEFAULTS["formats"]),
+        "quantization": _s(
+            "WAKE_QUANTIZATION", "int8-static" if quantize else "none"
+        ),
         "jobId": _s("WAKE_JOB_ID", f"kws-openwakeword-{int(time.time() * 1000)}"),
         "backend": _s("WAKE_BACKEND", "colab"),
     }
@@ -210,8 +219,14 @@ def build_bundle(
     bundle_dir = Path(out_root) / params["jobId"]
     bundle_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy(onnx_path, bundle_dir / "model.onnx")
-    if params["quantize"] and tflite_path.is_file():
+
+    # ADR-039 §4.6: requested formats (comma-separated select) vs what shipped.
+    requested = [f.strip() for f in params["formats"].split(",") if f.strip()] or ["onnx"]
+    want_tflite = any(f in ("tflite", "tflite-int8") for f in requested)
+    shipped = ["onnx"]
+    if tflite_path.is_file() and (want_tflite or params["quantize"]):
         shutil.copy(tflite_path, bundle_dir / "model.tflite")
+        shipped.append("tflite-int8" if "tflite-int8" in requested else "tflite")
 
     # Standard ordered label list (ADR-039 §4.5): single-phrase classifier.
     labels = [params["wakePhrase"]]
@@ -234,6 +249,7 @@ def build_bundle(
             "augment": str(params["augment"]).lower(),
             "quantize": str(params["quantize"]).lower(),
         },
+        "formats": {"requested": requested, "shipped": shipped},
         "labels": labels,
         "trainedAtMs": int(time.time() * 1000),
     }

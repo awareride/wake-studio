@@ -222,6 +222,8 @@ def test_end_to_end_adapter(tmp_path):
     assert metadata["params"]["model"] == "ds_tc_resnet"
     assert metadata["backend"] == "self-hosted"
     assert metadata["labels"] == ["_silence_", "_unknown_", "yes"]
+    assert metadata["formats"]["requested"] == ["tflite"], "requested formats (ADR-039 §4.6)"
+    assert metadata["formats"]["shipped"] == ["tflite"], "onnx derivation lands with #177"
 
     provenance = json.loads((bundle / "provenance.json").read_text())
     assert provenance["license"] == "user-owned"

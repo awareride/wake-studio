@@ -28,6 +28,14 @@ export interface TrainableModuleTrain {
   python?: string
   invocation?: string[]
   outputs?: { checkpoint?: string; metrics?: string }
+  /** ADR-039 §4.5: multi-wake-word capability. */
+  multiWord?: boolean
+  /** ADR-039 §4.6: selectable output formats. */
+  formats?: { default: string[]; options: string[] }
+  /** ADR-039 §4.6: selectable quantization schemes. */
+  quantization?: { default?: string; options: string[] }
+  /** ADR-039 §4.6: module-owned convert script declaration. */
+  convert?: { entry: string; from?: string[]; to?: string[] }
 }
 
 export interface TrainableModule {
