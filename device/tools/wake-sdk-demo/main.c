@@ -20,13 +20,10 @@
 #include "wake/pipeline.h"
 #include "wake/sdk.h"
 
-#include "host/rms_backend.h"
 #include "host/wav_reader.h"
 
-/* module-provided stage ops */
-extern const wake_afe_stage_ops_t wake_afe_ns_ops;
-extern const wake_afe_stage_ops_t wake_afe_aec_ops;
-extern const wake_afe_stage_ops_t wake_afe_bss_ops;
+/* the reference composition root (ADR-040 §3): one line per module */
+extern void wake_sdk_compose(wake_sdk_t *sdk);
 
 #define FRAME 160u /* 10 ms @ 16 kHz */
 
@@ -72,13 +69,10 @@ int main(int argc, char **argv) {
   fprintf(stderr, "wav: %zu mono samples @ %d Hz (%zu s)\n", wav.sample_count,
           wav.sample_rate, wav.sample_count / wav.sample_rate);
 
-  /* --- compose the SDK (ADR-040 §3: registration, one line per module) --- */
+  /* --- compose the SDK (ADR-040 §3: one line per module in the root) --- */
   wake_sdk_config_t scfg = {0};
   wake_sdk_t *sdk = wake_sdk_create(&scfg);
-  wake_sdk_register_afe_stage(sdk, &wake_afe_aec_ops);
-  wake_sdk_register_afe_stage(sdk, &wake_afe_bss_ops);
-  wake_sdk_register_afe_stage(sdk, &wake_afe_ns_ops);
-  wake_sdk_register_kws_backend(sdk, &wake_kws_rms_ops);
+  wake_sdk_compose(sdk);
 
   wake_pipeline_t *pipe =
       wake_pipeline_create(sdk, "rms", &cfg, NULL);

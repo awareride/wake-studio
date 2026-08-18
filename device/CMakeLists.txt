@@ -40,6 +40,9 @@ add_subdirectory(
   ${CMAKE_BINARY_DIR}/modules/afe/bss
 )
 
+# --- composition roots (ADR-040 §3) -----------------------------------------
+add_subdirectory(composition)
+
 # --- target adapters --------------------------------------------------------
 add_subdirectory(adapters)
 

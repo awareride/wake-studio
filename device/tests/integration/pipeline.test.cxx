@@ -8,15 +8,14 @@
 #include <cstring>
 
 #include "doctest/doctest.h"
-#include "host/rms_backend.h"
 #include "wake/afe_graph.h"
+#include "wake/capabilities.h"
 #include "wake/kws_backend.h"
 #include "wake/pipeline.h"
 #include "wake/sdk.h"
 
-extern "C" const wake_afe_stage_ops_t wake_afe_ns_ops;
-extern "C" const wake_afe_stage_ops_t wake_afe_aec_ops;
-extern "C" const wake_afe_stage_ops_t wake_afe_bss_ops;
+/* the reference composition root (ADR-040 §3) */
+extern "C" void wake_sdk_compose(wake_sdk_t *sdk);
 
 static const double kPi = 3.14159265358979323846;
 
@@ -24,14 +23,31 @@ static wake_pipeline_t *compose(const wake_kws_config_t *cfg) {
   wake_sdk_config_t scfg{};
   wake_sdk_t *sdk = wake_sdk_create(&scfg);
   REQUIRE(sdk != nullptr);
-  CHECK(wake_sdk_register_afe_stage(sdk, &wake_afe_aec_ops) == 0);
-  CHECK(wake_sdk_register_afe_stage(sdk, &wake_afe_bss_ops) == 0);
-  CHECK(wake_sdk_register_afe_stage(sdk, &wake_afe_ns_ops) == 0);
-  CHECK(wake_sdk_register_kws_backend(sdk, &wake_kws_rms_ops) == 0);
+  wake_sdk_compose(sdk); /* one line per module (ADR-040 §3) */
 
   wake_pipeline_t *pipe = wake_pipeline_create(sdk, "rms", cfg, nullptr);
   REQUIRE(pipe != nullptr);
   return pipe;
+}
+
+TEST_CASE("composition root registers the host module set") {
+  wake_sdk_config_t scfg{};
+  wake_sdk_t *sdk = wake_sdk_create(&scfg);
+  REQUIRE(sdk != nullptr);
+  wake_sdk_compose(sdk);
+
+  CHECK(wake_sdk_backend_count(sdk) == 1);
+  CHECK(wake_sdk_backend_by_id(sdk, "rms") != nullptr);
+  CHECK(wake_sdk_stage_count(sdk) == 3);
+  CHECK(wake_sdk_stage_by_id(sdk, "aec") != nullptr);
+  CHECK(wake_sdk_stage_by_id(sdk, "bss") != nullptr);
+  CHECK(wake_sdk_stage_by_id(sdk, "ns") != nullptr);
+
+  wake_sdk_capabilities_t c = wake_sdk_capabilities(sdk);
+  CHECK(c.backend_count == 1);
+  CHECK(c.sample_rate_hz == 16000);
+
+  wake_sdk_destroy(sdk);
 }
 
 /* Feed n_frames of a tone (amp 0..1, 440 Hz); returns trigger count. */

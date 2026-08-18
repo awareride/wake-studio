@@ -5,9 +5,7 @@ add_executable(sdk_integration_tests
 )
 target_link_libraries(sdk_integration_tests PRIVATE
   wake_sdk_core
-  wake_afe_rnnoise
-  wake_afe_aec
-  wake_afe_bss
+  wake_composition_host
   wake_adapters_host
 )
 target_include_directories(sdk_integration_tests
