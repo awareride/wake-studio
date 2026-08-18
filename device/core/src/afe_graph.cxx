@@ -19,7 +19,7 @@ int wake_sdk_register_afe_stage(wake_sdk_t *sdk, const wake_afe_stage_ops_t *ops
   }
   for (unsigned i = 0; i < sdk->stage_count; ++i) {
     if (sdk->stages[i]->id != nullptr &&
-        std::strcmp(sdk->stages[i]->id, ops->id) == 0) {
+        strcmp(sdk->stages[i]->id, ops->id) == 0) {
       return 1; /* duplicate — ignore */
     }
   }
@@ -38,7 +38,7 @@ const wake_afe_stage_ops_t *wake_sdk_stage_by_id(const wake_sdk_t *sdk,
                                                  const char *id) {
   for (unsigned i = 0; i < sdk->stage_count; ++i) {
     if (sdk->stages[i]->id != nullptr && id != nullptr &&
-        std::strcmp(sdk->stages[i]->id, id) == 0) {
+        strcmp(sdk->stages[i]->id, id) == 0) {
       return sdk->stages[i];
     }
   }
@@ -54,7 +54,7 @@ struct wake_afe_graph {
 };
 
 wake_afe_graph_t *wake_afe_graph_create(void) {
-  void *mem = std::calloc(1, sizeof(wake_afe_graph));
+  void *mem = calloc(1, sizeof(wake_afe_graph));
   if (mem == nullptr) {
     return nullptr;
   }
@@ -68,7 +68,7 @@ void wake_afe_graph_destroy(wake_afe_graph_t *g) {
   for (unsigned i = 0; i < g->count; ++i) {
     g->ops[i]->destroy(g->impls[i]);
   }
-  std::free(g);
+  free(g);
 }
 
 int wake_afe_graph_append(wake_afe_graph_t *g, const wake_afe_stage_ops_t *ops) {

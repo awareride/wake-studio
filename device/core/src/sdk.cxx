@@ -13,7 +13,7 @@
 #include "internal.h"
 
 wake_sdk_t *wake_sdk_create(const wake_sdk_config_t *config) {
-  void *mem = std::calloc(1, sizeof(wake_sdk));
+  void *mem = calloc(1, sizeof(wake_sdk));
   if (mem == nullptr) {
     return nullptr;
   }
@@ -27,7 +27,7 @@ void wake_sdk_destroy(wake_sdk_t *sdk) {
     return;
   }
   sdk->~wake_sdk();
-  std::free(sdk);
+  free(sdk);
 }
 
 const char *wake_sdk_version(void) { return WAKE_SDK_VERSION_STRING; }

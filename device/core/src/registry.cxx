@@ -45,7 +45,7 @@ const wake_kws_backend_ops_t *wake_sdk_backend_by_id(const wake_sdk_t *sdk,
                                                      const char *id) {
   for (unsigned i = 0; i < sdk->backend_count; ++i) {
     if (sdk->backends[i]->id != nullptr && id != nullptr &&
-        std::strcmp(sdk->backends[i]->id, id) == 0) {
+        strcmp(sdk->backends[i]->id, id) == 0) {
       return sdk->backends[i];
     }
   }

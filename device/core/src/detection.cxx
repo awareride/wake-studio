@@ -20,14 +20,14 @@ wake_score_smoother_t *wake_score_smoother_create(unsigned window_size) {
   if (window_size == 0) {
     return nullptr;
   }
-  void *mem = std::malloc(sizeof(wake_score_smoother));
+  void *mem = malloc(sizeof(wake_score_smoother));
   if (mem == nullptr) {
     return nullptr;
   }
   wake_score_smoother *s = new (mem) wake_score_smoother;
-  s->buffer = static_cast<float *>(std::calloc(window_size, sizeof(float)));
+  s->buffer = static_cast<float *>(calloc(window_size, sizeof(float)));
   if (s->buffer == nullptr) {
-    std::free(s);
+    free(s);
     return nullptr;
   }
   s->window_size = window_size;
@@ -40,8 +40,8 @@ void wake_score_smoother_destroy(wake_score_smoother_t *s) {
   if (s == nullptr) {
     return;
   }
-  std::free(s->buffer);
-  std::free(s);
+  free(s->buffer);
+  free(s);
 }
 
 float wake_score_smoother_push(wake_score_smoother_t *s, float raw_score) {
@@ -97,7 +97,7 @@ static const double kNeverTriggered = -1e300;
 
 wake_trigger_detector_t *wake_trigger_detector_create(
     const wake_kws_config_t *cfg, const char *word) {
-  void *mem = std::malloc(sizeof(wake_trigger_detector));
+  void *mem = malloc(sizeof(wake_trigger_detector));
   if (mem == nullptr) {
     return nullptr;
   }
@@ -113,7 +113,7 @@ wake_trigger_detector_t *wake_trigger_detector_create(
 
 void wake_trigger_detector_destroy(wake_trigger_detector_t *d) {
   if (d != nullptr) {
-    std::free(d);
+    free(d);
   }
 }
 
