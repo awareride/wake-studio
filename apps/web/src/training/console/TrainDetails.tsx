@@ -80,16 +80,21 @@ export function TrainDetails({
   const file = module ? trainInputFile(module, isColab ? 'colab' : job.method) : null
   const messages = deriveMessages(job)
 
-  // Live tracking: only while the job is active on an endpoint.
+  // Live tracking (issue #122): while the job is active, AND while it has
+  // finished but not yet been imported — the backend /stream sends a snapshot
+  // of current jobs on connect, so an already-finished job still reports its
+  // artifacts and can be auto-pulled + imported (issue #159). Once imported,
+  // the track stops.
   const managedBackend = job.backendId ? backends.find((b) => b.id === job.backendId) : undefined
   const token =
     managedBackend?.token || platform['backend.apiKey'] || platform['backend.secret'] || undefined
   const tracked = !!job.endpoint
+  const trackForPull = job.status === 'succeeded' && !job.artifactRef
   const { live, mode, error: liveError, actions } = useStudioJob({
     jobId: tracked ? job.id : undefined,
     endpoint: tracked ? job.endpoint : undefined,
     token,
-    enabled: tracked && isActiveStatus(job.status),
+    enabled: tracked && (isActiveStatus(job.status) || trackForPull),
   })
 
   // Push live backend state into the recorded job (guarded against
