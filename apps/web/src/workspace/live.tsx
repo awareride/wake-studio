@@ -105,6 +105,10 @@ interface LiveKwsValue {
   /** Latest smoothed score (top-bar mini bar wake indicator). */
   lastScore: number
   setLastScore: (s: number) => void
+  /** Configured wake words (ADR-039) — the score curve draws one line per
+   *  word. Shared across all KWS surfaces. */
+  words: string[]
+  setWords: (w: string[]) => void
 }
 
 const LiveKwsContext = React.createContext<LiveKwsValue | null>(null)
@@ -114,11 +118,13 @@ export function LiveKwsProvider({ children }: { children: React.ReactNode }) {
   const [threshold, setThreshold] = React.useState(0.5)
   const [kwsRunning, setKwsRunningState] = React.useState(false)
   const [lastScore, setLastScoreState] = React.useState(0)
+  const [words, setWordsState] = React.useState<string[]>([])
   const setKwsRunning = React.useCallback((r: boolean) => setKwsRunningState(r), [])
   const setLastScore = React.useCallback((s: number) => setLastScoreState(s), [])
+  const setWords = React.useCallback((w: string[]) => setWordsState(w), [])
   const value = React.useMemo(
-    () => ({ historyRef, threshold, setThreshold, kwsRunning, setKwsRunning, lastScore, setLastScore }),
-    [threshold, kwsRunning, setKwsRunning, lastScore, setLastScore],
+    () => ({ historyRef, threshold, setThreshold, kwsRunning, setKwsRunning, lastScore, setLastScore, words, setWords }),
+    [threshold, kwsRunning, setKwsRunning, lastScore, setLastScore, words, setWords],
   )
   return <LiveKwsContext.Provider value={value}>{children}</LiveKwsContext.Provider>
 }

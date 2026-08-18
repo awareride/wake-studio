@@ -10,6 +10,7 @@ export {
   UiSlider,
   UiNumber,
   UiSelect,
+  UiMultiselect,
   UiToggle,
   UiButton,
   UiProgress,

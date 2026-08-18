@@ -33,6 +33,7 @@ import {
   createStateBag,
   resetStateBag,
   selectLabelScore,
+  softmax,
   stateBagBytes,
 } from './streaming'
 
@@ -104,6 +105,30 @@ export class KWSStreamingBackend implements KWSBackend {
    */
   get lastLabelScores(): Float32Array | null {
     return this._lastLabelScores
+  }
+
+  /** Optional (ADR-039): per-word raw scores (label -> [0,1]) for the last
+   *  frame — the full softmax over the model's labels. Null before the first
+   *  frame. The engine threads this into KWSScoreSample.wordScores so the
+   *  host can draw a score curve per wake word. */
+  get wordScores(): Record<string, number> | null {
+    const manifest = this._manifest
+    const raw = this._lastLabelScores
+    if (!manifest || !raw) return null
+    const probs = manifest.softmaxed ? raw : softmax(raw)
+    const out: Record<string, number> = {}
+    for (let i = 0; i < manifest.labels.length; i++) {
+      const s = probs[i]
+      out[manifest.labels[i]] = Number.isFinite(s)
+        ? Math.max(0, Math.min(1, s))
+        : 0
+    }
+    return out
+  }
+
+  /** Optional (ADR-039): available wake-word labels for the host selector. */
+  get labels(): string[] | undefined {
+    return this._manifest?.labels
   }
 
   configure(patch: Partial<KwsStreamingConfig>): void {

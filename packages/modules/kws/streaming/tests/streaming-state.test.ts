@@ -29,6 +29,7 @@ import {
   softmax,
   stateBagBytes,
 } from '../core/streaming'
+import { KWSStreamingBackend } from '../core/backend'
 
 /** A minimal well-formed streaming manifest (ds_tc_resnet-shaped). */
 function baseManifest(): Record<string, unknown> {
@@ -476,5 +477,36 @@ describe('SlidingWindow (non-streamable topologies)', () => {
     expect(() => new SlidingWindow(0, 1)).toThrow()
     expect(() => new SlidingWindow(4, 0)).toThrow()
     expect(() => new SlidingWindow(4, 8)).toThrow(/exceeds/)
+  })
+})
+
+describe('KWSStreamingBackend.wordScores + labels (ADR-039 multi-word)', () => {
+  it('maps the last label posteriors to label -> score', () => {
+    const backend = new KWSStreamingBackend()
+    const b = backend as unknown as {
+      _manifest: KwsStreamingManifest
+      _lastLabelScores: Float32Array
+    }
+    b._manifest = validateManifest(baseManifest())
+    // logits favor 'up' over 'down'; wordScores softmaxes when not softmaxed.
+    b._lastLabelScores = new Float32Array([0.1, 0.2, 0.6, 0.1])
+
+    const labels = (backend as unknown as { labels: string[] }).labels
+    expect(labels).toEqual(['silence', 'unknown', 'up', 'down'])
+
+    const ws = (backend as unknown as { wordScores: Record<string, number> | null }).wordScores
+    expect(ws).not.toBeNull()
+    expect(ws!['up']).toBeGreaterThan(ws!['down'])
+    expect(ws!['up']).toBeGreaterThan(0)
+    expect(ws!['up']).toBeLessThanOrEqual(1)
+    // All manifest labels are present.
+    expect(Object.keys(ws!)).toEqual(['silence', 'unknown', 'up', 'down'])
+  })
+
+  it('returns null wordScores before the first frame', () => {
+    const backend = new KWSStreamingBackend()
+    const b = backend as unknown as { _manifest: KwsStreamingManifest | null }
+    b._manifest = validateManifest(baseManifest())
+    expect((backend as unknown as { wordScores: Record<string, number> | null }).wordScores).toBeNull()
   })
 })

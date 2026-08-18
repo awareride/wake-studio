@@ -69,6 +69,7 @@ interface TestBackend {
   _stream: FakeStream
   _holdFrames: number
   lastPartialText: string
+  configure(cfg: Partial<Record<string, unknown>>): void
   processFrame(samples: Float32Array): Promise<number | null>
 }
 
@@ -135,5 +136,22 @@ describe('SherpaOnnxKwsBackend.processFrame', () => {
     expect(held).toBe(1)
     expect(stream.acceptWaveform).toHaveBeenCalledTimes(2)
     expect(spotter.decodeCalls).toBe(1)
+  })
+
+  it('exposes the configured keyword list as multi-word labels + hit scores (ADR-039)', async () => {
+    const spotter = new FakeSpotter()
+    spotter.readyTicks = 1
+    spotter.results = [{ keyword: 'okay' }]
+    const backend = makeBackend(spotter)
+    backend.configure({ keywords: 'hey, studio, okay' })
+
+    // The multi-word selector options come from the comma-separated list.
+    const labels = (backend as unknown as { labels: string[] }).labels
+    expect(labels).toEqual(['hey', 'studio', 'okay'])
+
+    // Before a hit there is no per-word score; after a hit, {keyword: 1}.
+    expect((backend as unknown as { wordScores: Record<string, number> | null }).wordScores).toBeNull()
+    await backend.processFrame(FRAME)
+    expect((backend as unknown as { wordScores: Record<string, number> | null }).wordScores).toEqual({ okay: 1 })
   })
 })

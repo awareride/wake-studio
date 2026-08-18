@@ -291,6 +291,24 @@ export class SherpaOnnxKwsBackend implements KWSBackend {
     return this._lastKeyword
   }
 
+  /** Optional (ADR-039): the configured keyword list — the options for the
+   *  host's multi-word selector (sherpa takes a comma-separated wake-word
+   *  list). */
+  get labels(): string[] | undefined {
+    const kws = this._cfg.keywords ?? DEFAULT_KEYWORDS
+    return kws.split(',').map((k) => k.trim()).filter(Boolean)
+  }
+
+  /** Optional (ADR-039): per-word raw scores. sherpa is hit-based, not a
+   *  per-frame posterior, so while a keyword is held we report {keyword: 1}
+   *  (the host draws that word's curve at its peak); otherwise null. */
+  get wordScores(): Record<string, number> | null {
+    if (this._holdFrames > 0 && this._lastKeyword) {
+      return { [this._lastKeyword]: 1 }
+    }
+    return null
+  }
+
   reset(): void {
     if (this._spotter && this._stream) {
       try {

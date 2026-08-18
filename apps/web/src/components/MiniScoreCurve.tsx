@@ -12,7 +12,7 @@ import { drawScoreCurve } from './viz/ScoreCurve'
 import { useLiveKws } from '../workspace/live'
 
 export function MiniScoreCurve() {
-  const { historyRef, threshold } = useLiveKws()
+  const { historyRef, threshold, words } = useLiveKws()
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -21,13 +21,13 @@ export function MiniScoreCurve() {
       const canvas = canvasRef.current
       if (canvas) {
         const ctx = canvas.getContext('2d')
-        if (ctx) drawScoreCurve(ctx, canvas, historyRef.current, threshold)
+        if (ctx) drawScoreCurve(ctx, canvas, historyRef.current, threshold, words)
       }
       rafId = requestAnimationFrame(render)
     }
     rafId = requestAnimationFrame(render)
     return () => cancelAnimationFrame(rafId)
-  }, [historyRef, threshold])
+  }, [historyRef, threshold, words])
 
   return (
     <canvas
