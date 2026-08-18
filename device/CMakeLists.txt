@@ -48,4 +48,26 @@ if(NOT CMAKE_CROSSCOMPILING)
   add_subdirectory(tools)
   enable_testing()
   add_subdirectory(tests)
+
+  # Shared library for language bindings (Python ctypes, #187). Anchored on
+  # the composition root so wake_sdk_compose() is part of the public surface.
+  # The core is force-loaded so the whole public API ships in the dylib (a
+  # linker would otherwise only pull objects the anchor references).
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+  add_library(wake_sdk_shared SHARED composition/host_root.c)
+  target_include_directories(wake_sdk_shared PUBLIC core/include)
+  target_link_libraries(wake_sdk_shared PRIVATE
+    wake_sdk_core
+    wake_composition_host
+    wake_adapters_host
+  )
+  if(APPLE)
+    target_link_options(wake_sdk_shared PRIVATE
+      "-Wl,-force_load,$<TARGET_FILE:wake_sdk_core>")
+  else()
+    target_link_options(wake_sdk_shared PRIVATE
+      "-Wl,--whole-archive" "$<TARGET_FILE:wake_sdk_core>"
+      "-Wl,--no-whole-archive")
+  endif()
+  set_target_properties(wake_sdk_shared PROPERTIES OUTPUT_NAME wake_sdk)
 endif()

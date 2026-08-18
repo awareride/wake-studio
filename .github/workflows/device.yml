@@ -53,6 +53,12 @@ jobs:
           ./build/tools/wake-sdk-demo/wake-sdk-demo tone.wav && echo "tone triggered: OK"
           ! ./build/tools/wake-sdk-demo/wake-sdk-demo silence.wav && echo "silence stayed quiet: OK"
 
+      - name: Python binding smoke (ctypes, #187)
+        if: ${{ matrix.profile == 'app' && matrix.cc == 'gcc' }}
+        run: |
+          python3 packages/sdk/python/wake-sdk-demo.py tone.wav && echo "python tone: OK"
+          ! python3 packages/sdk/python/wake-sdk-demo.py silence.wav && echo "python silence: OK"
+
   cross-mcu:
     name: Cross-compile (Cortex-M4, arm-none-eabi)
     runs-on: ubuntu-latest
