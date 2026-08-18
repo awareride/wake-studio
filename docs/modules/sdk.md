@@ -110,20 +110,32 @@ own audio windowing/buffering — exactly the browser split (ADR-018).
 typedef struct wake_afe_stage wake_afe_stage_t;
 
 typedef struct wake_afe_stage_ops {
-    const char *id;              /* 'ns' | 'vad' | 'aec' | 'agc' | 'bss' */
-    int (*init)(wake_afe_stage_t *self, const wake_afe_config_t *cfg);
-    int (*process)(wake_afe_stage_t *self, int16_t *frames, size_t n);
-    void (*reset)(wake_afe_stage_t *self);
+    const char *id;              /* 'aec' | 'bss' | 'ns' */
+    const char *label;
+    void *(*create)(void);
+    void (*destroy)(void *impl);
+    /* One 10 ms frame (160 samples @ 16 kHz) in place. `vad_out` may be
+       NULL; a stage that carries VAD writes its probability [0,1] there. */
+    int (*process)(void *impl, int16_t *frames, size_t n, float *vad_out);
+    void (*reset)(void *impl);
 } wake_afe_stage_ops_t;
 
-int wake_register_afe_stage(wake_sdk_t *sdk, const wake_afe_stage_ops_t *ops,
-                            void *(*create)(void));
+int wake_sdk_register_afe_stage(wake_sdk_t *sdk, const wake_afe_stage_ops_t *ops);
+
+/* per-pipeline graph: append (in order) + process + reset */
+wake_afe_graph_t *wake_afe_graph_create(void);
+int wake_afe_graph_append(wake_afe_graph_t *g, const wake_afe_stage_ops_t *ops);
+int wake_afe_graph_process(wake_afe_graph_t *g, int16_t *frames, size_t n,
+                           float *vad_out);
 ```
 
-Strict pipeline order is **AEC → BSS → NS → VAD → KWS** (ADR-001/016); AEC/BSS
-are passthrough for v1 (ADR-016) with vendor adapter slots (WebRTC/SpeexDSP).
-RNNoise NS + VAD are real modules ported from the C source the browser WASM
-already vendors.
+Strict pipeline order is **AEC → BSS → NS → VAD → KWS** (ADR-001/016); the
+composition root appends in that order. AEC/BSS are passthrough for v1
+(ADR-016) with vendor adapter slots (WebRTC/SpeexDSP). The RNNoise NS stage
+(module `afe/rnnoise/device/`, vendored `third_party/rnnoise` v0.1.1) both
+denoises and **carries the VAD probability** (browser parity — the browser
+derives VAD from the same RNNoise engine); it slips 160-sample graph frames
+into RNNoise's 480-sample frames (30 ms latency, streaming, no sample loss).
 
 ### 4.3 Capabilities & config
 

@@ -27,6 +27,18 @@ add_subdirectory(
   ../packages/modules/kws/microwakeword/device
   ${CMAKE_BINARY_DIR}/modules/kws/microwakeword
 )
+add_subdirectory(
+  ../packages/modules/afe/rnnoise/device
+  ${CMAKE_BINARY_DIR}/modules/afe/rnnoise
+)
+add_subdirectory(
+  ../packages/modules/afe/aec/device
+  ${CMAKE_BINARY_DIR}/modules/afe/aec
+)
+add_subdirectory(
+  ../packages/modules/afe/bss/device
+  ${CMAKE_BINARY_DIR}/modules/afe/bss
+)
 
 # --- target adapters --------------------------------------------------------
 add_subdirectory(adapters)
