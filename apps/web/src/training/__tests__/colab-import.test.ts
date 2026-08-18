@@ -144,6 +144,16 @@ describe('registerColabBundle (issue #97)', () => {
     expect(result.bundle.files.provenance.license).toBe('user-owned')
     expect(result.bundle.files.metrics?.accuracy).toBe(0.8)
   })
+
+  it('uses the standard ADR-039 labels list for the phrase (metadata.labels)', async () => {
+    const bundle = colabBundle()
+    bundle.files.metadata.labels = ['hey studio', 'good morning']
+    const result = await registerColabBundle(bundle)
+    // Assert the exact artifact this call created (listProvisionArtifacts is
+    // newest-first but Date.now() ties across tests, so [0] is unreliable).
+    expect(result.artifact.name).toContain('hey studio, good morning')
+    expect(result.bundle.files.metadata.labels).toEqual(['hey studio', 'good morning'])
+  })
 })
 
 // ---------------------------------------------------------------------------

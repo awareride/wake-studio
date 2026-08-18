@@ -40,7 +40,9 @@ function descriptorFromParam(param: ModuleParam): ParameterDescriptor {
         ? 'select'
         : param.type === 'secret'
           ? 'string'
-          : param.type
+          : param.type === 'multiselect'
+            ? 'select' // training-only type (formats selector); KWS driver params never use it
+            : param.type
   return {
     id: param.id,
     label: param.label,

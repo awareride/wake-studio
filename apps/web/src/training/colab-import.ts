@@ -55,12 +55,16 @@ export async function registerColabBundle(
     type: 'application/octet-stream',
   })
 
-  // The wake phrase key varies by producer: the Colab notebook writes
-  // `wakePhrase`, the studio-backend kws-streaming runner writes
-  // `wakePhrases` (and the wizard may record it under either).
+  // The canonical wake-word source is now the standard ADR-039 labels list
+  // (metadata.labels from labels.json). Fall back to the legacy param keys
+  // (the Colab notebook writes `wakePhrase`, the studio-backend kws-streaming
+  // runner writes `wakePhrases`) for bundles produced before ADR-039.
   const metaParams = bundle.files.metadata.params ?? {}
+  const labels = bundle.files.metadata.labels ?? []
   const phrase =
-    String(metaParams.wakePhrase ?? metaParams.wakePhrases ?? '')
+    labels.length > 0
+      ? labels.join(', ')
+      : String(metaParams.wakePhrase ?? metaParams.wakePhrases ?? '')
   const jobId = bundle.jobId
   const license = bundle.files.provenance.license
 

@@ -39,6 +39,7 @@ import {
   modelSourcesForRole,
 } from '../workspace/kws-config'
 import { ParamRows, type ParamValue } from './UnifiedConfigPanel'
+import { UiMultiselect } from '@wake-studio/module-kit'
 import { drawScoreCurve } from './viz/ScoreCurve'
 import { useProjectStageConfig } from '../projects'
 import { useLiveKws } from '../workspace/live'
@@ -144,6 +145,10 @@ export const KWSPanel = memo(function KWSPanel({
     'wasm',
   )
   const [lastKeyword, setLastKeyword] = useState('')
+  // Available wake-word options for the multi-word selector (ADR-039): the
+  // loaded kws-streaming model's labels (sherpa keywords ride the driver
+  // params). Empty for single-word backends (no selector shown).
+  const [wordOptions, setWordOptions] = useState<string[]>([])
 
   // --- plixkws enrollment state (Few-Shot, Phase 3) ---
   const fsEngineRef = useRef<FewShotEngine | null>(null)
@@ -192,7 +197,7 @@ export const KWSPanel = memo(function KWSPanel({
   const [savedPrototypes, setSavedPrototypes] = useState<UserArtifact[]>([])
   const [savedSampleCount, setSavedSampleCount] = useState(0)
 
-  const { historyRef, setThreshold, setLastScore } = useLiveKws()
+  const { historyRef, setThreshold, setLastScore, setWords } = useLiveKws()
 
   // Report a compact config summary for the tab node's core preview (the
   // few-shot flag is resolved below; backend + status are enough here).
@@ -408,6 +413,23 @@ export const KWSPanel = memo(function KWSPanel({
       setStatus(engine.status)
       setExecutionProvider(engine.executionProvider)
       logInfo('kws', `Models loaded (backend: ${config.backend})`)
+      // ADR-039: expose the multi-word selector options from the loaded model.
+      // kws-streaming carries a sidecar manifest with its label list; other
+      // backends are single-word (or, for sherpa, ride the driver keywords).
+      const ks = (urls as { kwsStreaming?: { manifest?: string } }).kwsStreaming
+      if (ks?.manifest) {
+        try {
+          const res = await fetch(ks.manifest)
+          if (res.ok) {
+            const manifest = (await res.json()) as { labels?: string[] }
+            setWordOptions(manifest.labels ?? [])
+          }
+        } catch {
+          /* word options are a nicety; ignore a fetch failure */
+        }
+      } else {
+        setWordOptions([])
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
@@ -863,6 +885,22 @@ export const KWSPanel = memo(function KWSPanel({
     persist(patch)
   }, [persist])
 
+  // ADR-039: keep the shared live words (multi-word score curve) in sync with
+  // the panel's config.words.
+  useEffect(() => {
+    setWords(config.words ?? [])
+  }, [config.words, setWords])
+
+  // Default the multi-word selection once the loaded model's labels are known
+  // (kws-streaming), skipping the reserved upstream columns (_silence_/_unknown_).
+  useEffect(() => {
+    if (wordOptions.length === 0) return
+    const nonReserved = wordOptions.filter((l) => !l.startsWith('_'))
+    if ((config.words?.length ?? 0) === 0 && nonReserved.length > 0) {
+      updateConfig({ words: nonReserved })
+    }
+  }, [wordOptions, config.words, updateConfig])
+
   // Keep the shared Phase 2 score curve in sync with the detection
   // threshold (epic #53 P7).
   useEffect(() => {
@@ -963,6 +1001,21 @@ export const KWSPanel = memo(function KWSPanel({
 
         {error && <span className="text-sm text-danger">{error}</span>}
       </div>
+
+      {/* Wake words - multi-word selector (ADR-039): one score curve per
+          selected word. Options come from the loaded model's labels; hidden
+          for single-word backends. Shared threshold across words. */}
+      {wordOptions.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-ink-2">Wake words</span>
+          <UiMultiselect
+            value={(config.words ?? []).join(',')}
+            options={wordOptions.map((w) => ({ value: w, label: w }))}
+            onChange={(v) => updateConfig({ words: v.split(',').filter(Boolean) })}
+            disabled={running || status === 'loading'}
+          />
+        </div>
+      )}
 
       {/* Engine card - the primary action area: resource loading (per-backend)
           + detection start/stop. Kept separate from backend selection so

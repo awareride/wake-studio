@@ -50,6 +50,12 @@ export interface KWSScoreSample {
   triggered: boolean
   /** VAD probability [0,1] (from the AFE's RNNoise VAD, ADR-018). */
   vadProbability: number
+  /**
+   * Raw per-word scores (label -> [0,1]) for the last frame (ADR-039).
+   * Present when the active backend can provide per-word posteriors (e.g.
+   * a multi-class kws-streaming model); absent for single-word backends.
+   */
+  wordScores?: Record<string, number>
 }
 
 /** A wake-word trigger event. */
@@ -78,6 +84,13 @@ export interface KWSConfig {
    * {@link DEFAULT_MODEL_RUNTIME} ('onnx').
    */
   runtime?: ModelRuntime
+  /**
+   * Configured wake words (ADR-039): the host's multi-word selector. Each
+   * word the user enables is shown as its own score curve (when the backend
+   * provides {@link KWSScoreSample.wordScores}). Shared threshold/smoothing
+   * across words (human decision 2026-08-18).
+   */
+  words?: string[]
 }
 
 /** Descriptor for one tunable parameter (shared with AFE, ADR-017). */
@@ -111,6 +124,19 @@ export interface KWSBackend {
    * posterior [0,1], or null during warmup (not enough audio accumulated).
    */
   processFrame(samples: Float32Array): Promise<number | null>
+  /**
+   * Optional (ADR-039): per-word raw scores (label -> [0,1]) for the last
+   * processed frame, or null when the backend is single-word. The engine
+   * threads these into {@link KWSScoreSample.wordScores} so hosts can draw a
+   * score curve per wake word. Optional, so existing backends are untouched.
+   */
+  readonly wordScores?: Record<string, number> | null
+  /**
+   * Optional (ADR-039): the wake-word labels this backend can detect — the
+   * options for the host's multi-word selector (e.g. a multi-class model's
+   * labels, an ASR keyword list). Optional; single-word backends omit it.
+   */
+  readonly labels?: string[]
   /** Reset internal state (e.g. on stop). */
   reset(): void
   /** Release model resources. */

@@ -116,6 +116,9 @@ export function NewTrainWizard({
             category: module.category,
             license: module.license,
             params: module.train.params,
+            // ADR-039 §4.6: formats/quantization selectors render spec-driven.
+            formats: module.train.formats,
+            quantization: module.train.quantization,
           })
         : null,
     [module],

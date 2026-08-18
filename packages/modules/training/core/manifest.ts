@@ -18,6 +18,8 @@ export interface ArtifactBundleMetadata {
   backend: TrainingJobBackend
   provider?: string
   params: Record<string, string>
+  /** Ordered wake-word labels matching the model class index (ADR-039 §4.5). */
+  labels?: string[]
   trainedAtMs: number
 }
 
@@ -37,6 +39,9 @@ export interface ArtifactBundle {
   files: {
     /** model.onnx | model.tflite */
     model?: Uint8Array
+    /** Standard ordered label list (labels.json, ADR-039 §4.5): matches the
+     *  model class index, so a multi-class model can be tested per phrase. */
+    labels?: string[]
     metrics?: Record<string, number>
     metadata: ArtifactBundleMetadata
     provenance: ArtifactProvenance
@@ -123,6 +128,7 @@ export type BundleImportErrorCode =
   | 'missing-provenance'
   | 'invalid-metadata'
   | 'invalid-provenance'
+  | 'invalid-labels'
   | 'missing-model'
 
 /** Messages shown to the user for each {@link BundleImportErrorCode}. */
@@ -135,6 +141,8 @@ export const BUNDLE_IMPORT_ERROR_MESSAGES: Record<BundleImportErrorCode, string>
     'metadata.json is invalid — it must declare jobId, moduleId and a known backend (colab, self-hosted or cloud).',
   'invalid-provenance':
     'provenance.json is invalid — it must declare a license (e.g. “user-owned”).',
+  'invalid-labels':
+    'labels.json is invalid — it must be a non-empty array of non-empty strings matching the model class index (ADR-039).',
   'missing-model': 'No model found — the zip should contain model.onnx or model.tflite.',
 }
 
@@ -152,6 +160,7 @@ export const BUNDLE_IMPORT_ERROR_MESSAGES: Record<BundleImportErrorCode, string>
  *
  * ```
  * model.onnx | model.tflite
+ * labels.json   (optional, ADR-039: ordered, matches the class index)
  * metrics.json
  * metadata.json   (jobId, moduleId, backend: colab|self-hosted|cloud, params, trainedAtMs)
  * provenance.json (license: user-owned → Phase 4 export gate)
@@ -236,11 +245,29 @@ export async function importColabBundle(
   const metrics = readJson('metrics.json') as Record<string, number> | undefined
   const config = readJson('config.json') as Record<string, unknown> | undefined
 
+  // Standard ordered label list (ADR-039 §4.5). Optional for back-compat with
+  // pre-ADR bundles, but when present it must be a non-empty array of
+  // non-empty strings (the model class index contract).
+  const labels = readJson('labels.json') as unknown
+  if (labels !== undefined) {
+    const isLabels =
+      Array.isArray(labels) &&
+      labels.length > 0 &&
+      labels.every((l) => typeof l === 'string' && l.trim().length > 0)
+    if (!isLabels) {
+      throw new BundleImportError('invalid-labels', BUNDLE_IMPORT_ERROR_MESSAGES['invalid-labels'])
+    }
+  }
+  const labelsList: string[] | undefined = Array.isArray(labels)
+    ? (labels as string[])
+    : undefined
+
   const bundle: ArtifactBundle = {
     jobId,
     modelFormat: modelOnnx ? 'onnx' : 'tflite',
     files: {
       model,
+      labels: labelsList,
       metrics,
       metadata: {
         jobId,
@@ -248,6 +275,7 @@ export async function importColabBundle(
         backend,
         provider: metadata.provider,
         params: metadata.params ?? {},
+        labels: labelsList,
         trainedAtMs: metadata.trainedAtMs ?? 0,
       },
       provenance: {

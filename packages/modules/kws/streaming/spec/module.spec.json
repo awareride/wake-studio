@@ -139,6 +139,7 @@
       "studio-backend",
       "ci"
     ],
+    "multiWord": true,
     "params": [
       {
         "id": "model",
@@ -282,6 +283,30 @@
       "modelRegex": "stream_state_external\\.tflite$",
       "labelsFile": "labels.txt",
       "flagsFile": "flags.json"
+    },
+    "formats": {
+      "default": [
+        "tflite"
+      ],
+      "options": [
+        "tflite",
+        "onnx"
+      ]
+    },
+    "quantization": {
+      "default": "none",
+      "options": [
+        "none"
+      ]
+    },
+    "convert": {
+      "entry": "train/convert.py",
+      "from": [
+        "tflite"
+      ],
+      "to": [
+        "onnx"
+      ]
     }
   },
   "build": {

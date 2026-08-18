@@ -9,7 +9,7 @@
  */
 
 /** Param control kinds (ADR-017 leaf; panel generator maps 1:1). */
-export type ParamType = 'number' | 'boolean' | 'select' | 'enum' | 'slider' | 'secret' | 'string'
+export type ParamType = 'number' | 'boolean' | 'select' | 'enum' | 'slider' | 'secret' | 'string' | 'multiselect'
 
 export interface ParamValidation {
   required?: boolean
@@ -147,6 +147,32 @@ export interface ModuleTrain {
     modelRegex?: string
     metricsParser?: string
     [key: string]: unknown
+  }
+  /**
+   * Multi-wake-word capability (ADR-039 §4.5): true → the module trains ONE
+   * model for many wake words, and the canonical wake-word input is
+   * `wakePhrases` (array). false → single-phrase (param `wakePhrase`).
+   */
+  multiWord?: boolean
+  /** Selectable output formats (ADR-039 §4.6): the wizard renders the options;
+   *  the canonical upstream-native artifact is always kept, others are derived. */
+  formats?: {
+    default: string[]
+    options: string[]
+  }
+  /** Selectable quantization schemes (ADR-039 §4.6). */
+  quantization?: {
+    default?: string
+    options: string[]
+  }
+  /** Module-owned convert script (ADR-039 §4.6): callable at train time AND
+   *  standalone on an already-trained canonical model. */
+  convert?: {
+    entry: string
+    /** Source formats it accepts. */
+    from?: string[]
+    /** Target formats it can derive. */
+    to?: string[]
   }
 }
 

@@ -63,6 +63,8 @@ let smoother = new ScoreSmoother(config.smoothingWindowFrames)
  * continuous so the min-duration trigger can actually accumulate.
  */
 let lastScore: number | null = null
+/** Last per-word scores from the backend (sample-and-hold, ADR-039). */
+let lastWordScores: Record<string, number> | null = null
 const trigger = new TriggerDetector(
   config.threshold,
   config.minDurationMs,
@@ -271,6 +273,7 @@ function handleConfig(newConfig: KWSConfig): void {
   if (newConfig.smoothingWindowFrames !== oldWindow) {
     smoother = new ScoreSmoother(newConfig.smoothingWindowFrames)
     lastScore = null
+    lastWordScores = null
   }
   trigger.configure(
     newConfig.threshold,
@@ -348,6 +351,7 @@ async function handleAudio(
     score = lastScore
   } else {
     lastScore = score
+    lastWordScores = backend.wordScores ?? null
   }
 
   const smoothed = smoother.push(score)
@@ -365,6 +369,7 @@ async function handleAudio(
       smoothedScore: smoothed,
       triggered: triggerEvent !== null,
       vadProbability,
+      wordScores: lastWordScores ?? undefined,
     },
   })
 
@@ -440,6 +445,7 @@ self.onmessage = async (e: MessageEvent<KWSWorkerMessage>) => {
         // Drop the held score too, or the next session would start by holding a
         // stale (possibly above-threshold) value from the previous run.
         lastScore = null
+        lastWordScores = null
         break
     }
   } catch (err) {

@@ -376,6 +376,7 @@ export class KWSEngine {
         smoothedScore: smoothed,
         triggered: triggerEvent !== null,
         vadProbability,
+        wordScores: (backend as KWSBackend).wordScores ?? undefined,
       }),
     )
     if (triggerEvent) {

@@ -18,6 +18,10 @@ export interface TrainableModuleLike {
   license: string
   /** The module's own train params (spec.train.params). */
   params?: ModuleParam[]
+  /** Selectable output formats (spec.train.formats, ADR-039 §4.6). */
+  formats?: { default: string[]; options: string[] }
+  /** Selectable quantization schemes (spec.train.quantization, ADR-039 §4.6). */
+  quantization?: { default?: string; options: string[] }
 }
 
 export type TrainPanelSpec = Pick<
@@ -31,7 +35,34 @@ export type TrainPanelSpec = Pick<
  * (no actions/status), so the wizard shows exactly the module's train knobs.
  */
 export function trainPanelSpec(module: TrainableModuleLike): TrainPanelSpec {
-  const params = module.params ?? []
+  const params = [...(module.params ?? [])]
+
+  // ADR-039 §4.6: formats + quantization are capability-labeled selectors
+  // declared in spec.train — inject them as spec-driven params so the wizard
+  // renders them without any hard-coded format UI here.
+  if (module.formats?.options?.length) {
+    params.push({
+      id: 'formats',
+      label: 'Output format(s)',
+      group: 'primary',
+      type: 'multiselect',
+      default: (module.formats.default ?? []).join(','),
+      options: module.formats.options,
+      description: 'Target model format(s) to derive from the canonical artifact; pick several to zip them all (ADR-039 §4.6).',
+    })
+  }
+  if (module.quantization?.options?.length) {
+    params.push({
+      id: 'quantization',
+      label: 'Quantization',
+      group: 'advanced',
+      type: 'select',
+      default: module.quantization.default ?? module.quantization.options[0],
+      options: module.quantization.options,
+      description: 'Quantization scheme applied to the requested formats (ADR-039 §4.6).',
+    })
+  }
+
   return {
     meta: {
       id: module.id,
