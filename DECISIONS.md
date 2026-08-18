@@ -1315,3 +1315,64 @@ applied per this log and may be overridden._
     already analysed here).
   - `third_party/README.md` hardening log, `docs/modules/kws-streaming.md`,
     `LICENSES.md`, and the train `README.md` record this decision.
+
+---
+
+## ADR-039 — Trained bundles are "one canonical model + a label list"; formats/quantization are spec-driven train params; conversion is module-owned
+
+- **Status:** Accepted (2026-08-18)
+- **Origin:** Human design decision (2026-08-18 discussion) on the training
+  module contract (`docs/modules/training.md` §4/§6); resolves open questions
+  T-7 and T-8.
+- **Decision:**
+  1. **One model, many labels.** A trained bundle is one canonical model plus
+     an ordered `labels.json` matching the class index. Multi-class trainers
+     (kws-streaming) detect every label; single-phrase trainers (openwakeword)
+     carry a one-element list. `spec.train.multiWord` (capability) +
+     `wakePhrases` (array param) drive the wizard; the in-browser test's
+     phrase selector is fed from `labels.json`. Separate-models-per-phrase
+     backends are second-class — prefer a single multi-class model.
+  2. **Formats & quantization are spec-driven train params**
+     (`spec.train.formats`, `spec.train.quantization`), capability-labeled so
+     the wizard renders from the spec (ADR-025). The canonical upstream-native
+     artifact is always kept; requested formats are derived from it.
+  3. **Conversion is module-owned, like training.** `spec.train.convert`
+     declares a module convert script callable at train time (the natural
+     place for int8 static PTQ, where calibration data is present) AND
+     standalone on an already-trained canonical model ("convert existing" —
+     no retraining when the target changes). A shared `wake_train_kit.convert`
+     provides the specific well-defined transforms (tflite→onnx via tf2onnx;
+     onnx→tflite + int8 static PTQ via the TF converter; fp16 via
+     onnxruntime). It is **not** a universal router, because onnx↔tflite is
+     lossy and one-way-ish.
+  4. **In-browser testing requires onnx** for all Traditional drivers
+     (onnxruntime-web), so tflite-native trainers must also be able to derive
+     a `.onnx` for the in-browser test + the browser export row.
+  5. A tiny `calibration/` set (a few seconds of representative audio) is
+     snapshotted into the bundle so a later standalone convert can re-quantize
+     without retraining.
+- **Rationale:**
+  - Matches the module-ownership model (ADR-025) and "adapt to upstream, never
+    rewrite" (ADR-031): each upstream has its own converter quirks, so policy
+    lives in the module; a shared helper removes boilerplate only (same
+    composition style as `wake_train_kit.report` / `.data_sources`).
+  - Train-time format selection is safe because the canonical artifact is
+    kept — a later target needs conversion, not retraining.
+  - PTQ calibration data is free only at train time; snapshotting a small set
+    keeps the standalone convert path stateless.
+  - A separate "convert API" service endpoint was considered and rejected in
+    favour of module-owned convert scripts run through the existing
+    job-manager/script path — no new service.
+- **Consequences:**
+  - `docs/modules/training.md` §4.1/§4.5/§4.6/§6 gain the `multiWord` /
+    `formats` / `quantization` / `convert` spec fields, `labels.json`,
+    `calibration/`, and the metadata `formats` / `labels` keys.
+  - kws-streaming's `labels.txt` becomes the standard `labels.json`; its
+    `wantedWord` selection is the reference driver behaviour for multi-word.
+  - Each trainable module grows a convert script (`spec.train.convert`); the
+    `wake_train_kit.convert` helpers land in the train-kit package.
+  - The training wizard renders the formats/quantization selectors and the
+    wake-phrase list from spec — no hard-coded UI (ADR-025).
+  - Follow-up implementation issues are tracked for: multi-word training
+    (labels + wakePhrases + phrase selector), formats/quantization train
+    params, and the module-owned convert stage.

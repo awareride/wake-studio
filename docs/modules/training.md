@@ -169,6 +169,25 @@ stays byte-identical; WakeStudio wraps it.
   "adapterOptions": {                     // NEW: per-adapter config
     "modelRegex": "model\\.(onnx|tflite)$",  // find the model in the run dir
     "metricsParser": "openwakeword-json"       // how to parse metrics.json
+  },
+  // WHAT the wizard offers (capability-labeled, spec-driven — ADR-025, ADR-039):
+  "multiWord": true,                      // NEW (ADR-039): trains ONE model for
+                                           //   many wake words? true → the params
+                                           //   field is "wakePhrases" (array);
+                                           //   false (openwakeword) keeps
+                                           //   "wakePhrase" (string).
+  "formats": {                            // NEW (ADR-039): selectable output formats
+    "default": ["onnx"],
+    "options": ["onnx", "tflite", "tflite-int8"]
+  },
+  "quantization": {                       // NEW (ADR-039): selectable quant schemes
+    "options": ["none", "fp16", "int8-static"],
+    "default": "int8-static"
+  },
+  "convert": {                            // NEW (ADR-039): module-owned convert script
+    "entry": "convert.py",               //   callable at train time AND standalone
+    "from": ["tflite", "onnx"],          //   source formats it accepts
+    "to": ["onnx", "tflite-int8"]        //   target formats it can derive
   }
 }
 ```
@@ -220,6 +239,64 @@ with any language:
   `train-kit` package (`wake_train_kit.report`) provides the reporter so
   module-owned scripts get this for free.
 
+### 4.5 Multi-wake-word models — "one model, many labels" (ADR-039)
+
+A trained bundle is **one model + an ordered label list**, not "one model per
+phrase". A multi-class model (e.g. kws-streaming's 12-label Speech Commands)
+acts as a detector for every label in the list; a single-phrase model
+(openwakeword) carries a one-element list.
+
+- **Standard `labels.json` (new):** every Traditional train emits an ordered
+  label list that matches the model's class index. kws-streaming's `labels.txt`
+  becomes `labels.json`; openwakeword emits a one-element list. The importer
+  validates it; drivers select the score column by phrase — kws-streaming's
+  `wantedWord` selection is already exactly this.
+- **Spec-driven wizard input:** `spec.train.multiWord` declares whether the
+  module can train several wake words at once. Capable modules (kws-streaming)
+  render `wakePhrases` (array) in the wizard; single-word modules (openwakeword)
+  keep `wakePhrase` (string). No hard-coded UI (ADR-025).
+- **In-browser test:** after import, the KWS panel offers a phrase selector fed
+  from `labels.json`, so the user tests each wake word of the model.
+- **Separate-models-per-phrase backends** are second-class: prefer merging into
+  one multi-class model (shared features, one runtime session, one threshold to
+  manage). A bundle-level `models[]` array is a future escape hatch only if a
+  backend genuinely cannot merge.
+
+### 4.6 Formats, quantization & conversion (ADR-039)
+
+**Decision: formats and quantization are spec-driven train params; conversion
+is module-owned, like training — with a shared helper for the common
+transforms.**
+
+- **`spec.train.formats` / `spec.train.quantization`** are capability-labeled
+  selectors. The wizard renders them from the spec (ADR-025); the adapter
+  honors them; `metadata.json` records what was requested and what shipped.
+- **The canonical artifact is always kept.** Each module emits its
+  upstream-native format (openwakeword → onnx; kws-streaming → tflite); the
+  requested formats are **derived** from it. This makes train-time format
+  selection safe: a later target needs only re-conversion, not retraining.
+- **Convert is module-owned (`spec.train.convert`), callable in two modes:**
+  1. **At train time** (embedded in the adapter) — the natural place for int8
+     static PTQ, because the calibration data is sitting right there.
+  2. **Standalone on an already-trained canonical model** ("convert existing")
+     — re-run a job or invoke the convert script directly when the user later
+     targets a different device.
+- **A shared helper (`wake_train_kit.convert`)** provides the *specific*
+  well-defined transforms (tflite→onnx via tf2onnx; onnx→tflite + int8 static
+  PTQ via the TF converter; fp16 via onnxruntime) — the same composition style
+  as `wake_train_kit.report` / `.data_sources`. Each module's convert script
+  composes these helpers and declares its source→target pairs; the helper is
+  **not** a universal router, because onnx↔tflite is lossy and one-way-ish.
+- **In-browser testing requires onnx.** onnxruntime-web runs `.onnx` only, and
+  every Traditional driver in the console (openwakeword, kws-streaming) runs on
+  it. So a tflite-native trainer (kws-streaming) must also be able to emit a
+  derived `.onnx` for the in-browser test + the browser export row — onnx is a
+  required derived output, not just an option.
+- **Calibration for later standalone converts:** when PTQ runs at train time it
+  consumes the run's calibration data directly; a tiny `calibration/` set (a
+  few seconds of representative audio) is snapshotted into the bundle so a
+  later standalone convert can re-quantize without retraining.
+
 ## 6. Artifact bundle manifest (single retrieval contract)
 
 One manifest serves ALL backends - studio-backend, cloud, and Colab - so the PWA
@@ -227,13 +304,24 @@ has **one importer** that validates + imports any trained model:
 
 ```
 wake-studio-results/<job-id>/
-  model.onnx            (or model.tflite)
+  model.onnx            (or model.tflite)  canonical, always present
+  labels.json           (NEW, ADR-039: ordered, matches the class index;
+                         single-phrase bundles carry a one-element list)
+  calibration/          (NEW, optional, ADR-039: small representative audio
+                         set so a later standalone convert can re-quantize)
   metrics.json          (FAR/FRR, loss, epochs - for the quality report)
-  metadata.json         (params used, backend, provider, dates)
+  metadata.json         (params used, backend, provider, dates + requested &
+                         shipped formats/quantization)
   provenance.json       (license: user-owned / commercially clean; source data
                          attributions for the Phase 4 license gate)
   config.json           (AFE/KWS/Few-Shot config snapshot used for the training)
 ```
+
+`labels.json` (ADR-039) makes the label list a first-class part of the
+contract: the importer validates it, the KWS panel derives its phrase selector
+from it, and drivers pick the class index by phrase. `formats`/`quantization`
+in `metadata.json` tell the importer what the bundle actually contains and feed
+the Phase 4 export matrix.
 
 `metadata.json` shape:
 
@@ -244,6 +332,8 @@ wake-studio-results/<job-id>/
   "backend": "self-hosted" | "cloud" | "colab",
   "provider": "...",
   "params": { "...": "..." },
+  "formats": { "requested": ["onnx"], "shipped": ["onnx", "tflite-int8"] },  // NEW (ADR-039)
+  "labels": ["hey studio"],                                                    // NEW (ADR-039), from labels.json
   "trainedAtMs": 0
 }
 ```
@@ -414,6 +504,8 @@ for every provider. Capability labels: train-capable vs inference-only.
 | T-4 | **Where the bundle manifest lives in the PWA** | `packages/modules/training/core/manifest.ts` - the single importer used by all backends. |
 | T-5 | **Which modules have a `train/` target in v1** | kws drivers (sherpa: transduce model frozen, so NO train - it's inference-only per ADR-024 ASR-Decoding; openwakeword: traditional train in Phase 5; plix: encoder is frozen). Training targets land with docs/roadmap.md Phase 5 backends. |
 | T-6 | **Upstream-script adapters (§4): preserve scripts/notebooks as-is vs rewrite** | ✅ **RESOLVED (human, 2026-08-05): preserve.** WakeStudio adapts to the upstream artifact (declare invocation + normalize outputs), never rewrites it. Spec `train` gains `script`/`notebook` + `adapter`/`adapterOptions` fields. |
+| T-7 | **Multi wake words: one model per phrase vs one model + labels** | ✅ **RESOLVED (human, 2026-08-18): "one model, many labels" (ADR-039).** Standard `labels.json` in the bundle; `spec.train.multiWord` capability + `wakePhrases` (array) param; in-browser phrase selector fed from `labels.json` (§4.5). |
+| T-8 | **Formats (.onnx/.tflite) + quantization: at train time vs a convert API** | ✅ **RESOLVED (human, 2026-08-18): spec-driven train params + module-owned convert (ADR-039).** `spec.train.formats`/`quantization` are capability-labeled selectors; convert is a module-owned script (`spec.train.convert`) callable at train time AND standalone on the canonical model; shared `wake_train_kit.convert` helpers for the common transforms (§4.6). |
 
 > T-5 note: per ADR-024, ASR-Decoding (sherpa) is **inference-only** - it has no
 > train target. The training module's first real `train/` targets are the
@@ -423,6 +515,7 @@ for every provider. Capability labels: train-capable vs inference-only.
 
 | Date | Change | Author |
 |---|---|---|
+| 2026-08-18 | **ADR-039 — multi wake words + formats/quantization + module-owned convert (§4.1/§4.5/§4.6/§6, T-7/T-8):** design decision from discussion (human, 2026-08-18). Bundles are "one model + an ordered `labels.json`"; `wakePhrases` (array) + `multiWord` capability drive the wizard; `spec.train.formats`/`quantization` are spec-driven selectors; convert is module-owned (like train) via `spec.train.convert`, callable at train time and standalone on the canonical model, with a shared `wake_train_kit.convert` helper; in-browser testing requires onnx for all Traditional drivers. | agent |
 | 2026-08-05 | Initial draft (docs-first, §6.5 Step A). | agent |
 | 2026-08-05 | **§4 upstream-script adapters** (human decision: preserve upstream train.py/ipynb; adapt to them). Spec `train` gains `script`/`notebook`/`adapter` fields; `standardize-results` is the single importer. Sections renumbered. | agent |
 | 2026-08-13 | §7.2 Colab runtime tunnel (proposal, Q15 issue #106): collapse Colab into the self-hosted API shape. | agent |

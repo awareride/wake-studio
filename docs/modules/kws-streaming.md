@@ -74,7 +74,10 @@ Why this module exists (and is not "just another backend"):
     list, and whether the speech feature extractor is inside the graph.
   - Label → posterior selection: pick the configured `wantedWord` column out of
     the multi-class softmax, so a 12-label Speech Commands model can act as a
-    single-wake-word detector.
+    single-wake-word detector. This is the reference driver for ADR-039's
+    "one model, many labels" contract — trained bundles carry a standard
+    `labels.json` (upstream `labels.txt` normalized) so the console can test
+    every wake word of the model (`docs/modules/training.md` §4.5).
   - The `spec.train` block wiring the **unpatched upstream**
     `kws_streaming/train/model_train_eval.py` (ADR-031) plus a
     `standardize-results` adapter for its run directory.
