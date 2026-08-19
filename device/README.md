@@ -23,6 +23,23 @@ ctest --test-dir build --output-on-failure
 
 MCU profile: `-DWAKE_SDK_PROFILE=mcu` (static buffers, no threads, int16 DSP).
 
+### macOS note (this dev machine)
+
+The local CommandLineTools C++ headers are incomplete (only `c++/v1` subdirs,
+no `<cstdlib>`), so the default compiler can't find the standard library.
+Use the SDK's headers explicitly (both for syntax checks and full builds):
+
+```bash
+SDK=$(xcrun --show-sdk-path)
+SYSFLAGS="-nostdinc++ -isystem $SDK/usr/include/c++/v1 -isysroot $SDK"
+cmake -S device -B build -DCMAKE_BUILD_TYPE=Debug -DWAKE_SDK_PROFILE=app \
+  -DCMAKE_C_FLAGS="$SYSFLAGS" -DCMAKE_CXX_FLAGS="$SYSFLAGS" \
+  -DCMAKE_EXE_LINKER_FLAGS="-isysroot $SDK"
+```
+
+CI (ubuntu) needs none of this — the GitHub Actions jobs are the authoritative
+build gate.
+
 ## Contract
 
 - `docs/modules/sdk.md` — module spec (Draft v2, the contract)
