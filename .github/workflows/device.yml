@@ -78,8 +78,11 @@ jobs:
 
       # kwt1.onnx + kwt1.json (the sidecar manifest) from the
       # kws-streaming-onnx artifact, built by build.yaml from the vendored
-      # upstream (ADR-027).
+      # upstream (ADR-027). fetch-artifact.mjs shells out to `gh run
+      # download`, which needs the Actions token.
       - name: Fetch kws-streaming model assets
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: node scripts/fetch-artifact.mjs kws-streaming || echo "kws-streaming assets fetch failed; L1 runtime test will skip"
 
       # Stage the model + manifest under the names the driver declares

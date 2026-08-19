@@ -12,6 +12,7 @@
  * mirror the browser driver (packages/modules/kws/streaming/core/backend.ts).
  */
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -69,6 +70,23 @@ TEST_CASE("kws-streaming driver: real manifest-driven graph (sliding-window)") {
             "assertions (CI sets it from the fetched kws-streaming-onnx "
             "artifact)");
     return;
+  }
+  /* Skip when the artifact is absent (issue #194 acceptance): a missing
+   * model must degrade coverage, not fail the suite. */
+  {
+    std::string model = std::string(dir) + "/model.onnx";
+    std::string manifest = std::string(dir) + "/manifest.json";
+    FILE *m = fopen(model.c_str(), "rb");
+    FILE *j = fopen(manifest.c_str(), "rb");
+    if (m == nullptr || j == nullptr) {
+      if (m != nullptr) fclose(m);
+      if (j != nullptr) fclose(j);
+      MESSAGE("model.onnx / manifest.json absent in " << dir
+              << " - skipping real-inference assertions");
+      return;
+    }
+    fclose(m);
+    fclose(j);
   }
 
   wake_kws_config_t cfg = WAKE_KWS_CONFIG_DEFAULT;
