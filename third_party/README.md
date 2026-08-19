@@ -26,6 +26,14 @@ on the record instead of pointing at a moving (or frozen) remote.
 |---|---|---|---|---|
 | `kws_streaming/` | `google-research/google-research` subtree `kws_streaming` | `cf61877d4c0021ff40ec3ecc0334aaa3937a1fcb` (2026-07-22, last commit touching the subtree) | Apache-2.0 | Archived upstream (project-level ARCHIVED); consumed unmodified by the kws-streaming train adapter (ADR-031; #156) |
 
+## Fetched prebuilt runtimes (not vendored source)
+
+`onnxruntime/` holds **fetched prebuilt binaries** (gitignored), not source:
+live upstream (ADR-037 Tier 1-2), pinned release **1.21.0** (ADR-031 style)
+for the device SDK's app-class drivers (openwakeword #192; kws-streaming
+#194 reuses it). Fetch with `node scripts/fetch-onnxruntime.mjs`; the pin +
+sha256s live in that script and `LICENSES.md`.
+
 Import details live in each pristine-import commit message; the policy
 itself is ADR-037 in `DECISIONS.md`.
 
