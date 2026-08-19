@@ -33,6 +33,10 @@ add_subdirectory(
   ${CMAKE_BINARY_DIR}/modules/kws/microwakeword
 )
 add_subdirectory(
+  ../packages/modules/kws/sherpa/device
+  ${CMAKE_BINARY_DIR}/modules/kws/sherpa
+)
+add_subdirectory(
   ../packages/modules/afe/rnnoise/device
   ${CMAKE_BINARY_DIR}/modules/afe/rnnoise
 )
