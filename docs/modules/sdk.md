@@ -210,6 +210,38 @@ selected modules' specs (see §9). `__attribute__((constructor))` and linker
 section tricks are avoided: fragile on bare-metal (linker scripts, startup
 code), nondeterministic. An explicit root is debuggable and testable.
 
+### 5.4 Device drivers (per-backend `device/` targets)
+
+Each driver is a self-contained module target — `wake_kws_<id>` — behind the
+same C `KWSBackend` op-struct, **runtime-gated** by a CMake option so the
+module always compiles/registers and only links its runtime when the build
+asks for it. A driver without its runtime still appears in capabilities;
+`load()` fails loudly ("runtime not linked") and `process_frame()` stays in
+warmup (`-1`). The bundle generator picks the runtime-ON configuration.
+
+| Driver (issue) | Module `device/` | Runtime | Gate option |
+|---|---|---|---|
+| microwakeword (#185) | `kws/microwakeword/device/` | TFLite-Micro (pinned, `third_party/tflite-micro`) | `WAKE_SDK_MICROWAKEWORD_HAS_RUNTIME` |
+| openwakeword (#192) | `kws/openwakeword/device/` | onnxruntime C API (pinned 1.21.0, `third_party/onnxruntime`, fetched prebuilt) | `WAKE_SDK_OPENWAKEWORD_HAS_RUNTIME` |
+| kws-streaming (#194) | `kws/streaming/device/` | onnxruntime C API (same pinned dep as openwakeword) | `WAKE_SDK_KWS_STREAMING_HAS_RUNTIME` |
+| sherpa-onnx-kws (#193) | `kws/sherpa/device/` | sherpa-onnx C API (pinned v1.13.6, `third_party/sherpa-onnx`, fetched prebuilt; bundles its own onnxruntime) | `WAKE_SDK_SHERPA_HAS_RUNTIME` |
+
+**onnxruntime (shared app-class runtime).** Two drivers share the pinned
+onnxruntime C API: openwakeword (mel → embedding → classifier, a byte-for-byte
+port of `core/backend.ts`) and kws-streaming (the same kwt\*.onnx graphs the
+browser runs, **manifest-driven**: a sidecar `manifest.json` — the browser's
+own sidecar contract — describes mode, tensor names, window/packet sizes and
+labels, so one driver serves every topology upstream ships, in both
+`sliding-window` and `streaming-external-state` shapes). Both read model files
+from the bundle `model_dir` under driver-declared names — no URL bag on
+device (ADR-040 §4.1).
+
+**sherpa-onnx (ASR-Decoding).** The sherpa driver runs the same
+encoder/decoder/joiner transducer the browser wasm runs, through the native
+KeywordSpotter C API. It is **hit-based**, not a per-frame posterior:
+`process_frame()` returns 1.0 on a keyword hit (held ~400 ms so the
+min-duration gate clears), 0.0 otherwise — browser parity.
+
 ### 5.3 Low-power vs high-performance: profiles, not forks (ADR-040 §4)
 
 One core; the mcu/app distinction is **preset configurations**:
@@ -313,8 +345,9 @@ target — this is the hard acceptance for #41.
 6. Composition root + profile system (mcu/app) + capabilities query.
 7. microwakeword device driver (TFLite-Micro) + Cortex-M cross-compile in CI.
 8. Raspberry Pi Python binding golden path.
-9. plix device driver (onnxruntime C API); openwakeword/sherpa reuse the
-   pattern as follow-ups.
+9. openwakeword + kws-streaming + sherpa-onnx-kws device drivers shipped
+   (onnxruntime shared runtime; sherpa-onnx prebuilt); plix reuses the
+   pattern as a follow-up; microwakeword (TFLite-Micro) lands the MCU tier.
 10. On-hardware MCU validation (buy one cheap STM32/Arduino board for the
     golden-path acceptance).
 11. Android (JNI) / iOS (Swift) / desktop bindings; bundle generator consumes
