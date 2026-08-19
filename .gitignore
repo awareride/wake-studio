@@ -61,6 +61,16 @@ packages/modules/*/*/train/*.egg-info/
 # onnxruntime-web wasm runtime (copied from node_modules at build, P0-4)
 apps/web/public/ort/
 
+# Fetched prebuilt runtimes (ADR-031 pin, issues #192/#193): downloaded by
+# scripts/fetch-onnxruntime.mjs / scripts/fetch-sherpa-onnx.mjs, never
+# committed (ADR-027 spirit).
+third_party/onnxruntime/linux-x64/
+third_party/onnxruntime/linux-aarch64/
+third_party/onnxruntime/osx-universal2/
+third_party/sherpa-onnx/linux-x64/
+third_party/sherpa-onnx/osx-arm64/
+third_party/sherpa-onnx/linux-aarch64/
+
 # studio-backend runtime state (ADR-036): SQLite store + artifacts
 apps/studio-backend/.venv/
 apps/studio-backend/data/

@@ -26,6 +26,16 @@ on the record instead of pointing at a moving (or frozen) remote.
 |---|---|---|---|---|
 | `kws_streaming/` | `google-research/google-research` subtree `kws_streaming` | `cf61877d4c0021ff40ec3ecc0334aaa3937a1fcb` (2026-07-22, last commit touching the subtree) | Apache-2.0 | Archived upstream (project-level ARCHIVED); consumed unmodified by the kws-streaming train adapter (ADR-031; #156) |
 
+## Fetched prebuilt runtimes (not vendored source)
+
+`onnxruntime/` and `sherpa-onnx/` hold **fetched prebuilt binaries**
+(gitignored), not source: live upstreams (ADR-037 Tier 1-2), pinned releases
+(ADR-031 style) for the device SDK's app-class drivers — onnxruntime
+**1.21.0** (openwakeword #192; kws-streaming #194 reuses it) and sherpa-onnx
+**v1.13.6** (sherpa #193; its shared lib bundles its own onnxruntime). Fetch
+with `node scripts/fetch-onnxruntime.mjs` / `node scripts/fetch-sherpa-onnx.mjs`;
+the pins + sha256s live in those scripts and `LICENSES.md`.
+
 Import details live in each pristine-import commit message; the policy
 itself is ADR-037 in `DECISIONS.md`.
 
