@@ -18,7 +18,7 @@
  * update both (sha256sum of the release tarball).
  */
 import { createHash } from 'node:crypto'
-import { createWriteStream, existsSync, mkdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
@@ -69,37 +69,28 @@ async function main() {
   }
 
   const url = `${BASE}/${cfg.tarball}`
-  const tmpTgz = join(ortDir, `.${host}.${VERSION}.tgz`)
   mkdirSync(ortDir, { recursive: true })
-
   console.log(`[fetch-onnxruntime] downloading ${url}`)
   const res = await fetch(url)
   if (!res.ok) {
     die(`download failed: HTTP ${res.status} ${res.statusText}`)
   }
 
-  const hash = createHash('sha256')
-  await new Promise((resolveStream, rejectStream) => {
-    const file = createWriteStream(tmpTgz)
-    res.body.on('error', rejectStream)
-    file.on('error', rejectStream)
-    file.on('finish', resolveStream)
-    res.body.pipe(hash).pipe(file)
-  })
-  const got = hash.digest('hex')
-
+  const buf = Buffer.from(await res.arrayBuffer())
+  const got = createHash('sha256').update(buf).digest('hex')
   if (cfg.sha256 && got !== cfg.sha256) {
-    rmSync(tmpTgz, { force: true })
     die(`sha256 mismatch for ${cfg.tarball}:\n  expected ${cfg.sha256}\n  got      ${got}`)
   }
   console.log(`[fetch-onnxruntime] sha256 ok (${got})`)
 
   rmSync(dest, { recursive: true, force: true })
   mkdirSync(dest, { recursive: true })
-  const tar = spawnSync('tar', ['xzf', tmpTgz, '-C', dest, '--strip-components=1'], {
+  const tmpTgzPath = join(ortDir, `.${host}.${VERSION}.tgz`)
+  writeFileSync(tmpTgzPath, buf)
+  const tar = spawnSync('tar', ['xzf', tmpTgzPath, '-C', dest, '--strip-components=1'], {
     stdio: 'inherit',
   })
-  rmSync(tmpTgz, { force: true })
+  rmSync(tmpTgzPath, { force: true })
   if (tar.status !== 0) {
     die(`extraction failed (tar exit ${tar.status})`)
   }
