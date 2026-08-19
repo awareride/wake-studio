@@ -73,23 +73,29 @@ exports stay consistent (ADR-021). A single op-struct + handle:
 /* core/include/wake/kws_backend.h */
 typedef struct wake_kws_backend wake_kws_backend_t;   /* opaque handle */
 
-typedef struct wake_kws_ops {
+typedef struct wake_kws_backend_ops {
     const char *id;                                    /* 'microwakeword' | 'plixkws' | ... */
     const char *label;
-    /* Load the backend's models. Returns 0 on success. */
-    int (*load)(wake_kws_backend_t *self, const wake_model_urls_t *urls,
+    void *(*create)(const wake_kws_config_t *cfg);     /* instance factory */
+    void (*destroy)(void *impl);
+    /* Load the backend's models from the bundle dir. Returns 0 on success. */
+    int (*load)(void *impl, const wake_model_bundle_t *models,
                 const wake_kws_config_t *cfg);
     /* Process one AFE frame (160 samples / 10 ms @ 16 kHz). Returns raw
        posterior [0,1], or -1 during warmup. */
-    float (*process_frame)(wake_kws_backend_t *self, const int16_t *samples);
-    void (*reset)(wake_kws_backend_t *self);
-    void (*dispose)(wake_kws_backend_t *self);
-} wake_kws_ops_t;
+    float (*process_frame)(void *impl, const int16_t *samples, size_t n);
+    void (*reset)(void *impl);
+} wake_kws_backend_ops_t;
 
-/* A backend instance is created by its module's registration entry. */
-int wake_register_kws_backend(wake_sdk_t *sdk, const wake_kws_ops_t *ops,
-                              void *(*create)(const wake_kws_config_t *cfg));
+/* A backend is registered by the composition root, one line per module. */
+int wake_sdk_register_kws_backend(wake_sdk_t *sdk,
+                                  const wake_kws_backend_ops_t *ops);
 ```
+
+On device, models are **files** in a bundle directory
+(`wake_model_bundle_t.model_dir` — the driver reads the names it declared),
+not URLs; the bundle generator (#189) emits the model files next to the
+config.
 
 The generic **detection loop lives in the core** (never in a module): VAD gate →
 smoothed score (sliding-window max) → threshold + min-duration → cooldown —
@@ -104,20 +110,32 @@ own audio windowing/buffering — exactly the browser split (ADR-018).
 typedef struct wake_afe_stage wake_afe_stage_t;
 
 typedef struct wake_afe_stage_ops {
-    const char *id;              /* 'ns' | 'vad' | 'aec' | 'agc' | 'bss' */
-    int (*init)(wake_afe_stage_t *self, const wake_afe_config_t *cfg);
-    int (*process)(wake_afe_stage_t *self, int16_t *frames, size_t n);
-    void (*reset)(wake_afe_stage_t *self);
+    const char *id;              /* 'aec' | 'bss' | 'ns' */
+    const char *label;
+    void *(*create)(void);
+    void (*destroy)(void *impl);
+    /* One 10 ms frame (160 samples @ 16 kHz) in place. `vad_out` may be
+       NULL; a stage that carries VAD writes its probability [0,1] there. */
+    int (*process)(void *impl, int16_t *frames, size_t n, float *vad_out);
+    void (*reset)(void *impl);
 } wake_afe_stage_ops_t;
 
-int wake_register_afe_stage(wake_sdk_t *sdk, const wake_afe_stage_ops_t *ops,
-                            void *(*create)(void));
+int wake_sdk_register_afe_stage(wake_sdk_t *sdk, const wake_afe_stage_ops_t *ops);
+
+/* per-pipeline graph: append (in order) + process + reset */
+wake_afe_graph_t *wake_afe_graph_create(void);
+int wake_afe_graph_append(wake_afe_graph_t *g, const wake_afe_stage_ops_t *ops);
+int wake_afe_graph_process(wake_afe_graph_t *g, int16_t *frames, size_t n,
+                           float *vad_out);
 ```
 
-Strict pipeline order is **AEC → BSS → NS → VAD → KWS** (ADR-001/016); AEC/BSS
-are passthrough for v1 (ADR-016) with vendor adapter slots (WebRTC/SpeexDSP).
-RNNoise NS + VAD are real modules ported from the C source the browser WASM
-already vendors.
+Strict pipeline order is **AEC → BSS → NS → VAD → KWS** (ADR-001/016); the
+composition root appends in that order. AEC/BSS are passthrough for v1
+(ADR-016) with vendor adapter slots (WebRTC/SpeexDSP). The RNNoise NS stage
+(module `afe/rnnoise/device/`, vendored `third_party/rnnoise` v0.1.1) both
+denoises and **carries the VAD probability** (browser parity — the browser
+derives VAD from the same RNNoise engine); it slips 160-sample graph frames
+into RNNoise's 480-sample frames (30 ms latency, streaming, no sample loss).
 
 ### 4.3 Capabilities & config
 
@@ -219,9 +237,18 @@ audio in → [adapter: capture] → [core: AFE graph 16 kHz, 10 ms frames]
 
 - Capture is adapter-owned (PCM16 frames at the device rate); the core
   resamples to 16 kHz at the AFE boundary (sample-rate support is a capability).
-- The detection loop emits score/trigger events the same shape as the browser
-  `KWSScoreSample` / `KWSTriggerEvent` (capturedAtMs, rawScore, smoothedScore,
-  triggered, vadProbability).
+- The per-pipeline runtime is `wake_pipeline_t` (core): it builds the AFE
+  graph from the registered stages (ADR-001 order), creates the named
+  backend, and wires smoothing → VAD gate → threshold + min-duration →
+  cooldown (`wake/detection.h`, port of `logic.ts`).
+- The loop emits score/trigger events the same shape as the browser
+  `KWSScoreSample` / `KWSTriggerEvent` (`wake_score_sample_t` /
+  `wake_trigger_event_t`: capturedAtMs, rawScore, smoothedScore, triggered,
+  vadProbability). VAD-gated frames skip inference and do not push into the
+  smoother window (max-pooling keeps the recent peak, browser parity).
+- The host CLI demo (`device/tools/wake-sdk-demo`, `wake-sdk-demo input.wav`)
+  drives this path end-to-end on the dev host: wav → AFE → RMS reference
+  backend → trigger print (exit 0 on trigger, 1 otherwise).
 
 ## 7. Error model & failure modes
 
@@ -250,11 +277,15 @@ target — this is the hard acceptance for #41.
 
 ## 10. Testing strategy (ADR-026 applied to the device world)
 
-- **L1 unit tests per module** (native build): e.g. RNNoise NS on a synthetic
-  16 kHz clip; microwakeword with a tiny int8 model.
-- **Composition-root integration test** (native harness, macOS/Linux): assemble
-  core + selected AFE stages + one backend, feed a wav, assert a trigger — the
-  L2-style boot test for device; runs on the developer's host, zero hardware.
+- **L1 unit tests per module** (native build): detection loop port fidelity,
+  backend/stage registries, AFE graph, RNNoise NS/VAD (silence vs loud-signal
+  VAD ordering), WAV reader.
+- **Composition-root integration test** (native harness, macOS/Linux):
+  assemble core + AFE stages (aec/bss/ns) + the RMS reference backend, feed
+  a tone wav, assert a trigger — the L2-style boot test for device; runs on
+  the developer's host, zero hardware. Tested in CI (`ctest`).
+- **CLI demo smoke** (CI): `wake-sdk-demo` on a generated tone wav exits 0
+  (trigger) and on silence exits 1 (no trigger).
 - **Cross-compile builds** (Cortex-M `arm-none-eabi`) in CI: build + link +
   unit tests, no hardware required.
 - **On-hardware validation**: final acceptance for golden paths only (Cortex-M

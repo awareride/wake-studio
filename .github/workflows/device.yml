@@ -1,0 +1,78 @@
+name: SDK device build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: sdk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: Native build + tests (${{ matrix.profile }} / ${{ matrix.cc }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [app, mcu]
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+
+      # ubuntu-latest runners ship cmake + ninja preinstalled; the device
+      # tree is plain CMake, no toolchain install needed (Q13/#35, ADR-040 §5:
+      # native host CI first, cross-compile joins the matrix in #186).
+      - name: Configure
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cc == 'gcc' && 'g++' || 'clang++' }}
+        run: cmake -S device -B build -DCMAKE_BUILD_TYPE=Debug -DWAKE_SDK_PROFILE=${{ matrix.profile }}
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Run tests (L1 + composition-root, ADR-026)
+        run: ctest --test-dir build --output-on-failure
+
+      - name: CLI demo smoke (tone triggers, silence does not)
+        if: ${{ matrix.profile == 'app' && matrix.cc == 'gcc' }}
+        run: |
+          python3 - <<'PY'
+          import math, struct, wave
+          with wave.open('tone.wav','w') as w:
+              w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+              w.writeframes(b''.join(struct.pack('<h', int(0.3*32767*math.sin(2*math.pi*440*t/16000))) for t in range(16000*3)))
+          with wave.open('silence.wav','w') as w:
+              w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+              w.writeframes(b'\x00\x00'*(16000*2))
+          PY
+          ./build/tools/wake-sdk-demo/wake-sdk-demo tone.wav && echo "tone triggered: OK"
+          ! ./build/tools/wake-sdk-demo/wake-sdk-demo silence.wav && echo "silence stayed quiet: OK"
+
+      - name: Python binding smoke (ctypes, #187)
+        if: ${{ matrix.profile == 'app' && matrix.cc == 'gcc' }}
+        run: |
+          python3 packages/sdk/python/wake-sdk-demo.py tone.wav && echo "python tone: OK"
+          ! python3 packages/sdk/python/wake-sdk-demo.py silence.wav && echo "python silence: OK"
+
+  cross-mcu:
+    name: Cross-compile (Cortex-M4, arm-none-eabi)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ARM toolchain
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi
+
+      # mcu profile + cross toolchain: build + link only (no board, no OS).
+      # Executables (tests/CLI) are host-only and are gated in the top-level
+      # CMakeLists by CMAKE_CROSSCOMPILING (#186).
+      - name: Configure (mcu profile)
+        run: cmake -S device -B build -DWAKE_SDK_PROFILE=mcu -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/arm-none-eabi.cmake
+
+      - name: Build libraries
+        run: cmake --build build -j
