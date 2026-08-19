@@ -59,6 +59,48 @@ jobs:
           python3 packages/sdk/python/wake-sdk-demo.py tone.wav && echo "python tone: OK"
           ! python3 packages/sdk/python/wake-sdk-demo.py silence.wav && echo "python silence: OK"
 
+  app-runtime:
+    name: App profile + onnxruntime (openwakeword driver, #192)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Pinned onnxruntime prebuilt (ADR-031, issue #192): the openwakeword
+      # driver links it and the L1 test runs the real onnx pipeline. The
+      # tarball is fetched + sha256-verified by the script, never committed.
+      - name: Fetch onnxruntime (pinned 1.21.0)
+        run: node scripts/fetch-onnxruntime.mjs
+
+      # The three onnx models (melspectrogram / embedding / hey-buddy
+      # classifier) from the models-openwakeword-v1 release (ADR-027).
+      - name: Fetch openwakeword model assets
+        run: node scripts/fetch-artifact.mjs kws-openwakeword || echo "openwakeword assets fetch failed; L1 runtime test will skip"
+
+      # Stage the models under the names the driver declares (ADR-040 §4.1):
+      # melspectrogram.onnx / embedding_model.onnx / classifier.onnx.
+      - name: Stage driver model dir
+        run: |
+          mkdir -p models
+          cp packages/modules/kws/openwakeword/assets/openWakeWord/melspectrogram.onnx models/
+          cp packages/modules/kws/openwakeword/assets/openWakeWord/embedding_model.onnx models/
+          cp packages/modules/kws/openwakeword/assets/hey-buddy/models/hey-buddy.onnx models/classifier.onnx
+
+      - name: Configure (runtime ON)
+        run: cmake -S device -B build -DCMAKE_BUILD_TYPE=Debug -DWAKE_SDK_PROFILE=app \
+          -DWAKE_SDK_OPENWAKEWORD_HAS_RUNTIME=ON \
+          -DWAKE_OPENWAKEWORD_MODEL_DIR=$PWD/models
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Run tests (real onnx pipeline L1, ADR-026)
+        run: ctest --test-dir build --output-on-failure
+
   cross-mcu:
     name: Cross-compile (Cortex-M4, arm-none-eabi)
     runs-on: ubuntu-latest
