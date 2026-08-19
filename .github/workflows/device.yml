@@ -107,7 +107,7 @@ jobs:
       - name: Build
         run: cmake --build build -j
 
-      - name: Run tests (real transducer L1: trigger clip hits, silence does not)
+      - name: "Run tests (real transducer L1: trigger clip hits, silence does not)"
         run: ctest --test-dir build --output-on-failure
 
   cross-mcu:
