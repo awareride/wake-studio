@@ -55,7 +55,7 @@ function detectHost() {
   die(`unsupported host ${platform}/${arch} (supported: linux-x64, linux-aarch64, osx-universal2)`)
 }
 
-function main() {
+async function main() {
   const force = process.argv.includes('--force')
   const host = detectHost()
   const cfg = PLATFORMS[host]
