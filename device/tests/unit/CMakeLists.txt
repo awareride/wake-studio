@@ -6,6 +6,7 @@ add_executable(sdk_unit_tests
   afe_graph.test.cxx
   rnnoise.test.cxx
   microwakeword.test.cxx
+  openwakeword.test.cxx
 )
 target_link_libraries(sdk_unit_tests PRIVATE
   wake_sdk_core
@@ -13,6 +14,20 @@ target_link_libraries(sdk_unit_tests PRIVATE
   wake_afe_aec
   wake_afe_bss
   wake_kws_microwakeword
+  wake_kws_openwakeword
 )
+# The openwakeword L1 test (issue #192) has two faces: the no-runtime
+# contract test and, when the onnxruntime is linked, a real-inference test
+# over the three onnx models. The compile-time gate + model dir must match
+# the module's own configuration.
+if(WAKE_SDK_OPENWAKEWORD_HAS_RUNTIME)
+  target_compile_definitions(sdk_unit_tests PRIVATE WAKE_SDK_OPENWAKEWORD_HAS_RUNTIME=1)
+  set(WAKE_OPENWAKEWORD_MODEL_DIR "" CACHE PATH
+      "Directory holding the openwakeword onnx models (L1 runtime test)")
+  if(WAKE_OPENWAKEWORD_MODEL_DIR)
+    target_compile_definitions(sdk_unit_tests PRIVATE
+      WAKE_OPENWAKEWORD_MODEL_DIR="${WAKE_OPENWAKEWORD_MODEL_DIR}")
+  endif()
+endif()
 target_include_directories(sdk_unit_tests PRIVATE ${WAKE_REPO_ROOT}/third_party)
 add_test(NAME sdk_unit COMMAND sdk_unit_tests)
