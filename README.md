@@ -53,6 +53,10 @@ shipped; target adapters and bundle generation remain. See
 | `afe-graph` | afe | pilot | ✅✅✅✅✅✅ | 100% |
 | `rnnoise` | afe | pilot | ✅✅✅✅✅✅ | 100% |
 | `dataset` | data | draft | ✅✅⬜✅✅✅ | 83% |
+| `edge-tts` | data | draft | ✅✅✅⬜✅✅ | 83% |
+| `mimo-tts` | data | draft | ✅✅✅⬜✅✅ | 83% |
+| `piper` | data | draft | ✅✅✅⬜✅✅ | 83% |
+| `qwen-llm-tts` | data | draft | ✅✅✅⬜✅✅ | 83% |
 | `few-shot` | few-shot | pilot | ✅✅✅✅✅✅ | 100% |
 | `kws-engine` | kws | pilot | ✅✅✅✅✅✅ | 100% |
 | `kws-openwakeword` | kws | pilot | ✅✅✅✅✅✅ | 100% |
