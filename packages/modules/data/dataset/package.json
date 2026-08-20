@@ -17,7 +17,8 @@
     "fetch:all": "echo 'no artifacts'"
   },
   "dependencies": {
-    "fflate": "^0.8.3"
+    "fflate": "^0.8.3",
+    "@wake-studio/contracts": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",

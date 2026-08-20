@@ -92,6 +92,35 @@ describe('createStudioClient', () => {
     expect(jobs[0].id).toBe('train-1')
   })
 
+  it('listDatasets unwraps the {datasets: [...]} envelope (feeds the picker, #206)', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({
+        datasets: [
+          {
+            id: 'ds-1',
+            name: 'wake-words',
+            version: 1,
+            kind: 'generated',
+            role: 'mixed',
+            sizeBytes: 1024,
+            createdAtMs: 1,
+            manifest: {
+              audio: { sampleRate: 16000, channels: 1, clips: 4, durationSec: 8 },
+              labels: [{ name: 'hey_studio', role: 'positive' }],
+              provenance: [],
+            },
+          },
+        ],
+      }),
+    )
+    const datasets = await createStudioClient('http://x').listDatasets()
+    expect(datasets).toHaveLength(1)
+    expect(datasets[0].id).toBe('ds-1')
+    expect(datasets[0].manifest.labels?.[0].role).toBe('positive')
+    const [url] = vi.mocked(fetch).mock.calls[0]
+    expect(url).toBe('http://x/datasets')
+  })
+
   it('surfaces backend errors as StudioClientError with the status', async () => {
     vi.mocked(fetch).mockResolvedValue(jsonResponse({ detail: 'no such job' }, 404))
     await expect(createStudioClient('http://x').getJob('nope')).rejects.toMatchObject({

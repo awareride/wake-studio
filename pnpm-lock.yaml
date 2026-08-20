@@ -41,6 +41,9 @@ importers:
       '@wake-studio/module-afe-graph':
         specifier: workspace:^
         version: link:../../packages/modules/afe/graph
+      '@wake-studio/module-dataset':
+        specifier: workspace:^
+        version: link:../../packages/modules/data/dataset
       '@wake-studio/module-few-shot':
         specifier: workspace:^
         version: link:../../packages/modules/few-shot
@@ -372,6 +375,9 @@ importers:
 
   packages/modules/data/dataset:
     dependencies:
+      '@wake-studio/contracts':
+        specifier: workspace:*
+        version: link:../../../contracts
       fflate:
         specifier: ^0.8.3
         version: 0.8.3

@@ -23,6 +23,8 @@ export type {
   ModuleStatusFlag,
   ModuleTests,
   ModuleTrain,
+  LabelMode,
+  TrainerDatasetRequirements,
   ModuleTTSEngine,
   ParamType,
   ParamValidation,

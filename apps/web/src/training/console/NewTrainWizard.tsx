@@ -35,6 +35,7 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { InlineGuide } from './InlineGuide'
 import { ModelTypeStep } from './ModelTypeStep'
 import { ConfigStep } from './ConfigStep'
+import { DatasetPicker } from './DatasetPicker'
 import { MethodStep } from './MethodStep'
 import { ReadyStep } from './ReadyStep'
 import { NotebookReviewView } from './NotebookReviewView'
@@ -42,6 +43,9 @@ import { trainInputFile } from './train-files'
 
 export interface NewTrainWizardProps {
   modules: TrainableModule[]
+  /** The studio-backend client whose /datasets store feeds the datasets[]
+   *  picker (issue #206). Null when no managed backend is configured yet. */
+  datasetsClient?: import('../studio-client').StudioClient | null
   /** Called with the finalized train when the user confirms (Save/Start).
    *  backendId is set when the Studio-backend method picked a managed backend. */
   onStarted: (
@@ -57,6 +61,7 @@ export interface NewTrainWizardProps {
 
 export function NewTrainWizard({
   modules,
+  datasetsClient = null,
   onStarted,
   onCancel,
   onDirtyChange,
@@ -242,7 +247,22 @@ export function NewTrainWizard({
           <ModelTypeStep modules={modules} selectedId={moduleId} onSelect={selectModule} />
         )}
 
-        {step === 'config' && module && <ConfigStep module={module} />}
+        {step === 'config' && module && (
+          <>
+            <ConfigStep module={module} />
+            {/* spec.train.dataset (#206): the datasets[] picker replaces the
+                legacy dataSource selector — fed from the Datasets store and
+                validated against the module's requirements. */}
+            {module.train.dataset && (
+              <DatasetPicker
+                client={datasetsClient}
+                requirements={module.train.dataset}
+                value={params.datasets ?? ''}
+                onChange={(v) => setParams((prev) => ({ ...prev, datasets: v }))}
+              />
+            )}
+          </>
+        )}
 
         {step === 'method' && module && (
           <MethodStep
@@ -272,7 +292,14 @@ export function NewTrainWizard({
         {/* The module's own train params (spec-driven, ADR-025): kept mounted
             so values survive step navigation; params render on Configure. */}
         <div className={step === 'config' ? '' : 'hidden'}>
-          {trainSpec && <TrainParamsPanel spec={trainSpec} onValuesChange={setParams} />}
+          {trainSpec && (
+            <TrainParamsPanel
+              spec={trainSpec}
+              // merge (not replace) so the DatasetPicker's `datasets` value
+              // survives TrainParamsPanel re-renders and vice versa (#206).
+              onValuesChange={(values) => setParams((prev) => ({ ...prev, ...values }))}
+            />
+          )}
         </div>
       </div>
 

@@ -94,6 +94,32 @@ export interface ModuleRuntime {
   }
 }
 
+/** How many distinct wake words the trainer handles (docs/modules/data-sources.md §6). */
+export type LabelMode = 'single' | 'multi' | 'class'
+
+/**
+ * The dataset requirements a trainer declares (`spec.train.dataset`, #206).
+ *
+ * The training wizard validates the picked `datasets[]` against these BEFORE
+ * training so the user gets clear warnings instead of a cryptic trainer
+ * crash (docs/modules/data-sources.md §6 / docs/modules/training.md §4.7).
+ * Mirrored by `packages/modules/data/dataset/core/materialize.ts` (the TS
+ * validation source of truth) and `wake_train_kit/materialize.py` (the
+ * backend twin the train adapters run).
+ */
+export interface TrainerDatasetRequirements {
+  /** Required canonical sample rate (Hz); the canonical form is 16 kHz. */
+  sampleRate?: number
+  /** Minimum clips per POSITIVE (wake-word) label before we warn. */
+  minClipsPerLabel?: number
+  /** The trainer needs a `role: noise` dataset (→ `_background_noise_` / background paths). */
+  needsNoise?: boolean
+  /** The trainer needs `role: unknown` labels (→ the `_unknown_` / negatives class). */
+  needsUnknowns?: boolean
+  /** single = one wake word, multi = several, class = labels are classes (ADR-039 §4.5). */
+  labelMode?: LabelMode
+}
+
 /** Train-script declaration (ADR-028: run via `uv run`). */
 export interface ModuleTrain {
   /** Local uv script (ADR-028), e.g. "train/train.py". */
@@ -174,6 +200,15 @@ export interface ModuleTrain {
     /** Target formats it can derive. */
     to?: string[]
   }
+  /**
+   * Dataset requirements the trainer declares (`spec.train.dataset`, #206).
+   * When present, the training wizard renders a `datasets[]` picker (fed from
+   * the Datasets store) instead of a raw `dataSource` selector, validates the
+   * picked datasets against these requirements, and the train adapter's
+   * `prepare_data` becomes load-refs → materialize → merge (ADR-031, upstream
+   * scripts stay byte-identical).
+   */
+  dataset?: TrainerDatasetRequirements
 }
 
 /** A build input for the generic build workflow (workflow_dispatch input). */

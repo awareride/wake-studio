@@ -36,6 +36,15 @@ export interface TrainableModuleTrain {
   quantization?: { default?: string; options: string[] }
   /** ADR-039 §4.6: module-owned convert script declaration. */
   convert?: { entry: string; from?: string[]; to?: string[] }
+  /** spec.train.dataset (#206): the requirements the wizard validates picked
+   *  datasets against (drives the datasets[] picker instead of dataSource). */
+  dataset?: {
+    sampleRate?: number
+    minClipsPerLabel?: number
+    needsNoise?: boolean
+    needsUnknowns?: boolean
+    labelMode?: 'single' | 'multi' | 'class'
+  }
 }
 
 export interface TrainableModule {

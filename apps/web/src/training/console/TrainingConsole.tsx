@@ -48,6 +48,13 @@ type View =
 
 export function TrainingConsole() {
   const { platform, backends, kwsSources, setKwsSources } = useAppSettings()
+
+  // The Datasets store lives on the studio-backend (GET /datasets, #206); the
+  // wizard's datasets[] picker uses the first configured managed backend.
+  const datasetsClient = useMemo(() => {
+    const backend = backends[0]
+    return backend ? createStudioClient(backend.baseUrl, backend.token || undefined) : null
+  }, [backends])
   const { toast } = useToast()
   const [jobs, setJobs] = useState<HistoryJob[]>([])
   const [modules, setModules] = useState<TrainableModule[]>([])
@@ -385,6 +392,7 @@ export function TrainingConsole() {
            interrupt the steps (issue #105). */
         <NewTrainWizard
           modules={modules}
+          datasetsClient={datasetsClient}
           onStarted={handleWizardStarted}
           onCancel={() => {
             setView(view.from)

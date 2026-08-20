@@ -57,6 +57,24 @@ export {
 } from './engines'
 
 export {
+  MATERIALIZERS,
+  MATERIALIZER_IDS,
+  KWS_STREAMING_MATERIALIZER,
+  OPENWAKEWORD_MATERIALIZER,
+  materializerFor,
+  roleFolderName,
+  validateDatasetRequirements,
+  planKwsStreamingLayout,
+  type MaterializerId,
+  type MaterializerDescriptor,
+  type RoleMapping,
+  type DatasetValidationInput,
+  type DatasetRequirementsValidation,
+} from './materialize'
+
+export type { TrainerDatasetRequirements, LabelMode } from '@wake-studio/contracts'
+
+export {
   STORAGE_BACKEND_KINDS,
   STORAGE_CAPABILITIES,
   BUILTIN_STORAGE_BACKENDS,

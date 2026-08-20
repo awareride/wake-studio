@@ -38,7 +38,8 @@
     "@wake-studio/platform": "workspace:^",
     "notebook-viewer-ts": "^0.1.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "@wake-studio/module-dataset": "workspace:^"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",

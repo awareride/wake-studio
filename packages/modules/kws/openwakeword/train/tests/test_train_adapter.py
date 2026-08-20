@@ -14,9 +14,53 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 ADAPTER = Path(__file__).resolve().parent.parent / "train_adapter.py"
 FAKE_UPSTREAM = Path(__file__).resolve().parent / "fake_upstream" / "openwakeword"
+# Fake openwakeword feature-extractor shim + the live studio-backend src (the
+# module train venv has a stale installed wake_train_kit without materialize).
+FAKE_FEATURES = Path(__file__).resolve().parent / "fake_upstream" / "openwakeword_features"
+STUDIO_SRC = Path(__file__).resolve().parents[6] / "apps" / "studio-backend" / "src"
+sys.path.insert(0, str(STUDIO_SRC))
+
+
+def build_dataset_zip(tmp_path: Path, dataset_id: str = "ds-1") -> Path:
+    """A canonical wake-studio-dataset.zip (role-positive/unknown/noise)."""
+    import io
+    import zipfile
+
+    manifest = {
+        "schemaVersion": 1,
+        "id": dataset_id,
+        "name": "wake-words",
+        "version": 1,
+        "kind": "generated",
+        "role": "mixed",
+        "audio": {"sampleRate": 16000, "channels": 1, "encoding": "pcm_s16le",
+                   "clips": 4, "durationSec": 8},
+        "labels": [
+            {"name": "hey_studio", "role": "positive"},
+            {"name": "_unknown", "role": "unknown"},
+            {"name": "noise", "role": "noise"},
+        ],
+        "provenance": [{"name": "edge-tts synthetic", "license": "user-owned", "commercialUse": True}],
+        "createdAtMs": 1700000000000,
+    }
+    clips = {
+        "hey_studio": {"a.wav": b"RIFF1", "b.wav": b"RIFF2"},
+        "_unknown": {"x.wav": b"RIFF3"},
+        "noise": {"bg.wav": b"RIFF4"},
+    }
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("dataset.json", json.dumps(manifest))
+        for label, clip_map in clips.items():
+            for name, bytes_ in clip_map.items():
+                zf.writestr(f"audio/{label}/{name}", bytes_)
+    p = tmp_path / f"{dataset_id}.zip"
+    p.write_bytes(buf.getvalue())
+    return p
 
 
 def run_adapter(work_dir: Path, upstream_dir: Path, out_dir: Path, env: dict[str, str]):
@@ -158,6 +202,50 @@ def test_end_to_end_adapter(tmp_path):
     assert any(n.endswith("model.onnx") for n in names)
     assert any(n.endswith("labels.json") for n in names)
     assert any(n.endswith("metadata.json") for n in names)
+
+
+def test_end_to_end_adapter_with_datasets(tmp_path):
+    """#206: the datasets[] path materializes canonical datasets into the
+    openwakeword shape (positives dir + features .npy + background paths) and
+    wires them into the upstream config; upstream scripts stay byte-identical."""
+    from wake_train_kit.dataset_store import DatasetStore
+
+    store_dir = tmp_path / "datasets"
+    store = DatasetStore(store_dir)
+    store.save(build_dataset_zip(tmp_path))
+
+    work = tmp_path / "work"
+    out = tmp_path / "out"
+    work.mkdir()
+    res, events = run_adapter(
+        work,
+        FAKE_UPSTREAM,
+        out,
+        {
+            "WAKE_DATASETS": "ds-1",
+            "DATASETS_DIR": str(store_dir),
+            "WAKE_BACKEND": "self-hosted",
+            "PYTHONPATH": os.pathsep.join([str(STUDIO_SRC), str(FAKE_FEATURES)]),
+        },
+    )
+    assert res.returncode == 0, res.stderr
+
+    kinds = [e["event"] for e in events]
+    assert kinds[-2:] == ["artifact", "done"]
+
+    # the upstream config was fed the materialized shape
+    config = yaml.safe_load((work / "my_model.yaml").read_text(encoding="utf-8"))
+    assert config["target_phrase"] == ["hey_studio"]
+    assert any("background" in p for p in config["background_paths"])
+    assert "_unknown.npy" in next(iter(config["feature_data_files"].values()))
+    assert (work / "data_datasets" / "positives" / "ds-1_hey_studio_a.wav").is_file()
+    assert (work / "data_datasets" / "features" / "_unknown.npy").is_file()
+
+    artifact = next(e for e in events if e["event"] == "artifact")
+    bundle = Path(artifact["path"]).parent
+    metadata = json.loads((bundle / "metadata.json").read_text())
+    assert metadata["params"]["datasets"] == "ds-1"
+    assert metadata["labels"] == ["hey_studio"]
 
 
 def test_missing_upstream_fails_cleanly(tmp_path):

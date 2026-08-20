@@ -250,8 +250,9 @@ the same pipeline code.
 ## 6. Materializers - making the spec usable by different trainings
 
 Different trainers consume data differently (kws-streaming: raw `label/*.wav` tree;
-openwakeword: precomputed mel features + a positives wav dir + background dirs). One canonical
-spec + **per-trainer materializer** (the data-side twin of `standardize-results`, ADR-031):
+openwakeword: precomputed mel features + a positives wav dir + background dirs). One
+canonical spec + **per-trainer materializer** (the data-side twin of `standardize-results`,
+ADR-031):
 
 | Trainer | Requires (`spec.train.dataset`) | Materializer does |
 |---|---|---|
@@ -259,13 +260,27 @@ spec + **per-trainer materializer** (the data-side twin of `standardize-results`
 | openwakeword | positives wav dir + features + background | run its feature extractor on positive clips -> `.npy`; negatives -> precomputed features; noise -> `background_paths` |
 | future trainers | whatever | its own materializer |
 
-- `spec.train.dataset` declares requirements: `sampleRate`, `minClipsPerLabel`, `needsNoise`,
-  `needsUnknowns`, `labelMode` (`single` / `multi` / `class`).
-- The wizard **validates** picked datasets against these requirements before training (clear
-  warnings, no cryptic trainer crash).
-- Training params evolve from `dataSource` (a source selector) to **`datasets[]`** (refs to
-  existing datasets). The adapter's `prepare_data` becomes "load refs from store -> materialize ->
-  merge roles" (reusing `merge_label_trees` collision rules, #158).
+**Implemented (#206):**
+
+- `spec.train.dataset` declares requirements (`sampleRate`, `minClipsPerLabel`,
+  `needsNoise`, `needsUnknowns`, `labelMode` `single`/`multi`/`class`) — a new field on
+  `ModuleTrain` in `packages/contracts` (+ the module-spec JSON schema). The wizard and the
+  adapters share it, so there is ONE source of truth for what a trainer needs.
+- `packages/modules/data/dataset/core/materialize.ts` is the **TypeScript source of truth**: the
+  per-trainer role -> folder maps (`KWS_STREAMING_MATERIALIZER` / `OPENWAKEWORD_MATERIALIZER`),
+  `validateDatasetRequirements` (the pre-train validation the wizard picker runs) and
+  `planKwsStreamingLayout`.
+- `wake_train_kit/materialize.py` is the **backend executor** the train adapters run:
+  `materialize_kws_streaming` (extract each dataset -> per-dataset role->folder tree -> merge
+  across datasets with the #158 collision rules; real `_background_noise_` wins) and
+  `materialize_openwakeword` (positives wav dir + precomputed mel `.npy` via an injectable
+  feature extractor, defaulting to openWakeWord's own; noise -> `background_paths`). Both
+  validate first and surface clear pre-train errors/warnings instead of a cryptic trainer crash.
+- The **training wizard** replaces the `dataSource` selector with a `datasets[]` picker
+  (one or more existing datasets) fed from the backend `datasets/` store (`GET /datasets`, #204)
+  and validates the pick against `spec.train.dataset` (`DatasetPicker`, issue #206).
+- Train adapters' `prepare_data` becomes **load refs from the store -> materialize -> merge**
+  (`STREAM_DATASETS` / `WAKE_DATASETS`); upstream trainer scripts stay byte-identical (ADR-031).
 
 ## 7. Built-in dataset catalog
 
@@ -392,3 +407,4 @@ license/provenance log shown in-app before export. The Datasets console shows th
 | 2026-08-20 | **#203 — dataset spec implemented (ADR-044):** `packages/modules/data/dataset/` module (`core/spec.ts` manifest schema + validation, `core/hash.ts` canonical contentHash, `core/manifest.ts` single importer with typed `DatasetImportError` codes) + Python mirror `wake_train_kit/dataset.py` (byte-identical hash, verified cross-implementation); vitest + pytest suites; `.gitignore` `data/` anchored to `/data/` so the `data` category module is tracked. Remaining #204-#210 unchanged. | agent |
 | 2026-08-20 | **#205 — dataset generation jobs (ADR-044 §5, human refactor 2026-08-20):** engines are MODULES (`packages/modules/data/{edge-tts,mimo-tts,piper,qwen-llm-tts}/`), each owning `spec/module.spec.json` (`params` -> generated panel, `tts` block = kind/runtime/provenanceTemplate) + `adapter.py` (module-owned backend adapter, loaded at runtime). Contracts gain `ModuleSpec.tts`. Backend pipeline `wake_train_kit/generation.py` (dispatcher + shared postprocess/assemble) + `generation_runner.py` (`dataset-generate` registry entry, NDJSON, canonical zip artifact); shared online/LLM HTTP machinery in `wake_train_kit/http_tts.py`; postprocess transforms (`passthrough` + `openwakeword-style`); catalog `apps/web/public/dataset-engines.json` generated from `spec.tts` via `scripts/build-dataset-engines.mjs` (like `spec.train`); tests (13 backend + dataset). Browser executor + generation wizard land in #208. | agent |
 | 2026-08-20 | **#204 — dataset storage layer (ADR-044 §5.3):** backend `datasets/` store (`wake_train_kit/dataset_store.py`, SQLite index + `datasets/<id>/wake-studio-dataset.zip`, survives restarts, mirrors artifacts store; `dataset-generate` zips auto-persist into it). `StorageBackend` interface + registry + adapters (`backend-disk`/`url` real, `hf`/`r2`/`gdrive` declared with authKey) in `wake_train_kit/storage.py`; `dataset-storage` job entry (`storage_runner.py`). Web Settings gains a masked **Cloud storage** group; storage plugin catalog in `core/storage.ts` (authKey per plugin). Q-DS-3 implemented: cloud keys flow as job-scoped env only, never persisted. Tests: store round-trip, plugin registry, fake adapters (no real cloud). Remaining #206-#210 unchanged. | agent |
+| 2026-08-20 | **#206 — materializers + `datasets[]` train consumption (ADR-044 §6):** `spec.train.dataset` requirements schema (contracts + JSON schema); `core/materialize.ts` (role->folder maps + `validateDatasetRequirements` picker validation); `wake_train_kit/materialize.py` (kws-streaming label-tree + openwakeword positives/features/background executors, #158 collision-safe merge); `GET /datasets` store API; wizard `datasets[]` picker replacing `dataSource`; adapters' `prepare_data` = load-refs → materialize → merge (`STREAM_DATASETS`/`WAKE_DATASETS`), upstream scripts byte-identical. Tests: 17 backend materialize + 4 adapter e2e (fake upstream + fake feature extractor) + TS validation suite. Remaining #207-#210 unchanged. | agent |
