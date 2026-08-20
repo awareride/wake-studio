@@ -6,9 +6,9 @@
 - **Related ADRs:** ADR-022 (data-source layer), ADR-013 (training backends), ADR-023 (Colab
   backend), ADR-025 (spec-driven modules), ADR-028 (uv train scripts), ADR-031 (upstream-script
   adapters), ADR-033 (self-registering drivers), ADR-036 (job-manager API), ADR-039
-  (labels/formats/convert)
+  (labels/formats/convert), ADR-044 (datasets as first-class artifacts)
 - **Depends on (modules):** Training (consumes datasets), Export (license provenance)
-- **Last updated:** 2026-08-20
+- **Last updated:** 2026-08-20 (#203 implemented)
 
 ## 1. Purpose
 
@@ -80,6 +80,12 @@ wake-studio-dataset.zip
 Canonical audio is **16 kHz mono PCM WAV**. Other rates / encodings / precomputed features are
 **derived** at materialize or push time - the same "canonical artifact + derived formats" rule as
 ADR-039 for models.
+
+**Implemented (#203, ADR-044):** the schema is `packages/modules/data/dataset/core/spec.ts`
+(TypeScript, source of truth) with the Python mirror `apps/studio-backend/src/wake_train_kit/
+dataset.py`; the web importer is `packages/modules/data/dataset/core/manifest.ts` (typed
+`DatasetImportError` codes). The two importer/hash implementations are byte-identical for the
+`contentHash` so a backend-produced dataset verifies in the browser and vice versa.
 
 ### 4.2 dataset.json manifest
 
@@ -349,3 +355,4 @@ license/provenance log shown in-app before export. The Datasets console shows th
 | 2026-08-14 | **Data-source layer shipped (#152):** `wake_train_kit/data_sources.py` with Speech Commands V2 download (CC BY 4.0), user-URL archives, and multi-language edge-tts synthesis; provenance records per source; deterministic backend tests. Q-DS-1 answered. | agent |
 | 2026-08-17 | **Mixed mode (#158):** `merge_label_trees` merges a positive tree (wake word) with a negative tree (real unknowns + real noise); collisions raise; real noise wins over synthesized silence. `dataSource=mixed` in the kws-streaming adapter + spec params + registry wiring; 4 new backend tests. | agent |
 | 2026-08-20 | **Datasets as first-class artifacts (design locked, human discussion):** full spec written - `dataset.json` manifest + canonical `label/*.wav` tree + one importer (SS4); `dataset-generate` jobs with pluggable TTS engine / storage / postprocess plugins, split by concern not vendor (SS5); per-trainer materializers + `spec.train.dataset` compatibility (SS6); built-in catalog (SS7); Datasets console (SS8); quality gate / dedup+split / reproducibility (SS9); provenance chain to the export gate (SS10). Decision points resolved: composable granularity, cloud storage optional (HF / R2 / GDrive with user keys), user-configurable online TTS API+key, new-dataset-equals-new-version, multi-language+noise built-ins. Open: Q-DS-3/4/5. | agent |
+| 2026-08-20 | **#203 — dataset spec implemented (ADR-044):** `packages/modules/data/dataset/` module (`core/spec.ts` manifest schema + validation, `core/hash.ts` canonical contentHash, `core/manifest.ts` single importer with typed `DatasetImportError` codes) + Python mirror `wake_train_kit/dataset.py` (byte-identical hash, verified cross-implementation); vitest + pytest suites; `.gitignore` `data/` anchored to `/data/` so the `data` category module is tracked. Remaining #204-#210 unchanged. | agent |

@@ -1,0 +1,30 @@
+{
+  "name": "@wake-studio/module-dataset",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dataset module (ADR-044, #203): the dataset.json manifest schema + canonical label/*.wav form + one importer per world (web TS / backend Python). Datasets are first-class artifacts - create, persist, reuse, share.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./core/index.ts",
+    "./core": "./core/index.ts",
+    "./spec": "./spec/module.spec.json"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "fetch:all": "echo 'no artifacts'"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "globals": "^15.13.0",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "^8.16.0",
+    "vitest": "^2.1.9"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "../../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "dataset",
+    "name": "Datasets (audio data management)",
+    "category": "data",
+    "version": "0.1.0",
+    "maturity": "draft",
+    "owner": "WakeStudio team",
+    "license": "MIT",
+    "status": "proposed",
+    "description": "Datasets as first-class artifacts (ADR-044, #203): the dataset.json manifest + canonical label/*.wav form + one importer per world (web TS / backend Python). Generation jobs, storage plugins, materializers, the built-in catalog and the Datasets console land in #204-#210."
+  },
+  "params": [],
+  "actions": [],
+  "status": {},
+  "runtime": {
+    "web": {
+      "engine": "DatasetManifest"
+    }
+  },
+  "tests": {
+    "required": ["l1"]
+  },
+  "playground": {
+    "route": "/playground/dataset",
+    "entry": "none"
+  },
+  "interfaces": {
+    "provides": ["DatasetManifest", "DatasetStore"],
+    "consumes": ["DataSources", "TrainingJob"]
+  }
+}
