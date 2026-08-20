@@ -93,5 +93,18 @@
    "GEN_DATASET_ID": "{params.datasetId}",
    "GEN_BACKEND": "self-hosted"
   }
+ },
+ "dataset-storage": {
+  "cwd": "src/wake_train_kit",
+  "engine": "direct",
+  "entry": "storage_runner.py",
+  "env": {
+   "STORAGE_ACTION": "{params.action}",
+   "STORAGE_BACKEND": "{params.backend}",
+   "STORAGE_SRC": "{params.src}",
+   "STORAGE_DEST": "{params.dest}",
+   "STORAGE_PREFIX": "{params.prefix}",
+   "GEN_BACKEND": "self-hosted"
+  }
  }
 }

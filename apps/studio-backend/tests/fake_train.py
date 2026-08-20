@@ -40,6 +40,11 @@ signal.signal(signal.SIGTERM, handle_term)
 emit({"event": "log", "level": "info",
       "message": f"fake train start steps={STEPS} stall={STALL} fail={FAIL}"})
 
+# Optional secret echo (tests: job-scoped env reaches the subprocess).
+for _k, _v in sorted(os.environ.items()):
+    if _k.startswith("WAKE_ECHO_"):
+        emit({"event": "log", "level": "info", "message": f"echo {_k}={_v}"})
+
 if STALL:
     time.sleep(3600)  # no output at all -> heartbeat timeout marks the job failed
     sys.exit(0)

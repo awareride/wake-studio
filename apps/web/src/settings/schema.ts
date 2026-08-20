@@ -11,7 +11,7 @@
 import type { PlatformSettings, PlatformSettingId, SettingDescriptor } from './types'
 
 /** Current schema version. Bump when a field is added/removed. */
-export const SETTINGS_SCHEMA_VERSION = 2
+export const SETTINGS_SCHEMA_VERSION = 3
 
 /** Default platform settings (schemaVersion is explicit so merge works). */
 export const PLATFORM_DEFAULTS: PlatformSettings = {
@@ -22,6 +22,13 @@ export const PLATFORM_DEFAULTS: PlatformSettings = {
   'kws.executionProvider': 'wasm',
   'backend.apiKey': '',
   'backend.secret': '',
+  'cloud.hf.token': '',
+  'cloud.r2.accessKeyId': '',
+  'cloud.r2.secretAccessKey': '',
+  'cloud.r2.endpoint': '',
+  'cloud.r2.bucket': '',
+  'cloud.gdrive.clientId': '',
+  'cloud.gdrive.clientSecret': '',
   'data.upload': false,
   'settings.dataRetention': 'keep',
   'mic.rememberPermission': true,
@@ -105,6 +112,71 @@ export const PLATFORM_SETTING_DESCRIPTORS: ReadonlyArray<SettingDescriptor> = [
     type: 'secret',
     default: '',
     group: 'security',
+  },
+
+  // ---- Cloud storage (ADR-044 §5.3, #204) ----
+  // Each storage plugin declares its authKey in the dataset module's storage
+  // catalog (packages/modules/data/dataset/core/storage.ts): hf -> cloud.hf,
+  // r2 -> cloud.r2, gdrive -> cloud.gdrive. Secrets are masked + client-side
+  // only; backend push jobs receive them as job-scoped env, never persisted.
+  {
+    id: 'cloud.hf.token',
+    label: 'Hugging Face token',
+    description:
+      'Token for the Hugging Face dataset-repo storage backend (authKey "cloud.hf"). Stored locally only; passed to backend push jobs as job-scoped env.',
+    type: 'secret',
+    default: '',
+    group: 'cloud',
+  },
+  {
+    id: 'cloud.r2.accessKeyId',
+    label: 'R2 access key ID',
+    description:
+      'Cloudflare R2 (S3-compatible) access key id (authKey "cloud.r2").',
+    type: 'secret',
+    default: '',
+    group: 'cloud',
+  },
+  {
+    id: 'cloud.r2.secretAccessKey',
+    label: 'R2 secret access key',
+    description: 'Cloudflare R2 secret access key (authKey "cloud.r2").',
+    type: 'secret',
+    default: '',
+    group: 'cloud',
+  },
+  {
+    id: 'cloud.r2.endpoint',
+    label: 'R2 endpoint',
+    description:
+      'Cloudflare R2 S3-compatible endpoint, e.g. https://<account>.r2.cloudflarestorage.com',
+    type: 'string',
+    default: '',
+    group: 'cloud',
+  },
+  {
+    id: 'cloud.r2.bucket',
+    label: 'R2 bucket',
+    description: 'Cloudflare R2 bucket name holding datasets.',
+    type: 'string',
+    default: '',
+    group: 'cloud',
+  },
+  {
+    id: 'cloud.gdrive.clientId',
+    label: 'Google Drive client ID',
+    description: 'Google Drive OAuth client id (authKey "cloud.gdrive").',
+    type: 'string',
+    default: '',
+    group: 'cloud',
+  },
+  {
+    id: 'cloud.gdrive.clientSecret',
+    label: 'Google Drive client secret',
+    description: 'Google Drive OAuth client secret (authKey "cloud.gdrive").',
+    type: 'secret',
+    default: '',
+    group: 'cloud',
   },
 
   // ---- Data ----

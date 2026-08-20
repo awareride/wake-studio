@@ -207,6 +207,14 @@ auth key:
   "capabilities": ["push", "pull", "list", "delete"], "format": "zip" }
 ```
 
+**Implemented (#204):** `StorageBackend` interface + registry in
+`apps/studio-backend/src/wake_train_kit/storage.py` (ADR-033 self-registration; the TS
+catalog/types live in `packages/modules/data/dataset/core/storage.ts`). `backend-disk` and
+`url` (read-only pull) are fully implemented; `hf` / `r2` / `gdrive` are registered with
+their descriptors + authKey and raise a clear "requires <sdk>" error until real SDK wiring
+(issue #107 / push-job console #208). A `dataset-storage` job entry runs push/pull/list/
+delete on the job manager; tests use FAKE adapters (no real cloud).
+
 **Credentials** live in Settings (new "Cloud storage" group), client-side, masked, never logged
 or exported - the same guarantees as the existing `backend.apiKey` / `backend.secret`.
 **ADR-013 tension (open, Q-DS-3):** a *backend* job pushing to cloud needs the key server-side.
@@ -360,7 +368,7 @@ license/provenance log shown in-app before export. The Datasets console shows th
 |---|---|---|
 | Q-DS-1 | Canonical default public-TTS endpoint(s) to ship pre-configured | **Answered (2026-08-14):** edge-tts is the default multi-language TTS path (studio-backend `tts` extra); Speech Commands V2 (CC BY 4.0) is the default corpus. Piper remains an option for the openwakeword path. |
 | Q-DS-2 | Whether project server APIs are WakeStudio-hosted or community/self-hosted | Resolved at Phase 5 start. |
-| Q-DS-3 | Cloud keys for backend-originated push jobs (ADR-013 tension) | Job-scoped env var only, never persisted (precedent: Colab notebook keys). |
+| Q-DS-3 | Cloud keys for backend-originated push jobs (ADR-013 tension) | **Implemented (#204):** job-scoped env var only, never persisted — the job manager accepts a `secrets` map passed to the subprocess env but excluded from the persisted job record (precedent: Colab notebook keys). |
 | Q-DS-4 | Exact v1 built-in dataset catalog list | SC2 + Common Voice + Google Speech Commands + AudioSet/FMA noise (SS7). |
 | Q-DS-5 | Near-duplicate detection threshold for the leakage guard | Tune at implementation; start with exact-hash + conservative perceptual hash. |
 
@@ -383,3 +391,4 @@ license/provenance log shown in-app before export. The Datasets console shows th
 | 2026-08-20 | **Datasets as first-class artifacts (design locked, human discussion):** full spec written - `dataset.json` manifest + canonical `label/*.wav` tree + one importer (SS4); `dataset-generate` jobs with pluggable TTS engine / storage / postprocess plugins, split by concern not vendor (SS5); per-trainer materializers + `spec.train.dataset` compatibility (SS6); built-in catalog (SS7); Datasets console (SS8); quality gate / dedup+split / reproducibility (SS9); provenance chain to the export gate (SS10). Decision points resolved: composable granularity, cloud storage optional (HF / R2 / GDrive with user keys), user-configurable online TTS API+key, new-dataset-equals-new-version, multi-language+noise built-ins. Open: Q-DS-3/4/5. | agent |
 | 2026-08-20 | **#203 — dataset spec implemented (ADR-044):** `packages/modules/data/dataset/` module (`core/spec.ts` manifest schema + validation, `core/hash.ts` canonical contentHash, `core/manifest.ts` single importer with typed `DatasetImportError` codes) + Python mirror `wake_train_kit/dataset.py` (byte-identical hash, verified cross-implementation); vitest + pytest suites; `.gitignore` `data/` anchored to `/data/` so the `data` category module is tracked. Remaining #204-#210 unchanged. | agent |
 | 2026-08-20 | **#205 — dataset generation jobs (ADR-044 §5, human refactor 2026-08-20):** engines are MODULES (`packages/modules/data/{edge-tts,mimo-tts,piper,qwen-llm-tts}/`), each owning `spec/module.spec.json` (`params` -> generated panel, `tts` block = kind/runtime/provenanceTemplate) + `adapter.py` (module-owned backend adapter, loaded at runtime). Contracts gain `ModuleSpec.tts`. Backend pipeline `wake_train_kit/generation.py` (dispatcher + shared postprocess/assemble) + `generation_runner.py` (`dataset-generate` registry entry, NDJSON, canonical zip artifact); shared online/LLM HTTP machinery in `wake_train_kit/http_tts.py`; postprocess transforms (`passthrough` + `openwakeword-style`); catalog `apps/web/public/dataset-engines.json` generated from `spec.tts` via `scripts/build-dataset-engines.mjs` (like `spec.train`); tests (13 backend + dataset). Browser executor + generation wizard land in #208. | agent |
+| 2026-08-20 | **#204 — dataset storage layer (ADR-044 §5.3):** backend `datasets/` store (`wake_train_kit/dataset_store.py`, SQLite index + `datasets/<id>/wake-studio-dataset.zip`, survives restarts, mirrors artifacts store; `dataset-generate` zips auto-persist into it). `StorageBackend` interface + registry + adapters (`backend-disk`/`url` real, `hf`/`r2`/`gdrive` declared with authKey) in `wake_train_kit/storage.py`; `dataset-storage` job entry (`storage_runner.py`). Web Settings gains a masked **Cloud storage** group; storage plugin catalog in `core/storage.ts` (authKey per plugin). Q-DS-3 implemented: cloud keys flow as job-scoped env only, never persisted. Tests: store round-trip, plugin registry, fake adapters (no real cloud). Remaining #206-#210 unchanged. | agent |

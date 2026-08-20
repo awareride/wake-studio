@@ -227,4 +227,30 @@ describe('export/import/reset', () => {
     expect(isSecretSetting('backend.secret')).toBe(true)
     expect(isSecretSetting('theme')).toBe(false)
   })
+
+  it('cloud storage group: descriptors exist + secrets are masked on export (#204)', () => {
+    const cloudIds = PLATFORM_SETTING_IDS.filter((id) => id.startsWith('cloud.'))
+    expect(cloudIds.sort()).toEqual([
+      'cloud.gdrive.clientId',
+      'cloud.gdrive.clientSecret',
+      'cloud.hf.token',
+      'cloud.r2.accessKeyId',
+      'cloud.r2.bucket',
+      'cloud.r2.endpoint',
+      'cloud.r2.secretAccessKey',
+    ])
+    // secret-typed cloud fields are masked on export
+    expect(isSecretSetting('cloud.hf.token')).toBe(true)
+    expect(isSecretSetting('cloud.r2.secretAccessKey')).toBe(true)
+    expect(isSecretSetting('cloud.gdrive.clientSecret')).toBe(true)
+    // non-secret endpoint/bucket/clientId pass through unmasked
+    const platform = {
+      ...PLATFORM_DEFAULTS,
+      'cloud.hf.token': 'hf_secret',
+      'cloud.r2.endpoint': 'https://x.r2.cloudflarestorage.com',
+    }
+    const payload = buildExportPayload(platform, {}, true)
+    expect(payload.platform['cloud.hf.token']).toBe('••••••••')
+    expect(payload.platform['cloud.r2.endpoint']).toBe('https://x.r2.cloudflarestorage.com')
+  })
 })

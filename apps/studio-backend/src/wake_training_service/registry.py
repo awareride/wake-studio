@@ -85,12 +85,19 @@ class Registry:
         module_id: str,
         params: dict[str, str],
         staged: tuple[Path, dict[str, str]] | None = None,
+        secrets: dict[str, str] | None = None,
     ) -> tuple[list[str], str, dict[str, str]]:
         """-> (command list, cwd, env dict) for the train subprocess.
 
         ``staged`` = (cwd, env overrides) from ModuleStager for generic
         runtimes without a repo checkout; it replaces the entry cwd resolution
         and merges extra env vars (e.g. UPSTREAM_DIR for vendored upstreams).
+
+        ``secrets`` = job-scoped env vars (e.g. cloud keys for dataset push
+        jobs, Q-DS-3). They are merged into the subprocess env BEFORE the
+        entry env templates render (so ``{env.X}`` templates can reference
+        them), but are never part of ``params`` / the persisted job record —
+        the manager holds them in memory only.
         """
         entry = self.entry(module_id)
 
@@ -106,6 +113,8 @@ class Registry:
             raise RegistryError(f"module '{module_id}' cwd does not exist: {cwd}")
 
         env = dict(os.environ)
+        if secrets:
+            env.update(secrets)  # job-scoped only; never persisted
         for k, v in entry.get("env", {}).items():
             env[k] = _render(v, params, env)
         if staged is not None:

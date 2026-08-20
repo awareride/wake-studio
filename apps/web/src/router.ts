@@ -26,11 +26,12 @@ export type ConsoleRoute =
   | 'settings-general'
   | 'settings-security'
   | 'settings-data'
+  | 'settings-cloud'
   | 'settings-modules'
   | 'device-sdk'
 
 /** Settings sub-views (driven from the sidebar sub-menu). */
-export type SettingsSection = 'general' | 'security' | 'data' | 'modules'
+export type SettingsSection = 'general' | 'security' | 'data' | 'cloud' | 'modules'
 
 export const DEFAULT_ROUTE: ConsoleRoute = 'workspace'
 
@@ -46,6 +47,7 @@ const ROUTE_BY_HASH: Record<string, ConsoleRoute> = {
   '/settings/general': 'settings-general',
   '/settings/security': 'settings-security',
   '/settings/data': 'settings-data',
+  '/settings/cloud': 'settings-cloud',
   '/settings/modules': 'settings-modules',
   '/device-sdk': 'device-sdk',
   '': 'workspace',
@@ -99,6 +101,8 @@ export function routeToHash(route: ConsoleRoute): string {
       return '/settings/security'
     case 'settings-data':
       return '/settings/data'
+    case 'settings-cloud':
+      return '/settings/cloud'
     case 'settings-modules':
       return '/settings/modules'
     case 'device-sdk':
@@ -115,6 +119,8 @@ export function settingsRoute(section: SettingsSection): ConsoleRoute {
       return 'settings-security'
     case 'data':
       return 'settings-data'
+    case 'cloud':
+      return 'settings-cloud'
     case 'modules':
       return 'settings-modules'
   }
@@ -129,6 +135,8 @@ export function settingsSectionOf(route: ConsoleRoute): SettingsSection | undefi
       return 'security'
     case 'settings-data':
       return 'data'
+    case 'settings-cloud':
+      return 'cloud'
     case 'settings-modules':
       return 'modules'
     default:

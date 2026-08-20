@@ -38,6 +38,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--db", default="data/wake-service.db", help="SQLite job store path")
     p.add_argument("--artifacts-dir", default="data/artifacts",
                    help="where trained artifacts are stored (sha256-indexed)")
+    p.add_argument("--datasets-dir", default="data/datasets",
+                   help="where first-class datasets are stored (survives restarts, ADR-044 #204)")
     p.add_argument("--max-artifacts-mb", type=int, default=0,
                    help="prune oldest artifacts above this total size (0 = unlimited)")
     p.add_argument("--registry", default=None,
@@ -83,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
         heartbeat_timeout=args.heartbeat_timeout,
         max_artifacts_mb=args.max_artifacts_mb,
         staged_dir=args.staged_dir,
+        datasets_dir=args.datasets_dir,
     )
     app = create_app(manager, auth, instance=args.instance)
 
