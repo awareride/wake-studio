@@ -236,7 +236,8 @@ the gate blocks a non-commercial model from a commercial export.
 2. **Self-hosted Service** (`apps/studio-backend`, ADR-005/036): real training
    runner (Python/FastAPI job manager; `uv run wake-service` spawns module
    `train/` scripts via `uv`, ADR-028); PyInstaller binary + Docker image;
-   candidate engine `TigreGotico/wakeforge` (`ww_trainer`) — evaluate (Q10).
+   engine = the module-owned openWakeWord pipeline (ADR-042; wakeforge is
+   a documented optional future eval, not integrated).
 3. **Cloud Providers** (capability-labeled): AWS / Google Cloud / Hugging
    Face / Alibaba / Tencent / Volcengine adapters behind the common interface;
    credentials client-side only.
@@ -283,10 +284,11 @@ contracts/test-kit), [#28](https://github.com/awareride/wake-studio/issues/28)
 (deploy wasm fetch + Cloudflare rename), [#30](https://github.com/awareride/wake-studio/issues/30)
 (vendor ONNX wasm / offline) — all closed 2026-08-12 (Done on the board).
 
-**Open questions** (close with a decision that lands as an ADR): #32 (Q10:
-self-hosted training engine), #33 (Q11: L3 e2e cadence), #34 (Q12: PocketSphinx
-timing), #36 (Q14: vendor ONNX wasm now vs Phase 6). Q13 (#35) resolved by
-ADR-040 (native-first SDK CI) and closed.
+**Open questions** (close with a decision that lands as an ADR): #34 (Q12:
+PocketSphinx timing). Resolved: Q10 (#32) → ADR-042 (no wakeforge; module-owned
+openWakeWord pipeline), Q11 (#33) → ADR-026 (L3 = merge-gate), Q13 (#35) →
+ADR-040 (native-first SDK CI), Q14 (#36) → ADR-041 (onnxruntime-web wasm
+vendored now via P0-4).
 
 **Next actions** (from the board): finish Phase 4 SDK — microwakeword driver
 (#185), Raspberry Pi Python binding (#187), plix driver (#188), bundle
@@ -323,7 +325,7 @@ generator (#189); then license gate (#42), PocketSphinx (#40).
 - micro-wake-word: https://github.com/OHF-Voice/micro-wake-word (Apache-2.0)
 - sherpa-onnx: https://github.com/k2-fsa/sherpa-onnx (Apache-2.0)
 - wakeforge (`ww_trainer`): https://github.com/TigreGotico/wakeforge
-  (Apache-2.0; Q10 candidate)
+  (Apache-2.0; optional future eval, ADR-042)
 - PLiX KWS: https://github.com/aaqibsaeed/plixkws (Apache-2.0)
 - PocketSphinx: https://github.com/cmusphinx/pocketsphinx (BSD-style)
 - RNNoise: https://gitlab.xiph.org/xiph/rnnoise ; wasm ports (jitsi/timephy)

@@ -1447,3 +1447,49 @@ applied per this log and may be overridden._
   - Q-SDK-1 resolved (C op-struct mirrors the TS `KWSBackend`); Q-SDK-2 (iOS
     CoreML vs onnxruntime) and Q-SDK-3 (ESP32 scope) remain open.
   - #35 (Q13) closed by this ADR.
+
+## ADR-041 — onnxruntime-web wasm is vendored locally now (P0-4), not deferred to Phase 6
+
+- **Status:** Accepted (2026-08-20)
+- **Origin:** Q14 (#36) — vendor ONNX wasm now (P0-4) vs Phase 6? Resolved by
+  execution: P0-4 (#30) shipped 2026-08-12.
+- **Decision:** The onnxruntime-web wasm pair is **vendored locally** and
+  `ort.env.wasm.wasmPaths` points at the local copy — the CDN dependency is
+  gone, so the PWA's model runtime works offline. The decision is **now, not
+  Phase 6**: P0-4 landed early because the offline requirement is a hard
+  product constraint and the wasm pair is a small, stable artifact.
+- **Rationale:** Q14's recommended default was "Phase 6 unless an earlier
+  phase needs offline validation." The KWS Phase-3.7 closure work surfaced the
+  need for reliable offline boot of the model runtime, so the vendoring was
+  pulled forward as P0-4. Vendoring early also makes CI/e2e asset fetching
+  deterministic and removes a flaky external dependency from every L2/L3 run.
+- **Consequences:**
+  - `#30` closed; the roadmap Phase 6 "Offline" item is now partially
+    satisfied (the remaining Phase 6 offline work is service-worker pre-fetch /
+    asset caching per the ADR-011 amendment).
+  - L2/L3 tests fetch runtime assets via the ADR-027 artifact SOP rather than
+    from a CDN at runtime.
+  - `wasmPaths` remains configurable; a future Phase 6 pre-fetch path may add
+    integrity-checked caching on top of the vendored copy.
+
+## ADR-042 — Self-hosted training engine stays on the module-owned openWakeWord pipeline; wakeforge (ww_trainer) is not integrated
+
+- **Status:** Accepted (2026-08-20)
+- **Origin:** Q10 (#32) — wrap the openWakeWord pipeline directly vs integrate
+  `TigreGotico/wakeforge` (`ww_trainer`)?
+- **Decision:** **No wakeforge integration for now.** The self-hosted training
+  engine wraps the **module-owned openWakeWord pipeline** (ADR-031 "adapt, never
+  rewrite" — the module owns its train adapter and runs it via `uv`, ADR-028).
+  wakeforge stays a **documented candidate only**, evaluated again if the
+  module-owned path hits a real gap.
+- **Rationale:** The module platform already owns per-backend train adapters
+  (ADR-025/031); adding wakeforge would be a second, parallel training path
+  competing with the openwakeword adapter without an identified requirement.
+  Revisit only if (a) openwakeword training quality/FAR proves insufficient,
+  or (b) multi-wake-word or quantization needs outgrow the module-owned path.
+- **Consequences:**
+  - #32 closed; the roadmap Phase 5 "Self-hosted Service" item no longer names
+    wakeforge as the candidate engine (it is now an optional future eval).
+  - Training effort stays concentrated on the module-owned adapters
+    (openwakeword, kws-streaming) per ADR-039 (formats/quantization,
+    module-owned convert).
