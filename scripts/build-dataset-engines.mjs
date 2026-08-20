@@ -1,57 +1,64 @@
 #!/usr/bin/env node
 /**
- * Generate apps/web/public/dataset-engines.json from the dataset module's TTS
- * engine descriptors (ADR-044 §5.1, task #205).
+ * Generate apps/web/public/dataset-engines.json from TTS engine MODULES.
  *
- * Each engine is a small JSON descriptor in
- * packages/modules/data/dataset/spec/engines/<id>.json (kind, runtime, params,
- * provenanceTemplate). The generated catalog is the runtime fact source the
- * Datasets generation wizard (#208) renders - adding a vendor = adding a
- * descriptor + a backend adapter, no host-module edits.
+ * Engines are `data`-category modules that declare `spec.tts` (ADR-044 §5,
+ * #205) — exactly how `spec.train` marks a trainable module. Each engine
+ * module (`packages/modules/data/<engine>/`) owns its `spec.params` (renders
+ * its generation panel) + `spec.tts` (kind / runtime / provenanceTemplate) +
+ * `adapter.py` (the backend adapter). This script discovers those modules and
+ * emits the runtime catalog the Datasets generation wizard consumes.
  *
  * The generated file is committed (reviewable diffs, lockfile-style). Run
- * --check in CI so a stale catalog (hand-edit or descriptor drift) fails
- * loudly.
+ * --check in CI so a stale catalog (hand-edit or spec drift) fails loudly.
  *
  * Usage:
  *   node scripts/build-dataset-engines.mjs            # print the catalog
  *   node scripts/build-dataset-engines.mjs --update   # write the file
  *   node scripts/build-dataset-engines.mjs --check    # exit 1 when stale
  *
- * Deterministic: engines are walked in sorted filename order, output is
+ * Deterministic: engines are walked in sorted dir order, output is
  * pretty-printed with a trailing newline.
  */
 
-import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { discoverModules } from './lib/module-discovery.mjs'
 
 const repoRoot = resolve(import.meta.dirname, '..')
-const ENGINES_DIR = 'packages/modules/data/dataset/spec/engines'
 const CATALOG_FILE = 'apps/web/public/dataset-engines.json'
 
 const VALID_KINDS = ['classic-tts', 'online-http-tts', 'llm-tts']
 const VALID_RUNTIMES = ['browser', 'backend']
 const NOTE =
-  "Catalog of TTS engine descriptors (ADR-044 §5, #205). Generated from packages/modules/data/dataset/spec/engines/*.json - the descriptors are the single fact source. The Datasets generation wizard renders each engine's params from here."
+  "Catalog of TTS engine modules (ADR-044 §5, #205). Generated from data-category modules declaring spec.tts - the module specs are the single fact source (ADR-025). The Datasets generation wizard renders each engine's params (spec.params) and provenance from here."
 
-function readEngines() {
-  const dir = resolve(repoRoot, ENGINES_DIR)
-  const engines = []
-  if (!existsSync(dir)) return engines
-  for (const name of readdirSync(dir).sort()) {
-    if (!name.endsWith('.json')) continue
-    const engine = JSON.parse(readFileSync(resolve(dir, name), 'utf8'))
-    engine._file = name
-    engines.push(engine)
+/** Engine modules: data-category modules declaring spec.tts. */
+export function buildEngineCatalog() {
+  const modules = discoverModules()
+    .filter((m) => m.spec.tts)
+    .sort((a, b) => (a.dir < b.dir ? -1 : a.dir > b.dir ? 1 : 0))
+
+  return {
+    note: NOTE,
+    engines: modules.map(({ id, category, spec }) => ({
+      id,
+      category,
+      name: spec.meta?.name ?? id,
+      kind: spec.tts.kind,
+      runtime: spec.tts.runtime,
+      params: spec.params ?? [],
+      defaultModel: spec.tts.defaultModel,
+      provenanceTemplate: spec.tts.provenanceTemplate,
+    })),
   }
-  return engines
 }
 
-function validate(engines) {
+function validate(catalog) {
   const errors = []
   const seen = new Set()
-  for (const e of engines) {
-    if (!e.id) errors.push(`${e._file}: engine without id`)
+  for (const e of catalog.engines) {
+    if (!e.id) errors.push('engine without id')
     else if (seen.has(e.id)) errors.push(`duplicate engine id: ${e.id}`)
     seen.add(e.id)
     if (!VALID_KINDS.includes(e.kind)) errors.push(`${e.id}: invalid kind ${e.kind}`)
@@ -59,22 +66,15 @@ function validate(engines) {
       errors.push(`${e.id}: runtime must be a non-empty array`)
     else if (!e.runtime.every((r) => VALID_RUNTIMES.includes(r)))
       errors.push(`${e.id}: runtime must be browser|backend`)
-    if (!e.params || typeof e.params !== 'object') errors.push(`${e.id}: params must be an object`)
+    if (!Array.isArray(e.params)) errors.push(`${e.id}: params must be an array`)
     if (!e.provenanceTemplate || typeof e.provenanceTemplate !== 'object')
       errors.push(`${e.id}: provenanceTemplate must be an object`)
   }
   return errors
 }
 
-function serialize(engines) {
-  const payload = { note: NOTE, engines: engines.map((e) => strip(e)) }
-  return JSON.stringify(payload, null, 2) + '\n'
-}
-
-function strip(e) {
-  const { _file, ...rest } = e
-  void _file
-  return rest
+function serialize(catalog) {
+  return JSON.stringify(catalog, null, 2) + '\n'
 }
 
 function isStaleFile(file, content) {
@@ -84,8 +84,8 @@ function isStaleFile(file, content) {
 
 function main() {
   const mode = process.argv[2] ?? ''
-  const engines = readEngines()
-  const errors = validate(engines)
+  const catalog = buildEngineCatalog()
+  const errors = validate(catalog)
 
   if (mode === '--check') {
     let ok = true
@@ -93,16 +93,16 @@ function main() {
       console.error(`[build-dataset-engines] INVALID: ${e}`)
       ok = false
     }
-    if (isStaleFile(CATALOG_FILE, serialize(engines))) {
+    if (isStaleFile(CATALOG_FILE, serialize(catalog))) {
       console.error(
-        `[build-dataset-engines] STALE: ${CATALOG_FILE} does not match the engine descriptors.\n` +
+        `[build-dataset-engines] STALE: ${CATALOG_FILE} does not match the engine module specs.\n` +
           `  Run 'node scripts/build-dataset-engines.mjs --update' and commit the result.`,
       )
       ok = false
     }
     if (ok) {
       console.log(
-        `[build-dataset-engines] OK: ${CATALOG_FILE} matches the ${engines.length} engine descriptors`,
+        `[build-dataset-engines] OK: ${CATALOG_FILE} matches the ${catalog.engines.length} engine modules`,
       )
     } else {
       process.exit(1)
@@ -110,14 +110,14 @@ function main() {
   } else if (mode === '--update') {
     for (const e of errors) console.error(`[build-dataset-engines] INVALID: ${e}`)
     if (errors.length > 0) process.exit(1)
-    writeFileSync(resolve(repoRoot, CATALOG_FILE), serialize(engines))
+    writeFileSync(resolve(repoRoot, CATALOG_FILE), serialize(catalog))
     console.log(
-      `[build-dataset-engines] wrote ${CATALOG_FILE} (${engines.length} engines)`,
+      `[build-dataset-engines] wrote ${CATALOG_FILE} (${catalog.engines.length} engines)`,
     )
   } else {
     for (const e of errors) console.error(`[build-dataset-engines] INVALID: ${e}`)
     if (errors.length > 0) process.exit(1)
-    process.stdout.write(serialize(engines))
+    process.stdout.write(serialize(catalog))
   }
 }
 

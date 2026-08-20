@@ -28,6 +28,6 @@
   },
   "interfaces": {
     "provides": ["DatasetManifest", "DatasetStore"],
-    "consumes": ["DataSources", "TrainingJob"]
+    "consumes": ["DataSources", "TrainingJob", "TTSEngine"]
   }
 }

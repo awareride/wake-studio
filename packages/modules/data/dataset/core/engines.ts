@@ -1,41 +1,26 @@
 /**
- * Dataset module - TTS engine descriptors + registry (ADR-044 §5, task #205).
+ * Dataset module - TTS engine catalog contract (ADR-044 §5, task #205).
  *
- * A TTS engine is a pluggable capability (ADR-033 self-registration style),
- * NOT a hard-coded list: an engine is a small JSON descriptor (this dir is
- * `spec/engines/*.json`), and the generated catalog `dataset-engines.json`
- * (via `scripts/build-dataset-engines.mjs`) drives the Datasets generation
- * wizard (#208). Adding a vendor = dropping in a descriptor + a backend
- * adapter - no host-module edits.
+ * Engines are MODULES, not descriptor files: each `data`-category module
+ * (`packages/modules/data/<engine>/`) declares `spec.tts` (kind / runtime /
+ * provenanceTemplate) and `spec.params` (its generated panel, like KWS
+ * drivers). `scripts/build-dataset-engines.mjs` discovers those modules and
+ * generates the runtime catalog `apps/web/public/dataset-engines.json` (the
+ * same way `train-modules.json` is generated from `spec.train`).
  *
- * Kinds (docs/modules/data-sources.md §5.1):
- *   - classic-tts      : local TTS runtimes (edge-tts, piper) -> backend
- *   - online-http-tts  : any user-configured online TTS API + key (e.g.
- *                        mimo.mi.com) -> browser AND backend
- *   - llm-tts          : heavy LLM-TTS (qwen, vibe-voice, F5-TTS) -> backend GPU
+ * This module keeps the TYPES + helpers; the catalog is a runtime asset the
+ * web fetches (never a hard-coded list). Adding an engine = adding a module,
+ * no host-module edits (ADR-033 self-registration).
  */
-
-import edgeTts from '../spec/engines/edge-tts.json'
-import piper from '../spec/engines/piper.json'
-import mimoHttp from '../spec/engines/mimo-http.json'
-import qwenLlmTts from '../spec/engines/qwen-llm-tts.json'
 
 export type TTSEngineKind = 'classic-tts' | 'online-http-tts' | 'llm-tts'
 export type TTSEngineRuntime = 'browser' | 'backend'
-export type TTSParamType = 'string' | 'number' | 'boolean' | 'string[]' | 'secret'
 
 export const TTS_ENGINE_KINDS: readonly TTSEngineKind[] = [
   'classic-tts',
   'online-http-tts',
   'llm-tts',
 ]
-
-export interface TTSEngineParam {
-  type: TTSParamType
-  label: string
-  default?: unknown
-  required?: boolean
-}
 
 export interface TTSEngineProvenanceTemplate {
   name: string
@@ -44,30 +29,23 @@ export interface TTSEngineProvenanceTemplate {
   source?: string
 }
 
-/** One TTS engine descriptor (spec/engines/<id>.json). */
+/** One engine entry in the generated catalog (from an engine module's spec). */
 export interface TTSEngineDescriptor {
   id: string
   name: string
   kind: TTSEngineKind
-  /** Where the engine can run; `runtime` decides the executor (#208). */
+  /** Where the engine may run; `runtime` decides the executor (#208). */
   runtime: TTSEngineRuntime[]
-  params: Record<string, TTSEngineParam>
+  /** The engine module's spec.params (ModuleParam[]) - renders its panel. */
+  params: Array<Record<string, unknown>>
+  defaultModel?: string
   provenanceTemplate: TTSEngineProvenanceTemplate
 }
 
-/** The built-in engine descriptors (web + build script share this shape). */
-export const DATASET_ENGINES: TTSEngineDescriptor[] = [
-  edgeTts as TTSEngineDescriptor,
-  piper as TTSEngineDescriptor,
-  mimoHttp as TTSEngineDescriptor,
-  qwenLlmTts as TTSEngineDescriptor,
-]
-
-const BY_ID = new Map(DATASET_ENGINES.map((e) => [e.id, e]))
-
-/** Look up an engine descriptor by id (undefined when unknown). */
-export function engineById(id: string): TTSEngineDescriptor | undefined {
-  return BY_ID.get(id)
+/** The generated `dataset-engines.json` payload. */
+export interface DatasetEngineCatalog {
+  note?: string
+  engines: TTSEngineDescriptor[]
 }
 
 export interface EngineValidation {
@@ -75,13 +53,11 @@ export interface EngineValidation {
   errors: string[]
 }
 
-/** Validate the engine descriptor list (unique ids, known kind/runtime/params). */
-export function validateEngineCatalog(
-  engines: readonly TTSEngineDescriptor[],
-): EngineValidation {
+/** Validate an engine catalog (unique ids, known kind/runtime, params present). */
+export function validateEngineCatalog(catalog: DatasetEngineCatalog): EngineValidation {
   const errors: string[] = []
   const seen = new Set<string>()
-  for (const e of engines) {
+  for (const e of catalog.engines ?? []) {
     if (!e.id) errors.push('engine without id')
     else if (seen.has(e.id)) errors.push(`duplicate engine id: ${e.id}`)
     seen.add(e.id)
@@ -93,11 +69,22 @@ export function validateEngineCatalog(
     } else if (!e.runtime.every((r) => r === 'browser' || r === 'backend')) {
       errors.push(`engine ${e.id}: runtime must be browser|backend`)
     }
-    if (!e.params || typeof e.params !== 'object') {
-      errors.push(`engine ${e.id}: params must be an object`)
+    if (!Array.isArray(e.params)) {
+      errors.push(`engine ${e.id}: params must be an array`)
+    }
+    if (!e.provenanceTemplate || typeof e.provenanceTemplate !== 'object') {
+      errors.push(`engine ${e.id}: provenanceTemplate must be an object`)
     }
   }
   return { ok: errors.length === 0, errors }
+}
+
+/** Look up an engine in a catalog by id (undefined when unknown). */
+export function engineById(
+  catalog: DatasetEngineCatalog,
+  id: string,
+): TTSEngineDescriptor | undefined {
+  return (catalog.engines ?? []).find((e) => e.id === id)
 }
 
 /** True when an engine may run in the browser (online HTTP engines). */

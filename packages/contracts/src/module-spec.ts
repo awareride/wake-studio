@@ -262,10 +262,39 @@ export interface ModuleSpec {
   status: ModuleStatus[]
   runtime: ModuleRuntime
   train?: ModuleTrain
+  /**
+   * TTS engine declaration (ADR-044 §5, #205) - a module in the `data`
+   * category that provides a TTS engine. Drives the Datasets generation
+   * wizard: `params` renders the engine's own panel (ADR-025), `tts` carries
+   * the engine metadata (kind / runtime / provenance) the catalog + backend
+   * dispatcher consume. Mirrors how `train` marks a trainable module.
+   */
+  tts?: ModuleTTSEngine
   build?: ModuleBuild
   tests: ModuleTests
   playground: ModulePlayground
   interfaces: ModuleInterfaces
+}
+
+/**
+ * TTS engine block (ADR-044 §5, #205): what a `data`-category engine module
+ * declares so it can be catalogued and dispatched. The engine's own `params`
+ * (top-level spec.params) render its generation form.
+ */
+export interface ModuleTTSEngine {
+  /** classic-tts | online-http-tts | llm-tts (ADR-044 §5.1). */
+  kind: 'classic-tts' | 'online-http-tts' | 'llm-tts'
+  /** Where the engine may run; decides the executor (#208). */
+  runtime: Array<'browser' | 'backend'>
+  /** Default model id for engines that take one (mimo / llm-tts). */
+  defaultModel?: string
+  /** The license-gate input for generated audio (provenance, #210). */
+  provenanceTemplate: {
+    name: string
+    license: string
+    commercialUse: boolean
+    source?: string
+  }
 }
 
 /** A module's maturity scorecard (ADR-025 §4; drives the README table). */

@@ -23,6 +23,7 @@ export type {
   ModuleStatusFlag,
   ModuleTests,
   ModuleTrain,
+  ModuleTTSEngine,
   ParamType,
   ParamValidation,
   StatusRenderer,

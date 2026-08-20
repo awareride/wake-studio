@@ -437,7 +437,7 @@
               },
               "env": {
                 "type": "string",
-                "description": "Notebook env var this train param maps to (issue #105) — the app bakes the user's value into the downloaded notebook by replacing the default in os.environ.get(\"ENV\", \"default\")."
+                "description": "Notebook env var this train param maps to (issue #105) \u2014 the app bakes the user's value into the downloaded notebook by replacing the default in os.environ.get(\"ENV\", \"default\")."
               }
             }
           }
@@ -524,11 +524,11 @@
         },
         "multiWord": {
           "type": "boolean",
-          "description": "Multi-wake-word capability (ADR-039 §4.5): true -> the module trains ONE model for many wake words and the canonical input is wakePhrases (array); false -> single-phrase (wakePhrase)."
+          "description": "Multi-wake-word capability (ADR-039 \u00a74.5): true -> the module trains ONE model for many wake words and the canonical input is wakePhrases (array); false -> single-phrase (wakePhrase)."
         },
         "formats": {
           "type": "object",
-          "description": "Selectable output formats (ADR-039 §4.6); the canonical upstream-native artifact is always kept, others are derived.",
+          "description": "Selectable output formats (ADR-039 \u00a74.6); the canonical upstream-native artifact is always kept, others are derived.",
           "properties": {
             "default": {
               "type": "array",
@@ -546,7 +546,7 @@
         },
         "quantization": {
           "type": "object",
-          "description": "Selectable quantization schemes (ADR-039 §4.6).",
+          "description": "Selectable quantization schemes (ADR-039 \u00a74.6).",
           "properties": {
             "default": {
               "type": "string"
@@ -561,7 +561,7 @@
         },
         "convert": {
           "type": "object",
-          "description": "Module-owned convert script (ADR-039 §4.6): callable at train time AND standalone on an already-trained canonical model.",
+          "description": "Module-owned convert script (ADR-039 \u00a74.6): callable at train time AND standalone on an already-trained canonical model.",
           "properties": {
             "entry": {
               "type": "string"
@@ -763,6 +763,64 @@
           }
         }
       }
+    },
+    "tts": {
+      "type": "object",
+      "description": "TTS engine block (ADR-044 \u00a75, #205): what a data-category engine module declares so it can be catalogued and dispatched. The engine's own spec.params render its generation form.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "classic-tts",
+            "online-http-tts",
+            "llm-tts"
+          ],
+          "description": "classic-tts | online-http-tts | llm-tts"
+        },
+        "runtime": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "browser",
+              "backend"
+            ]
+          },
+          "minItems": 1,
+          "description": "Where the engine may run"
+        },
+        "defaultModel": {
+          "type": "string",
+          "description": "Default model id (mimo / llm-tts engines)"
+        },
+        "provenanceTemplate": {
+          "type": "object",
+          "required": [
+            "name",
+            "license",
+            "commercialUse"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "license": {
+              "type": "string"
+            },
+            "commercialUse": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "runtime",
+        "provenanceTemplate"
+      ]
     }
   }
 }

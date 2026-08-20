@@ -103,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     if not params.get("phrases"):
         reporter.emit("error", message="dataset-generate requires at least one phrase")
         return 1
-    if params.get("engine") in ("mimo-http", "qwen-llm-tts") and not params.get("apiKey"):
+    if params.get("engine") in ("mimo-tts", "qwen-llm-tts") and not params.get("apiKey"):
         reporter.emit(
             "error",
             message=f"engine '{params['engine']}' needs an API key "

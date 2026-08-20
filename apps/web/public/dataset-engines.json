@@ -1,48 +1,58 @@
 {
-  "note": "Catalog of TTS engine descriptors (ADR-044 §5, #205). Generated from packages/modules/data/dataset/spec/engines/*.json - the descriptors are the single fact source. The Datasets generation wizard renders each engine's params from here.",
+  "note": "Catalog of TTS engine modules (ADR-044 §5, #205). Generated from data-category modules declaring spec.tts - the module specs are the single fact source (ADR-025). The Datasets generation wizard renders each engine's params (spec.params) and provenance from here.",
   "engines": [
     {
       "id": "edge-tts",
+      "category": "data",
       "name": "Microsoft Edge TTS (classic)",
       "kind": "classic-tts",
       "runtime": [
         "backend"
       ],
-      "params": {
-        "languages": {
-          "type": "string[]",
+      "params": [
+        {
+          "id": "languages",
           "label": "Languages",
-          "default": [
-            "en-US"
-          ]
+          "group": "primary",
+          "type": "string",
+          "default": "en-US",
+          "description": "Comma-separated BCP-47 language tags (e.g. en-US,zh-CN)."
         },
-        "samplesPerPhrase": {
-          "type": "number",
+        {
+          "id": "samplesPerPhrase",
           "label": "Samples per phrase",
-          "default": 3
+          "group": "primary",
+          "type": "number",
+          "default": 3,
+          "min": 1,
+          "max": 20,
+          "description": "How many synthesized clips per wake phrase."
         },
-        "unknownWords": {
-          "type": "string[]",
+        {
+          "id": "unknownWords",
           "label": "Unknown words (negatives)",
-          "default": [
-            "goodbye",
-            "okay",
-            "stop",
-            "hello",
-            "thanks"
-          ]
-        },
-        "rate": {
+          "group": "advanced",
           "type": "string",
-          "label": "Rate variation (TTS)",
-          "default": ""
+          "default": "goodbye,okay,stop,hello,thanks",
+          "description": "Comma-separated negative words folded into _unknown_ by trainers."
         },
-        "pitch": {
+        {
+          "id": "rate",
+          "label": "Rate variation",
+          "group": "advanced",
           "type": "string",
-          "label": "Pitch variation (TTS)",
-          "default": ""
+          "default": "",
+          "description": "Optional TTS rate variation string (e.g. +10%, -5%)."
+        },
+        {
+          "id": "pitch",
+          "label": "Pitch variation",
+          "group": "advanced",
+          "type": "string",
+          "default": "",
+          "description": "Optional TTS pitch variation string (e.g. +5Hz)."
         }
-      },
+      ],
       "provenanceTemplate": {
         "name": "edge-tts synthetic speech (multi-language)",
         "license": "user-owned (synthetic TTS)",
@@ -51,57 +61,88 @@
       }
     },
     {
-      "id": "mimo-http",
-      "name": "MiMo TTS (online HTTP, OpenAI-compatible)",
+      "id": "mimo-tts",
+      "category": "data",
+      "name": "MiMo TTS (online HTTP)",
       "kind": "online-http-tts",
       "runtime": [
         "browser",
         "backend"
       ],
-      "params": {
-        "endpoint": {
-          "type": "string",
+      "params": [
+        {
+          "id": "endpoint",
           "label": "API base URL",
-          "default": "https://api.xiaomimimo.com/v1"
+          "group": "primary",
+          "type": "string",
+          "default": "https://api.xiaomimimo.com/v1",
+          "description": "OpenAI-compatible base URL (MiMo speech synthesis v2.5)."
         },
-        "apiKey": {
-          "type": "secret",
+        {
+          "id": "apiKey",
           "label": "API key",
-          "required": true
+          "group": "primary",
+          "type": "secret",
+          "default": "",
+          "description": "MiMo API key (client-side; sent to the endpoint only)."
         },
-        "model": {
-          "type": "string",
+        {
+          "id": "model",
           "label": "Model",
-          "default": "mimo-v2.5-tts"
-        },
-        "voice": {
+          "group": "primary",
           "type": "string",
+          "default": "mimo-v2.5-tts",
+          "description": "Model id (mimo-v2.5-tts / -voicedesign / -voiceclone)."
+        },
+        {
+          "id": "voice",
           "label": "Preset voice",
-          "default": ""
-        },
-        "styleInstruction": {
+          "group": "primary",
           "type": "string",
-          "label": "Style instruction (natural language)",
-          "default": ""
+          "default": "",
+          "description": "Optional preset voice id."
         },
-        "languages": {
-          "type": "string[]",
+        {
+          "id": "styleInstruction",
+          "label": "Style instruction",
+          "group": "advanced",
+          "type": "string",
+          "default": "",
+          "description": "Natural-language style/emotion instruction sent as the user message."
+        },
+        {
+          "id": "languages",
           "label": "Languages",
-          "default": [
-            "en-US"
-          ]
-        },
-        "samplesPerPhrase": {
-          "type": "number",
-          "label": "Samples per phrase",
-          "default": 3
-        },
-        "outputFormat": {
+          "group": "advanced",
           "type": "string",
+          "default": "en-US",
+          "description": "Comma-separated language tags."
+        },
+        {
+          "id": "samplesPerPhrase",
+          "label": "Samples per phrase",
+          "group": "advanced",
+          "type": "number",
+          "default": 3,
+          "min": 1,
+          "max": 20,
+          "description": "How many synthesized clips per wake phrase."
+        },
+        {
+          "id": "outputFormat",
           "label": "Output audio format",
-          "default": "pcm16"
+          "group": "advanced",
+          "type": "select",
+          "default": "pcm16",
+          "options": [
+            "pcm16",
+            "wav",
+            "mp3"
+          ],
+          "description": "Audio format requested from the API (pcm16 is canonical-friendly)."
         }
-      },
+      ],
+      "defaultModel": "mimo-v2.5-tts",
       "provenanceTemplate": {
         "name": "MiMo TTS (online API) synthetic speech",
         "license": "user-owned (synthetic TTS)",
@@ -111,35 +152,48 @@
     },
     {
       "id": "piper",
+      "category": "data",
       "name": "Piper TTS (local)",
       "kind": "classic-tts",
       "runtime": [
         "backend"
       ],
-      "params": {
-        "languages": {
-          "type": "string[]",
+      "params": [
+        {
+          "id": "languages",
           "label": "Languages",
-          "default": [
-            "en-US"
-          ]
-        },
-        "samplesPerPhrase": {
-          "type": "number",
-          "label": "Samples per phrase",
-          "default": 3
-        },
-        "voiceModel": {
+          "group": "primary",
           "type": "string",
-          "label": "Piper voice model",
-          "default": ""
+          "default": "en-US",
+          "description": "Comma-separated language tags."
         },
-        "rate": {
+        {
+          "id": "samplesPerPhrase",
+          "label": "Samples per phrase",
+          "group": "primary",
           "type": "number",
+          "default": 3,
+          "min": 1,
+          "max": 20,
+          "description": "How many synthesized clips per wake phrase."
+        },
+        {
+          "id": "voiceModel",
+          "label": "Piper voice model",
+          "group": "advanced",
+          "type": "string",
+          "default": "",
+          "description": "Piper voice model (e.g. en_US-lessac-medium)."
+        },
+        {
+          "id": "rate",
           "label": "Rate",
-          "default": 1
+          "group": "advanced",
+          "type": "number",
+          "default": 1,
+          "description": "Speaking rate multiplier."
         }
-      },
+      ],
       "provenanceTemplate": {
         "name": "piper-sample-generator synthetic speech",
         "license": "MIT (code); Piper voice model license",
@@ -149,40 +203,73 @@
     },
     {
       "id": "qwen-llm-tts",
-      "name": "Qwen LLM-TTS (GPU backend)",
+      "category": "data",
+      "name": "Qwen LLM-TTS",
       "kind": "llm-tts",
       "runtime": [
         "backend"
       ],
-      "params": {
-        "model": {
+      "params": [
+        {
+          "id": "endpoint",
+          "label": "API base URL",
+          "group": "primary",
           "type": "string",
+          "default": "",
+          "description": "OpenAI-compatible endpoint for the LLM-TTS model (blank = host default)."
+        },
+        {
+          "id": "apiKey",
+          "label": "API key",
+          "group": "primary",
+          "type": "secret",
+          "default": "",
+          "description": "API key for the endpoint (client-side)."
+        },
+        {
+          "id": "model",
           "label": "Model",
-          "default": "qwen2.5-omni-7b"
-        },
-        "voice": {
+          "group": "primary",
           "type": "string",
+          "default": "qwen2.5-omni-7b",
+          "description": "LLM-TTS model id."
+        },
+        {
+          "id": "voice",
           "label": "Voice",
-          "default": ""
-        },
-        "styleInstruction": {
+          "group": "primary",
           "type": "string",
+          "default": "",
+          "description": "Optional voice id."
+        },
+        {
+          "id": "styleInstruction",
           "label": "Style instruction",
-          "default": ""
+          "group": "advanced",
+          "type": "string",
+          "default": "",
+          "description": "Natural-language style instruction."
         },
-        "languages": {
-          "type": "string[]",
+        {
+          "id": "languages",
           "label": "Languages",
-          "default": [
-            "en-US"
-          ]
+          "group": "advanced",
+          "type": "string",
+          "default": "en-US",
+          "description": "Comma-separated language tags."
         },
-        "samplesPerPhrase": {
-          "type": "number",
+        {
+          "id": "samplesPerPhrase",
           "label": "Samples per phrase",
-          "default": 3
+          "group": "advanced",
+          "type": "number",
+          "default": 3,
+          "min": 1,
+          "max": 20,
+          "description": "How many synthesized clips per wake phrase."
         }
-      },
+      ],
+      "defaultModel": "qwen2.5-omni-7b",
       "provenanceTemplate": {
         "name": "Qwen LLM-TTS synthetic speech",
         "license": "user-owned (synthetic TTS)",

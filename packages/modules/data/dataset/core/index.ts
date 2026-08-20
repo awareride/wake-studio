@@ -45,15 +45,13 @@ export {
 
 export {
   TTS_ENGINE_KINDS,
-  DATASET_ENGINES,
-  engineById,
   validateEngineCatalog,
+  engineById,
   isBrowserCapable,
   type TTSEngineKind,
   type TTSEngineRuntime,
-  type TTSParamType,
-  type TTSEngineParam,
   type TTSEngineProvenanceTemplate,
   type TTSEngineDescriptor,
+  type DatasetEngineCatalog,
   type EngineValidation,
 } from './engines'
