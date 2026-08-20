@@ -245,8 +245,13 @@ the gate blocks a non-commercial model from a commercial export.
    credentials client-side only.
 4. **Google Colab** (ADR-023): version-controlled notebooks (`colab/`);
    standard result bundle convention (shared artifact-bundle manifest).
-5. **Data-source layer** (ADR-022): in-app endpoint config for local
-   services / project APIs / public TTS endpoints.
+5. **Data-source layer + Datasets** (ADR-022; design locked 2026-08-20): in-app endpoint
+   config for local services / project APIs / public TTS endpoints. Datasets become
+   **first-class artifacts** (`dataset.json` manifest + canonical `label/*.wav` tree, spec in
+   `docs/modules/data-sources.md` SS4): `dataset-generate` jobs with pluggable TTS engine / storage
+   / postprocess plugins (SS5), per-trainer materializers + `datasets[]` train consumption (SS6,
+   `docs/modules/training.md` SS4.7), built-in catalog (SS7), and a top-level Datasets console
+   (SS8).
 6. **Traditional training panels** (ADR-024 §4.2): a trained model is
    commercially ownable (FAR/FRR report before export).
 
