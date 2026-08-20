@@ -1,0 +1,270 @@
+{
+  "note": "Built-in dataset catalog (ADR-044 §7, #207). Immutable references (kind: builtin) - the manifest is the portability contract; each entry's `materialize` says how it becomes a canonical wake-studio-dataset.zip on first use. Curated source of truth: the web bundle (apps/web/public/datasets.json) is generated from this file by scripts/build-dataset-catalog.mjs; the backend mirrors it in wake_train_kit/builtin_catalog.py.",
+  "schemaVersion": 1,
+  "datasets": [
+    {
+      "schemaVersion": 1,
+      "id": "speech-commands-v2",
+      "name": "Google Speech Commands V2 (speech_commands_v0.02)",
+      "version": 1,
+      "kind": "builtin",
+      "role": "unknowns",
+      "audio": {
+        "sampleRate": 16000,
+        "channels": 1,
+        "encoding": "pcm_s16le",
+        "clips": 105829,
+        "durationSec": 264573
+      },
+      "labels": [
+        {
+          "name": "yes",
+          "role": "unknown"
+        },
+        {
+          "name": "no",
+          "role": "unknown"
+        },
+        {
+          "name": "up",
+          "role": "unknown"
+        },
+        {
+          "name": "down",
+          "role": "unknown"
+        },
+        {
+          "name": "left",
+          "role": "unknown"
+        },
+        {
+          "name": "right",
+          "role": "unknown"
+        },
+        {
+          "name": "on",
+          "role": "unknown"
+        },
+        {
+          "name": "off",
+          "role": "unknown"
+        },
+        {
+          "name": "stop",
+          "role": "unknown"
+        },
+        {
+          "name": "go",
+          "role": "unknown"
+        },
+        {
+          "name": "_silence_",
+          "role": "unknown"
+        },
+        {
+          "name": "_background_noise_",
+          "role": "noise"
+        }
+      ],
+      "provenance": [
+        {
+          "name": "Google Speech Commands V2 (speech_commands_v0.02)",
+          "license": "CC BY 4.0 (attribution required)",
+          "source": "https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz",
+          "commercialUse": true
+        }
+      ],
+      "recipe": {
+        "engine": "builtin",
+        "languages": [
+          "en-US"
+        ],
+        "toolVersions": {
+          "source": "speech_commands_v0.02.tar.gz"
+        }
+      },
+      "storage": {
+        "backend": "datasets/speech-commands-v2/"
+      },
+      "materialize": {
+        "type": "speech-commands-v2"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "google-speech-commands",
+      "name": "Google Speech Commands (speech_commands_v0.01)",
+      "version": 1,
+      "kind": "builtin",
+      "role": "unknowns",
+      "audio": {
+        "sampleRate": 16000,
+        "channels": 1,
+        "encoding": "pcm_s16le",
+        "clips": 64721,
+        "durationSec": 161803
+      },
+      "labels": [
+        {
+          "name": "yes",
+          "role": "unknown"
+        },
+        {
+          "name": "no",
+          "role": "unknown"
+        },
+        {
+          "name": "up",
+          "role": "unknown"
+        },
+        {
+          "name": "down",
+          "role": "unknown"
+        },
+        {
+          "name": "left",
+          "role": "unknown"
+        },
+        {
+          "name": "right",
+          "role": "unknown"
+        },
+        {
+          "name": "on",
+          "role": "unknown"
+        },
+        {
+          "name": "off",
+          "role": "unknown"
+        },
+        {
+          "name": "stop",
+          "role": "unknown"
+        },
+        {
+          "name": "go",
+          "role": "unknown"
+        },
+        {
+          "name": "_silence_",
+          "role": "unknown"
+        },
+        {
+          "name": "_background_noise_",
+          "role": "noise"
+        }
+      ],
+      "provenance": [
+        {
+          "name": "Google Speech Commands (speech_commands_v0.01)",
+          "license": "CC BY 4.0 (attribution required)",
+          "source": "https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.01.tar.gz",
+          "commercialUse": true
+        }
+      ],
+      "recipe": {
+        "engine": "builtin",
+        "languages": [
+          "en-US"
+        ],
+        "toolVersions": {
+          "source": "speech_commands_v0.01.tar.gz"
+        }
+      },
+      "storage": {
+        "backend": "datasets/google-speech-commands/"
+      },
+      "materialize": {
+        "type": "pending-host",
+        "note": "Same family as speech-commands-v2; host a canonical zip (or reuse the SC2 converter with a version param) before it becomes trainable."
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "common-voice",
+      "name": "Common Voice (multi-language speech)",
+      "version": 1,
+      "kind": "builtin",
+      "role": "unknowns",
+      "audio": {
+        "sampleRate": 16000,
+        "channels": 1,
+        "encoding": "pcm_s16le",
+        "clips": 0,
+        "durationSec": 0
+      },
+      "labels": [
+        {
+          "name": "unknown",
+          "role": "unknown"
+        }
+      ],
+      "provenance": [
+        {
+          "name": "Mozilla Common Voice",
+          "license": "CC0 1.0 (public domain dedication)",
+          "source": "https://commonvoice.mozilla.org",
+          "commercialUse": true
+        }
+      ],
+      "recipe": {
+        "engine": "builtin",
+        "languages": [
+          "en",
+          "zh-CN",
+          "ja",
+          "de",
+          "fr",
+          "es"
+        ]
+      },
+      "storage": {
+        "backend": "datasets/common-voice/"
+      },
+      "materialize": {
+        "type": "pending-host",
+        "note": "Multi-language negatives source; needs a hosted canonical zip before it becomes trainable."
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "audioset-fma-noise",
+      "name": "AudioSet / FMA background noise",
+      "version": 1,
+      "kind": "builtin",
+      "role": "noise",
+      "audio": {
+        "sampleRate": 16000,
+        "channels": 1,
+        "encoding": "pcm_s16le",
+        "clips": 0,
+        "durationSec": 0
+      },
+      "labels": [
+        {
+          "name": "noise",
+          "role": "noise"
+        }
+      ],
+      "provenance": [
+        {
+          "name": "AudioSet / FMA noise clips",
+          "license": "research-use; verify before commercial deployment",
+          "source": "https://huggingface.co/datasets/agkphysics/AudioSet, https://huggingface.co/datasets/rudraml/fma",
+          "commercialUse": false
+        }
+      ],
+      "recipe": {
+        "engine": "builtin",
+        "languages": []
+      },
+      "storage": {
+        "backend": "datasets/audioset-fma-noise/"
+      },
+      "materialize": {
+        "type": "pending-host",
+        "note": "Research-use noise: commercialUse=false blocks commercial exports (export gate, #210). Needs a hosted canonical zip before trainable."
+      }
+    }
+  ]
+}

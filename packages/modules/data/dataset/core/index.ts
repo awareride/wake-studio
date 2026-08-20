@@ -75,6 +75,17 @@ export {
 export type { TrainerDatasetRequirements, LabelMode } from '@wake-studio/contracts'
 
 export {
+  BUILTIN_CATALOG_SCHEMA_VERSION,
+  BUILTIN_MATERIALIZE_TYPES,
+  isBuiltinAvailable,
+  validateDatasetCatalog,
+  type BuiltinMaterialize,
+  type DatasetCatalogEntry,
+  type DatasetBuiltinCatalog,
+  type CatalogValidation,
+} from './catalog'
+
+export {
   STORAGE_BACKEND_KINDS,
   STORAGE_CAPABILITIES,
   BUILTIN_STORAGE_BACKENDS,

@@ -86,19 +86,23 @@ def extract_dataset(
     store: DatasetStore,
     dataset_id: str,
     dest: Path,
+    reporter: Any = None,
 ) -> tuple[dict[str, Any], Path]:
     """Extract a stored dataset zip → (manifest, canonical `audio/` clip root).
 
     The manifest comes from the store index (validated at save time, #204);
     the clip root is `dest/audio/<label>/*.wav` (the canonical layout, ADR-044
-    §4.1). Guards against zip-slip member paths.
+    §4.1). Guards against zip-slip member paths. A built-in id that is not yet
+    in the store is materialized on first use via `builtin_catalog` (#207).
     """
     record = store.get(dataset_id)
     if record is None:
-        raise MaterializeError(
-            f"unknown dataset '{dataset_id}' — it is not in the Datasets store "
-            f"({store.datasets_dir}); generate or import it first (#205/#208)."
-        )
+        from . import builtin_catalog  # lazy: avoids an import cycle
+
+        builtin_catalog.ensure_builtin(store, dataset_id, dest.parent / "builtin", reporter)
+        record = store.get(dataset_id)
+        if record is None:  # pragma: no cover - ensure_builtin always persists
+            raise MaterializeError(f"unknown dataset '{dataset_id}' — not in the store or catalog")
     zip_path = Path(record["stored_path"])
     if not zip_path.is_file():
         raise MaterializeError(f"dataset '{dataset_id}' zip is missing: {zip_path}")
@@ -316,6 +320,7 @@ def _materialize_one_tree(
     store: DatasetStore,
     dataset_id: str,
     out_dir: Path,
+    reporter: Any = None,
 ) -> tuple[dict[str, Any], Path, Path, list[str]]:
     """Turn one dataset into a per-dataset `label/*.wav` tree.
 
@@ -324,7 +329,7 @@ def _materialize_one_tree(
     labels become `_background_noise_`. Returns
     (manifest, tree_root, clip_root, label_warnings).
     """
-    manifest, clip_root = extract_dataset(store, dataset_id, out_dir / "src")
+    manifest, clip_root = extract_dataset(store, dataset_id, out_dir / "src", reporter)
     tree = out_dir / dataset_id
     tree.mkdir(parents=True, exist_ok=True)
     warnings: list[str] = []
@@ -373,7 +378,7 @@ def materialize_kws_streaming(
     for i, dataset_id in enumerate(dataset_ids):
         _log(reporter, "info", f"materialize kws-streaming: {dataset_id}")
         manifest, tree, _clip_root, label_warnings = _materialize_one_tree(
-            store, dataset_id, out / "trees"
+            store, dataset_id, out / "trees", reporter
         )
         manifests.append(manifest)
         trees.append(tree)
@@ -519,7 +524,7 @@ def materialize_openwakeword(
 
     for dataset_id in dataset_ids:
         _log(reporter, "info", f"materialize openwakeword: {dataset_id}")
-        manifest, clip_root = extract_dataset(store, dataset_id, out / "src")
+        manifest, clip_root = extract_dataset(store, dataset_id, out / "src", reporter)
         manifests.append(manifest)
         sources.extend(manifest.get("provenance") or [])
         for label in manifest.get("labels") or []:

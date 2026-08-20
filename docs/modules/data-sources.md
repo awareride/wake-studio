@@ -287,13 +287,33 @@ ADR-031):
 Spec-driven `datasets.json` (like `train-modules.json`), focused on multi-language + noise
 coverage. v1 candidates (license + `commercialUse` flagged; Q-DS-4 to confirm the exact list):
 
-- **Speech Commands V2** (CC BY 4.0) - already integrated.
+- **Speech Commands V2** (CC BY 4.0) - already integrated; the one built-in that is fully
+  materializable today (`materialize.type: speech-commands-v2` via the ADR-022 converter).
 - **Common Voice** (multi-language, CC0).
 - **Google Speech Commands** (CC BY 4.0).
 - **AudioSet / FMA** noise clips + openwakeword features (research-use - flagged so the export
   gate stays honest).
 
 Built-ins are immutable references (`kind: builtin`), materialized on first use.
+
+**Implemented (#207):**
+
+- Curated source of truth: `packages/modules/data/dataset/catalog/builtins.json` (a
+  `DatasetBuiltinCatalog` — every entry is a full `DatasetManifest` + a `materialize`
+  descriptor). The web bundle `apps/web/public/datasets.json` is generated from it by
+  `scripts/build-dataset-catalog.mjs` (`pnpm gen:catalog` / `gen:catalog:check`, the same
+  update/check pattern as `train-modules.json` / `dataset-engines.json`); CI fails when stale.
+- Catalog types + validation in `core/catalog.ts` (`validateDatasetCatalog`, `BuiltinMaterialize`
+  = `canonical-zip` | `speech-commands-v2` | `pending-host`, `isBuiltinAvailable`).
+- Backend `wake_train_kit/builtin_catalog.py`: `ensure_builtin` materializes a built-in into the
+  `datasets/` store on first use — SC2 via the ADR-022 converter (packed to a canonical zip,
+  contentHash-verified), `canonical-zip` by fetch+import, `pending-host` raises a clear
+  "declared but not yet hosted" error. `materialize.extract_dataset` resolves built-in ids so a
+  picked built-in works in training (load-refs → materialize → merge, #206). The catalog is
+  wheel-packaged (`pyproject` force-include) for deployed/generic runtimes.
+- The Training wizard `datasets[]` picker lists built-ins (from the static catalog) alongside
+  store datasets; `pending-host` entries are shown disabled; `commercialUse: false` entries are
+  flagged "non-commercial".
 
 ## 8. Datasets console (web)
 
@@ -408,3 +428,4 @@ license/provenance log shown in-app before export. The Datasets console shows th
 | 2026-08-20 | **#205 — dataset generation jobs (ADR-044 §5, human refactor 2026-08-20):** engines are MODULES (`packages/modules/data/{edge-tts,mimo-tts,piper,qwen-llm-tts}/`), each owning `spec/module.spec.json` (`params` -> generated panel, `tts` block = kind/runtime/provenanceTemplate) + `adapter.py` (module-owned backend adapter, loaded at runtime). Contracts gain `ModuleSpec.tts`. Backend pipeline `wake_train_kit/generation.py` (dispatcher + shared postprocess/assemble) + `generation_runner.py` (`dataset-generate` registry entry, NDJSON, canonical zip artifact); shared online/LLM HTTP machinery in `wake_train_kit/http_tts.py`; postprocess transforms (`passthrough` + `openwakeword-style`); catalog `apps/web/public/dataset-engines.json` generated from `spec.tts` via `scripts/build-dataset-engines.mjs` (like `spec.train`); tests (13 backend + dataset). Browser executor + generation wizard land in #208. | agent |
 | 2026-08-20 | **#204 — dataset storage layer (ADR-044 §5.3):** backend `datasets/` store (`wake_train_kit/dataset_store.py`, SQLite index + `datasets/<id>/wake-studio-dataset.zip`, survives restarts, mirrors artifacts store; `dataset-generate` zips auto-persist into it). `StorageBackend` interface + registry + adapters (`backend-disk`/`url` real, `hf`/`r2`/`gdrive` declared with authKey) in `wake_train_kit/storage.py`; `dataset-storage` job entry (`storage_runner.py`). Web Settings gains a masked **Cloud storage** group; storage plugin catalog in `core/storage.ts` (authKey per plugin). Q-DS-3 implemented: cloud keys flow as job-scoped env only, never persisted. Tests: store round-trip, plugin registry, fake adapters (no real cloud). Remaining #206-#210 unchanged. | agent |
 | 2026-08-20 | **#206 — materializers + `datasets[]` train consumption (ADR-044 §6):** `spec.train.dataset` requirements schema (contracts + JSON schema); `core/materialize.ts` (role->folder maps + `validateDatasetRequirements` picker validation); `wake_train_kit/materialize.py` (kws-streaming label-tree + openwakeword positives/features/background executors, #158 collision-safe merge); `GET /datasets` store API; wizard `datasets[]` picker replacing `dataSource`; adapters' `prepare_data` = load-refs → materialize → merge (`STREAM_DATASETS`/`WAKE_DATASETS`), upstream scripts byte-identical. Tests: 17 backend materialize + 4 adapter e2e (fake upstream + fake feature extractor) + TS validation suite. Remaining #207-#210 unchanged. | agent |
+| 2026-08-20 | **#207 — built-in dataset catalog (ADR-044 §7):** curated `catalog/builtins.json` (SC2 / Google Speech Commands / Common Voice / AudioSet+FMA noise, each with license + `commercialUse`); `scripts/build-dataset-catalog.mjs` → `apps/web/public/datasets.json` (`pnpm gen:catalog[:check]`, CI check); types + `validateDatasetCatalog` in `core/catalog.ts` (`canonical-zip`/`speech-commands-v2`/`pending-host` materialize); backend `wake_train_kit/builtin_catalog.py` materialize-on-first-use (SC2 via the ADR-022 converter; wheel-packaged); wizard picker lists built-ins (pending-host disabled, non-commercial flagged). Tests: 8 backend (fake SC2 source, no network) + 9 TS catalog. Remaining #208-#210 unchanged. | agent |
