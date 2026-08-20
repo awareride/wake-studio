@@ -5,7 +5,7 @@
 > (Issues + the `WakeStudio Delivery` project, org `awareride`) — this doc
 > keeps the static vision, phase history, and pointers; it never holds live
 > status.
-> Owner: WakeStudio team · Updated: 2026-08-11 (KWS Phase-3 closure shipped)
+> Owner: WakeStudio team · Updated: 2026-08-20 (Phase 4 SDK core + app-class device drivers shipped)
 > Companions: `docs/architecture.md` (durable architecture), `DECISIONS.md`
 > (ADR log), `LICENSES.md` (license matrix), `docs/modules/*.md` (module
 > specs), `CONTRIBUTING.md` (working agreements + issue/project model).
@@ -84,7 +84,8 @@ The durable architecture lives in `docs/architecture.md`; the ADR log in
 - **Testing** is three-layer (ADR-026): L1 unit, L2 wasm/onnx boot (Node,
   every PR), L3 browser e2e (merge gate). All KWS drivers have L2 suites that
   run for real in CI (sherpa/openwakeword/plix; assets are GitHub Release
-  hosted, ADR-027 §6.7).
+  hosted, ADR-027 §6.7). The device SDK adds native host build + unit tests on
+  every PR (ADR-040 §5; slices #182/#183/#186).
 - **Deploy** (ADR-012): `VITE_BASE_PATH` — `/` for Cloudflare, `/<repo>/` for
   GitHub Pages.
 
@@ -97,8 +98,8 @@ The durable architecture lives in `docs/architecture.md`; the ADR log in
 
 | Backend | Category (ADR-024) | License | Tier / targets | In repo today |
 |---|---|---|---|---|
-| **openWakeWord** (`dscripka/openWakeWord`) | Traditional | Apache-2.0 code; CC BY-NC-SA pre-trained models (demo-only) | App-class (Pi, desktop, mobile, browser) | ✅ `packages/modules/kws/openwakeword/` |
-| **sherpa-onnx KWS** (`k2-fsa/sherpa-onnx`) | ASR Decoding | Apache-2.0 | App-class + MCU; real KWS transducer, compiled WASM in-browser | ✅ `packages/modules/kws/sherpa/` (wasm from Release `models-sherpa-wasm-v1`) |
+| **openWakeWord** (`dscripka/openWakeWord`) | Traditional | Apache-2.0 code; CC BY-NC-SA pre-trained models (demo-only) | App-class (Pi, desktop, mobile, browser) | ✅ browser + ✅ device driver (`kws/openwakeword/device/`, #192) |
+| **sherpa-onnx KWS** (`k2-fsa/sherpa-onnx`) | ASR Decoding | Apache-2.0 | App-class + MCU; real KWS transducer, compiled WASM in-browser | ✅ browser + ✅ device driver (`kws/sherpa/device/`, #193) |
 | **PLiX Few-Shot** (`aaqibsaeed/plixkws`) | Few-Shot | Apache-2.0 | App-class, enrollment-based (prototype-distance, ADR-002); onnx + transformers runtimes | ✅ `packages/modules/kws/plix/` |
 | **micro-wake-word** (`OHF-Voice/micro-wake-word`) | Traditional | Apache-2.0 | MCU (Cortex-M, ESP32) via TFLite-Micro | ⏳ Phase 4/5 |
 | **PocketSphinx** (`cmusphinx/pocketsphinx`) | Traditional (lightweight alt) | BSD-style | MCU-class and above, lightweight alternative | ⏳ Pending (ADR-020) |
@@ -189,11 +190,19 @@ real on every PR (PRs #82/#84/#85/#86):
 - e2e per backend (sherpa/openwakeword/plix onnx + transformers) + stale
   assertions from the panel rewrite fixed.
 
-### Phase 4 — Device-side SDK & export kits (ADR-021) — ⏳ Next
+### Phase 4 — Device-side SDK & export kits (ADR-021) — 🔄 In progress
 
 > Tracked as epic [#31](https://github.com/awareride/wake-studio/issues/31)
-> with sub-issues #37–#42 in the `WakeStudio Delivery` project.
-> Docs-first: `docs/modules/sdk.md` + `docs/modules/export.md` before code.
+> (In Progress) with sub-issues #37–#42 and implementation slices #179–#189
+> in the `WakeStudio Delivery` project.
+> Docs-first: `docs/modules/sdk.md` (Draft v2, landed with ADR-040) +
+> `docs/modules/export.md` (still to write before bundle generation).
+> Status (2026-08-20): SDK core shipped (ADR-040, slices #179–#184 closed,
+> PR #191); app-class device drivers shipped for openwakeword (#192),
+> kws-streaming (#194) and sherpa (#193) (PRs #196/#197/#198); Cortex-M
+> cross-compile CI landed (#186). Remaining: microwakeword driver (#185),
+> Pi Python binding (#187), plix driver (#188), bundle generator (#189),
+> license gate (#42), PocketSphinx (#40).
 
 1. **SDK core (C/C++, `packages/sdk` + `device/`):** portable core
    (`KWSBackend` interface ADR-020, portable AFE ADR-003/016, audio I/O +
@@ -267,19 +276,21 @@ Task state lives in **Issues + the `WakeStudio Delivery` project** (org
 `awareride`, project #2); load it with `gh project item-list 2 --owner
 awareride` (see `CONTRIBUTING.md`). This doc only keeps pointers.
 
-**P0 blockers** (delivery chain — gate every later phase): issues
+**P0 blockers** (delivery chain — all resolved): issues
 [#27](https://github.com/awareride/wake-studio/issues/27) (lint red in
 contracts/test-kit), [#28](https://github.com/awareride/wake-studio/issues/28)
 (playwright CI resolution), [#29](https://github.com/awareride/wake-studio/issues/29)
 (deploy wasm fetch + Cloudflare rename), [#30](https://github.com/awareride/wake-studio/issues/30)
-(vendor ONNX wasm / offline).
+(vendor ONNX wasm / offline) — all closed 2026-08-12 (Done on the board).
 
 **Open questions** (close with a decision that lands as an ADR): #32 (Q10:
 self-hosted training engine), #33 (Q11: L3 e2e cadence), #34 (Q12: PocketSphinx
-timing), #35 (Q13: SDK core CI), #36 (Q14: vendor ONNX wasm now vs Phase 6).
+timing), #36 (Q14: vendor ONNX wasm now vs Phase 6). Q13 (#35) resolved by
+ADR-040 (native-first SDK CI) and closed.
 
-**Next actions** (from the board): close the P0 blockers; start Phase 4 SDK
-(epic #31).
+**Next actions** (from the board): finish Phase 4 SDK — microwakeword driver
+(#185), Raspberry Pi Python binding (#187), plix driver (#188), bundle
+generator (#189); then license gate (#42), PocketSphinx (#40).
 
 ## 8. Risks & mitigations
 
@@ -289,9 +300,9 @@ timing), #35 (Q13: SDK core CI), #36 (Q14: vendor ONNX wasm now vs Phase 6).
 | Export bundles can accidentally ship CC BY-NC-SA models commercially | High | High | License gate (already scaffolded); always train our own models (Phase 5); `LICENSES.md` matrix |
 | Few-Shot high false-alarm rate (only 3–5 samples) | High | Medium | Negative prototypes + VAD gating + min-duration smoothing (shipped) |
 | Cloud-provider credential leakage | Medium | High | Credentials client-side only; never logged/exported; Phase 6 security review |
-| onnxruntime-web wasm on CDN breaks offline promise | Medium | Medium | Vendor locally (Phase 6 / P0-4) |
+| onnxruntime-web wasm on CDN breaks offline promise | Medium | Medium | Resolved — vendored locally (P0-4 #30, closed) |
 | Browser WebGPU/WASM SIMD support varies | Medium | Medium | Feature-detect + WASM fallback |
-| CI red (P0-1/P0-2) blocks all PRs | High | High | P0 blockers land first; they are the gate for everything else |
+| CI red (P0-1/P0-2) blocks all PRs | High | High | Resolved 2026-08-12 (P0s #27/#28 closed); CI green is enforced on PRs |
 
 ## 9. Out of scope (non-goals for v1)
 

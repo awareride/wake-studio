@@ -25,7 +25,9 @@ models.**
 **This project is work in progress (WIP).** While phases 0–3 shipped (AFE,
 KWS, Few-Shot, console/studio productization) and the module platform
 migration (ADR-025) is complete, v1 is not released: everything below can
-change. Phase 4 (device SDK + export kits) is next. See
+change. Phase 4 (device SDK + export kits) is underway — the C/C++ SDK core
+and the app-class device drivers (openwakeword/sherpa/kws-streaming) have
+shipped; target adapters and bundle generation remain. See
 [`docs/roadmap.md`](./docs/roadmap.md) for the full phased roadmap and
 [`DECISIONS.md`](./DECISIONS.md) for recorded decisions.
 
@@ -36,7 +38,7 @@ change. Phase 4 (device SDK + export kits) is next. See
 | 2 | KWS inference in the browser | ✅ Complete (pluggable KWSBackend, ADR-020; openWakeWord + sherpa-onnx KWS wasm) |
 | 3 | Few-Shot custom wake-word enrollment | ✅ Complete (PLiX embed + prototype-distance, client-side) |
 | 3.5 | Console/Studio productization (shell, projects, library, session console) | ✅ Complete |
-| 4 | Model export & integration kits (device SDK) | ⏳ Pending |
+| 4 | Model export & integration kits (device SDK) | 🔄 In progress (SDK core + app-class device drivers shipped) |
 | 5 | Custom-model training (multi-backend) | ⏳ Pending (contract locked, docs/modules/training.md) |
 | 6 | Polish, PWA, packaging, docs | ⏳ Pending |
 
