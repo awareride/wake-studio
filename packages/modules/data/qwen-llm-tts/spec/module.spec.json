@@ -1,0 +1,42 @@
+{
+  "$schema": "../../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "qwen-llm-tts",
+    "name": "Qwen LLM-TTS",
+    "category": "data",
+    "version": "0.1.0",
+    "maturity": "draft",
+    "owner": "WakeStudio team",
+    "license": "MIT",
+    "status": "proposed",
+    "description": "TTS engine: OpenAI-compatible LLM-TTS (llm-tts, backend GPU). Shares the online HTTP machinery; local-GPU runtimes (vibe-voice / F5-TTS) are a follow-up."
+  },
+  "params": [
+    { "id": "endpoint", "label": "API base URL", "group": "primary", "type": "string", "default": "", "description": "OpenAI-compatible endpoint for the LLM-TTS model (blank = host default)." },
+    { "id": "apiKey", "label": "API key", "group": "primary", "type": "secret", "default": "", "description": "API key for the endpoint (client-side)." },
+    { "id": "model", "label": "Model", "group": "primary", "type": "string", "default": "qwen2.5-omni-7b", "description": "LLM-TTS model id." },
+    { "id": "voice", "label": "Voice", "group": "primary", "type": "string", "default": "", "description": "Optional voice id." },
+    { "id": "styleInstruction", "label": "Style instruction", "group": "advanced", "type": "string", "default": "", "description": "Natural-language style instruction." },
+    { "id": "languages", "label": "Languages", "group": "advanced", "type": "string", "default": "en-US", "description": "Comma-separated language tags." },
+    { "id": "samplesPerPhrase", "label": "Samples per phrase", "group": "advanced", "type": "number", "default": 3, "min": 1, "max": 20, "description": "How many synthesized clips per wake phrase." }
+  ],
+  "actions": [],
+  "status": [],
+  "runtime": {
+    "web": { "engine": "TTSEngine" }
+  },
+  "tts": {
+    "kind": "llm-tts",
+    "runtime": ["backend"],
+    "defaultModel": "qwen2.5-omni-7b",
+    "provenanceTemplate": {
+      "name": "Qwen LLM-TTS synthetic speech",
+      "license": "user-owned (synthetic TTS)",
+      "commercialUse": true,
+      "source": "Qwen (Alibaba) LLM-TTS"
+    }
+  },
+  "tests": { "required": [] },
+  "playground": { "route": "/playground/qwen-llm-tts", "entry": "none" },
+  "interfaces": { "provides": ["TTSEngine"], "consumes": [] }
+}

@@ -71,5 +71,27 @@
    "cwd": "packages/modules/dry-run/train",
    "env": {}
   }
+ },
+ "dataset-generate": {
+  "cwd": "src/wake_train_kit",
+  "engine": "direct",
+  "entry": "generation_runner.py",
+  "env": {
+   "GEN_ENGINE": "{params.engine}",
+   "GEN_PHRASES": "{params.phrases}",
+   "GEN_LANGUAGES": "{params.languages}",
+   "GEN_SAMPLES": "{params.samplesPerPhrase}",
+   "GEN_UNKNOWN_WORDS": "{params.unknownWords}",
+   "GEN_POSTPROCESS": "{params.postprocess}",
+   "GEN_ENDPOINT": "{params.endpoint}",
+   "GEN_API_KEY": "{params.apiKey}",
+   "GEN_MODEL": "{params.model}",
+   "GEN_VOICE": "{params.voice}",
+   "GEN_STYLE": "{params.styleInstruction}",
+   "GEN_SAMPLE_RATE": "{params.sampleRate}",
+   "GEN_NAME": "{params.name}",
+   "GEN_DATASET_ID": "{params.datasetId}",
+   "GEN_BACKEND": "self-hosted"
+  }
  }
 }

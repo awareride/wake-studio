@@ -140,6 +140,22 @@ One pipeline runs everywhere:
 collect -> synthesize -> postprocess -> assemble -> persist
 ```
 
+**Implemented (#205):** the backend pipeline is `wake_train_kit/generation.py` (one
+`generate_dataset()` orchestrator: synthesize -> postprocess -> assemble -> persist, emitting
+NDJSON progress) + `generation_runner.py` (the `dataset-generate` registry entry, ADR-036
+subprocess). **Engines are MODULES, not descriptor files** (human decision 2026-08-20): each
+`data`-category engine module (`packages/modules/data/{edge-tts,mimo-tts,piper,qwen-llm-tts}/`)
+owns `spec/module.spec.json` (`spec.params` drives its generated panel, `spec.tts` declares
+kind/runtime/provenanceTemplate — like KWS drivers) and `adapter.py` (the backend engine
+adapter, loaded at runtime by `wake_train_kit.generation`). `edge-tts` (classic, reuses
+`data_sources`), `mimo-tts` (online HTTP, OpenAI-compatible chat.completions via the shared
+`wake_train_kit/http_tts.py`, mockable HTTP client), `qwen-llm-tts` (llm-tts, shares the HTTP
+machinery); `piper` is declared but its adapter lands with the openwakeword path. Postprocess:
+`wake_train_kit/postprocess.py` (passthrough + `openwakeword-style` pitch/rate/volume
+perturbation via ffmpeg). The catalog `apps/web/public/dataset-engines.json` is generated from
+the engine modules' `spec.tts` via `scripts/build-dataset-engines.mjs` (same discovery as
+`spec.train` -> `train-modules.json`).
+
 ### 5.1 TTS engine plugins
 
 The **TTS engine** is a pluggable capability (ADR-033 self-registration style), not a hard-coded
@@ -151,13 +167,23 @@ list. Three kinds:
 | `online-http-tts` | any user-configured online TTS API (e.g. mimo.mi.com speech synthesis v2.5) - user enters endpoint + API key | browser + backend |
 | `llm-tts` | qwen (e.g. Qwen2.5-Omni), vibe-voice, F5-TTS | backend (GPU) |
 
-Engine descriptor (drives a generated panel, ADR-025):
+An engine is a **module** (`packages/modules/data/<id>/`) — its `spec.params` drive a
+generated panel (ADR-025) and its `spec.tts` declares the engine metadata, e.g. for mimo-tts:
 
 ```jsonc
-{ "id": "mimo-http", "kind": "online-http-tts", "runtime": ["browser", "backend"],
-  "params": { "endpoint": { "type": "string" }, "apiKey": { "type": "secret" },
-              "voice": {}, "rate": {} },
-  "provenanceTemplate": { "name": "mimo TTS", "commercialUse": true } }
+// packages/modules/data/mimo-tts/spec/module.spec.json (excerpt)
+{
+  "meta": { "id": "mimo-tts", "category": "data", "name": "MiMo TTS (online HTTP)" },
+  "params": [ // standard ModuleParam[] - renders the engine's own generation form
+    { "id": "endpoint", "type": "string",  "default": "https://api.xiaomimimo.com/v1" },
+    { "id": "apiKey",   "type": "secret" },
+    { "id": "model",    "type": "string",  "default": "mimo-v2.5-tts" }
+  ],
+  "tts": { "kind": "online-http-tts", "runtime": ["browser", "backend"],
+           "provenanceTemplate": { "name": "MiMo TTS (online API) synthetic speech",
+                                    "license": "user-owned (synthetic TTS)",
+                                    "commercialUse": true } }
+}
 ```
 
 An `online-http-tts` engine (mimo-style) can run **in the browser** (pure fetch + fflate zip, no
@@ -356,3 +382,4 @@ license/provenance log shown in-app before export. The Datasets console shows th
 | 2026-08-17 | **Mixed mode (#158):** `merge_label_trees` merges a positive tree (wake word) with a negative tree (real unknowns + real noise); collisions raise; real noise wins over synthesized silence. `dataSource=mixed` in the kws-streaming adapter + spec params + registry wiring; 4 new backend tests. | agent |
 | 2026-08-20 | **Datasets as first-class artifacts (design locked, human discussion):** full spec written - `dataset.json` manifest + canonical `label/*.wav` tree + one importer (SS4); `dataset-generate` jobs with pluggable TTS engine / storage / postprocess plugins, split by concern not vendor (SS5); per-trainer materializers + `spec.train.dataset` compatibility (SS6); built-in catalog (SS7); Datasets console (SS8); quality gate / dedup+split / reproducibility (SS9); provenance chain to the export gate (SS10). Decision points resolved: composable granularity, cloud storage optional (HF / R2 / GDrive with user keys), user-configurable online TTS API+key, new-dataset-equals-new-version, multi-language+noise built-ins. Open: Q-DS-3/4/5. | agent |
 | 2026-08-20 | **#203 — dataset spec implemented (ADR-044):** `packages/modules/data/dataset/` module (`core/spec.ts` manifest schema + validation, `core/hash.ts` canonical contentHash, `core/manifest.ts` single importer with typed `DatasetImportError` codes) + Python mirror `wake_train_kit/dataset.py` (byte-identical hash, verified cross-implementation); vitest + pytest suites; `.gitignore` `data/` anchored to `/data/` so the `data` category module is tracked. Remaining #204-#210 unchanged. | agent |
+| 2026-08-20 | **#205 — dataset generation jobs (ADR-044 §5, human refactor 2026-08-20):** engines are MODULES (`packages/modules/data/{edge-tts,mimo-tts,piper,qwen-llm-tts}/`), each owning `spec/module.spec.json` (`params` -> generated panel, `tts` block = kind/runtime/provenanceTemplate) + `adapter.py` (module-owned backend adapter, loaded at runtime). Contracts gain `ModuleSpec.tts`. Backend pipeline `wake_train_kit/generation.py` (dispatcher + shared postprocess/assemble) + `generation_runner.py` (`dataset-generate` registry entry, NDJSON, canonical zip artifact); shared online/LLM HTTP machinery in `wake_train_kit/http_tts.py`; postprocess transforms (`passthrough` + `openwakeword-style`); catalog `apps/web/public/dataset-engines.json` generated from `spec.tts` via `scripts/build-dataset-engines.mjs` (like `spec.train`); tests (13 backend + dataset). Browser executor + generation wizard land in #208. | agent |

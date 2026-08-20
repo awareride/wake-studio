@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "mimo-tts",
+    "name": "MiMo TTS (online HTTP)",
+    "category": "data",
+    "version": "0.1.0",
+    "maturity": "draft",
+    "owner": "WakeStudio team",
+    "license": "MIT",
+    "status": "proposed",
+    "description": "TTS engine: MiMo speech synthesis v2.5 (online-http-tts, OpenAI-compatible chat.completions; browser + backend). User enters endpoint + API key; the module owns its Python adapter (adapter.py)."
+  },
+  "params": [
+    { "id": "endpoint", "label": "API base URL", "group": "primary", "type": "string", "default": "https://api.xiaomimimo.com/v1", "description": "OpenAI-compatible base URL (MiMo speech synthesis v2.5)." },
+    { "id": "apiKey", "label": "API key", "group": "primary", "type": "secret", "default": "", "description": "MiMo API key (client-side; sent to the endpoint only)." },
+    { "id": "model", "label": "Model", "group": "primary", "type": "string", "default": "mimo-v2.5-tts", "description": "Model id (mimo-v2.5-tts / -voicedesign / -voiceclone)." },
+    { "id": "voice", "label": "Preset voice", "group": "primary", "type": "string", "default": "", "description": "Optional preset voice id." },
+    { "id": "styleInstruction", "label": "Style instruction", "group": "advanced", "type": "string", "default": "", "description": "Natural-language style/emotion instruction sent as the user message." },
+    { "id": "languages", "label": "Languages", "group": "advanced", "type": "string", "default": "en-US", "description": "Comma-separated language tags." },
+    { "id": "samplesPerPhrase", "label": "Samples per phrase", "group": "advanced", "type": "number", "default": 3, "min": 1, "max": 20, "description": "How many synthesized clips per wake phrase." },
+    { "id": "outputFormat", "label": "Output audio format", "group": "advanced", "type": "select", "default": "pcm16", "options": ["pcm16", "wav", "mp3"], "description": "Audio format requested from the API (pcm16 is canonical-friendly)." }
+  ],
+  "actions": [],
+  "status": [],
+  "runtime": {
+    "web": { "engine": "TTSEngine" }
+  },
+  "tts": {
+    "kind": "online-http-tts",
+    "runtime": ["browser", "backend"],
+    "defaultModel": "mimo-v2.5-tts",
+    "provenanceTemplate": {
+      "name": "MiMo TTS (online API) synthetic speech",
+      "license": "user-owned (synthetic TTS)",
+      "commercialUse": true,
+      "source": "https://mimo.mi.com/docs/zh-CN/quick-start/usage-guide/audio/speech-synthesis-v2.5"
+    }
+  },
+  "tests": { "required": [] },
+  "playground": { "route": "/playground/mimo-tts", "entry": "none" },
+  "interfaces": { "provides": ["TTSEngine"], "consumes": [] }
+}

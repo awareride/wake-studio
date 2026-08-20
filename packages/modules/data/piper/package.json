@@ -1,0 +1,26 @@
+{
+  "name": "@wake-studio/module-piper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TTS engine module (ADR-044 §5, #205): spec.params drive the Datasets generation panel; adapter.py is the backend engine adapter loaded by wake_train_kit.generation.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./core/index.ts",
+    "./spec": "./spec/module.spec.json"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "echo 'no TS unit tests (adapter is Python, tested in apps/studio-backend/tests)'",
+    "fetch:all": "echo 'no artifacts'"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "globals": "^15.13.0",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "^8.16.0",
+    "vitest": "^2.1.9"
+  }
+}

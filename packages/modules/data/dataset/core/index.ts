@@ -42,3 +42,16 @@ export {
   DATASET_IMPORT_ERROR_MESSAGES,
   type DatasetBundle,
 } from './manifest'
+
+export {
+  TTS_ENGINE_KINDS,
+  validateEngineCatalog,
+  engineById,
+  isBrowserCapable,
+  type TTSEngineKind,
+  type TTSEngineRuntime,
+  type TTSEngineProvenanceTemplate,
+  type TTSEngineDescriptor,
+  type DatasetEngineCatalog,
+  type EngineValidation,
+} from './engines'

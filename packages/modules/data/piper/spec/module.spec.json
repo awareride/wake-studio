@@ -1,0 +1,38 @@
+{
+  "$schema": "../../../../contracts/src/module-spec.schema.json",
+  "meta": {
+    "id": "piper",
+    "name": "Piper TTS (local)",
+    "category": "data",
+    "version": "0.1.0",
+    "maturity": "draft",
+    "owner": "WakeStudio team",
+    "license": "MIT",
+    "status": "proposed",
+    "description": "TTS engine: local Piper synthesis (classic-tts, backend). Declared; the adapter lands with the openwakeword training path."
+  },
+  "params": [
+    { "id": "languages", "label": "Languages", "group": "primary", "type": "string", "default": "en-US", "description": "Comma-separated language tags." },
+    { "id": "samplesPerPhrase", "label": "Samples per phrase", "group": "primary", "type": "number", "default": 3, "min": 1, "max": 20, "description": "How many synthesized clips per wake phrase." },
+    { "id": "voiceModel", "label": "Piper voice model", "group": "advanced", "type": "string", "default": "", "description": "Piper voice model (e.g. en_US-lessac-medium)." },
+    { "id": "rate", "label": "Rate", "group": "advanced", "type": "number", "default": 1.0, "description": "Speaking rate multiplier." }
+  ],
+  "actions": [],
+  "status": [],
+  "runtime": {
+    "web": { "engine": "TTSEngine" }
+  },
+  "tts": {
+    "kind": "classic-tts",
+    "runtime": ["backend"],
+    "provenanceTemplate": {
+      "name": "piper-sample-generator synthetic speech",
+      "license": "MIT (code); Piper voice model license",
+      "commercialUse": true,
+      "source": "https://github.com/rhasspy/piper-sample-generator"
+    }
+  },
+  "tests": { "required": [] },
+  "playground": { "route": "/playground/piper", "entry": "none" },
+  "interfaces": { "provides": ["TTSEngine"], "consumes": [] }
+}
