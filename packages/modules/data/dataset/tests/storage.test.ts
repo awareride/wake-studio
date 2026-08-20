@@ -12,6 +12,7 @@ import {
   validateStorageCatalog,
   storageBackendById,
   storageAuthKeys,
+  type StorageBackendCapability,
   type StorageCatalog,
 } from '../core/storage'
 
@@ -60,7 +61,7 @@ describe('storage plugin catalog', () => {
   it('rejects unknown capability/kind/format', () => {
     const bad: StorageCatalog = {
       backends: [
-        { id: 'y', kind: 'huggingface', authKey: 'cloud.hf', capabilities: ['fly'], format: 'zip' },
+        { id: 'y', kind: 'huggingface', authKey: 'cloud.hf', capabilities: ['fly'] as unknown as StorageBackendCapability[], format: 'zip' },
       ],
     }
     const { ok, errors } = validateStorageCatalog(bad)
