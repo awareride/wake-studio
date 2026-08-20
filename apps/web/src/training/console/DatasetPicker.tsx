@@ -30,6 +30,7 @@ import {
 import { resolveAsset } from '@wake-studio/platform'
 import { cn } from '../../components/cn'
 import type { StoreDataset, StudioClient } from '../studio-client'
+import { listLocalDatasets, type LocalDatasetSummary } from '../../datasets/local-store'
 
 export interface DatasetPickerProps {
   /** The studio-backend client whose /datasets store feeds the picker. */
@@ -108,11 +109,46 @@ function fromBuiltin(e: DatasetCatalogEntry): PickableDataset {
   }
 }
 
+/** A browser-local dataset (generated/imported in the Datasets console). */
+function fromLocalSummary(l: LocalDatasetSummary): PickableDataset {
+  const m = l.manifest
+  return {
+    id: l.id,
+    name: m.name,
+    version: m.version,
+    kind: m.kind,
+    role: m.role,
+    clips: m.audio?.clips ?? 0,
+    roles: [...new Set((m.labels ?? []).map((x) => x.role))],
+    license: m.provenance?.[0]?.license ?? 'unknown',
+    commercialUse: m.provenance?.[0]?.commercialUse ?? true,
+    available: true,
+    manifest: m,
+  }
+}
+
 export function DatasetPicker({ client, requirements, value, onChange }: DatasetPickerProps) {
   const [storeDatasets, setStoreDatasets] = useState<StoreDataset[] | null>(null)
   const [builtins, setBuiltins] = useState<DatasetCatalogEntry[] | null>(null)
+  const [localDatasets, setLocalDatasets] = useState<LocalDatasetSummary[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Browser-local datasets (generated/imported client-side, #208) always load
+  // — no backend needed, same store the Datasets console reads.
+  useEffect(() => {
+    let cancelled = false
+    void listLocalDatasets()
+      .then((list) => {
+        if (!cancelled) setLocalDatasets(list)
+      })
+      .catch(() => {
+        if (!cancelled) setLocalDatasets([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Built-ins come from the static catalog (always; no backend needed to list).
   useEffect(() => {
@@ -169,17 +205,19 @@ export function DatasetPicker({ client, requirements, value, onChange }: Dataset
     }
   }, [client])
 
-  // Merge built-ins + store datasets into one list (dedup by id, builtin wins).
+  // Merge built-ins + store + local datasets into one list (dedup by id;
+  // local > backend > builtin, matching the Datasets console's store).
   const pickable = useMemo<PickableDataset[]>(() => {
     const byId = new Map<string, PickableDataset>()
-    for (const d of storeDatasets ?? []) byId.set(d.id, fromStore(d))
     for (const e of builtins ?? []) byId.set(e.id, fromBuiltin(e))
+    for (const d of storeDatasets ?? []) byId.set(d.id, fromStore(d))
+    for (const l of localDatasets) byId.set(l.id, fromLocalSummary(l))
     const all = [...byId.values()]
-    // available built-ins first, then store datasets, then pending-host built-ins
+    // available built-ins first, then store/local datasets, then pending-host
     const rank = (p: PickableDataset) =>
       p.available ? 0 : p.kind === 'builtin' ? 2 : 1
     return all.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
-  }, [storeDatasets, builtins])
+  }, [storeDatasets, builtins, localDatasets])
 
   const selected = useMemo(() => {
     const set = new Set(value ? value.split(',').map((s) => s.trim()).filter(Boolean) : [])

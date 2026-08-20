@@ -30,6 +30,7 @@ import { cn } from '../../components/cn'
 import { IconChevronRight } from '../../components/icons'
 import { useAppSettings } from '../../settings'
 import { TRAIN_NEW_HASH_PREFIX, trainNewReviewFromHash, trainNewStepFromHash } from '../../router'
+import { consumePendingTrainDataset } from '../../datasets/train-link'
 import { findTrainableModule, type TrainableModule } from '../train-modules'
 import { ConfirmDialog } from './ConfirmDialog'
 import { InlineGuide } from './InlineGuide'
@@ -70,7 +71,13 @@ export function NewTrainWizard({
   const [moduleId, setModuleId] = useState<string | null>(null)
   const [method, setMethod] = useState<TrainMethodId | null>(null)
   const [backendId, setBackendId] = useState<string | null>(null)
-  const [params, setParams] = useState<Record<string, string>>({})
+  const [params, setParams] = useState<Record<string, string>>(() => {
+    // “Train with this” (Datasets console, #208): consume the pending dataset
+    // id and pre-seed the datasets[] picker when the wizard mounts.
+    const pending = consumePendingTrainDataset()
+    const init: Record<string, string> = pending ? { datasets: pending } : {}
+    return init
+  })
   const [starting, setStarting] = useState(false)
   const [reviewing, setReviewing] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)

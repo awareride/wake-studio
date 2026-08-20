@@ -5,14 +5,14 @@
  * (+ New generation task), a left rail (the consolidated dataset list:
  * built-ins + the backend `datasets/` store + browser-local datasets, plus a
  * generation-jobs section below it), and a right details pane (dataset
- * manifest / provenance / storage / quality report, or a generation job's
- * NDJSON progress). The generation wizard is a full panel that replaces the
- * list-detail layout.
+ * manifest / provenance / storage / quality report + actions, or a
+ * generation job's NDJSON progress). The generation wizard is a full panel
+ * that replaces the list-detail layout.
  *
- * The consolidated store + the job list come from `useDatasetsStore` and
- * `useDatasetJobs`; both are fed by the first configured managed backend
- * (same convention as the Training console). Selection survives view switches
- * via `rememberSelection` (sessionStorage).
+ * Actions (ADR-044 §8): New generation task, Train with this, Upload to
+ * cloud (direct browser push — HF wired, R2/Drive flagged #107), Download
+ * and Delete — each routed to the dataset's origin (local IndexedDB vs the
+ * backend store; built-ins are immutable references).
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -20,12 +20,18 @@ import { Button } from '@radix-ui/themes'
 import { ConsolePanel } from '../../components/ConsolePanel'
 import { IconWand } from '../../components/icons'
 import { useAppSettings } from '../../settings'
+import { useToast } from '../../components/toast'
 import { rememberSelection, rememberedSelection } from '../../view-selection'
 import { useDatasetsStore, type ConsoleDataset } from '../store'
 import { useDatasetJobs, type SubmitGenerateInput } from '../useDatasetJobs'
 import type { StudioJob } from '../../training/studio-client'
+import { deleteLocalDataset, getLocalDataset, getLocalDatasetZip, saveLocalDataset } from '../local-store'
+import { uploadDatasetToCloud, type CloudTarget } from '../cloud-upload'
+import { downloadBlob, fetchBytes } from '../download'
+import { setPendingTrainDataset } from '../train-link'
 import { DatasetList } from './DatasetList'
 import { DatasetDetails } from './DatasetDetails'
+import { DatasetActions } from './DatasetActions'
 import { DatasetJobList } from './DatasetJobList'
 import { DatasetJobDetails } from './DatasetJobDetails'
 import { NewDatasetWizard } from './NewDatasetWizard'
@@ -37,7 +43,8 @@ type View =
   | { kind: 'wizard' }
 
 export function DatasetsConsole() {
-  const { backends } = useAppSettings()
+  const { backends, platform } = useAppSettings()
+  const { toast } = useToast()
   // The consolidated store + jobs are fed by the first configured managed
   // backend (same convention as the Training console's datasets[] picker).
   const backend = backends[0]
@@ -72,18 +79,27 @@ export function DatasetsConsole() {
     setView({ kind: 'details', id })
   }, [])
 
+  // -------------------------------------------------------------------------
+  // Generation (wizard)
+  // -------------------------------------------------------------------------
+
   /** New generation task: run the job on the decided executor, then open its
-   *  details in the rail (mirrors "Start train" in Training). */
+   *  details in the rail (mirrors "Start train" in Training). Backend jobs get
+   *  the connected backend's endpoint so the details pane live-tracks them. */
   const handleGenerate = useCallback(
     async (input: SubmitGenerateInput) => {
-      const job = await submitGenerate(input)
+      const withEndpoint: SubmitGenerateInput =
+        input.executor === 'backend' && backend
+          ? { ...input, endpoint: backend.baseUrl }
+          : input
+      const job = await submitGenerate(withEndpoint)
       rememberSelection('datasets', null)
       setView({ kind: 'job', jobId: job.id })
       // Browser executor already saved the dataset; a backend generate job
       // persists it to the store as it runs — refresh to pick it up.
       void store.refresh()
     },
-    [submitGenerate, store],
+    [submitGenerate, store, backend],
   )
 
   /** Merge live backend state into a job; when a generate job succeeds, pull
@@ -108,6 +124,113 @@ export function DatasetsConsole() {
     [remove, view],
   )
 
+  // -------------------------------------------------------------------------
+  // Dataset actions
+  // -------------------------------------------------------------------------
+
+  /** Fetch a dataset's canonical zip bytes regardless of origin. */
+  const datasetZipBytes = useCallback(
+    async (dataset: ConsoleDataset): Promise<Uint8Array> => {
+      if (dataset.origin === 'local') {
+        const bytes = await getLocalDatasetZip(dataset.id)
+        if (!bytes) throw new Error('This local dataset is missing its stored zip.')
+        return bytes
+      }
+      if (dataset.origin === 'backend' && store.client) {
+        return fetchBytes(store.client.datasetDownloadUrl(dataset.id))
+      }
+      throw new Error('This dataset has no downloadable zip in this browser.')
+    },
+    [store.client],
+  )
+
+  const handleDownload = useCallback(
+    async (dataset: ConsoleDataset) => {
+      try {
+        const bytes = await datasetZipBytes(dataset)
+        downloadBlob(bytes, `${dataset.id}-wake-studio-dataset.zip`)
+        toast({ title: 'Dataset downloaded', description: `${dataset.name} (${bytes.byteLength} bytes).` })
+      } catch (err) {
+        toast({
+          title: 'Download failed',
+          description: err instanceof Error ? err.message : String(err),
+          variant: 'error',
+        })
+      }
+    },
+    [datasetZipBytes, toast],
+  )
+
+  const handleDelete = useCallback(
+    async (dataset: ConsoleDataset) => {
+      try {
+        if (dataset.origin === 'local') {
+          await deleteLocalDataset(dataset.id)
+        } else if (dataset.origin === 'backend' && store.client) {
+          await store.client.deleteDataset(dataset.id)
+        } else {
+          return
+        }
+        await store.refresh()
+        setView((v) => (v.kind === 'details' && v.id === dataset.id ? { kind: 'empty' } : v))
+        if (view.kind === 'details' && view.id === dataset.id) rememberSelection('datasets', null)
+        toast({ title: 'Dataset deleted', description: dataset.name })
+      } catch (err) {
+        toast({
+          title: 'Delete failed',
+          description: err instanceof Error ? err.message : String(err),
+          variant: 'error',
+        })
+      }
+    },
+    [store, view, toast],
+  )
+
+  const handleUpload = useCallback(
+    async (dataset: ConsoleDataset, input: { target: CloudTarget; repoId: string }) => {
+      try {
+        const bytes = await datasetZipBytes(dataset)
+        const ref = await uploadDatasetToCloud({
+          dataset,
+          zipBytes: bytes,
+          target: input.target,
+          hfRepoId: input.repoId,
+          hfToken: platform['cloud.hf.token'],
+        })
+        // Persist the cloud ref into a LOCAL dataset's manifest (the backend
+        // store has no update route; the cloud copy exists regardless).
+        if (dataset.origin === 'local') {
+          const record = await getLocalDataset(dataset.id)
+          if (record) {
+            await saveLocalDataset(
+              {
+                ...record.manifest,
+                storage: { ...(record.manifest.storage ?? { backend: '' }), cloud: ref },
+              },
+              record.zipBytes,
+            )
+            await store.refresh()
+          }
+        }
+        toast({ title: 'Uploaded to cloud', description: ref, variant: 'success' })
+      } catch (err) {
+        toast({
+          title: 'Upload failed',
+          description: err instanceof Error ? err.message : String(err),
+          variant: 'error',
+        })
+      }
+    },
+    [datasetZipBytes, platform, store, toast],
+  )
+
+  /** Train with this: pre-seed the dataset + deep-link into the Training
+   *  wizard (the wizard consumes the pending id on mount). */
+  const handleTrain = useCallback((id: string) => {
+    setPendingTrainDataset(id)
+    window.location.hash = '#/training/new'
+  }, [])
+
   return (
     <>
       {view.kind === 'wizard' ? (
@@ -116,7 +239,7 @@ export function DatasetsConsole() {
         <NewDatasetWizard
           backendConnected={!!backend}
           onGenerate={handleGenerate}
-          onCancel={() => setView(view.kind === 'wizard' ? { kind: 'empty' } : view)}
+          onCancel={() => setView({ kind: 'empty' })}
         />
       ) : (
         <ConsolePanel
@@ -166,7 +289,28 @@ export function DatasetsConsole() {
           )}
           details={
             view.kind === 'details' && selected ? (
-              <DatasetDetails key={selected.id} dataset={selected} />
+              <>
+                <DatasetDetails key={selected.id} dataset={selected} />
+                <DatasetActions
+                  dataset={selected}
+                  client={store.client}
+                  onNew={() => setView({ kind: 'wizard' })}
+                  onTrain={handleTrain}
+                  onUpload={handleUpload}
+                  onDownload={handleDownload}
+                  onDelete={handleDelete}
+                />
+                {store.backendError && (
+                  <div className="rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
+                    Could not load the backend dataset store: {store.backendError}
+                  </div>
+                )}
+                {store.builtinError && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-700">
+                    Built-in catalog unavailable: {store.builtinError}
+                  </div>
+                )}
+              </>
             ) : view.kind === 'job' && selectedJob ? (
               <DatasetJobDetails
                 key={selectedJob.id}

@@ -101,6 +101,59 @@ def test_datasets_list_via_api(store, registry, artifacts_dir, tmp_path):
     run(scenario())
 
 
+def test_datasets_download_and_delete_via_api(store, registry, artifacts_dir, tmp_path):
+    """#208: GET /datasets/{id}/download serves the stored zip; DELETE removes it."""
+    import io
+    import json
+    import zipfile
+
+    from wake_train_kit.dataset_store import DatasetStore
+
+    datasets_dir = tmp_path / "datasets"
+    ds_store = DatasetStore(datasets_dir)
+    manifest = {
+        "schemaVersion": 1, "id": "ds-2", "name": "wake-words", "version": 1,
+        "kind": "generated", "role": "mixed",
+        "audio": {"sampleRate": 16000, "channels": 1, "encoding": "pcm_s16le",
+                   "clips": 3, "durationSec": 6},
+        "labels": [{"name": "hey_studio", "role": "positive"}],
+        "provenance": [{"name": "x", "license": "CC BY 4.0", "commercialUse": True}],
+    }
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("dataset.json", json.dumps(manifest))
+        zf.writestr("audio/hey_studio/a.wav", b"RIFFxxxx")
+    z = tmp_path / "ds-2.zip"
+    z.write_bytes(buf.getvalue())
+    ds_store.save(z)
+
+    async def scenario():
+        mgr = make_manager(store, registry, artifacts_dir, datasets_dir=datasets_dir)
+        await mgr.start()
+        app = create_app(mgr, Auth())
+        async with client_for(app) as client:
+            # download returns the stored canonical zip
+            r = await client.get("/datasets/ds-2/download")
+            assert r.status_code == 200
+            assert r.content.startswith(b"PK")
+            assert "zip" in r.headers.get("content-type", "")
+
+            # unknown dataset -> 404
+            r = await client.get("/datasets/nope/download")
+            assert r.status_code == 404
+
+            # delete removes the record + file
+            r = await client.delete("/datasets/ds-2")
+            assert r.status_code == 200
+            assert r.json()["deleted"] == "ds-2"
+            r = await client.get("/datasets")
+            assert r.json()["datasets"] == []
+            r = await client.get("/datasets/ds-2/download")
+            assert r.status_code == 404
+        await mgr.stop()
+    run(scenario())
+
+
 def test_job_lifecycle_via_api(store, registry, artifacts_dir):
     async def scenario():
         mgr = make_manager(store, registry, artifacts_dir)

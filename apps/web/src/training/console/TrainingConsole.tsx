@@ -63,7 +63,13 @@ export function TrainingConsole() {
     // A review hash (`#/training/review/<jobId>`) reopens that train's
     // details after a refresh (issue #136).
     const jobId = trainReviewJobFromHash(window.location.hash)
-    return jobId ? { kind: 'details', jobId } : { kind: 'empty' }
+    if (jobId) return { kind: 'details', jobId }
+    // A wizard hash (`#/training/new[/<step>]`) — deep-linked from the
+    // Datasets console's “Train with this” (#208) — opens the wizard.
+    if (window.location.hash.startsWith(`#${TRAIN_NEW_HASH_PREFIX}`)) {
+      return { kind: 'wizard', from: { kind: 'empty' } }
+    }
+    return { kind: 'empty' }
   })
 
   // Unsaved-progress guard: leaving the wizard via another menu asks first.
@@ -102,13 +108,9 @@ export function TrainingConsole() {
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  // A refresh while the wizard was open leaves a `#/training/new/...` hash but
-  // no wizard state — drop the stale entry so back/forward behave (issue #136).
-  useEffect(() => {
-    if (location.hash.startsWith(`#${TRAIN_NEW_HASH_PREFIX}`)) {
-      location.replace('#/training')
-    }
-  }, [])
+  // A refresh mid-wizard reopens it from the hash (the mount state above),
+  // so the stale `#/training/new/...` entry is kept (issue #136 + #208) — no
+  // need to drop it here.
 
   const handleDirtyChange = useCallback((dirty: boolean) => {
     wizardDirtyRef.current = dirty
