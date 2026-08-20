@@ -223,15 +223,17 @@ warmup (`-1`). The bundle generator picks the runtime-ON configuration.
 |---|---|---|---|
 | microwakeword (#185) | `kws/microwakeword/device/` | TFLite-Micro (pinned, `third_party/tflite-micro`) | `WAKE_SDK_MICROWAKEWORD_HAS_RUNTIME` |
 | openwakeword (#192) | `kws/openwakeword/device/` | onnxruntime C API (pinned 1.21.0, `third_party/onnxruntime`, fetched prebuilt) | `WAKE_SDK_OPENWAKEWORD_HAS_RUNTIME` |
+| kws-streaming (#194) | `kws/streaming/device/` | onnxruntime C API (same pinned dep as openwakeword) | `WAKE_SDK_KWS_STREAMING_HAS_RUNTIME` |
 
-**onnxruntime (shared app-class runtime).** The openwakeword driver is a
-byte-for-byte port of the browser pipeline (`core/backend.ts`): 1280-sample
-chunks + 480-overlap → `melspectrogram.onnx` → last 76 frames →
-`embedding_model.onnx` (96-dim) → 16-embedding ring → `classifier.onnx`
-(sigmoid'd [0,1]). Model files are read from the bundle `model_dir` with the
-names the driver declares (`melspectrogram.onnx`, `embedding_model.onnx`,
-`classifier.onnx`) — no URL bag on device (ADR-040 §4.1). The same pinned
-onnxruntime dependency serves kws-streaming (#194).
+**onnxruntime (shared app-class runtime).** Two drivers share the pinned
+onnxruntime C API: openwakeword (mel → embedding → classifier, a byte-for-byte
+port of `core/backend.ts`) and kws-streaming (the same kwt\*.onnx graphs the
+browser runs, **manifest-driven**: a sidecar `manifest.json` — the browser's
+own sidecar contract — describes mode, tensor names, window/packet sizes and
+labels, so one driver serves every topology upstream ships, in both
+`sliding-window` and `streaming-external-state` shapes). Both read model files
+from the bundle `model_dir` under driver-declared names — no URL bag on
+device (ADR-040 §4.1).
 
 ### 5.3 Low-power vs high-performance: profiles, not forks (ADR-040 §4)
 
@@ -336,8 +338,8 @@ target — this is the hard acceptance for #41.
 6. Composition root + profile system (mcu/app) + capabilities query.
 7. microwakeword device driver (TFLite-Micro) + Cortex-M cross-compile in CI.
 8. Raspberry Pi Python binding golden path.
-9. openwakeword device driver (onnxruntime C API, shared runtime) shipped;
-   plix/sherpa reuse the pattern as follow-ups.
+9. openwakeword + kws-streaming device drivers (onnxruntime C API, shared
+   runtime) shipped; plix/sherpa reuse the pattern as follow-ups.
 10. On-hardware MCU validation (buy one cheap STM32/Arduino board for the
     golden-path acceptance).
 11. Android (JNI) / iOS (Swift) / desktop bindings; bundle generator consumes
