@@ -270,7 +270,8 @@ the gate blocks a non-commercial model from a commercial export.
 ### Phase 7 — v1.x backlog (documented, unprioritized)
 
 WebRTC AEC3 WASM (ADR-016 deferral); Silero VAD gating (ADR-018 deferral);
-ESP32-S3 golden path; PocketSphinx full MCU demo; openWakeWord
+ESP32-S3 golden path; PocketSphinx backend + full MCU demo (ADR-043 deferral,
+#40); openWakeWord
 training-verifier integration; node-per-stage AudioWorklet topology (ADR-016).
 
 ## 7. Live work state (GitHub)
