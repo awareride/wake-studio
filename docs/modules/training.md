@@ -262,6 +262,25 @@ acts as a detector for every label in the list; a single-phrase model
   manage). A bundle-level `models[]` array is a future escape hatch only if a
   backend genuinely cannot merge.
 
+### 4.7 Dataset consumption - `datasets[]` refs + materializers (design 2026-08-20)
+
+Training consumes **existing datasets** (one or more refs), not raw sources. Design locked in
+`docs/modules/data-sources.md` SS6:
+
+- Train params evolve from `dataSource` (a source selector) to **`datasets[]`** (refs to
+datasets in the Datasets store - built-in, generated, or uploaded).
+- Each dataset is a `wake-studio-dataset.zip` (`dataset.json` manifest + canonical
+`label/*.wav` tree); its manifest declares each label's **semantic role**
+(`positive`/`unknown`/`noise`), which the trainer maps: positives -> wanted words, unknowns ->
+`_unknown_`, noise -> `_background_noise_` / augmentation.
+- A **per-trainer materializer** converts the canonical form into the shape each upstream
+trainer expects (kws-streaming: label tree; openwakeword: features + positives dir + background)
+- the data-side twin of `standardize-results` (ADR-031). The upstream script stays byte-identical.
+- `spec.train.dataset` declares requirements (`sampleRate`, `minClipsPerLabel`, `needsNoise`,
+`needsUnknowns`, `labelMode`); the wizard validates picked datasets against them before training.
+- Dataset `commercialUse` flags inherit into the trained bundle's `provenance.json` (SS10 of
+`data-sources.md`) - the Phase 4 export-gate input.
+
 ### 4.6 Formats, quantization & conversion (ADR-039)
 
 **Decision: formats and quantization are spec-driven train params; conversion
@@ -541,4 +560,5 @@ for every provider. Capability labels: train-capable vs inference-only.
 | 2026-08-14 | **Backends panel v2 (Trains-style) + kind auto-detection:** the Backends view mirrors the Training console layout (toolbar `New` + `Free On Google Colab`, left rail + details pane). **Kind is detected from the API** — the service reports `instance` in `/health` (`wake-service --instance short-term`; the Colab launcher always starts `short-term`), and the health check updates the badge; the manual kind field is gone. `New` takes endpoint URL + access token only. `Free On Google Colab` generates a standalone studio-backend notebook client-side (review + download; run in Colab, paste URL + token). | agent |
 | 2026-08-14 | **kws-streaming train adapter + data-source layer (#152):** `packages/modules/kws/streaming/train/train_adapter.py` runs the unpatched upstream `kws_streaming` trainer and normalizes into the standard bundle; `wake_train_kit/data_sources.py` adds Speech Commands V2 (CC BY 4.0), user-URL archives, and multi-language edge-tts synthesis; registry entry + fake-upstream tests. | agent |
 | 2026-08-17 | **Mixed data sources (#158):** kws-streaming `dataSource=mixed` merges TTS positives (wake word) with real-speech unknowns + real noise (SC2 / user-url / none) via `merge_label_trees` — collision-safe, per-source provenance into `provenance.json`. | agent |
+| 2026-08-20 | **§4.7 dataset consumption design (2026-08-20 discussion):** training params evolve from `dataSource` to `datasets[]` refs; per-trainer materializers convert the canonical dataset (`docs/modules/data-sources.md` SS4/SS6) into each upstream trainer's shape; `spec.train.dataset` requirements gate the picker; dataset license flags inherit into `provenance.json`. | agent |
 | 2026-08-18 | **§7.1 importer accepts all backends + auto pull & import (#159):** `importColabBundle` (aliased `importResultBundle`) now accepts `colab` | `self-hosted` | `cloud` bundles — the real studio-backend run's zip imports cleanly (was colab-only). Tracked jobs auto-pull their results when they succeed (`GET /artifacts/{job}/{name}`, one importer + registration path), persist `resultArtifact` on the job for post-refresh fallback, gain a manual **Pull results & import** button, and `HistoryJob`/registration read the kws-streaming `wakePhrases` key so the phrase shows for studio-backend trains. | agent |
