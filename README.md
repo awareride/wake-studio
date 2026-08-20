@@ -52,13 +52,15 @@ shipped; target adapters and bundle generation remain. See
 | `afe-bss` | afe | draft | ✅✅✅✅✅✅ | 100% |
 | `afe-graph` | afe | pilot | ✅✅✅✅✅✅ | 100% |
 | `rnnoise` | afe | pilot | ✅✅✅✅✅✅ | 100% |
+| `dataset` | data | draft | ✅✅⬜✅✅✅ | 83% |
 | `few-shot` | few-shot | pilot | ✅✅✅✅✅✅ | 100% |
 | `kws-engine` | kws | pilot | ✅✅✅✅✅✅ | 100% |
 | `kws-openwakeword` | kws | pilot | ✅✅✅✅✅✅ | 100% |
 | `kws-plix` | kws | draft | ✅✅✅✅✅✅ | 100% |
 | `kws-sherpa` | kws | draft | ✅✅✅✅✅✅ | 100% |
 | `kws-streaming` | kws | pilot | ✅✅✅✅✅✅ | 100% |
-| `training` | training | draft | ✅✅✅✅✅✅ | 100% |
+| `dry-run` | training | demo | ⬜✅⬜⬜✅✅ | 50% |
+| `training` | training | draft | ✅✅⬜✅✅✅ | 83% |
 <!-- /MODULE-STATUS -->
 
 ## Two domains
