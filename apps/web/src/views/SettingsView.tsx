@@ -32,6 +32,7 @@ const GROUP_TITLES: Record<SettingsSection, string> = {
   general: 'General',
   security: 'Security',
   data: 'Data',
+  cloud: 'Cloud storage',
   modules: 'Module settings',
 }
 
@@ -40,6 +41,8 @@ const GROUP_DESCRIPTIONS: Record<SettingsSection, string> = {
   security:
     'Backend connection + credentials. Stored locally only; never sent. Changes apply on Save.',
   data: 'Local data preferences and future data-source gates. Changes apply on Save.',
+  cloud:
+    'Optional cloud storage credentials for datasets (ADR-044 §5.3). Masked secrets, stored locally only; backend push jobs receive them as job-scoped env, never persisted. Changes apply on Save.',
   modules:
     'Per-driver defaults from the module specs (ADR-025). The active project can override these per project. Changes apply on Save.',
 }
@@ -151,6 +154,13 @@ export function SettingsView({
         {section === 'security' && (
           <p className="rounded-lg border border-line bg-surface-3 px-3 py-2 text-xs text-ink-3">
             Credentials never leave this browser. Changes apply on Save.
+          </p>
+        )}
+        {section === 'cloud' && (
+          <p className="rounded-lg border border-line bg-surface-3 px-3 py-2 text-xs text-ink-3">
+            Cloud keys are optional. They stay in this browser, are masked on
+            export, and are passed to backend dataset push jobs as job-scoped
+            env only — never persisted (Q-DS-3).
           </p>
         )}
       </div>

@@ -46,6 +46,7 @@ export const PRIMARY_NAV: NavItem[] = [
 export const SETTINGS_NAV: SettingsNavItem[] = [
   { route: settingsRoute('general'), label: 'General' },
   { route: settingsRoute('security'), label: 'Security' },
+  { route: settingsRoute('cloud'), label: 'Cloud storage' },
   { route: settingsRoute('data'), label: 'Data' },
 ]
 

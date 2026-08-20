@@ -9,7 +9,7 @@
     "owner": "WakeStudio team",
     "license": "MIT",
     "status": "proposed",
-    "description": "Datasets as first-class artifacts (ADR-044, #203): the dataset.json manifest + canonical label/*.wav form + one importer per world (web TS / backend Python). Generation jobs, storage plugins, materializers, the built-in catalog and the Datasets console land in #204-#210."
+    "description": "Datasets as first-class artifacts (ADR-044, #203-#205): the dataset.json manifest + canonical label/*.wav form + one importer per world (web TS / backend Python); generation jobs with pluggable TTS engines; StorageBackend storage plugins (#204). Materializers, the built-in catalog and the Datasets console land in #206-#210."
   },
   "params": [],
   "actions": [],
@@ -27,7 +27,7 @@
     "entry": "none"
   },
   "interfaces": {
-    "provides": ["DatasetManifest", "DatasetStore"],
+    "provides": ["DatasetManifest", "DatasetStore", "StorageBackend"],
     "consumes": ["DataSources", "TrainingJob", "TTSEngine"]
   }
 }

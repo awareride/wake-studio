@@ -26,6 +26,7 @@ const VIEW_TITLES: Record<ConsoleRoute, string> = {
   'settings-general': 'Settings · General',
   'settings-security': 'Settings · Security',
   'settings-data': 'Settings · Data',
+  'settings-cloud': 'Settings · Cloud storage',
   'settings-modules': 'Settings · Modules',
   'device-sdk': 'Device SDK',
 }

@@ -55,3 +55,17 @@ export {
   type DatasetEngineCatalog,
   type EngineValidation,
 } from './engines'
+
+export {
+  STORAGE_BACKEND_KINDS,
+  STORAGE_CAPABILITIES,
+  BUILTIN_STORAGE_BACKENDS,
+  validateStorageCatalog,
+  storageBackendById,
+  storageAuthKeys,
+  type StorageBackendKind,
+  type StorageBackendCapability,
+  type StorageBackendDescriptor,
+  type StorageCatalog,
+  type StorageCatalogValidation,
+} from './storage'

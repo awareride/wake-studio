@@ -48,6 +48,21 @@ export interface PlatformSettings {
   'backend.apiKey': string
   /** Secret - stored locally only; masked on export. */
   'backend.secret': string
+  /** Cloud storage credentials (ADR-044 §5.3, #204) - masked secrets, client-side only. */
+  /** Hugging Face token. */
+  'cloud.hf.token': string
+  /** Cloudflare R2 access key id. */
+  'cloud.r2.accessKeyId': string
+  /** Cloudflare R2 secret access key (secret). */
+  'cloud.r2.secretAccessKey': string
+  /** Cloudflare R2 endpoint URL (S3-compatible). */
+  'cloud.r2.endpoint': string
+  /** Cloudflare R2 bucket name. */
+  'cloud.r2.bucket': string
+  /** Google Drive OAuth client id. */
+  'cloud.gdrive.clientId': string
+  /** Google Drive OAuth client secret (secret). */
+  'cloud.gdrive.clientSecret': string
   'data.upload': boolean
   'settings.dataRetention': DataRetention
   'mic.rememberPermission': boolean
@@ -74,5 +89,5 @@ export interface SettingDescriptor {
   default: string | boolean | number
   options?: ReadonlyArray<{ value: string; label: string }>
   /** Group drives the left rail section. */
-  group: 'general' | 'security' | 'data'
+  group: 'general' | 'security' | 'data' | 'cloud'
 }
