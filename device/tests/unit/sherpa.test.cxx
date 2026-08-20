@@ -18,7 +18,7 @@
 
 #include "doctest/doctest.h"
 #include "wake/kws_backend.h"
-#include "wav_reader.h"
+#include "host/wav_reader.h"
 
 extern "C" const wake_kws_backend_ops_t wake_kws_sherpa_ops;
 
@@ -130,7 +130,7 @@ TEST_CASE("sherpa driver: real transducer hits on the wake-word clip") {
   int16_t quiet[kFrame] = {0};
   for (size_t t = 0; t < 16000 / kFrame; ++t) {
     const float s = ops->process_frame(impl, quiet, kFrame);
-    CHECK(s == 0.0f || s == 1.0f);
+    CHECK((s == 0.0f || s == 1.0f));
     CHECK(s != 1.0f);
   }
 

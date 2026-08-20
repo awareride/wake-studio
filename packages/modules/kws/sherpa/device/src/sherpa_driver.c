@@ -52,29 +52,41 @@ typedef struct sherpa_impl {
 /* Browser-parity config (backend.ts load()): feat 16000/80, cpu EP,
  * maxActivePaths 4, numTrailingBlanks 1, keywordsScore 1.0,
  * keywordsThreshold 0.25. */
+
+/* The config holds raw pointers to the model path strings; the buffers must
+ * stay alive until SherpaOnnxCreateKeywordSpotter has copied them (it loads
+ * eagerly). fill_config() fills a caller-owned struct so the strings are not
+ * local to this function. */
+typedef struct sherpa_model_paths {
+  char encoder[1024];
+  char decoder[1024];
+  char joiner[1024];
+  char tokens[1024];
+  char keywords[1024];
+} sherpa_model_paths_t;
+
 static void fill_config(SherpaOnnxKeywordSpotterConfig *config,
-                        const char *dir) {
-  char encoder[1024], decoder[1024], joiner[1024], tokens[1024], keywords[1024];
-  snprintf(encoder, sizeof(encoder), "%s/encoder.onnx", dir);
-  snprintf(decoder, sizeof(decoder), "%s/decoder.onnx", dir);
-  snprintf(joiner, sizeof(joiner), "%s/joiner.onnx", dir);
-  snprintf(tokens, sizeof(tokens), "%s/tokens.txt", dir);
-  snprintf(keywords, sizeof(keywords), "%s/keywords.txt", dir);
+                        sherpa_model_paths_t *paths, const char *dir) {
+  snprintf(paths->encoder, sizeof(paths->encoder), "%s/encoder.onnx", dir);
+  snprintf(paths->decoder, sizeof(paths->decoder), "%s/decoder.onnx", dir);
+  snprintf(paths->joiner, sizeof(paths->joiner), "%s/joiner.onnx", dir);
+  snprintf(paths->tokens, sizeof(paths->tokens), "%s/tokens.txt", dir);
+  snprintf(paths->keywords, sizeof(paths->keywords), "%s/keywords.txt", dir);
 
   memset(config, 0, sizeof(*config));
   config->feat_config.sample_rate = 16000;
   config->feat_config.feature_dim = 80;
-  config->model_config.transducer.encoder = encoder;
-  config->model_config.transducer.decoder = decoder;
-  config->model_config.transducer.joiner = joiner;
-  config->model_config.tokens = tokens;
+  config->model_config.transducer.encoder = paths->encoder;
+  config->model_config.transducer.decoder = paths->decoder;
+  config->model_config.transducer.joiner = paths->joiner;
+  config->model_config.tokens = paths->tokens;
   config->model_config.provider = "cpu";
   config->model_config.num_threads = 1;
   config->max_active_paths = 4;
   config->num_trailing_blanks = 1;
   config->keywords_score = 1.0f;
   config->keywords_threshold = 0.25f;
-  config->keywords_file = keywords;
+  config->keywords_file = paths->keywords;
 }
 
 /* Check the bundle dir has every file the driver declares. */
@@ -133,9 +145,11 @@ static int sherpa_load(void *v, const wake_model_bundle_t *models,
   }
 
   /* The config strings only need to live for the create call: sherpa-onnx
-   * loads the models eagerly into memory. */
+   * loads the models eagerly into memory. The path buffers are owned by
+   * sherpa_model_paths_t, which stays alive through the create call. */
+  sherpa_model_paths_t paths;
   SherpaOnnxKeywordSpotterConfig config;
-  fill_config(&config, models->model_dir);
+  fill_config(&config, &paths, models->model_dir);
 
   impl->spotter = SherpaOnnxCreateKeywordSpotter(&config);
   if (impl->spotter == NULL) {
