@@ -33,6 +33,14 @@ add_subdirectory(
   ${CMAKE_BINARY_DIR}/modules/kws/microwakeword
 )
 add_subdirectory(
+  ../packages/modules/kws/streaming/device
+  ${CMAKE_BINARY_DIR}/modules/kws/streaming
+)
+add_subdirectory(
+  ../packages/modules/kws/openwakeword/device
+  ${CMAKE_BINARY_DIR}/modules/kws/openwakeword
+)
+add_subdirectory(
   ../packages/modules/kws/sherpa/device
   ${CMAKE_BINARY_DIR}/modules/kws/sherpa
 )

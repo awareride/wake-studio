@@ -60,6 +60,93 @@ jobs:
           ! python3 packages/sdk/python/wake-sdk-demo.py silence.wav && echo "python silence: OK"
 
   app-runtime:
+    name: App profile + onnxruntime (openwakeword driver, #192)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Pinned onnxruntime prebuilt (ADR-031, issue #192): the openwakeword
+      # driver links it and the L1 test runs the real onnx pipeline. The
+      # tarball is fetched + sha256-verified by the script, never committed.
+      - name: Fetch onnxruntime (pinned 1.21.0)
+        run: node scripts/fetch-onnxruntime.mjs
+
+      # The three onnx models (melspectrogram / embedding / hey-buddy
+      # classifier) from the models-openwakeword-v1 release (ADR-027).
+      - name: Fetch openwakeword model assets
+        run: node scripts/fetch-artifact.mjs kws-openwakeword || echo "openwakeword assets fetch failed; L1 runtime test will skip"
+
+      # Stage the models under the names the driver declares (ADR-040 §4.1):
+      # melspectrogram.onnx / embedding_model.onnx / classifier.onnx.
+      - name: Stage driver model dir
+        run: |
+          mkdir -p models
+          cp packages/modules/kws/openwakeword/assets/openWakeWord/melspectrogram.onnx models/
+          cp packages/modules/kws/openwakeword/assets/openWakeWord/embedding_model.onnx models/
+          cp packages/modules/kws/openwakeword/assets/hey-buddy/models/hey-buddy.onnx models/classifier.onnx
+
+      - name: Configure (runtime ON)
+        run: cmake -S device -B build -DCMAKE_BUILD_TYPE=Debug -DWAKE_SDK_PROFILE=app \
+          -DWAKE_SDK_OPENWAKEWORD_HAS_RUNTIME=ON \
+          -DWAKE_OPENWAKEWORD_MODEL_DIR=$PWD/models
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Run tests (real onnx pipeline L1, ADR-026)
+        run: ctest --test-dir build --output-on-failure
+
+  app-runtime-streaming:
+    name: App profile + onnxruntime (kws-streaming driver, #194)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Pinned onnxruntime prebuilt (ADR-031, issue #192/#194): the
+      # kws-streaming driver links it and the L1 test runs the real
+      # manifest-driven graph. Fetched + sha256-verified, never committed.
+      - name: Fetch onnxruntime (pinned 1.21.0)
+        run: node scripts/fetch-onnxruntime.mjs
+
+      # kwt1.onnx + kwt1.json (the sidecar manifest) from the
+      # kws-streaming-onnx artifact, built by build.yaml from the vendored
+      # upstream (ADR-027). fetch-artifact.mjs shells out to `gh run
+      # download`, which needs the Actions token.
+      - name: Fetch kws-streaming model assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/fetch-artifact.mjs kws-streaming || echo "kws-streaming assets fetch failed; L1 runtime test will skip"
+
+      # Stage the model + manifest under the names the driver declares
+      # (ADR-040 §4.1): model.onnx / manifest.json.
+      - name: Stage driver model dir
+        run: |
+          mkdir -p models
+          cp packages/modules/kws/streaming/assets/kws-streaming/kwt1.onnx models/model.onnx
+          cp packages/modules/kws/streaming/assets/kws-streaming/kwt1.json models/manifest.json
+
+      - name: Configure (runtime ON)
+        run: cmake -S device -B build -DCMAKE_BUILD_TYPE=Debug -DWAKE_SDK_PROFILE=app \
+          -DWAKE_SDK_KWS_STREAMING_HAS_RUNTIME=ON \
+          -DWAKE_KWS_STREAMING_MODEL_DIR=$PWD/models
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Run tests (real manifest-driven graph L1, ADR-026)
+        run: ctest --test-dir build --output-on-failure
+
+  app-runtime-sherpa:
     name: App profile + sherpa-onnx (sherpa KWS driver, #193)
     runs-on: ubuntu-latest
     steps:
