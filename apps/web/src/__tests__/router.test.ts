@@ -8,6 +8,7 @@ import {
   TRAIN_NEW_HASH_PREFIX,
   TRAIN_REVIEW_HASH_PREFIX,
   backendsSubFromHash,
+  routeToHash,
   trainNewReviewFromHash,
   trainNewStepFromHash,
   trainReviewJobFromHash,
@@ -67,6 +68,17 @@ describe('trainReviewJobFromHash', () => {
     expect(trainReviewJobFromHash('#/training/new/ready/review')).toBeUndefined()
     expect(trainReviewJobFromHash('#/backends')).toBeUndefined()
     expect(TRAIN_REVIEW_HASH_PREFIX).toBe('/training/review')
+  })
+})
+
+describe('datasets route', () => {
+  it('maps the datasets console route to `#/datasets` and stays distinct (ADR-044 §8, #208)', () => {
+    expect(routeToHash('datasets')).toBe('/datasets')
+    // The hash parser lives behind window.location; the static mapping is the
+    // shell's single source of truth, so assert the pair is consistent and
+    // distinct from its neighbours (Training / Backends).
+    expect(routeToHash('datasets')).not.toBe(routeToHash('training'))
+    expect(routeToHash('datasets')).not.toBe(routeToHash('backends'))
   })
 })
 

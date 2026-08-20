@@ -59,6 +59,15 @@ test('hash routing navigates between views', async ({ page }) => {
   // The sub-menu shows the other sections.
   await expect(page.locator('aside').getByRole('button', { name: 'Security' })).toBeVisible()
 
+  // Datasets console (ADR-044 §8, #208): nav item between Training and
+  // Backends, route #/datasets, empty-state list-detail layout.
+  await sidebarNav(page, 'Datasets')
+  await expect(page).toHaveURL(/#\/datasets/)
+  await expect(
+    page.getByRole('main').getByRole('heading', { name: 'Datasets', level: 2 }),
+  ).toBeVisible()
+  await expect(page.getByText('No dataset selected')).toBeVisible()
+
   // Device SDK placeholder.
   await sidebarNav(page, 'Device SDK')
   await expect(page).toHaveURL(/#\/device-sdk/)

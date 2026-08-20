@@ -22,6 +22,7 @@ import { Theme } from "@radix-ui/themes";
 import { WorkspaceView } from "./views/WorkspaceView";
 import { ModelLibraryView } from "./views/ModelLibraryView";
 import { TrainingView } from "./views/TrainingView";
+import { DatasetsView } from "./views/DatasetsView";
 import { BackendsView } from "./views/BackendsView";
 import { SessionConsoleView } from "./views/SessionConsoleView";
 import { SettingsView } from "./views/SettingsView";
@@ -112,6 +113,7 @@ function AppShell() {
           </div>
           {route === "library" && <ModelLibraryView />}
           {route === "training" && <TrainingView />}
+          {route === "datasets" && <DatasetsView />}
           {route === "backends" && <BackendsView />}
           {route === "projects" && <ProjectsView />}
           {route === "console" && <SessionConsoleView />}
