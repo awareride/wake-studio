@@ -37,6 +37,10 @@ add_subdirectory(
   ${CMAKE_BINARY_DIR}/modules/kws/streaming
 )
 add_subdirectory(
+  ../packages/modules/kws/openwakeword/device
+  ${CMAKE_BINARY_DIR}/modules/kws/openwakeword
+)
+add_subdirectory(
   ../packages/modules/afe/rnnoise/device
   ${CMAKE_BINARY_DIR}/modules/afe/rnnoise
 )

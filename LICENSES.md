@@ -76,6 +76,12 @@ Every model or component that enters an **export bundle** is classified:
 | Web Audio API + AudioWorklet | W3C standard | Royalty-free | Yes | ✅ | W3C RF policy. |
 | fft.js (DSP FFT core, `@wake-studio/dsp` ADR-032) | `indutny/fft.js` | MIT | Yes | ✅ | MIT license (see npm). |
 
+## Device-side runtimes (Phase 4 SDK, ADR-040)
+
+| Component | Source | License | Commercial? | Class | How verified |
+|---|---|---|---|---|---|
+| onnxruntime (native C API, pinned **1.21.0**) | `microsoft/onnxruntime` | Apache-2.0 | Yes | ✅ | Release tarball `LICENSE` (Apache-2.0). Fetched prebuilt at `third_party/onnxruntime/<host>` (ADR-031 pin, never committed; issue #192 — shared app-class runtime, kws-streaming #194 reuses it). |
+
 ## TTS for synthetic training data (Phase 5) — ⚠️ license change
 
 | Component | Source | License | Commercial? | Class | How verified |
