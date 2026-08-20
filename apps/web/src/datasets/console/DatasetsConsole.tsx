@@ -3,15 +3,16 @@
  *
  * Mirrors the Training console: a top-level `Datasets` view with a header
  * (+ New generation task), a left rail (the consolidated dataset list:
- * built-ins + the backend `datasets/` store + browser-local datasets), and a
- * right details pane (manifest / provenance / storage / quality report +
- * actions). The generation wizard is a full panel that replaces the
- * list-detail layout (generation-wizard PR of #208).
+ * built-ins + the backend `datasets/` store + browser-local datasets, plus a
+ * generation-jobs section below it), and a right details pane (dataset
+ * manifest / provenance / storage / quality report, or a generation job's
+ * NDJSON progress). The generation wizard is a full panel that replaces the
+ * list-detail layout.
  *
- * The consolidated store comes from `useDatasetsStore` (built-ins + the first
- * configured managed backend's `GET /datasets` + the browser-local IndexedDB
- * store). Selection survives view switches via `rememberSelection` (the same
- * sessionStorage pattern the Training console uses).
+ * The consolidated store + the job list come from `useDatasetsStore` and
+ * `useDatasetJobs`; both are fed by the first configured managed backend
+ * (same convention as the Training console). Selection survives view switches
+ * via `rememberSelection` (sessionStorage).
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -21,20 +22,27 @@ import { IconWand } from '../../components/icons'
 import { useAppSettings } from '../../settings'
 import { rememberSelection, rememberedSelection } from '../../view-selection'
 import { useDatasetsStore, type ConsoleDataset } from '../store'
+import { useDatasetJobs, type SubmitGenerateInput } from '../useDatasetJobs'
+import type { StudioJob } from '../../training/studio-client'
 import { DatasetList } from './DatasetList'
 import { DatasetDetails } from './DatasetDetails'
+import { DatasetJobList } from './DatasetJobList'
+import { DatasetJobDetails } from './DatasetJobDetails'
+import { NewDatasetWizard } from './NewDatasetWizard'
 
 type View =
   | { kind: 'empty' }
   | { kind: 'details'; id: string }
+  | { kind: 'job'; jobId: string }
   | { kind: 'wizard' }
 
 export function DatasetsConsole() {
   const { backends } = useAppSettings()
-  // The consolidated store is fed by the first configured managed backend
-  // (same convention as the Training console's datasets[] picker).
+  // The consolidated store + jobs are fed by the first configured managed
+  // backend (same convention as the Training console's datasets[] picker).
   const backend = backends[0]
   const store = useDatasetsStore(backend?.baseUrl, backend?.token)
+  const { jobs, submitGenerate, applyLive, remove } = useDatasetJobs(store.client)
   const [view, setView] = useState<View>(() => {
     const last = rememberedSelection('datasets')
     return last ? { kind: 'details', id: last } : { kind: 'empty' }
@@ -42,7 +50,7 @@ export function DatasetsConsole() {
 
   // Restore the last-selected dataset once the store has loaded.
   useEffect(() => {
-    if (store.loading || view.kind === 'details') return
+    if (store.loading || view.kind !== 'empty') return
     const last = rememberedSelection('datasets')
     if (last && store.datasets.some((d) => d.id === last)) {
       setView({ kind: 'details', id: last })
@@ -54,19 +62,62 @@ export function DatasetsConsole() {
     return store.datasets.find((d) => d.id === view.id) ?? null
   }, [view, store.datasets])
 
+  const selectedJob = useMemo(() => {
+    if (view.kind !== 'job') return null
+    return jobs.find((j) => j.id === view.jobId) ?? null
+  }, [view, jobs])
+
   const open = useCallback((id: string) => {
     rememberSelection('datasets', id)
     setView({ kind: 'details', id })
   }, [])
 
+  /** New generation task: run the job on the decided executor, then open its
+   *  details in the rail (mirrors "Start train" in Training). */
+  const handleGenerate = useCallback(
+    async (input: SubmitGenerateInput) => {
+      const job = await submitGenerate(input)
+      rememberSelection('datasets', null)
+      setView({ kind: 'job', jobId: job.id })
+      // Browser executor already saved the dataset; a backend generate job
+      // persists it to the store as it runs — refresh to pick it up.
+      void store.refresh()
+    },
+    [submitGenerate, store],
+  )
+
+  /** Merge live backend state into a job; when a generate job succeeds, pull
+   *  the store so the newly persisted dataset appears in the rail. */
+  const handleJobLiveUpdate = useCallback(
+    (id: string, live: StudioJob) => {
+      const prev = jobs.find((j) => j.id === id)
+      applyLive(id, live)
+      if (prev && prev.status !== 'succeeded' && live.status === 'succeeded') {
+        void store.refresh()
+      }
+    },
+    [jobs, applyLive, store],
+  )
+
+  const handleDeleteJob = useCallback(
+    (id: string) => {
+      remove(id)
+      setView((v) => (v.kind === 'job' && v.jobId === id ? { kind: 'empty' } : v))
+      if (view.kind === 'job' && view.jobId === id) rememberSelection('datasets', null)
+    },
+    [remove, view],
+  )
+
   return (
     <>
       {view.kind === 'wizard' ? (
-        /* The generation wizard is a full panel (no rail) — lands in the
-           generation-wizard PR of #208. */
-        <div className="flex h-full items-center justify-center rounded-xl border border-line bg-surface-2 p-8 text-sm text-ink-2">
-          Generation wizard coming in this change set.
-        </div>
+        /* The generation wizard as a FULL panel — no rail to interrupt the
+           steps (mirrors the New-train wizard, #105). */
+        <NewDatasetWizard
+          backendConnected={!!backend}
+          onGenerate={handleGenerate}
+          onCancel={() => setView(view.kind === 'wizard' ? { kind: 'empty' } : view)}
+        />
       ) : (
         <ConsolePanel
           title="Datasets"
@@ -85,37 +136,54 @@ export function DatasetsConsole() {
           railTitle="Datasets"
           railCount={store.datasets.length}
           rail={(close) => (
-            <DatasetList
-              datasets={store.datasets}
-              selectedId={selected?.id ?? null}
-              loading={store.loading}
-              onSelect={(id) => {
-                open(id)
-                close()
-              }}
-            />
+            <div className="min-h-0">
+              <DatasetList
+                datasets={store.datasets}
+                selectedId={view.kind === 'details' ? selected?.id ?? null : null}
+                loading={store.loading}
+                onSelect={(id) => {
+                  open(id)
+                  close()
+                }}
+              />
+              {jobs.length > 0 && (
+                <>
+                  <div className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-ink-3">
+                    Generation jobs
+                  </div>
+                  <DatasetJobList
+                    jobs={jobs}
+                    selectedId={view.kind === 'job' ? selectedJob?.id ?? null : null}
+                    onSelect={(jobId) => {
+                      rememberSelection('datasets', null)
+                      setView({ kind: 'job', jobId })
+                      close()
+                    }}
+                  />
+                </>
+              )}
+            </div>
           )}
           details={
             view.kind === 'details' && selected ? (
-              <>
-                <DatasetDetails key={selected.id} dataset={selected} />
-                {store.backendError && (
-                  <div className="rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
-                    Could not load the backend dataset store: {store.backendError}
-                  </div>
-                )}
-                {store.builtinError && (
-                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-700">
-                    Built-in catalog unavailable: {store.builtinError}
-                  </div>
-                )}
-              </>
+              <DatasetDetails key={selected.id} dataset={selected} />
+            ) : view.kind === 'job' && selectedJob ? (
+              <DatasetJobDetails
+                key={selectedJob.id}
+                job={selectedJob}
+                onLiveUpdate={handleJobLiveUpdate}
+                onDelete={handleDeleteJob}
+              />
             ) : null
           }
           detailsEmpty={
             view.kind === 'details' ? (
               <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
                 This dataset is no longer in the list (deleted?). Pick another from the rail.
+              </div>
+            ) : view.kind === 'job' ? (
+              <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
+                This job is no longer in the list (deleted?). Pick another from the rail.
               </div>
             ) : (
               <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
