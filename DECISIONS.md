@@ -1521,3 +1521,55 @@ applied per this log and may be overridden._
   - Roadmap Phase 4 step 6 and Phase 5/Phase 7 references updated to "deferred".
   - MCU golden path ships with micro-wake-word only (single MCU backend for
     Cortex-M), consistent with ADR-040's mcu profile.
+
+## ADR-044 — Datasets are first-class artifacts: `dataset.json` manifest + canonical `label/*.wav` tree, portable across trainers via materializers
+
+- **Status:** Accepted (2026-08-20)
+- **Origin:** Human design discussion (2026-08-20) + epic #202 (tasks #203–#210).
+  Today datasets are a byproduct of a train job: `prepare_data` synthesizes/downloads a
+  `label/*.wav` tree into the job's ephemeral workdir, so generated data dies with the job
+  (instantly on a Colab runtime drop), is re-generated on every train, and is never reusable or
+  shareable.
+- **Decision:** Datasets become **first-class artifacts** with a lifecycle of their own
+  (create → persist → reuse → share):
+  1. **Spec:** every dataset is one `wake-studio-dataset.zip` — a `dataset.json` manifest (the
+     portability contract) + a canonical `label/*.wav` tree (16 kHz mono PCM WAV). The manifest
+     declares each label's **semantic role** (`positive` / `unknown` / `noise`); it never bakes
+     trainer-specific folder magic (`_background_noise_`, `_unknown_`) into the contract.
+  2. **Portability:** one canonical form + **per-trainer materializers** (the data-side twin of
+     `standardize-results`, ADR-031) convert the canonical form into each upstream trainer's
+     expected shape (kws-streaming: label tree; openwakeword: features + positives dir +
+     background). `spec.train.dataset` declares requirements; the wizard validates picked
+     datasets before training.
+  3. **Consumption:** training params evolve from `dataSource` to **`datasets[]`** refs (one or
+     more existing datasets), loaded from the Datasets store and merged by role.
+  4. **Granularity:** one dataset = a self-contained `label/*.wav` tree (composable roles), not
+     a full train-ready mix.
+  5. **Cloud storage optional:** persist to the backend `datasets/` store and/or user cloud
+     (Hugging Face / Cloudflare R2 / Google Drive) using API keys from user Settings
+     (client-side, masked; backend-originated jobs get keys as job-scoped env only — Q-DS-3).
+  6. **Generation:** `dataset-generate` jobs on the ADR-036 job manager with pluggable TTS
+     engine / storage / postprocess plugins — **split by concern, not vendor** (ADR-033
+     self-registration; a vendor = a descriptor + package, no host-module edits). Engines:
+     `classic-tts` (edge-tts, piper), `online-http-tts` (any user-configured TTS API + key, e.g.
+     mimo.mi.com; browser + backend), `llm-tts` (qwen, vibe-voice, F5-TTS; backend GPU).
+  7. **Versioning:** a new dataset = a new version for now (any content change bumps `version`;
+     `contentHash` detects changes).
+  8. **Built-ins:** spec-driven `datasets.json` catalog (Speech Commands V2, Common Voice,
+     Google Speech Commands, AudioSet/FMA noise) with license + `commercialUse` flags.
+  9. **Provenance chain:** dataset `commercialUse` flags inherit into any trained model's
+     `provenance.json` (Phase 4 export gate).
+- **Rationale:** mirrors the already-proven trained-bundle model (one manifest + one importer,
+  ADR-039) so datasets get the same durability, portability and license discipline. A portable
+  semantic spec + per-trainer materializers is the only way one dataset can feed trainers with
+  genuinely different input shapes (raw wavs vs precomputed features) without rewriting upstream
+  scripts. Plugin-by-concern (not by vendor) keeps the module platform from fragmenting into
+  near-identical per-vendor modules (ADR-025 granularity).
+- **Consequences:**
+  - New `data` category module (`packages/modules/data/dataset/`) hosts the manifest schema +
+    validation + one importer per world (web TS / backend Python).
+  - `docs/modules/data-sources.md` is the spec home (rewritten 2026-08-20); `docs/modules/
+    training.md` §4.7 covers `datasets[]` consumption.
+  - Tasks #203–#210 track implementation; open questions Q-DS-3/4/5 remain (cloud-key handling,
+    exact built-in set, near-dup threshold).
+  - The Phase 4 export gate gains dataset-level inheritance (task #210).
