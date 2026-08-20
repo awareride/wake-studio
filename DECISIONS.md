@@ -1060,11 +1060,11 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   - Follow-ups: lazy driver chunks + backend manifest (v1.x), optional CI rg
     step once P0 fixes land, wire-web package if a second host appears.
 
-_Open questions still pending human input: Q12 (PocketSphinx timing, #34) is
-open for Phase 4/5. Resolved: Q10 (self-hosted training engine, #32) is ADR-042
-(no wakeforge; module-owned openWakeWord pipeline); Q11 (L3 cadence, #33) is
+_Open questions: all resolved — Q10 (self-hosted training engine, #32) is
+ADR-042 (no wakeforge; module-owned openWakeWord pipeline); Q11 (L3 cadence, #33) is
 ADR-026; Q13 (SDK core CI, #35) is ADR-040; Q14 (vendor ONNX wasm, #36) is
-ADR-041. Q9 (training backends) is ADR-013 (amended: in-browser training
+ADR-041; Q12 (PocketSphinx timing, #34) is ADR-043 (deferred to v1.x).
+Q9 (training backends) is ADR-013 (amended: in-browser training
 removed, Cloud Providers unified, Colab added as ADR-023); targets are ADR-019
 (supersedes ADR-006); pluggable KWS backends are ADR-020; the device-side SDK is
 ADR-021; the data-source layer is ADR-022; the module platform is ADR-025
@@ -1496,3 +1496,28 @@ applied per this log and may be overridden._
   - Training effort stays concentrated on the module-owned adapters
     (openwakeword, kws-streaming) per ADR-039 (formats/quantization,
     module-owned convert).
+
+## ADR-043 — PocketSphinx is deferred to v1.x, not a Phase 4 backend
+
+- **Status:** Accepted (2026-08-20)
+- **Origin:** Q12 (#34) — ship PocketSphinx as a Phase 4 backend or defer?
+  Task #40 (Phase 4: PocketSphinx backend) was the pending implementation.
+- **Decision:** **Defer.** PocketSphinx is not built in Phase 4; the Phase 4
+  task #40 is re-phased to the **v1.x backlog** (roadmap Phase 7). The model
+  selection matrix keeps PocketSphinx as a documented "lightweight Traditional
+  alternative" (ADR-020 adapter list) but no driver module or panel is
+  scheduled for Phase 4.
+- **Rationale:** PocketSphinx's niche (lightweight Traditional KWS, HMM/GMM,
+  pure-C) is already covered by **micro-wake-word** (TFLite-Micro, DNN-based,
+  actively maintained) for the MCU tier and **sherpa-onnx** for app-class.
+  It was the original wake-word engine in Mycroft and Jasper, but those
+  projects moved off it precisely because HMM/GMM has a higher error rate
+  than DNN KWS (Mycroft replaced it with Precise). It remains actively
+  maintained upstream (v5.1.1, 2026-06), so the option stays warm; revisit if
+  micro-wake-word proves insufficient on the MCU tier.
+- **Consequences:**
+  - #34 closed as resolved; #40 stays open but re-phased to v1.x (Phase field
+    updated on the board).
+  - Roadmap Phase 4 step 6 and Phase 5/Phase 7 references updated to "deferred".
+  - MCU golden path ships with micro-wake-word only (single MCU backend for
+    Cortex-M), consistent with ADR-040's mcu profile.

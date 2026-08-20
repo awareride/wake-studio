@@ -102,7 +102,7 @@ The durable architecture lives in `docs/architecture.md`; the ADR log in
 | **sherpa-onnx KWS** (`k2-fsa/sherpa-onnx`) | ASR Decoding | Apache-2.0 | App-class + MCU; real KWS transducer, compiled WASM in-browser | ✅ browser + ✅ device driver (`kws/sherpa/device/`, #193) |
 | **PLiX Few-Shot** (`aaqibsaeed/plixkws`) | Few-Shot | Apache-2.0 | App-class, enrollment-based (prototype-distance, ADR-002); onnx + transformers runtimes | ✅ `packages/modules/kws/plix/` |
 | **micro-wake-word** (`OHF-Voice/micro-wake-word`) | Traditional | Apache-2.0 | MCU (Cortex-M, ESP32) via TFLite-Micro | ⏳ Phase 4/5 |
-| **PocketSphinx** (`cmusphinx/pocketsphinx`) | Traditional (lightweight alt) | BSD-style | MCU-class and above, lightweight alternative | ⏳ Pending (ADR-020) |
+| **PocketSphinx** (`cmusphinx/pocketsphinx`) | Traditional (lightweight alt) | BSD-style | MCU-class and above, lightweight alternative | ⏳ Deferred to v1.x (ADR-043) |
 
 AFE components (ADR-016): AEC = passthrough for v1 (WebRTC/SpeexDSP in
 exports); BSS = passthrough or 2-mic approximation (vendor BSS in exports);
@@ -202,7 +202,7 @@ real on every PR (PRs #82/#84/#85/#86):
 > kws-streaming (#194) and sherpa (#193) (PRs #196/#197/#198); Cortex-M
 > cross-compile CI landed (#186). Remaining: microwakeword driver (#185),
 > Pi Python binding (#187), plix driver (#188), bundle generator (#189),
-> license gate (#42), PocketSphinx (#40).
+> license gate (#42).
 
 1. **SDK core (C/C++, `packages/sdk` + `device/`):** portable core
    (`KWSBackend` interface ADR-020, portable AFE ADR-003/016, audio I/O +
@@ -218,7 +218,9 @@ real on every PR (PRs #82/#84/#85/#86):
 5. **License gate:** block CC BY-NC-SA models from commercial exports; offer
    to train a clean replacement (Phase 5).
 6. **PocketSphinx** backend as the lightweight Traditional alternative
-   (ADR-020): driver module + panel under the ADR-024 decoupling rule.
+   (ADR-020) — **deferred to v1.x** (ADR-043, Q12 #34 resolved): micro-wake-word
+   + sherpa cover its niche; revisit only if micro-wake-word proves
+   insufficient on the MCU tier.
 
 Validation: Cortex-M bundle builds on real hardware and triggers on the wake
 word; Pi bundle runs and triggers; bundle README lists every included license;
@@ -284,15 +286,15 @@ contracts/test-kit), [#28](https://github.com/awareride/wake-studio/issues/28)
 (deploy wasm fetch + Cloudflare rename), [#30](https://github.com/awareride/wake-studio/issues/30)
 (vendor ONNX wasm / offline) — all closed 2026-08-12 (Done on the board).
 
-**Open questions** (close with a decision that lands as an ADR): #34 (Q12:
-PocketSphinx timing). Resolved: Q10 (#32) → ADR-042 (no wakeforge; module-owned
-openWakeWord pipeline), Q11 (#33) → ADR-026 (L3 = merge-gate), Q13 (#35) →
-ADR-040 (native-first SDK CI), Q14 (#36) → ADR-041 (onnxruntime-web wasm
-vendored now via P0-4).
+**Open questions**: all resolved (each lands as an ADR): Q10 (#32) →
+ADR-042 (no wakeforge; module-owned openWakeWord pipeline), Q11 (#33) →
+ADR-026 (L3 = merge-gate), Q13 (#35) → ADR-040 (native-first SDK CI), Q14
+(#36) → ADR-041 (onnxruntime-web wasm vendored now via P0-4), Q12 (#34) →
+ADR-043 (PocketSphinx deferred to v1.x).
 
 **Next actions** (from the board): finish Phase 4 SDK — microwakeword driver
 (#185), Raspberry Pi Python binding (#187), plix driver (#188), bundle
-generator (#189); then license gate (#42), PocketSphinx (#40).
+generator (#189); then license gate (#42).
 
 ## 8. Risks & mitigations
 
