@@ -146,6 +146,57 @@ jobs:
       - name: Run tests (real manifest-driven graph L1, ADR-026)
         run: ctest --test-dir build --output-on-failure
 
+  app-runtime-sherpa:
+    name: App profile + sherpa-onnx (sherpa KWS driver, #193)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Pinned sherpa-onnx prebuilt (ADR-031, issue #193): the driver links
+      # it and the L1 test runs the real KWS transducer. Fetched +
+      # sha256-verified, never committed.
+      - name: Fetch sherpa-onnx (pinned v1.13.6)
+        run: node scripts/fetch-sherpa-onnx.mjs
+
+      # The KWS transducer model (encoder/decoder/joiner + tokens) from the
+      # kws-models release, same source the wasm build uses (ADR-027).
+      - name: Fetch sherpa KWS model (kws-models release, pinned)
+        run: |
+          curl -fsSL -o model.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20.tar.bz2
+          echo "68447f4fbc67e70eee3a93961f36e81e98f47aef73ce7e7ca00885c6cd3616a6  model.tar.bz2" | sha256sum -c -
+          tar xjf model.tar.bz2
+          rm -f model.tar.bz2
+
+      # Stage the model files under the names the driver declares (ADR-040
+      # §4.1): encoder/decoder/joiner.onnx, tokens.txt, keywords.txt, and a
+      # positive wake-word clip for the L1 trigger test.
+      - name: Stage driver model dir
+        run: |
+          M=sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20
+          mkdir -p models
+          cp $M/encoder-epoch-13-avg-2-chunk-16-left-64.onnx models/encoder.onnx
+          cp $M/decoder-epoch-13-avg-2-chunk-16-left-64.onnx models/decoder.onnx
+          cp $M/joiner-epoch-13-avg-2-chunk-16-left-64.onnx models/joiner.onnx
+          cp $M/tokens.txt models/tokens.txt
+          cp $M/test_wavs/keywords.txt models/keywords.txt
+          cp $M/test_wavs/en_0.wav models/trigger.wav
+
+      - name: Configure (runtime ON)
+        run: cmake -S device -B build -DCMAKE_BUILD_TYPE=Debug -DWAKE_SDK_PROFILE=app \
+          -DWAKE_SDK_SHERPA_HAS_RUNTIME=ON \
+          -DWAKE_SHERPA_MODEL_DIR=$PWD/models
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: "Run tests (real transducer L1: trigger clip hits, silence does not)"
+        run: ctest --test-dir build --output-on-failure
+
   cross-mcu:
     name: Cross-compile (Cortex-M4, arm-none-eabi)
     runs-on: ubuntu-latest

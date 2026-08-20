@@ -28,11 +28,13 @@ on the record instead of pointing at a moving (or frozen) remote.
 
 ## Fetched prebuilt runtimes (not vendored source)
 
-`onnxruntime/` holds **fetched prebuilt binaries** (gitignored), not source:
-live upstream (ADR-037 Tier 1-2), pinned release **1.21.0** (ADR-031 style)
-for the device SDK's app-class drivers (openwakeword #192; kws-streaming
-#194 reuses it). Fetch with `node scripts/fetch-onnxruntime.mjs`; the pin +
-sha256s live in that script and `LICENSES.md`.
+`onnxruntime/` and `sherpa-onnx/` hold **fetched prebuilt binaries**
+(gitignored), not source: live upstreams (ADR-037 Tier 1-2), pinned releases
+(ADR-031 style) for the device SDK's app-class drivers — onnxruntime
+**1.21.0** (openwakeword #192; kws-streaming #194 reuses it) and sherpa-onnx
+**v1.13.6** (sherpa #193; its shared lib bundles its own onnxruntime). Fetch
+with `node scripts/fetch-onnxruntime.mjs` / `node scripts/fetch-sherpa-onnx.mjs`;
+the pins + sha256s live in those scripts and `LICENSES.md`.
 
 Import details live in each pristine-import commit message; the policy
 itself is ADR-037 in `DECISIONS.md`.
