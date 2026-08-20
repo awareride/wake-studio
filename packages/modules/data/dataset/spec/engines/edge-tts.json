@@ -1,0 +1,19 @@
+{
+  "id": "edge-tts",
+  "name": "Microsoft Edge TTS (classic)",
+  "kind": "classic-tts",
+  "runtime": ["backend"],
+  "params": {
+    "languages": { "type": "string[]", "label": "Languages", "default": ["en-US"] },
+    "samplesPerPhrase": { "type": "number", "label": "Samples per phrase", "default": 3 },
+    "unknownWords": { "type": "string[]", "label": "Unknown words (negatives)", "default": ["goodbye", "okay", "stop", "hello", "thanks"] },
+    "rate": { "type": "string", "label": "Rate variation (TTS)", "default": "" },
+    "pitch": { "type": "string", "label": "Pitch variation (TTS)", "default": "" }
+  },
+  "provenanceTemplate": {
+    "name": "edge-tts synthetic speech (multi-language)",
+    "license": "user-owned (synthetic TTS)",
+    "commercialUse": true,
+    "source": "https://github.com/rany2/edge-tts"
+  }
+}

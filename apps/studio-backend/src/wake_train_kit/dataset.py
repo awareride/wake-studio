@@ -248,3 +248,35 @@ def import_dataset_zip(zip_path: Path | str) -> tuple[DatasetManifest, dict[str,
             )
 
         return manifest, clips
+
+
+def pack_dataset_zip(
+    data_root: Path | str,
+    manifest: DatasetManifest,
+    out_zip: Path | str,
+) -> Path:
+    """Write the canonical ``wake-studio-dataset.zip`` (manifest + audio tree).
+
+    ``data_root`` holds ``<label>/<clip>.wav`` folders; the zip layout is
+    ``dataset.json`` at the root + ``audio/<label>/<clip>.wav`` entries (the
+    layout the importer expects, ADR-044 §4.1). The manifest's ``contentHash``
+    is (re)computed over the canonical payload before writing.
+    """
+    root = Path(data_root)
+    out = Path(out_zip)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    clips: dict[str, list[tuple[str, bytes]]] = {}
+    for label_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+        for wav in sorted(label_dir.glob("*.wav")):
+            clips.setdefault(label_dir.name, []).append((wav.name, wav.read_bytes()))
+
+    manifest = dict(manifest)  # copy; never mutate the caller's manifest
+    manifest["contentHash"] = dataset_content_hash(manifest, clips)
+
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("dataset.json", json.dumps(manifest, ensure_ascii=False))
+        for label, clip_list in clips.items():
+            for name, bytes_ in clip_list:
+                zf.writestr(f"audio/{label}/{name}", bytes_)
+    return out

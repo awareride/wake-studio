@@ -1,0 +1,19 @@
+{
+  "id": "qwen-llm-tts",
+  "name": "Qwen LLM-TTS (GPU backend)",
+  "kind": "llm-tts",
+  "runtime": ["backend"],
+  "params": {
+    "model": { "type": "string", "label": "Model", "default": "qwen2.5-omni-7b" },
+    "voice": { "type": "string", "label": "Voice", "default": "" },
+    "styleInstruction": { "type": "string", "label": "Style instruction", "default": "" },
+    "languages": { "type": "string[]", "label": "Languages", "default": ["en-US"] },
+    "samplesPerPhrase": { "type": "number", "label": "Samples per phrase", "default": 3 }
+  },
+  "provenanceTemplate": {
+    "name": "Qwen LLM-TTS synthetic speech",
+    "license": "user-owned (synthetic TTS)",
+    "commercialUse": true,
+    "source": "Qwen (Alibaba) LLM-TTS"
+  }
+}

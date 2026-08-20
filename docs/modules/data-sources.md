@@ -140,6 +140,17 @@ One pipeline runs everywhere:
 collect -> synthesize -> postprocess -> assemble -> persist
 ```
 
+**Implemented (#205):** the backend pipeline is `wake_train_kit/generation.py` (one
+`generate_dataset()` orchestrator: synthesize -> postprocess -> assemble -> persist, emitting
+NDJSON progress) + `generation_runner.py` (the `dataset-generate` registry entry, ADR-036
+subprocess). Engine adapters: `edge-tts` (classic, reuses `data_sources`), `mimo-http`
+(online HTTP, OpenAI-compatible chat.completions, mockable HTTP client), `qwen-llm-tts`
+(llm-tts, shares the HTTP machinery); `piper` is declared but its adapter lands with the
+openwakeword path. Postprocess: `wake_train_kit/postprocess.py` (passthrough +
+`openwakeword-style` pitch/rate/volume perturbation via ffmpeg). Engine descriptors live in
+`packages/modules/data/dataset/spec/engines/*.json` and generate `apps/web/public/
+dataset-engines.json` via `scripts/build-dataset-engines.mjs`.
+
 ### 5.1 TTS engine plugins
 
 The **TTS engine** is a pluggable capability (ADR-033 self-registration style), not a hard-coded
@@ -356,3 +367,4 @@ license/provenance log shown in-app before export. The Datasets console shows th
 | 2026-08-17 | **Mixed mode (#158):** `merge_label_trees` merges a positive tree (wake word) with a negative tree (real unknowns + real noise); collisions raise; real noise wins over synthesized silence. `dataSource=mixed` in the kws-streaming adapter + spec params + registry wiring; 4 new backend tests. | agent |
 | 2026-08-20 | **Datasets as first-class artifacts (design locked, human discussion):** full spec written - `dataset.json` manifest + canonical `label/*.wav` tree + one importer (SS4); `dataset-generate` jobs with pluggable TTS engine / storage / postprocess plugins, split by concern not vendor (SS5); per-trainer materializers + `spec.train.dataset` compatibility (SS6); built-in catalog (SS7); Datasets console (SS8); quality gate / dedup+split / reproducibility (SS9); provenance chain to the export gate (SS10). Decision points resolved: composable granularity, cloud storage optional (HF / R2 / GDrive with user keys), user-configurable online TTS API+key, new-dataset-equals-new-version, multi-language+noise built-ins. Open: Q-DS-3/4/5. | agent |
 | 2026-08-20 | **#203 — dataset spec implemented (ADR-044):** `packages/modules/data/dataset/` module (`core/spec.ts` manifest schema + validation, `core/hash.ts` canonical contentHash, `core/manifest.ts` single importer with typed `DatasetImportError` codes) + Python mirror `wake_train_kit/dataset.py` (byte-identical hash, verified cross-implementation); vitest + pytest suites; `.gitignore` `data/` anchored to `/data/` so the `data` category module is tracked. Remaining #204-#210 unchanged. | agent |
+| 2026-08-20 | **#205 — dataset generation jobs (ADR-044 §5):** engine descriptor contract (`packages/modules/data/dataset/spec/engines/*.json` -> generated `apps/web/public/dataset-engines.json` via `scripts/build-dataset-engines.mjs`); backend pipeline `wake_train_kit/generation.py` + `generation_runner.py` (the `dataset-generate` registry entry, NDJSON progress, canonical zip artifact) with `edge-tts` (reuses data_sources), `mimo-http` (online HTTP, mockable), `qwen-llm-tts` (shares HTTP machinery) adapters; postprocess transforms (`passthrough` + `openwakeword-style` via ffmpeg); tests (13 backend + 6 web engine-catalog). Browser executor + generation wizard land in #208. | agent |

@@ -1,0 +1,194 @@
+{
+  "note": "Catalog of TTS engine descriptors (ADR-044 §5, #205). Generated from packages/modules/data/dataset/spec/engines/*.json - the descriptors are the single fact source. The Datasets generation wizard renders each engine's params from here.",
+  "engines": [
+    {
+      "id": "edge-tts",
+      "name": "Microsoft Edge TTS (classic)",
+      "kind": "classic-tts",
+      "runtime": [
+        "backend"
+      ],
+      "params": {
+        "languages": {
+          "type": "string[]",
+          "label": "Languages",
+          "default": [
+            "en-US"
+          ]
+        },
+        "samplesPerPhrase": {
+          "type": "number",
+          "label": "Samples per phrase",
+          "default": 3
+        },
+        "unknownWords": {
+          "type": "string[]",
+          "label": "Unknown words (negatives)",
+          "default": [
+            "goodbye",
+            "okay",
+            "stop",
+            "hello",
+            "thanks"
+          ]
+        },
+        "rate": {
+          "type": "string",
+          "label": "Rate variation (TTS)",
+          "default": ""
+        },
+        "pitch": {
+          "type": "string",
+          "label": "Pitch variation (TTS)",
+          "default": ""
+        }
+      },
+      "provenanceTemplate": {
+        "name": "edge-tts synthetic speech (multi-language)",
+        "license": "user-owned (synthetic TTS)",
+        "commercialUse": true,
+        "source": "https://github.com/rany2/edge-tts"
+      }
+    },
+    {
+      "id": "mimo-http",
+      "name": "MiMo TTS (online HTTP, OpenAI-compatible)",
+      "kind": "online-http-tts",
+      "runtime": [
+        "browser",
+        "backend"
+      ],
+      "params": {
+        "endpoint": {
+          "type": "string",
+          "label": "API base URL",
+          "default": "https://api.xiaomimimo.com/v1"
+        },
+        "apiKey": {
+          "type": "secret",
+          "label": "API key",
+          "required": true
+        },
+        "model": {
+          "type": "string",
+          "label": "Model",
+          "default": "mimo-v2.5-tts"
+        },
+        "voice": {
+          "type": "string",
+          "label": "Preset voice",
+          "default": ""
+        },
+        "styleInstruction": {
+          "type": "string",
+          "label": "Style instruction (natural language)",
+          "default": ""
+        },
+        "languages": {
+          "type": "string[]",
+          "label": "Languages",
+          "default": [
+            "en-US"
+          ]
+        },
+        "samplesPerPhrase": {
+          "type": "number",
+          "label": "Samples per phrase",
+          "default": 3
+        },
+        "outputFormat": {
+          "type": "string",
+          "label": "Output audio format",
+          "default": "pcm16"
+        }
+      },
+      "provenanceTemplate": {
+        "name": "MiMo TTS (online API) synthetic speech",
+        "license": "user-owned (synthetic TTS)",
+        "commercialUse": true,
+        "source": "https://mimo.mi.com/docs/zh-CN/quick-start/usage-guide/audio/speech-synthesis-v2.5"
+      }
+    },
+    {
+      "id": "piper",
+      "name": "Piper TTS (local)",
+      "kind": "classic-tts",
+      "runtime": [
+        "backend"
+      ],
+      "params": {
+        "languages": {
+          "type": "string[]",
+          "label": "Languages",
+          "default": [
+            "en-US"
+          ]
+        },
+        "samplesPerPhrase": {
+          "type": "number",
+          "label": "Samples per phrase",
+          "default": 3
+        },
+        "voiceModel": {
+          "type": "string",
+          "label": "Piper voice model",
+          "default": ""
+        },
+        "rate": {
+          "type": "number",
+          "label": "Rate",
+          "default": 1
+        }
+      },
+      "provenanceTemplate": {
+        "name": "piper-sample-generator synthetic speech",
+        "license": "MIT (code); Piper voice model license",
+        "commercialUse": true,
+        "source": "https://github.com/rhasspy/piper-sample-generator"
+      }
+    },
+    {
+      "id": "qwen-llm-tts",
+      "name": "Qwen LLM-TTS (GPU backend)",
+      "kind": "llm-tts",
+      "runtime": [
+        "backend"
+      ],
+      "params": {
+        "model": {
+          "type": "string",
+          "label": "Model",
+          "default": "qwen2.5-omni-7b"
+        },
+        "voice": {
+          "type": "string",
+          "label": "Voice",
+          "default": ""
+        },
+        "styleInstruction": {
+          "type": "string",
+          "label": "Style instruction",
+          "default": ""
+        },
+        "languages": {
+          "type": "string[]",
+          "label": "Languages",
+          "default": [
+            "en-US"
+          ]
+        },
+        "samplesPerPhrase": {
+          "type": "number",
+          "label": "Samples per phrase",
+          "default": 3
+        }
+      },
+      "provenanceTemplate": {
+        "name": "Qwen LLM-TTS synthetic speech",
+        "license": "user-owned (synthetic TTS)",
+        "commercialUse": true,
+        "source": "Qwen (Alibaba) LLM-TTS"
+      }
+    }
+  ]
+}
