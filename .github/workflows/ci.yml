@@ -38,6 +38,11 @@ jobs:
         # fragments; fail CI if they drift (hand-edit or stale fragment).
         run: pnpm gen:registry:check
 
+      - name: Check generated dataset-engines catalog is fresh (#205)
+        # dataset-engines.json is generated from the data-category engine
+        # modules' spec.tts (ADR-044 §5); fail CI if they drift.
+        run: pnpm gen:engines:check
+
       - name: Fetch L2 test artifacts (sherpa + openwakeword, ADR-027)
         # The L2 wasm/onnx boot tests exercise the gitignored artifacts
         # (ADR-011). Non-fatal: each L2 suite skips when its asset is absent
