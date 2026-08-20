@@ -57,6 +57,50 @@ def test_health_and_modules(store, registry, artifacts_dir):
     run(scenario())
 
 
+def test_datasets_list_via_api(store, registry, artifacts_dir, tmp_path):
+    """#206: GET /datasets feeds the wizard's datasets[] picker from the store."""
+    import io
+    import json
+    import zipfile
+
+    from wake_train_kit.dataset_store import DatasetStore
+
+    datasets_dir = tmp_path / "datasets"
+    ds_store = DatasetStore(datasets_dir)
+    manifest = {
+        "schemaVersion": 1, "id": "ds-1", "name": "wake-words", "version": 1,
+        "kind": "generated", "role": "mixed",
+        "audio": {"sampleRate": 16000, "channels": 1, "encoding": "pcm_s16le",
+                   "clips": 3, "durationSec": 6},
+        "labels": [{"name": "hey_studio", "role": "positive"}],
+        "provenance": [{"name": "x", "license": "CC BY 4.0", "commercialUse": True}],
+    }
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("dataset.json", json.dumps(manifest))
+        zf.writestr("audio/hey_studio/a.wav", b"RIFF")
+    z = tmp_path / "ds-1.zip"
+    z.write_bytes(buf.getvalue())
+    ds_store.save(z)
+
+    async def scenario():
+        mgr = make_manager(store, registry, artifacts_dir, datasets_dir=datasets_dir)
+        await mgr.start()
+        app = create_app(mgr, Auth())
+        async with client_for(app) as client:
+            r = await client.get("/datasets")
+            assert r.status_code == 200
+            datasets = r.json()["datasets"]
+            assert len(datasets) == 1
+            entry = datasets[0]
+            assert entry["id"] == "ds-1"
+            assert entry["name"] == "wake-words"
+            assert entry["manifest"]["labels"][0]["role"] == "positive"
+            assert "stored_path" not in entry, "server paths must not leak"
+        await mgr.stop()
+    run(scenario())
+
+
 def test_job_lifecycle_via_api(store, registry, artifacts_dir):
     async def scenario():
         mgr = make_manager(store, registry, artifacts_dir)

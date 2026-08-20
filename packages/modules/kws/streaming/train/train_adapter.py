@@ -67,7 +67,7 @@ except ImportError:  # standalone fallback: plain NDJSON prints
 
 DEFAULTS: dict[str, Any] = {
     "model": "ds_tc_resnet",
-    "wantedWords": "yes",
+    "wantedWords": "",
     "wakePhrases": "hey studio",
     "ttsLanguages": "en-US",
     "ttsSamples": 3,
@@ -87,6 +87,7 @@ DEFAULTS: dict[str, Any] = {
     "unknownPercentage": 10.0,
     "formats": "tflite",
     "quantization": "none",
+    "datasets": "",
     "jobId": None,
     "backend": "colab",
 }
@@ -113,6 +114,7 @@ ENV_MAP: dict[str, str] = {
     "STREAM_UNKNOWN_PERCENTAGE": "unknownPercentage",
     "STREAM_FORMATS": "formats",
     "STREAM_QUANTIZATION": "quantization",
+    "STREAM_DATASETS": "datasets",
     "STREAM_JOB_ID": "jobId",
     "STREAM_BACKEND": "backend",
 }
@@ -180,13 +182,64 @@ def _import_data_sources() -> Any:
     return data_sources
 
 
+def _import_materialize() -> Any:
+    try:
+        from wake_train_kit import materialize
+    except ImportError as exc:  # pragma: no cover - service installs wake_train_kit
+        raise RuntimeError(
+            "wake_train_kit.materialize is not importable; run the adapter "
+            "under the studio-backend (uv run wake-service) or install it"
+        ) from exc
+    return materialize
+
+
+def _module_train_dataset_spec() -> dict[str, Any]:
+    """The module's `spec.train.dataset` requirements (single source of truth)."""
+    spec_path = Path(__file__).resolve().parent.parent / "spec" / "module.spec.json"
+    try:
+        spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return (spec.get("train") or {}).get("dataset") or {}
+
+
 def prepare_data(
     params: dict[str, Any], work_dir: Path, reporter: Reporter
 ) -> tuple[str, list[dict[str, Any]], str]:
-    """Prepare the `label/*.wav` tree. -> (data_dir, provenance, wanted_words)."""
+    """Prepare the `label/*.wav` tree. -> (data_dir, provenance, wanted_words).
+
+    When `datasets[]` is set (the wizard's dataset picker, #206) the data comes
+    from the Datasets store: load refs → materialize → merge roles
+    (wake_train_kit.materialize, reusing the #158 collision rules). The legacy
+    `dataSource` selector remains for back-compat (tests / pre-existing jobs);
+    the wizard no longer renders it.
+    """
     source = params["dataSource"]
     wanted = params["wantedWords"]
     sources: list[dict[str, Any]] = []
+
+    if params.get("datasets"):
+        mat = _import_materialize()
+        store = mat.open_dataset_store(os.environ.get("DATASETS_DIR"))
+        dataset_ids = [
+            i.strip() for i in params["datasets"].split(",") if i.strip()
+        ]
+        if not dataset_ids:
+            raise ValueError("datasets param is empty — pick at least one dataset")
+        result = mat.materialize_kws_streaming(
+            store,
+            dataset_ids,
+            work_dir / "data_datasets",
+            reporter=reporter,
+            requirements=_module_train_dataset_spec(),
+        )
+        for warning in result.warnings:
+            reporter.emit("log", level="warn", message=f"dataset: {warning}")
+        sources = result.sources
+        # wanted words = the materialized positive labels, overridable to a
+        # subset via `wantedWords` (empty = every positive label).
+        wanted = params["wantedWords"] if params.get("wantedWords") else result.wanted_words
+        return str(result.data_dir), sources, wanted
 
     if source == "local-dir":
         data_dir = Path(params["dataDir"])
@@ -443,6 +496,7 @@ def build_bundle(
             "featureType": params["featureType"],
             "preprocess": params["preprocess"],
             "dataSource": params["dataSource"],
+            "datasets": params.get("datasets") or None,
             "trainingSteps": params["howManyTrainingSteps"],
             "learningRate": params["learningRate"],
         },
@@ -479,6 +533,7 @@ def build_bundle(
         "featureType": params["featureType"],
         "preprocess": params["preprocess"],
         "dataSource": params["dataSource"],
+        "datasets": params.get("datasets") or None,
         "sampleRate": 16000,
         "clipDurationMs": 1000,
         "backend": params["backend"],

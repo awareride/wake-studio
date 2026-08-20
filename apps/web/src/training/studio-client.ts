@@ -15,8 +15,7 @@
 import type { TrainingJob } from '@wake-studio/module-training'
 
 /** Wire shape of a backend job (camelCase, docs/modules/training.md §3). */
-export interface StudioJob {
-  id: string
+export interface StudioJob {  id: string
   moduleId: string
   params: Record<string, string>
   status: TrainingJob['status']
@@ -34,7 +33,7 @@ export interface StudioJob {
   artifacts: string[]
 }
 
-export type StudioJobPatch = {
+export interface StudioJobPatch {
   status: StudioJob['status']
   progress?: number
   metrics?: Record<string, number>
@@ -45,6 +44,23 @@ export type StudioJobPatch = {
   logTail?: string[]
   /** The backend artifact carrying the trained-results zip (if any). */
   resultArtifact?: string
+}
+
+/** A dataset in the backend Datasets store (GET /datasets, #206). */
+export interface StoreDataset {
+  id: string
+  name: string
+  version: number
+  kind: string
+  role: string
+  sizeBytes: number
+  createdAtMs: number
+  /** The dataset.json portability contract (roles, audio, provenance). */
+  manifest: {
+    audio?: { sampleRate: number; channels: number; clips: number; durationSec: number }
+    labels?: Array<{ name: string; role: string; language?: string }>
+    provenance?: Array<{ name: string; license: string; commercialUse: boolean }>
+  }
 }
 
 export class StudioClientError extends Error {
@@ -82,6 +98,8 @@ export interface StudioClient {
   ): Promise<StudioJob>
   getJob(id: string): Promise<StudioJob>
   listJobs(): Promise<StudioJob[]>
+  /** The Datasets store (GET /datasets) — feeds the wizard's datasets[] picker (#206). */
+  listDatasets(): Promise<StoreDataset[]>
   startJob(id: string): Promise<StudioJob>
   pauseJob(id: string): Promise<StudioJob>
   resumeJob(id: string): Promise<StudioJob>
@@ -153,6 +171,8 @@ export function createStudioClient(baseUrl: string, token?: string): StudioClien
     getJob: (id) => request<StudioJob>(`/jobs/${encodeURIComponent(id)}`),
     listJobs: () =>
       request<{ jobs: StudioJob[] }>('/jobs').then((r) => r.jobs),
+    listDatasets: () =>
+      request<{ datasets: StoreDataset[] }>('/datasets').then((r) => r.datasets),
     startJob: (id) => mutate(id, 'start'),
     pauseJob: (id) => mutate(id, 'pause'),
     resumeJob: (id) => mutate(id, 'resume'),

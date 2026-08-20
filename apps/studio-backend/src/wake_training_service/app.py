@@ -84,6 +84,31 @@ def create_app(manager: JobManager, auth: Auth, instance: str = "long-term") -> 
     def list_jobs(limit: int = Query(default=200, le=1000)) -> dict[str, Any]:
         return {"jobs": [j.to_api() for j in manager.store.list_jobs(limit)]}
 
+    @app.get("/datasets")
+    def list_datasets() -> dict[str, Any]:
+        """The Datasets store (ADR-044 #204) — feeds the training wizard's
+        `datasets[]` picker (#206). Sanitized (no server paths); each entry
+        carries the dataset's manifest (roles, audio stats, provenance) so the
+        browser validates the pick against `spec.train.dataset` client-side.
+        """
+        if manager.dataset_store is None:
+            return {"datasets": []}
+        records: list[dict[str, Any]] = []
+        for record in manager.dataset_store.list():
+            records.append(
+                {
+                    "id": record["id"],
+                    "name": record["name"],
+                    "version": record["version"],
+                    "kind": record["kind"],
+                    "role": record["role"],
+                    "sizeBytes": record["size_bytes"],
+                    "createdAtMs": record["created_at_ms"],
+                    "manifest": record["manifest"],
+                }
+            )
+        return {"datasets": records}
+
     @app.get("/jobs/{job_id}")
     def get_job(job_id: str) -> dict[str, Any]:
         return job_or_404(job_id).to_api()

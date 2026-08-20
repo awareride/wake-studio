@@ -19,6 +19,53 @@ ADAPTER = Path(__file__).resolve().parent.parent / "train_adapter.py"
 FAKE_UPSTREAM = (
     Path(__file__).resolve().parent / "fake_upstream" / "google-research"
 )
+# The adapter imports wake_train_kit.materialize (the live source in the
+# studio-backend) for the datasets[] path; the module train venv has a stale
+# installed wheel without it, so the datasets test shadows it via PYTHONPATH.
+STUDIO_SRC = Path(__file__).resolve().parents[6] / "apps" / "studio-backend" / "src"
+
+# The test itself also imports wake_train_kit.dataset_store (stale installed
+# wheel in this venv) to build the store; point at the live source.
+sys.path.insert(0, str(STUDIO_SRC))
+
+
+def build_dataset_zip(tmp_path: Path, dataset_id: str = "ds-1") -> Path:
+    """A canonical wake-studio-dataset.zip (role-positive/unknown/noise)."""
+    import io
+    import json
+    import zipfile
+
+    manifest = {
+        "schemaVersion": 1,
+        "id": dataset_id,
+        "name": "wake-words",
+        "version": 1,
+        "kind": "generated",
+        "role": "mixed",
+        "audio": {"sampleRate": 16000, "channels": 1, "encoding": "pcm_s16le",
+                   "clips": 4, "durationSec": 8},
+        "labels": [
+            {"name": "hey_studio", "role": "positive"},
+            {"name": "_unknown", "role": "unknown"},
+            {"name": "noise", "role": "noise"},
+        ],
+        "provenance": [{"name": "edge-tts synthetic", "license": "user-owned", "commercialUse": True}],
+        "createdAtMs": 1700000000000,
+    }
+    clips = {
+        "hey_studio": {"a.wav": b"RIFF1", "b.wav": b"RIFF2"},
+        "_unknown": {"x.wav": b"RIFF3"},
+        "noise": {"bg.wav": b"RIFF4"},
+    }
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("dataset.json", json.dumps(manifest))
+        for label, clip_map in clips.items():
+            for name, bytes_ in clip_map.items():
+                zf.writestr(f"audio/{label}/{name}", bytes_)
+    p = tmp_path / f"{dataset_id}.zip"
+    p.write_bytes(buf.getvalue())
+    return p
 
 
 def run_adapter(
@@ -68,7 +115,8 @@ def test_read_params_defaults():
 
     params = read_params({})
     assert params["model"] == "ds_tc_resnet"
-    assert params["wantedWords"] == "yes"
+    # empty = derive the wake words from the picked datasets' positive labels (#206)
+    assert params["wantedWords"] == ""
     assert params["dataSource"] == "speech-commands-v2"
     assert params["featureType"] == "mfcc_op"
     assert params["preprocess"] == "raw"
@@ -233,6 +281,56 @@ def test_end_to_end_adapter(tmp_path):
     assert any(n.endswith("model.tflite") for n in names)
     assert any(n.endswith("labels.json") for n in names)
     assert any(n.endswith("metadata.json") for n in names)
+
+
+def test_end_to_end_adapter_with_datasets(tmp_path):
+    """#206: prepare_data becomes load-refs → materialize → merge. The wizard's
+    datasets[] refs flow to STREAM_DATASETS; the adapter materializes the
+    canonical dataset into the kws-streaming label tree and trains on it."""
+    from wake_train_kit.dataset_store import DatasetStore
+
+    store_dir = tmp_path / "datasets"
+    store = DatasetStore(store_dir)
+    store.save(build_dataset_zip(tmp_path))
+
+    work = tmp_path / "work"
+    out = tmp_path / "out"
+    work.mkdir()
+    res, events = run_adapter(
+        work,
+        FAKE_UPSTREAM,
+        out,
+        {
+            "STREAM_DATASETS": "ds-1",
+            "DATASETS_DIR": str(store_dir),
+            "STREAM_BACKEND": "self-hosted",
+            "PYTHONPATH": str(STUDIO_SRC),
+        },
+    )
+    assert res.returncode == 0, res.stderr
+
+    kinds = [e["event"] for e in events]
+    assert kinds[-2:] == ["artifact", "done"]
+
+    artifact = next(e for e in events if e["event"] == "artifact")
+    bundle = Path(artifact["path"]).parent
+    metadata = json.loads((bundle / "metadata.json").read_text())
+    # the materializer derived the wanted words from the dataset's positive role
+    assert metadata["params"]["datasets"] == "ds-1"
+    assert metadata["params"]["wantedWords"] == "hey_studio"
+    # upstream folded: _silence_/_unknown_ + the positive label
+    assert json.loads((bundle / "labels.json").read_text()) == ["_silence_", "_unknown_", "hey_studio"]
+    provenance = json.loads((bundle / "provenance.json").read_text())
+    assert provenance["sourceData"][0]["name"] == "edge-tts synthetic"
+
+
+def test_read_params_datasets_env():
+    from train_adapter import read_params
+
+    params = read_params({"STREAM_DATASETS": "ds-1,ds-2"})
+    assert params["datasets"] == "ds-1,ds-2"
+    # defaults stay for the legacy source selector (back-compat)
+    assert params["dataSource"] == "speech-commands-v2"
 
 
 def test_upstream_failure_propagates(tmp_path):

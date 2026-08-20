@@ -579,6 +579,34 @@
               }
             }
           }
+        },
+        "dataset": {
+          "type": "object",
+          "description": "Dataset requirements the trainer declares (spec.train.dataset, #206). When present, the training wizard renders a datasets[] picker (fed from the Datasets store) instead of a raw dataSource selector, validates picked datasets against these, and the adapter's prepare_data becomes load-refs -> materialize -> merge (upstream scripts stay byte-identical).",
+          "properties": {
+            "sampleRate": {
+              "type": "number",
+              "description": "Required canonical sample rate (Hz); the canonical form is 16 kHz."
+            },
+            "minClipsPerLabel": {
+              "type": "number",
+              "description": "Minimum clips per positive (wake-word) label before we warn."
+            },
+            "needsNoise": {
+              "type": "boolean",
+              "description": "The trainer needs a role:noise dataset (->_background_noise_ / background paths)."
+            },
+            "needsUnknowns": {
+              "type": "boolean",
+              "description": "The trainer needs role:unknown labels (-> the _unknown_ / negatives class)."
+            },
+            "labelMode": {
+              "type": "string",
+              "enum": ["single", "multi", "class"],
+              "description": "single = one wake word, multi = several, class = labels are classes."
+            }
+          },
+          "additionalProperties": false
         }
       }
     },

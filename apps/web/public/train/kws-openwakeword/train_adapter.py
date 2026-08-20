@@ -58,6 +58,7 @@ DEFAULTS = {
     "quantize": True,
     "formats": "onnx",
     "quantization": "int8-static",
+    "datasets": "",
 }
 
 STAGES: list[tuple[str, str]] = [
@@ -111,26 +112,73 @@ def read_params(env: dict[str, str] | None = None) -> dict[str, Any]:
         "quantization": _s(
             "WAKE_QUANTIZATION", "int8-static" if quantize else "none"
         ),
+        "datasets": _s("WAKE_DATASETS", DEFAULTS["datasets"]),
         "jobId": _s("WAKE_JOB_ID", f"kws-openwakeword-{int(time.time() * 1000)}"),
         "backend": _s("WAKE_BACKEND", "colab"),
     }
+
+
+def _import_materialize() -> Any:
+    try:
+        from wake_train_kit import materialize
+    except ImportError as exc:  # pragma: no cover - service installs wake_train_kit
+        raise RuntimeError(
+            "wake_train_kit.materialize is not importable; run the adapter "
+            "under the studio-backend (uv run wake-service) or install it"
+        ) from exc
+    return materialize
+
+
+def _module_train_dataset_spec() -> dict[str, Any]:
+    """The module's `spec.train.dataset` requirements (single source of truth)."""
+    spec_path = Path(__file__).resolve().parent.parent / "spec" / "module.spec.json"
+    try:
+        spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return (spec.get("train") or {}).get("dataset") or {}
 
 
 def build_config(
     params: dict[str, Any],
     base_config_path: str | Path,
     output_path: str | Path,
+    materialized: Any = None,
 ) -> dict[str, Any]:
     """Load the upstream custom_model.yml and override with job params.
 
     Mirrors the notebook's Step 4 config writing exactly (ADR-031: the
-    upstream script stays byte-identical; we only feed it a config).
+    upstream script stays byte-identical; we only feed it a config). When a
+    `materialized` openwakeword shape is given (#206, from the wizard's
+    `datasets[]` refs), the target phrase, background paths and precomputed
+    negative features come from the materializer instead of the legacy
+    defaults.
     """
     import yaml
 
     raw = Path(base_config_path).read_text(encoding="utf-8")
     config = yaml.load(raw, Loader=yaml.Loader)  # mirror the upstream notebook
-    config["target_phrase"] = [params["wakePhrase"]]
+
+    if materialized is not None:
+        # target phrase = the dataset's positive label(s)
+        config["target_phrase"] = list(materialized.target_phrase)
+        config["background_paths"] = list(materialized.background_paths) or [
+            "./audioset_16k", "./fma"
+        ]
+        config["feature_data_files"] = dict(materialized.feature_data_files) or {
+            "ACAV100M_sample": "openwakeword_features_ACAV100M_2000_hrs_16bit.npy"
+        }
+        # WakeStudio extension: the materialized positives wav dir (upstream
+        # --generate_clips integration can consume it directly).
+        config["positives_dir"] = str(materialized.positives_dir)
+        config["materialized_dir"] = str(materialized.materialized_dir)
+    else:
+        config["target_phrase"] = [params["wakePhrase"]]
+        config["background_paths"] = ["./audioset_16k", "./fma"]
+        config["feature_data_files"] = {
+            "ACAV100M_sample": "openwakeword_features_ACAV100M_2000_hrs_16bit.npy"
+        }
+
     config["model_name"] = config["target_phrase"][0].replace(" ", "_")
     config["n_samples"] = params["nSamples"]
     config["n_samples_val"] = params["nSamplesVal"]
@@ -139,11 +187,7 @@ def build_config(
     config["target_recall"] = 0.25
     config["output_dir"] = "./my_custom_model"
     config["max_negative_weight"] = params["falseActivationPenalty"]
-    config["background_paths"] = ["./audioset_16k", "./fma"]
     config["false_positive_validation_data_path"] = "validation_set_features.npy"
-    config["feature_data_files"] = {
-        "ACAV100M_sample": "openwakeword_features_ACAV100M_2000_hrs_16bit.npy"
-    }
     Path(output_path).write_text(yaml.dump(config), encoding="utf-8")
     return config
 
@@ -229,7 +273,8 @@ def build_bundle(
         shipped.append("tflite-int8" if "tflite-int8" in requested else "tflite")
 
     # Standard ordered label list (ADR-039 §4.5): single-phrase classifier.
-    labels = [params["wakePhrase"]]
+    # With the datasets[] path the phrase comes from the materialized positives.
+    labels = list(config.get("target_phrase") or [params["wakePhrase"]])
     (bundle_dir / "labels.json").write_text(json.dumps(labels), encoding="utf-8")
 
     metrics = parse_metrics(log_text)
@@ -244,6 +289,7 @@ def build_bundle(
         "provider": params["backend"],
         "params": {
             "wakePhrase": params["wakePhrase"],
+            "datasets": params.get("datasets") or None,
             "target": params["target"],
             "epochs": str(params["steps"]),
             "augment": str(params["augment"]).lower(),
@@ -325,7 +371,25 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        config = build_config(params, base_config, config_path)
+        materialized = None
+        if params.get("datasets"):
+            mat = _import_materialize()
+            store = mat.open_dataset_store(os.environ.get("DATASETS_DIR"))
+            dataset_ids = [
+                i.strip() for i in params["datasets"].split(",") if i.strip()
+            ]
+            if not dataset_ids:
+                raise ValueError("datasets param is empty — pick at least one dataset")
+            materialized = mat.materialize_openwakeword(
+                store,
+                dataset_ids,
+                work_dir / "data_datasets",
+                reporter=reporter,
+                requirements=_module_train_dataset_spec(),
+            )
+            for warning in materialized.warnings:
+                reporter.emit("log", level="warn", message=f"dataset: {warning}")
+        config = build_config(params, base_config, config_path, materialized)
     except Exception as exc:  # noqa: BLE001
         reporter.emit("error", message=f"config error: {exc}")
         return 1

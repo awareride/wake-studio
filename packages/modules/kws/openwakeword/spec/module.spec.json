@@ -50,6 +50,13 @@
   "train": {
     "notebookLocal": "packages/modules/kws/openwakeword/train/colab/train.ipynb",
     "multiWord": false,
+    "dataset": {
+      "sampleRate": 16000,
+      "minClipsPerLabel": 100,
+      "needsNoise": true,
+      "needsUnknowns": true,
+      "labelMode": "single"
+    },
     "invocation": [
       "studio-backend",
       "colab"
