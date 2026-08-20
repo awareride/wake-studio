@@ -25,6 +25,9 @@ class JobCreate(BaseModel):
     moduleId: str
     id: str | None = None
     params: dict[str, str] = Field(default_factory=dict)
+    #: job-scoped env vars (e.g. cloud keys for dataset push jobs, Q-DS-3).
+    #: Passed to the subprocess env ONLY, never persisted in the job record.
+    secrets: dict[str, str] = Field(default_factory=dict)
 
 
 def create_app(manager: JobManager, auth: Auth, instance: str = "long-term") -> FastAPI:
@@ -116,7 +119,7 @@ def create_app(manager: JobManager, auth: Auth, instance: str = "long-term") -> 
             raise HTTPException(status_code=409, detail=f"job '{job_id}' already exists")
         job = Job(id=job_id, module_id=body.moduleId, params=body.params)
         try:
-            manager.create_job(job)
+            manager.create_job(job, secrets=body.secrets or None)
         except Exception as exc:  # noqa: BLE001
             raise handle(exc)
         return job.to_api()

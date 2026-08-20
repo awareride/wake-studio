@@ -25,6 +25,7 @@ from .ndjson import parse_report_line
 from .registry import Registry, RegistryError
 from .staging import ModuleStager
 from .store import Store
+from wake_train_kit.dataset_store import DatasetStore
 
 TERM_GRACE_SECONDS = 5.0
 
@@ -44,6 +45,7 @@ class JobManager:
         max_artifacts_mb: int = 0,
         staged_dir: str | Path | None = None,
         stager: ModuleStager | None = None,
+        datasets_dir: str | Path | None = None,
     ) -> None:
         self.store = store
         self.registry = registry
@@ -52,6 +54,13 @@ class JobManager:
         self.concurrency = max(1, concurrency)
         self.heartbeat_timeout = heartbeat_timeout
         self.max_artifacts_mb = max_artifacts_mb
+        #: durable datasets/ store (ADR-044, #204): generated dataset zips are
+        #: persisted here across restarts, mirroring the artifacts store. None
+        #: when the service is started without a datasets dir.
+        self.datasets_dir = Path(datasets_dir) if datasets_dir else None
+        self.dataset_store = (
+            DatasetStore(self.datasets_dir) if self.datasets_dir is not None else None
+        )
         #: generic-runtime module staging (Colab: no repo checkout); None when
         #: the service runs against a local repo checkout (self-hosted)
         self._stager = stager or (
@@ -68,6 +77,9 @@ class JobManager:
         self._subscribers: list[asyncio.Queue] = []
         self._stopping = False
         self._started = False
+        #: job-scoped secrets (cloud keys, Q-DS-3): passed to the subprocess
+        #: env ONLY, held in memory, never persisted (ADR-013 tension).
+        self._job_secrets: dict[str, dict[str, str]] = {}
 
     # --- lifecycle ----------------------------------------------------------
     async def start(self) -> bool:
@@ -111,12 +123,15 @@ class JobManager:
             self.store.update_job(job)
 
     # --- public API (called by FastAPI routes) -----------------------------
-    def create_job(self, job: Job) -> Job:
+    def create_job(self, job: Job, secrets: dict[str, str] | None = None) -> Job:
         if not self.registry.has(job.module_id):
             raise JobError(f"unknown module '{job.module_id}' (not in registry)")
         job.status = JobStatus.QUEUED
         job.touch()
         self.store.create_job(job)
+        if secrets:
+            # job-scoped env only: held in memory, NEVER persisted (Q-DS-3).
+            self._job_secrets[job.id] = dict(secrets)
         self._enqueue_id(job.id)
         self._publish(job)
         return job
@@ -168,11 +183,18 @@ class JobManager:
             except OSError:
                 pass
         shutil.rmtree(self.artifacts_dir / job_id, ignore_errors=True)
+        if self.dataset_store is not None:
+            # drop the stored dataset copy too (mirrors artifact cleanup)
+            for record in self.dataset_store.list():
+                stored = Path(record["stored_path"])
+                if job_id in stored.parts:
+                    self.dataset_store.delete(record["id"])
         self.store.delete_job(job_id)
         self._pending.pop(job_id, None)
         self._tasks.pop(job_id, None)
         self._last_activity.pop(job_id, None)
         self._cwd.pop(job_id, None)
+        self._job_secrets.pop(job_id, None)
 
     # --- worker -------------------------------------------------------------
     def _enqueue_id(self, job_id: str) -> None:
@@ -214,7 +236,8 @@ class JobManager:
                     self.registry.entry(job.module_id), self.registry.base_dir
                 )
             cmd, cwd, env = self.registry.resolve(
-                job.module_id, job.params, staged=staged
+                job.module_id, job.params, staged=staged,
+                secrets=self._job_secrets.get(job.id),
             )
         except RegistryError as exc:
             job.set_status(JobStatus.FAILED, error=str(exc))
@@ -358,6 +381,15 @@ class JobManager:
         if src.name not in job.artifacts:
             job.artifacts.append(src.name)
         self._prune_artifacts()
+        # A canonical dataset zip produced by a dataset-generate job is also a
+        # FIRST-CLASS dataset: persist it into the durable datasets/ store
+        # (mirrors the artifacts store; survives restarts, ADR-044 #204).
+        if src.name == "wake-studio-dataset.zip" and self.dataset_store is not None:
+            try:
+                self.dataset_store.save(dest)
+            except Exception as exc:  # noqa: BLE001 - never fail the job for a store issue
+                if job.error is None:
+                    job.error = f"dataset store: {exc}"
 
     def _prune_artifacts(self) -> None:
         if not self.max_artifacts_mb:
