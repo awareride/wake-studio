@@ -25,7 +25,9 @@
     "test:unit": "pnpm -r test:unit",
     "typecheck": "pnpm -r typecheck",
     "gen:engines": "node scripts/build-dataset-engines.mjs --update",
-    "gen:engines:check": "node scripts/build-dataset-engines.mjs --check"
+    "gen:engines:check": "node scripts/build-dataset-engines.mjs --check",
+    "gen:catalog": "node scripts/build-dataset-catalog.mjs --update",
+    "gen:catalog:check": "node scripts/build-dataset-catalog.mjs --check"
   },
   "devDependencies": {
     "typescript": "~5.6.3"

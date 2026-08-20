@@ -43,6 +43,11 @@ jobs:
         # modules' spec.tts (ADR-044 §5); fail CI if they drift.
         run: pnpm gen:engines:check
 
+      - name: Check generated built-in dataset catalog is fresh (#207)
+        # datasets.json is generated from the curated built-ins file
+        # (ADR-044 §7); fail CI if they drift.
+        run: pnpm gen:catalog:check
+
       - name: Fetch L2 test artifacts (sherpa + openwakeword, ADR-027)
         # The L2 wasm/onnx boot tests exercise the gitignored artifacts
         # (ADR-011). Non-fatal: each L2 suite skips when its asset is absent
