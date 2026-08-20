@@ -81,6 +81,7 @@ Every model or component that enters an **export bundle** is classified:
 | Component | Source | License | Commercial? | Class | How verified |
 |---|---|---|---|---|---|
 | onnxruntime (native C API, pinned **1.21.0**) | `microsoft/onnxruntime` | Apache-2.0 | Yes | ✅ | Release tarball `LICENSE` (Apache-2.0). Fetched prebuilt at `third_party/onnxruntime/<host>` (ADR-031 pin, never committed; issue #192 — shared app-class runtime, kws-streaming #194 reuses it). |
+| sherpa-onnx (native C API, pinned **v1.13.6**) | `k2-fsa/sherpa-onnx` | Apache-2.0 | Yes | ✅ | Repo `LICENSE` (Apache-2.0); the shared lib bundles its own onnxruntime (Apache-2.0). Fetched prebuilt at `third_party/sherpa-onnx/<host>` (ADR-031 pin, never committed; issue #193 — ASR-Decoding KWS driver). |
 
 ## TTS for synthetic training data (Phase 5) — ⚠️ license change
 
