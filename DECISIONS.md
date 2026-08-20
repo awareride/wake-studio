@@ -1060,8 +1060,11 @@ Status legend: `Proposed` · `Accepted` · `Superseded` · `Deprecated`
   - Follow-ups: lazy driver chunks + backend manifest (v1.x), optional CI rg
     step once P0 fixes land, wire-web package if a second host appears.
 
-_Open questions still pending human input: Q10 (self-hosted training engine) is
-open for Phase 5. Q9 (training backends) is ADR-013 (amended: in-browser training
+_Open questions still pending human input: Q12 (PocketSphinx timing, #34) is
+open for Phase 4/5. Resolved: Q10 (self-hosted training engine, #32) is ADR-042
+(no wakeforge; module-owned openWakeWord pipeline); Q11 (L3 cadence, #33) is
+ADR-026; Q13 (SDK core CI, #35) is ADR-040; Q14 (vendor ONNX wasm, #36) is
+ADR-041. Q9 (training backends) is ADR-013 (amended: in-browser training
 removed, Cloud Providers unified, Colab added as ADR-023); targets are ADR-019
 (supersedes ADR-006); pluggable KWS backends are ADR-020; the device-side SDK is
 ADR-021; the data-source layer is ADR-022; the module platform is ADR-025
