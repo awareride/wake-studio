@@ -100,6 +100,10 @@ export interface StudioClient {
   listJobs(): Promise<StudioJob[]>
   /** The Datasets store (GET /datasets) — feeds the wizard's datasets[] picker (#206). */
   listDatasets(): Promise<StoreDataset[]>
+  /** The stored canonical zip of a store dataset (GET /datasets/{id}/download, #208). */
+  datasetDownloadUrl(id: string): string
+  /** Delete a dataset from the store (DELETE /datasets/{id}, #208). */
+  deleteDataset(id: string): Promise<void>
   startJob(id: string): Promise<StudioJob>
   pauseJob(id: string): Promise<StudioJob>
   resumeJob(id: string): Promise<StudioJob>
@@ -173,6 +177,10 @@ export function createStudioClient(baseUrl: string, token?: string): StudioClien
       request<{ jobs: StudioJob[] }>('/jobs').then((r) => r.jobs),
     listDatasets: () =>
       request<{ datasets: StoreDataset[] }>('/datasets').then((r) => r.datasets),
+    datasetDownloadUrl: (id) => `${normalized}/datasets/${encodeURIComponent(id)}/download`,
+    async deleteDataset(id) {
+      await request<void>(`/datasets/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    },
     startJob: (id) => mutate(id, 'start'),
     pauseJob: (id) => mutate(id, 'pause'),
     resumeJob: (id) => mutate(id, 'resume'),

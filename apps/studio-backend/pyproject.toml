@@ -43,7 +43,7 @@ path = "hatch_build.py"
 # The built-in dataset catalog (ADR-044 §7, #207) so deployed/generic runtimes
 # can materialize built-ins without a repo checkout (builtin_catalog.py loads
 # this packaged copy when the repo file is absent).
-"packages/modules/data/dataset/catalog/builtins.json" = "wake_train_kit/builtin_catalog.json"
+"../../packages/modules/data/dataset/catalog/builtins.json" = "wake_train_kit/builtin_catalog.json"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

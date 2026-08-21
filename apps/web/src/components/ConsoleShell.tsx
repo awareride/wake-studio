@@ -18,6 +18,7 @@ const VIEW_TITLES: Record<ConsoleRoute, string> = {
   workspace: 'Workspace',
   library: 'Model Registry',
   training: 'Training',
+  datasets: 'Datasets',
   backends: 'Backends',
   projects: 'Projects',
   console: 'Session Console',

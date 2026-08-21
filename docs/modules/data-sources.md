@@ -318,16 +318,60 @@ Built-ins are immutable references (`kind: builtin`), materialized on first use.
 ## 8. Datasets console (web)
 
 A top-level **`Datasets`** menu item (between Training and Backends) mirroring the Training
-console layout:
+console layout (`apps/web/src/datasets/console/`, implemented by #208):
 
 - **Left rail:** dataset list (name, kind badge `builtin` / `generated` / `uploaded` / `cloud`,
-  clip count, license).
-- **Details pane:** manifest (labels, counts, provenance, storage), quality report, actions:
-  **New generation task**, **Train with this**, **Upload to cloud**, **Download**, **Delete**.
+  clip count, license) — one merged view over the built-in catalog (`datasets.json`), the
+  backend `datasets/` store (`GET /datasets`), and the browser-local store (IndexedDB, for
+  datasets generated/imported client-side).
+- **Details pane:** manifest (labels, counts, provenance, storage), quality report (render what
+  the manifest carries today; the health-check job is #209), actions: **New generation task**,
+  **Train with this**, **Upload to cloud**, **Download**, **Delete**.
 - **New** = generation wizard (engine -> phrases/languages/voices -> postprocess -> save
   destination); generation jobs are tracked in the rail (same job UI as Training).
 
-The Training wizard's dataset-picker step is fed by this same Datasets store (SS6).
+The Training wizard's dataset-picker step is fed by this same Datasets store (SS6) — built-ins
++ backend store + browser-local store merge into one `datasets[]` picker.
+
+### 8.1 Executor decision (one pipeline, two executors — locked, human, #208)
+
+Generation + cloud upload are ONE pipeline (collect -> synthesize -> postprocess -> assemble ->
+persist) with TWO executors, the same pattern as `spec.tts.runtime`. The console picks the
+executor from **(a) the engine's declared `runtime`** in `dataset-engines.json` and **(b)
+whether a studio-backend is connected** (a managed backend in the Backends menu with a base URL):
+
+| Engine `runtime` | Studio-backend connected? | Executor | Cloud save |
+|---|---|---|---|
+| `browser` + `backend` (e.g. `mimo-tts`) | yes | **backend** (default — full-featured: persists to the store, enables every action) | `dataset-storage` job, creds as job-scoped env (Q-DS-3) |
+| `browser` + `backend` | no | **browser** (client-side fetch TTS -> Web Audio -> canonical zip) | **direct browser push** via the storage catalog: `hf` feasible today (fetch + token); `r2` / `gdrive` flagged not-wired-browser-side (same treatment as #107 for backend SDKs) |
+| `backend` only (`edge-tts`, `piper`, `qwen-llm-tts`) | no | — engine disabled in the wizard with a clear "needs a studio-backend" message | — |
+| `backend` only | yes | **backend** | `dataset-storage` job |
+
+**Browser executor** (`apps/web/src/datasets/browser/`): fetches the TTS endpoint
+(OpenAI-compatible chat.completions — the TS twin of `wake_train_kit/http_tts.py`), decodes +
+resamples to the canonical 16 kHz mono PCM WAV via Web Audio (no ffmpeg needed — a browser
+advantage over the backend), assembles `dataset.json` + `audio/<label>/*.wav`, computes
+`contentHash`, and zips with `fflate` (`core/generate.ts` keeps the pure, L1-testable helpers).
+The produced zip is saved to the browser-local store and/or pushed straight to the user's cloud
+(Hugging Face via `fetch` + the Settings `cloud.hf.token`). Credentials stay client-side, masked,
+never persisted.
+
+**Backend executor** (`dataset-generate` job): the same wizard submits `POST /jobs` with
+`moduleId: dataset-generate` and the engine/params from the wizard; the backend runs
+`wake_train_kit.generation`, persists to the `datasets/` store, and reports NDJSON progress that
+the console renders with the reused Training job UI. "Upload to cloud" on a store dataset runs a
+`dataset-storage` job (push) with the cloud creds passed as job-scoped secrets only.
+
+### 8.2 Console + store surface
+
+- `apps/web/src/datasets/store.ts` — the consolidated store (built-ins + backend `GET /datasets`
+  + browser-local IndexedDB), used by BOTH the console and the Training `datasets[]` picker
+  (SS6), so a browser-generated dataset appears in the train wizard without a backend.
+- Browser-local store: `apps/web/src/datasets/local-store.ts` (IndexedDB) — stores each
+  browser-generated/imported dataset's manifest + canonical zip bytes; delete/refresh are local.
+- Backend store actions the console drives (`apps/studio-backend`): `GET /datasets/{id}/download`
+  (the stored canonical zip) and `DELETE /datasets/{id}` (remove from the store) — added with
+  #208's actions.
 
 ## 9. Quality & reproducibility (v1 priorities)
 
@@ -429,3 +473,4 @@ license/provenance log shown in-app before export. The Datasets console shows th
 | 2026-08-20 | **#204 — dataset storage layer (ADR-044 §5.3):** backend `datasets/` store (`wake_train_kit/dataset_store.py`, SQLite index + `datasets/<id>/wake-studio-dataset.zip`, survives restarts, mirrors artifacts store; `dataset-generate` zips auto-persist into it). `StorageBackend` interface + registry + adapters (`backend-disk`/`url` real, `hf`/`r2`/`gdrive` declared with authKey) in `wake_train_kit/storage.py`; `dataset-storage` job entry (`storage_runner.py`). Web Settings gains a masked **Cloud storage** group; storage plugin catalog in `core/storage.ts` (authKey per plugin). Q-DS-3 implemented: cloud keys flow as job-scoped env only, never persisted. Tests: store round-trip, plugin registry, fake adapters (no real cloud). Remaining #206-#210 unchanged. | agent |
 | 2026-08-20 | **#206 — materializers + `datasets[]` train consumption (ADR-044 §6):** `spec.train.dataset` requirements schema (contracts + JSON schema); `core/materialize.ts` (role->folder maps + `validateDatasetRequirements` picker validation); `wake_train_kit/materialize.py` (kws-streaming label-tree + openwakeword positives/features/background executors, #158 collision-safe merge); `GET /datasets` store API; wizard `datasets[]` picker replacing `dataSource`; adapters' `prepare_data` = load-refs → materialize → merge (`STREAM_DATASETS`/`WAKE_DATASETS`), upstream scripts byte-identical. Tests: 17 backend materialize + 4 adapter e2e (fake upstream + fake feature extractor) + TS validation suite. Remaining #207-#210 unchanged. | agent |
 | 2026-08-20 | **#207 — built-in dataset catalog (ADR-044 §7):** curated `catalog/builtins.json` (SC2 / Google Speech Commands / Common Voice / AudioSet+FMA noise, each with license + `commercialUse`); `scripts/build-dataset-catalog.mjs` → `apps/web/public/datasets.json` (`pnpm gen:catalog[:check]`, CI check); types + `validateDatasetCatalog` in `core/catalog.ts` (`canonical-zip`/`speech-commands-v2`/`pending-host` materialize); backend `wake_train_kit/builtin_catalog.py` materialize-on-first-use (SC2 via the ADR-022 converter; wheel-packaged); wizard picker lists built-ins (pending-host disabled, non-commercial flagged). Tests: 8 backend (fake SC2 source, no network) + 9 TS catalog. Remaining #208-#210 unchanged. | agent |
+| 2026-08-20 | **#208 — Datasets console (web, ADR-044 §8):** top-level `Datasets` nav + `#/datasets` route; list-detail console (rail = built-ins + backend store + browser-local store; details = manifest/provenance/storage/quality-report); generation wizard with the **two-executor decision locked** (§8.1 — engine `runtime` + studio-backend connectivity picks browser vs backend executor); browser executor (fetch TTS → Web Audio → canonical zip → HF direct push) + backend executor (`dataset-generate` job with reused Training NDJSON job UI); actions New/Train-with/Upload/Download/Delete (`GET/DELETE /datasets/{id}` backend routes); Training `datasets[]` picker fed from the same consolidated store. Follow-up fix: `pyproject.toml` force-include path for `builtins.json` was relative to `apps/studio-backend` (broke the wheel build) — corrected to `../../packages/...`. | agent |

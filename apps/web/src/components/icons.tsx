@@ -26,6 +26,7 @@ import {
   PlayIcon,
   ReaderIcon,
   ReloadIcon,
+  StackIcon,
   StopIcon,
   ViewGridIcon,
 } from '@radix-ui/react-icons'
@@ -82,6 +83,10 @@ export const IconMenu = fromRadix(HamburgerMenuIcon)
 
 /** Training (Radix has no flask; the beaker-with-liquid half of MixIcon). */
 export const IconTrain = fromRadix(MixIcon)
+
+/** Datasets (stacked layers — the dataset console, between Training and Backends). */
+export const IconDataset = fromRadix(StackIcon)
+
 export const IconServer = fromRadix(CubeIcon)
 
 /** Console (Radix has no terminal; code brackets are the closest match). */

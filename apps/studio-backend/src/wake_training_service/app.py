@@ -109,6 +109,37 @@ def create_app(manager: JobManager, auth: Auth, instance: str = "long-term") -> 
             )
         return {"datasets": records}
 
+    @app.get("/datasets/{dataset_id}/download")
+    def download_dataset(dataset_id: str) -> FileResponse:
+        """The stored canonical zip of a dataset (ADR-044 §8, #208).
+
+        Feeds the Datasets console's Download action and the browser executor's
+        direct cloud push (fetch the zip -> push it client-side). Read/open
+        route, like the artifact endpoints (ADR-036 §5).
+        """
+        if manager.dataset_store is None:
+            raise HTTPException(404, "this service has no datasets store")
+        path = manager.dataset_store.path(dataset_id)
+        if path is None or not path.is_file():
+            raise HTTPException(404, f"unknown dataset '{dataset_id}'")
+        return FileResponse(
+            path,
+            filename=f"{dataset_id}-wake-studio-dataset.zip",
+            media_type="application/zip",
+        )
+
+    @app.delete("/datasets/{dataset_id}", dependencies=[Depends(auth.require())])
+    def delete_dataset(dataset_id: str) -> dict[str, Any]:
+        """Remove a dataset from the store (ADR-044 §8, #208).
+
+        Deleting the dataset does NOT touch the job that produced it (first-class
+        artifact lifecycle); it only removes the stored zip + index record.
+        """
+        if manager.dataset_store is None:
+            raise HTTPException(404, "this service has no datasets store")
+        manager.dataset_store.delete(dataset_id)
+        return {"deleted": dataset_id}
+
     @app.get("/jobs/{job_id}")
     def get_job(job_id: str) -> dict[str, Any]:
         return job_or_404(job_id).to_api()

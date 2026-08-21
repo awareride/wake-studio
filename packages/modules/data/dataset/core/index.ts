@@ -86,6 +86,17 @@ export {
 } from './catalog'
 
 export {
+  sanitizeLabel,
+  pcmToWav,
+  isWavBytes,
+  writeSilenceWav,
+  buildGeneratedManifest,
+  assembleDatasetZip,
+  type GenerationParams,
+  type GeneratedClip,
+} from './generate'
+
+export {
   STORAGE_BACKEND_KINDS,
   STORAGE_CAPABILITIES,
   BUILTIN_STORAGE_BACKENDS,
