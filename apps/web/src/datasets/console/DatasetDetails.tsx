@@ -11,6 +11,8 @@
  * Download, Delete) lands in #208's actions PR.
  */
 
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { sanitizeLabel } from '@wake-studio/module-dataset'
 import type { ConsoleDataset } from '../store'
 import { cn } from '../../components/cn'
 import {
@@ -21,6 +23,12 @@ import {
   formatDuration,
   formatBytes,
 } from './dataset-meta'
+import {
+  datasetIsListenable,
+  listListenableClips,
+  readListenableClipBytes,
+  type DatasetClipRef,
+} from '../listen'
 
 export interface DatasetDetailsProps {
   dataset: ConsoleDataset
@@ -139,6 +147,10 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
         )}
       </section>
 
+      {/* Listen — the §8.3 per-clip player (ADR-045 #220), shown only for
+          listensable dataset forms (local OPFS today). */}
+      {datasetIsListenable(dataset) && <ListenSection dataset={dataset} />}
+
       {/* Provenance — the export-gate input (#210). */}
       <section className="rounded-xl border border-line bg-surface-2 p-4">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Provenance</h4>
@@ -252,5 +264,194 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
         </p>
       </section>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Listen — §8.3 per-clip player (ADR-045, #220)
+// ---------------------------------------------------------------------------
+
+/** Cap the clip list rendered per label (the console stays light for large
+ *  browser-local datasets; the full clip set is still listed + playable row by
+ *  row via the archive tail — only the DOM is capped). */
+const MAX_CLIPS_PER_LABEL = 100
+
+/**
+ * The per-clip audio player. Lists `audio/<label>/*.wav` clips from the
+ * archive tail and plays ONE clip at a time through a single-entry OPFS read
+ * (bounded to that clip — never a full archive download). One blob URL is
+ * alive at a time and revoked on switch/stop/unmount.
+ */
+function ListenSection({ dataset }: { dataset: ConsoleDataset }) {
+  const [clips, setClips] = useState<DatasetClipRef[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [label, setLabel] = useState<string | null>(null)
+  const [playing, setPlaying] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const urlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setClips(null)
+    setPlaying(null)
+    setError(null)
+    void listListenableClips(dataset)
+      .then((c) => {
+        if (cancelled) return
+        setClips(c)
+        setLabel((prev) => prev ?? c[0]?.label ?? null)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [dataset])
+
+  // Revoke the live blob URL on unmount.
+  useEffect(
+    () => () => {
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current)
+    },
+    [],
+  )
+
+  /** Pretty label name: map the sanitized folder back to the manifest phrase. */
+  const labelName = useCallback(
+    (folder: string) => {
+      const match = dataset.manifest.labels?.find((l) => sanitizeLabel(l.name) === folder)
+      return match?.name ?? folder
+    },
+    [dataset.manifest.labels],
+  )
+
+  const stop = useCallback(() => {
+    audioRef.current?.pause()
+    audioRef.current = null
+    if (urlRef.current) {
+      URL.revokeObjectURL(urlRef.current)
+      urlRef.current = null
+    }
+    setPlaying(null)
+  }, [])
+
+  const play = useCallback(
+    async (path: string) => {
+      if (playing === path) {
+        stop()
+        return
+      }
+      stop()
+      try {
+        const bytes = await readListenableClipBytes(dataset, path)
+        const url = URL.createObjectURL(
+          new Blob([bytes.slice().buffer as ArrayBuffer], { type: 'audio/wav' }),
+        )
+        urlRef.current = url
+        const audio = new Audio(url)
+        audioRef.current = audio
+        audio.onended = () => stop()
+        audio.onerror = () => {
+          stop()
+          setError('Could not play this clip.')
+        }
+        setError(null)
+        setPlaying(path)
+        await audio.play()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+        setPlaying(null)
+      }
+    },
+    [playing, dataset, stop],
+  )
+
+  const byLabel = useMemo(() => {
+    const groups = new Map<string, DatasetClipRef[]>()
+    for (const clip of clips ?? []) {
+      const list = groups.get(clip.label) ?? []
+      list.push(clip)
+      groups.set(clip.label, list)
+    }
+    return [...groups.entries()]
+  }, [clips])
+
+  const activeClips = byLabel.find(([folder]) => folder === label)?.[1] ?? []
+
+  return (
+    <section className="rounded-xl border border-line bg-surface-2 p-4">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Listen</h4>
+
+      {error && <p className="mt-2 text-[11px] text-red-600">{error}</p>}
+      {!error && clips === null && (
+        <p className="mt-2 text-[11px] text-ink-3">Reading clips from the archive tail…</p>
+      )}
+      {!error && clips?.length === 0 && (
+        <p className="mt-2 text-[11px] text-ink-3">No audio clips in this dataset.</p>
+      )}
+
+      {byLabel.length > 0 && (
+        <div className="mt-3 space-y-3">
+          {/* Label chips. */}
+          <div className="flex flex-wrap gap-1.5">
+            {byLabel.map(([folder]) => (
+              <button
+                key={folder}
+                type="button"
+                onClick={() => {
+                  setLabel(folder)
+                  setPlaying(null)
+                }}
+                className={cn(
+                  'rounded-full border px-2.5 py-0.5 text-[11px] transition-colors',
+                  label === folder
+                    ? 'border-brand-7 bg-brand-9 text-white'
+                    : 'border-line bg-surface-1 text-ink-2 hover:border-brand-7',
+                )}
+              >
+                {labelName(folder)}
+              </button>
+            ))}
+          </div>
+
+          {/* Clips of the active label (capped rows; single-clip reads). */}
+          <ol className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface-1">
+            {activeClips.slice(0, MAX_CLIPS_PER_LABEL).map((clip, i) => (
+              <li key={clip.path} className="flex items-center gap-2 px-2.5 py-1.5">
+                <span className="w-8 shrink-0 text-right font-mono text-[10px] text-ink-3">
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink-2" title={clip.path}>
+                  {clip.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void play(clip.path)}
+                  aria-label={playing === clip.path ? `Stop ${clip.name}` : `Play ${clip.name}`}
+                  className={cn(
+                    'shrink-0 rounded-md border px-2 py-0.5 text-[11px] transition-colors',
+                    playing === clip.path
+                      ? 'border-amber-7 bg-amber-9 text-white'
+                      : 'border-line bg-surface-2 text-ink-1 hover:border-brand-7',
+                  )}
+                >
+                  {playing === clip.path ? '■ stop' : '▶ play'}
+                </button>
+              </li>
+            ))}
+          </ol>
+          {activeClips.length > MAX_CLIPS_PER_LABEL && (
+            <p className="text-[10px] text-ink-3">
+              …and {activeClips.length - MAX_CLIPS_PER_LABEL} more clips in “{labelName(label ?? '')}”.
+            </p>
+          )}
+
+          <p className="text-[10px] leading-relaxed text-ink-3">
+            Playback reads a single clip on demand — never the whole archive (§8.3).
+          </p>
+        </div>
+      )}
+    </section>
   )
 }

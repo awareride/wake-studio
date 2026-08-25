@@ -97,6 +97,17 @@ export {
 } from './generate'
 
 export {
+  ZIP_EOCD_MAX_COMMENT,
+  findZipEnd,
+  parseCentralDirectory,
+  listZipEntries,
+  extractZipEntrySlice,
+  extractZipEntry,
+  type ZipEndRecord,
+  type ZipEntryInfo,
+} from './zip'
+
+export {
   STORAGE_BACKEND_KINDS,
   STORAGE_CAPABILITIES,
   BUILTIN_STORAGE_BACKENDS,
