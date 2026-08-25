@@ -1573,3 +1573,55 @@ applied per this log and may be overridden._
   - Tasks #203–#210 track implementation; open questions Q-DS-3/4/5 remain (cloud-key handling,
     exact built-in set, near-dup threshold).
   - The Phase 4 export gate gains dataset-level inheritance (task #210).
+
+## ADR-045 — Dataset storage & on-disk form: HF-compatible layout, zip + directory forms, metadata-only browser store, listenability by per-clip random access
+
+- **Status:** Accepted (2026-08-20)
+- **Origin:** Human design discussion (2026-08-20, continuation of ADR-044) on how the canonical
+  dataset artifact maps onto Hugging Face storage, how it is stored locally in the browser, and
+  how the Datasets console centers review/listen on a dataset. Resolves the storage-form and
+  browser-persistence questions left open by ADR-044 decision 5.
+- **Decision:**
+  1. **Canonical form is HF-recognized** — the `wake-studio-dataset.zip` contents ARE a standard
+     Hugging Face audio layout: `audio/<label>/*.wav` (folders-as-classes, `AudioFolder`-legal) +
+     a `dataset.json` manifest (the single source of truth) + **derived** `metadata.csv` (HF
+     row-level features: `file_name`, `label`, plus role/transcript/speaker/language/provenance
+     exported from the manifest) + **derived** `README.md` (HF dataset-card YAML front-matter with
+     `license`/`language` taken from provenance). `metadata.csv` and `README.md` are generated
+     exports of `dataset.json` — never an independent input, so the three never drift. Pushing to
+     HF = uploading the same directory; no re-layout. (HF's own viewer then provides listen/table
+     for cloud-stored datasets.)
+  2. **Two storage representations supported:** a **zip** (the portable/transport artifact) and an
+     **unpacked directory** in the HF layout. Because the zip's contents ARE the directory, the
+     two are a pure archive/unzip apart with no re-layout. Directory form is the "live/usable"
+     form.
+  3. **Metadata-only browser store.** IndexedDB never holds file bytes (zip or directory) — only
+     the manifest + a handle/ref to where the bytes live (`opfs:<id>` or a cloud ref). This avoids
+     blowing the small IndexedDB quota with large audio archives.
+  4. **Local filesystem = OPFS** (Origin Private File System) is the local home for the working
+     bytes, stored **as imported** (zip or directory) — with **no eager auto-unpack on import**,
+     because unpacking a large dataset eagerly is unnecessary and wasteful. Full materialization
+     stays deferred to train-prep time only (ADR-044 §6), per trainer.
+  5. **Cloud:** push the directory (listenable) and/or the zip (portable/backup) to HF / R2 per
+     the user's Settings cloud keys, as in ADR-044.
+  6. **Listenability = per-clip random access**, not zip-vs-dir. The in-app audio player is shown
+     only where reading a single clip is cheap: local directory (OPFS) ✓, cloud directory (HF
+     files, fetch one wav) ✓, and local zip ✓ (extract the one entry via the central directory +
+     fflate, no full unpack). Disabled only for a remote single zip blob, which has no cheap
+     random access.
+- **Rationale:** One canonical layout that is simultaneously the portable zip and a valid HF
+  dataset repo removes a whole class of re-layout/translation bugs and lets HF's own dataset
+  viewer/label/player serve cloud-stored datasets for free. Storing only metadata in IndexedDB
+  and keeping bytes in OPFS/cloud respects browser storage limits (a dataset zip can be hundreds
+  of MB). Since listening is inherently per-clip, it must not require unpacking the whole
+  dataset — the listenability rule is keyed on random-access cost, not on archive form.
+- **Consequences:**
+  - `data-sources.md` §4 canonical form updated to the HF layout + derived `metadata.csv`/
+    `README.md`, and §5.3/§8.2 updated for zip/dir storage, metadata-only IndexedDB, OPFS, and
+    listenability.
+  - `apps/web/src/datasets/local-store.ts` reworked: IndexedDB records drop `zipBytes`; file bytes
+    move to OPFS; a per-clip listener reads OPFS files / single zip entries / cloud refs.
+  - The Datasets console details pane gains an audio player gated by the listenability rule; the
+    quality/health job (#209) remains separate.
+  - HF exact field names / per-file viewer caps to be confirmed against current HF docs before
+    finalizing `metadata.csv`/`README.md` templates.
