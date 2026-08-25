@@ -81,6 +81,16 @@ Canonical audio is **16 kHz mono PCM WAV**. Other rates / encodings / precompute
 **derived** at materialize or push time - the same "canonical artifact + derived formats" rule as
 ADR-039 for models.
 
+**HF-compatible layout (ADR-045):** `audio/<label>/*.wav` already matches the Hugging Face
+`AudioFolder` (folders-as-classes) convention, so the archive doubles as a valid HF dataset repo
+with no re-layout. The zip also carries **derived** HF exports: `metadata.csv` (row features:
+`file_name`, `label`, plus role/transcript/speaker/language/provenance) and `README.md`
+(dataset-card YAML front-matter; `license`/`language` from provenance). Both are **generated from
+`dataset.json`** — the manifest stays the single source of truth and the three never drift. A
+dataset is stored either as this **zip** (portable/transport form) or as the same content as an
+**unpacked directory** (the "live" form); the two are a pure archive/unzip apart. Pushing to HF =
+uploading the directory; HF's own viewer then supplies playback/table for cloud-stored datasets.
+
 **Implemented (#203, ADR-044):** the schema is `packages/modules/data/dataset/core/spec.ts`
 (TypeScript, source of truth) with the Python mirror `apps/studio-backend/src/wake_train_kit/
 dataset.py`; the web importer is `packages/modules/data/dataset/core/manifest.ts` (typed
@@ -200,7 +210,9 @@ resample, trim / silence handling.
 Persistence is a **StorageBackend plugin** behind one interface (`push` / `pull` / `list` /
 `delete`): `backend-disk` (default), `huggingface` (dataset repo), `cloudflare-r2`
 (S3-compatible), `google-drive`, `url` (built-in / public, read-only). Descriptor declares its
-auth key:
+auth key. A dataset may be stored as a **zip** (the portable/transport artifact) or as an
+**unpacked directory** in the HF layout (ADR-045); cloud push can send the directory (listenable)
+and/or the zip (portable/backup).
 
 ```jsonc
 { "id": "r2", "kind": "s3-compatible", "authKey": "cloud.r2",
@@ -367,11 +379,29 @@ the console renders with the reused Training job UI. "Upload to cloud" on a stor
 - `apps/web/src/datasets/store.ts` — the consolidated store (built-ins + backend `GET /datasets`
   + browser-local IndexedDB), used by BOTH the console and the Training `datasets[]` picker
   (SS6), so a browser-generated dataset appears in the train wizard without a backend.
-- Browser-local store: `apps/web/src/datasets/local-store.ts` (IndexedDB) — stores each
-  browser-generated/imported dataset's manifest + canonical zip bytes; delete/refresh are local.
+- Browser-local store: `apps/web/src/datasets/local-store.ts` (IndexedDB) — stores **metadata
+  only** (manifest + a handle/ref to the bytes), **never file bytes**; the working bytes live in
+  **OPFS** (Origin Private File System) as imported (zip or directory, no eager unpack) and/or
+  the cloud (ADR-045). Delete/refresh are local.
 - Backend store actions the console drives (`apps/studio-backend`): `GET /datasets/{id}/download`
   (the stored canonical zip) and `DELETE /datasets/{id}` (remove from the store) — added with
   #208's actions.
+
+### 8.3 Review & listen (ADR-045)
+
+The details pane renders the manifest itself (audio summary, labels + roles, provenance,
+storage); a **per-clip audio player** is shown only where reading a single clip is cheap
+(**listenable**):
+
+| Form | Location | Listen? |
+|---|---|---|
+| directory | local OPFS | ✓ (open one file) |
+| directory | cloud (HF files) | ✓ (fetch one wav) |
+| zip | local OPFS | ✓ (extract one entry via central dir + fflate — no full unpack) |
+| zip | remote single blob | ✗ (no cheap random access) |
+
+Playback reads a single clip on demand and never requires unpacking the whole dataset. Full
+per-trainer materialization (unpack) runs only at train-prep time (§6).
 
 ## 9. Quality & reproducibility (v1 priorities)
 
@@ -474,3 +504,4 @@ license/provenance log shown in-app before export. The Datasets console shows th
 | 2026-08-20 | **#206 — materializers + `datasets[]` train consumption (ADR-044 §6):** `spec.train.dataset` requirements schema (contracts + JSON schema); `core/materialize.ts` (role->folder maps + `validateDatasetRequirements` picker validation); `wake_train_kit/materialize.py` (kws-streaming label-tree + openwakeword positives/features/background executors, #158 collision-safe merge); `GET /datasets` store API; wizard `datasets[]` picker replacing `dataSource`; adapters' `prepare_data` = load-refs → materialize → merge (`STREAM_DATASETS`/`WAKE_DATASETS`), upstream scripts byte-identical. Tests: 17 backend materialize + 4 adapter e2e (fake upstream + fake feature extractor) + TS validation suite. Remaining #207-#210 unchanged. | agent |
 | 2026-08-20 | **#207 — built-in dataset catalog (ADR-044 §7):** curated `catalog/builtins.json` (SC2 / Google Speech Commands / Common Voice / AudioSet+FMA noise, each with license + `commercialUse`); `scripts/build-dataset-catalog.mjs` → `apps/web/public/datasets.json` (`pnpm gen:catalog[:check]`, CI check); types + `validateDatasetCatalog` in `core/catalog.ts` (`canonical-zip`/`speech-commands-v2`/`pending-host` materialize); backend `wake_train_kit/builtin_catalog.py` materialize-on-first-use (SC2 via the ADR-022 converter; wheel-packaged); wizard picker lists built-ins (pending-host disabled, non-commercial flagged). Tests: 8 backend (fake SC2 source, no network) + 9 TS catalog. Remaining #208-#210 unchanged. | agent |
 | 2026-08-20 | **#208 — Datasets console (web, ADR-044 §8):** top-level `Datasets` nav + `#/datasets` route; list-detail console (rail = built-ins + backend store + browser-local store; details = manifest/provenance/storage/quality-report); generation wizard with the **two-executor decision locked** (§8.1 — engine `runtime` + studio-backend connectivity picks browser vs backend executor); browser executor (fetch TTS → Web Audio → canonical zip → HF direct push) + backend executor (`dataset-generate` job with reused Training NDJSON job UI); actions New/Train-with/Upload/Download/Delete (`GET/DELETE /datasets/{id}` backend routes); Training `datasets[]` picker fed from the same consolidated store. Follow-up fix: `pyproject.toml` force-include path for `builtins.json` was relative to `apps/studio-backend` (broke the wheel build) — corrected to `../../packages/...`. | agent |
+| 2026-08-20 | **Storage & on-disk form (ADR-045, human discussion):** canonical form made HF-recognized — contents ARE the HF `AudioFolder` layout + **derived** `metadata.csv` / `README.md` exported from `dataset.json` (single source of truth, never drift). Two storage forms: **zip** (portable) and **unpacked directory** (live), a pure archive/unzip apart. **IndexedDB metadata-only** (no file bytes); browser-local bytes move to **OPFS**. **No eager auto-unpack on import** (large-dataset size concern); materialize stays deferred to train-prep. **Listenability = per-clip random access** (local dir / cloud dir / local zip via single-entry extract ✓; remote single zip blob ✗); console gains a gated per-clip player (spec §8.3). | agent |
