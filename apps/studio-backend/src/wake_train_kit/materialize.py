@@ -388,6 +388,35 @@ def _merge_dataset_trees(base: Path, tree: Path, out_dir: Path) -> Path:
     return out_dir
 
 
+def _scan_duplicate_warnings(clip_root: Path) -> list[str]:
+    """Warn LOUDLY (never silently drop) about mix-time duplicates (#209).
+
+    Exact duplicates (sha256) and near-duplicate clusters (perceptual
+    features) both signal train/eval leakage risk; the reproducible split
+    keeps each near-dup cluster in ONE partition. Called on the merged data
+    root (kws-streaming) or the materialized pools (openwakeword — the
+    `positives/` / `background/` dirs double as label folders for the scan).
+    """
+    from .quality import exact_duplicate_groups, near_duplicate_clusters
+
+    warnings: list[str] = []
+    exact = exact_duplicate_groups(clip_root)
+    dup_clips = sum(len(g) for groups in exact.values() for g in groups)
+    if dup_clips:
+        warnings.append(
+            f"{dup_clips} exact-duplicate clip(s) detected in the mixed data - "
+            "dedup before splitting so evaluation never sees training data (#209)."
+        )
+    near = near_duplicate_clusters(clip_root)
+    if near:
+        warnings.append(
+            f"{len(near)} near-duplicate cluster(s) detected in the mixed data "
+            "(train/eval leakage risk) - the split keeps each cluster in one "
+            "partition (#209)."
+        )
+    return warnings
+
+
 #: kws-streaming's canonical requirements (mirrors the module spec.train.dataset).
 KWS_STREAMING_REQUIREMENTS: dict[str, Any] = {
     "sampleRate": 16000,
@@ -489,6 +518,9 @@ def materialize_kws_streaming(
     for i, tree in enumerate(trees[1:], start=1):
         _log(reporter, "info", f"merging dataset tree {i + 1} into the data root")
         merged = _merge_dataset_trees(merged, tree, out / f"merged_{i}")
+
+    # mix-time quality scan: warn loudly on exact/near duplicates (#209)
+    warnings.extend(_scan_duplicate_warnings(merged))
 
     wanted: list[str] = []
     for manifest in manifests:
@@ -650,6 +682,10 @@ def materialize_openwakeword(
         )
 
     feature_data_files: dict[str, str] = {}
+
+    # mix-time quality scan: warn loudly on exact/near duplicates (#209). The
+    # materialized pools (positives/ + background/) are scanned as labels.
+    warnings.extend(_scan_duplicate_warnings(out))
     for label, wavs in unknown_features.items():
         if not wavs:
             continue

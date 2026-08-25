@@ -16,7 +16,14 @@ import { isActiveStatus, useStudioJob } from '../../training/useStudioJob'
 import type { StudioJob } from '../../training/studio-client'
 import { STATUS_STYLE } from '../../training/console/StatusChip'
 import { ConfirmDialog } from '../../training/console/ConfirmDialog'
-import type { DatasetJob } from '../jobs'
+import type { DatasetJob, DatasetJobKind } from '../jobs'
+
+export const JOB_KIND_TITLE: Record<DatasetJobKind, string> = {
+  generate: 'Generation job',
+  storage: 'Storage job',
+  check: 'Quality check job',
+  split: 'Split job',
+}
 
 export interface DatasetJobDetailsProps {
   job: DatasetJob
@@ -67,9 +74,7 @@ export function DatasetJobDetails({ job, onLiveUpdate, onDelete }: DatasetJobDet
     <div className="space-y-5">
       {/* Header. */}
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-base font-semibold text-ink-1">
-          {job.kind === 'generate' ? 'Generation job' : 'Storage job'}
-        </h3>
+        <h3 className="text-base font-semibold text-ink-1">{JOB_KIND_TITLE[job.kind]}</h3>
         <span
           className={cn(
             'rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',

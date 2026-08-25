@@ -9,8 +9,15 @@
  */
 
 import { cn } from '../../components/cn'
-import { sortJobsNewestFirst, type DatasetJob } from '../jobs'
+import { sortJobsNewestFirst, type DatasetJob, type DatasetJobKind } from '../jobs'
 import { STATUS_STYLE } from '../../training/console/StatusChip'
+
+export const JOB_KIND_LABEL: Record<DatasetJobKind, string> = {
+  generate: 'Generate',
+  storage: 'Storage',
+  check: 'Check',
+  split: 'Split',
+}
 
 export interface DatasetJobListProps {
   jobs: DatasetJob[]
@@ -54,7 +61,7 @@ export function DatasetJobList({ jobs, selectedId, onSelect }: DatasetJobListPro
                 </span>
               </div>
               <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-ink-1">
-                <span>{job.kind === 'generate' ? 'Generate' : 'Storage'}</span>
+                <span>{JOB_KIND_LABEL[job.kind]}</span>
                 <span className="rounded-full bg-surface-3 px-1.5 py-0.5 font-mono text-[10px] text-ink-3">
                   {job.executor}
                 </span>

@@ -99,6 +99,35 @@ export interface DatasetStorage {
   url?: string
 }
 
+/** Quality-gate verdicts (check-dataset job, #209). */
+export type QualityVerdict = 'pass' | 'warn' | 'fail'
+
+/** One quality warning: machine code + severity + human message (#209). */
+export interface DatasetQualityWarning {
+  code: string
+  severity: 'info' | 'warn' | 'fail'
+  message: string
+}
+
+/** Durable health-report summary recorded in the manifest by check-dataset (#209). */
+export interface DatasetQuality {
+  /** Unix seconds of the check (mirrors checkedAtSec in the full report). */
+  checkedAtSec?: number
+  verdict: QualityVerdict
+  warnings: DatasetQualityWarning[]
+}
+
+/** Fixed train/val/test partition recorded by the split op (#209). */
+export interface DatasetSplit {
+  /** Reproducibility seed - same root + seed + ratios → identical partition. */
+  seed: number
+  ratios: [number, number, number]
+  /** Canonical refs: "audio/<label>/<clip>" (one partition per clip, no overlap). */
+  train: string[]
+  val: string[]
+  test: string[]
+}
+
 /**
  * The `dataset.json` portability contract (docs/modules/data-sources.md §4.2).
  */
@@ -117,6 +146,10 @@ export interface DatasetManifest {
   /** sha256 over the canonical payload (manifest minus hash/storage + all clip bytes). */
   contentHash?: string
   storage?: DatasetStorage
+  /** Health-report verdict + warnings (check-dataset, #209). */
+  quality?: DatasetQuality
+  /** Reproducible train/val/test partition (split op, #209). */
+  split?: DatasetSplit
   createdAtMs?: number
 }
 
@@ -238,6 +271,72 @@ export function validateDatasetManifest(raw: unknown): ManifestValidation {
 
   if (m.contentHash !== undefined && !isNonEmptyString(m.contentHash)) {
     errors.push('contentHash, when present, must be a non-empty string')
+  }
+
+  // quality block - health-report summary (check-dataset, #209)
+  const quality = m.quality
+  if (quality !== undefined) {
+    if (!isPlainRecord(quality)) {
+      errors.push('quality must be an object')
+    } else {
+      if (
+        quality.verdict !== 'pass' &&
+        quality.verdict !== 'warn' &&
+        quality.verdict !== 'fail'
+      ) {
+        errors.push('quality.verdict must be one of: pass, warn, fail')
+      }
+      const warnings = quality.warnings
+      if (!Array.isArray(warnings)) {
+        errors.push('quality.warnings must be an array')
+      } else {
+        warnings.forEach((warning, i) => {
+        if (!isPlainRecord(warning)) {
+          errors.push(`quality.warnings[${i}] must be an object`)
+          return
+        }
+        if (!isNonEmptyString(warning.code)) {
+          errors.push(`quality.warnings[${i}].code must be a non-empty string`)
+        }
+        if (warning.severity !== 'info' && warning.severity !== 'warn' && warning.severity !== 'fail') {
+          errors.push(`quality.warnings[${i}].severity must be one of: info, warn, fail`)
+        }
+      })
+      }
+    }
+  }
+
+  // split block - reproducible partition (split op, #209)
+  const split = m.split
+  if (split !== undefined) {
+    if (!isPlainRecord(split)) {
+      errors.push('split must be an object')
+    } else {
+      if (typeof split.seed !== 'number' || !Number.isInteger(split.seed)) {
+        errors.push('split.seed must be an integer')
+      }
+      const ratios = split.ratios
+      if (
+        !Array.isArray(ratios) ||
+        ratios.length !== 3 ||
+        !ratios.every((r) => typeof r === 'number' && r >= 0 && r <= 1)
+      ) {
+        errors.push('split.ratios must be three numbers between 0 and 1')
+      }
+      const seen = new Map<string, string>()
+      for (const part of ['train', 'val', 'test'] as const) {
+        const refs = split[part]
+        if (!Array.isArray(refs) || !refs.every(isNonEmptyString)) {
+          errors.push(`split.${part} must be an array of audio/<label>/<clip> refs`)
+          continue
+        }
+        refs.forEach((ref) => {
+          const where = seen.get(ref)
+          if (where) errors.push(`split ref "${ref}" appears in both ${where} and ${part}`)
+          else seen.set(ref, part)
+        })
+      }
+    }
   }
 
   return { ok: errors.length === 0, errors }

@@ -31,6 +31,7 @@ class Engine:
         )
         samples = int(params.get("samplesPerPhrase", 3) or 3)
 
+        voices_used: dict[str, list[str]] = {}
         provenance = data_sources.build_edge_tts_kws_dataset(
             phrases,
             languages,
@@ -38,6 +39,7 @@ class Engine:
             samples_per_phrase=samples,
             unknown_words=unknown_words,
             reporter=reporter,
+            voices_used=voices_used,
         )
 
         labels: list[dict[str, Any]] = []
@@ -48,14 +50,33 @@ class Engine:
                     "role": "positive",
                     "language": languages[0] if languages else None,
                     "source": "synthetic",
+                    "voices": list(voices_used.get(data_sources._sanitize_label(phrase), [])),
                 }
             )
         for word in unknown_words:
             labels.append(
-                {"name": data_sources._sanitize_label(word), "role": "unknown", "source": "synthetic"}
+                {
+                    "name": data_sources._sanitize_label(word),
+                    "role": "unknown",
+                    "source": "synthetic",
+                    "voices": list(voices_used.get(data_sources._sanitize_label(word), [])),
+                }
             )
         labels.append({"name": "_background_noise_", "role": "noise", "source": "synthetic"})
-        return {"provenance": provenance, "labels": labels}
+        return {
+            "provenance": provenance,
+            "labels": labels,
+            "toolVersions": {"edge-tts": _edge_tts_version()},
+        }
+
+
+def _edge_tts_version() -> str:
+    try:
+        from importlib.metadata import version
+
+        return version("edge-tts")
+    except Exception:  # noqa: BLE001 - dev/test environments without the dist
+        return "unknown"
 
 
 def _as_list(value: Any) -> list[str]:

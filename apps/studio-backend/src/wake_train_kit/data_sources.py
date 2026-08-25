@@ -268,6 +268,7 @@ def build_edge_tts_kws_dataset(
     sample_rate: int = 16000,
     voices: dict[str, list[str]] | None = None,
     reporter: Any = None,
+    voices_used: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     """Build a multi-language `label/*.wav` tree for kws_streaming.
 
@@ -275,6 +276,12 @@ def build_edge_tts_kws_dataset(
     ``unknown_words`` become the "unknown" negatives (their folders are not in
     ``--wanted_words``, so upstream folds them into ``_unknown_``); a few
     silence clips are written to ``_background_noise_``.
+
+    ``voices_used`` (optional caller-owned dict) is filled with the DISTINCT
+    voices actually synthesized per label (name -> ordered list) — the
+    synthetic-to-real gap data the manifest records for the voice-count
+    warning (#209). The return value keeps the provenance-dict contract so
+    the kws-streaming train adapters (web/public copies) stay untouched.
     """
     try:
         import edge_tts  # noqa: F401  (fail fast with a clear error)
@@ -310,6 +317,10 @@ def build_edge_tts_kws_dataset(
                 mp3_to_wav(mp3, label_dir / f"{lang}_{i}.wav", sample_rate)
                 mp3.unlink(missing_ok=True)
                 total += 1
+                if voices_used is not None:
+                    seen = voices_used.setdefault(label, [])
+                    if voice not in seen:
+                        seen.append(voice)
                 if reporter is not None and hasattr(reporter, "progress"):
                     reporter.progress(
                         step=total, total=None, message=f"tts {label}/{lang} clip {i + 1}"
@@ -330,6 +341,10 @@ def build_edge_tts_kws_dataset(
             mp3_to_wav(mp3, label_dir / f"{lang}_0.wav", sample_rate)
             mp3.unlink(missing_ok=True)
             total += 1
+            if voices_used is not None:
+                seen = voices_used.setdefault(label, [])
+                if lang_voices[0] not in seen:
+                    seen.append(lang_voices[0])
             _log(reporter, "info", f"tts negative {label}/{lang}")
 
     # background noise: a couple of silent clips keep augmentation happy

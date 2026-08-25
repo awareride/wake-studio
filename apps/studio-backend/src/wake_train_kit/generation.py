@@ -95,8 +95,14 @@ def build_manifest(
     audio_root: Path,
     provenance: dict[str, Any],
     labels: list[dict[str, Any]],
+    tool_versions: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Assemble the ``dataset.json`` manifest for a generated dataset."""
+    """Assemble the ``dataset.json`` manifest for a generated dataset.
+
+    Reproducibility (#209): ``recipe.seed`` (from params) + ``recipe.toolVersions``
+    (engine toolchain, e.g. edge-tts version) make "regenerate" byte-reproducible
+    — same params + same tool versions → same ``contentHash``.
+    """
     clips = 0
     for label_dir in audio_root.iterdir():
         if label_dir.is_dir():
@@ -127,8 +133,8 @@ def build_manifest(
             "engine": params.get("engine") or "edge-tts",
             "phrases": phrases,
             "languages": languages,
-            "seed": 0,
-            "toolVersions": {},
+            "seed": int(params.get("seed") or 0),
+            "toolVersions": dict(tool_versions or {}),
         },
         "storage": {"backend": f"datasets/{dataset_id}/"},
         "createdAtMs": int(time.time() * 1000),
@@ -174,6 +180,12 @@ def generate_dataset(
 
     if reporter is not None and hasattr(reporter, "progress"):
         reporter.progress(step=3, total=3, progress=1.0, message="assemble")
-    manifest = build_manifest(params, audio_root, provenance, labels)
+    manifest = build_manifest(
+        params,
+        audio_root,
+        provenance,
+        labels,
+        tool_versions=result.get("toolVersions"),
+    )
     zip_path = pack_dataset_zip(audio_root, manifest, work / "wake-studio-dataset.zip")
     return zip_path

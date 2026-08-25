@@ -26,6 +26,8 @@ export interface DatasetActionsProps {
   client: StudioClient | null
   onNew: () => void
   onTrain: (id: string) => void
+  onCheck: (id: string) => void
+  onSplit: (id: string, seed: number) => void
   onUpload: (dataset: ConsoleDataset, input: { target: CloudTarget; repoId: string }) => Promise<void>
   onDownload: (dataset: ConsoleDataset) => Promise<void>
   onDelete: (dataset: ConsoleDataset) => Promise<void>
@@ -36,6 +38,8 @@ export function DatasetActions({
   client,
   onNew,
   onTrain,
+  onCheck,
+  onSplit,
   onUpload,
   onDownload,
   onDelete,
@@ -45,6 +49,7 @@ export function DatasetActions({
     dataset.origin === 'local' ||
     (dataset.origin === 'backend' && !!client) ||
     dataset.origin === 'builtin'
+  const canRunBackendOps = !!client && dataset.origin === 'backend'
 
   const [uploadOpen, setUploadOpen] = useState(false)
   const [target, setTarget] = useState<CloudTarget>('hf')
@@ -88,6 +93,23 @@ export function DatasetActions({
           <Button type="button" size="1" variant="soft" onClick={() => setUploadOpen(true)}>
             Upload to cloud
           </Button>
+          <Button
+            type="button"
+            size="1"
+            variant="soft"
+            disabled={!canRunBackendOps}
+            onClick={() => onCheck(dataset.id)}
+            title={
+              canRunBackendOps
+                ? 'Run the check-dataset quality job (clip quality, silence/duplication, voice coverage) on the studio-backend'
+                : 'Requires a connected studio-backend (backend-stored dataset)'
+            }
+          >
+            Check
+          </Button>
+          {canRunBackendOps && (
+            <SplitButton dataset={dataset} onSplit={onSplit} />
+          )}
           <Button
             type="button"
             size="1"
@@ -226,6 +248,76 @@ export function DatasetActions({
               }}
             >
               Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+/** Split action — the reproducible train/val/test op (#209).
+ *
+ * Prompts for the reproducibility seed (default 0 → recipe.seed parity), then
+ * runs the backend `dataset-split` job which emits a NEW dataset zip with the
+ * partition recorded in its manifest (`split { seed, ratios, train/val/test }`).
+ */
+function SplitButton({
+  dataset,
+  onSplit,
+}: {
+  dataset: ConsoleDataset
+  onSplit: (id: string, seed: number) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [seed, setSeed] = useState('0')
+  const seedNumber = Number.parseInt(seed, 10) || 0
+
+  return (
+    <>
+      <Button
+        type="button"
+        size="1"
+        variant="soft"
+        onClick={() => setOpen(true)}
+        title="Split into a fixed train/val/test partition (reproducible, no leakage) and save it as a new dataset"
+      >
+        Split…
+      </Button>
+      <Dialog open={open} onOpenChange={(o) => !o && setOpen(false)}>
+        <DialogContent centered className="w-[min(92vw,24rem)] p-5">
+          <DialogTitle className="text-sm">Split “{dataset.name}”</DialogTitle>
+          <DialogDescription className="text-xs leading-relaxed text-ink-3">
+            Records a fixed train/val/test partition (80/10/10) in a new dataset’s manifest.
+            Near-duplicate clips stay in one partition — evaluation never sees training data.
+          </DialogDescription>
+          <label htmlFor="split-seed" className="mt-3 block text-xs font-medium text-ink-2">
+            Reproducibility seed
+          </label>
+          <input
+            id="split-seed"
+            inputMode="numeric"
+            value={seed}
+            onChange={(e) => setSeed(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-line bg-surface-1 px-3 py-2 font-mono text-xs text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-8"
+          />
+          <p className="mt-1 text-[11px] text-ink-3">
+            Same dataset + seed → identical partition every time (byte-reproducible).
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button type="button" onClick={() => setOpen(false)} variant="outline" size="2" className="text-xs">
+              Keep
+            </Button>
+            <Button
+              type="button"
+              size="2"
+              className="text-xs"
+              onClick={() => {
+                setOpen(false)
+                onSplit(dataset.id, seedNumber)
+              }}
+            >
+              Split
             </Button>
           </div>
         </DialogContent>

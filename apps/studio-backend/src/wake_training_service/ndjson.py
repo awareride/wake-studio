@@ -7,7 +7,7 @@ from typing import Any
 
 KNOWN_EVENTS = {
     "progress", "metrics", "log", "heartbeat", "checkpoint",
-    "artifact", "error", "done",
+    "artifact", "error", "done", "health",
 }
 
 

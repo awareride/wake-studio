@@ -16,7 +16,7 @@
 
 import type { GenerationExecutor } from './executor'
 
-export type DatasetJobKind = 'generate' | 'storage'
+export type DatasetJobKind = 'generate' | 'storage' | 'check' | 'split'
 
 /** Lifecycle status — the same vocabulary as TrainingJob (ADR-013). */
 export type DatasetJobStatus =
@@ -30,7 +30,7 @@ export type DatasetJobStatus =
 export interface DatasetJob {
   id: string
   kind: DatasetJobKind
-  moduleId: 'dataset-generate' | 'dataset-storage'
+  moduleId: 'dataset-generate' | 'dataset-storage' | 'dataset-check' | 'dataset-split'
   status: DatasetJobStatus
   executor: GenerationExecutor
   /** Snapshot of the params the job ran with. */

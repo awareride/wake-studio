@@ -98,4 +98,61 @@ describe('dataset.json manifest contract (ADR-044 §4.2, task #203)', () => {
     expect(validateDatasetManifest(null).ok).toBe(false)
     expect(validateDatasetManifest('nope').ok).toBe(false)
   })
+
+  // ------------------------------------------------------------------------
+  // quality + split (#209) - mirrors the backend importer's rules
+  // ------------------------------------------------------------------------
+
+  it('accepts a manifest with a quality report + split partition', () => {
+    const m = {
+      ...validManifest(),
+      quality: {
+        checkedAtSec: 1756000000,
+        verdict: 'warn',
+        warnings: [{ code: 'silence', severity: 'warn', message: 'some clips are silent' }],
+      },
+      split: {
+        seed: 7,
+        ratios: [0.8, 0.1, 0.1],
+        train: ['audio/hey_studio/a.wav'],
+        val: [],
+        test: [],
+      },
+    }
+    const r = validateDatasetManifest(m)
+    expect(r.ok).toBe(true)
+    expect(r.errors).toEqual([])
+  })
+
+  it('rejects a bad quality verdict', () => {
+    const m = { ...validManifest(), quality: { verdict: 'nope', warnings: [] } }
+    const r = validateDatasetManifest(m)
+    expect(r.ok).toBe(false)
+    expect(r.errors.join(' ')).toContain('quality.verdict')
+  })
+
+  it('rejects overlapping split partitions (leakage would be untracked)', () => {
+    const m = {
+      ...validManifest(),
+      split: {
+        seed: 0,
+        ratios: [0.8, 0.1, 0.1],
+        train: ['audio/hey_studio/a.wav'],
+        val: ['audio/hey_studio/a.wav'],
+        test: [],
+      },
+    }
+    const r = validateDatasetManifest(m)
+    expect(r.ok).toBe(false)
+    expect(r.errors.join(' ')).toContain('appears in both')
+  })
+
+  it('rejects a malformed split block', () => {
+    const m = {
+      ...validManifest(),
+      split: { seed: 'zero', ratios: [0.8, 0.1], train: [], val: [], test: [] },
+    }
+    const r = validateDatasetManifest(m)
+    expect(r.ok).toBe(false)
+  })
 })

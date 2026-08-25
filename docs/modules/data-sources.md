@@ -403,19 +403,37 @@ storage); a **per-clip audio player** is shown only where reading a single clip 
 Playback reads a single clip on demand and never requires unpacking the whole dataset. Full
 per-trainer materialization (unpack) runs only at train-prep time (§6).
 
-## 9. Quality & reproducibility (v1 priorities)
+## 9. Quality & reproducibility (v1 priorities) — implemented (#209, ADR-044)
 
-1. **Quality gate** - a `check-dataset` job produces a health report: clip counts per label,
-   duration distribution, silence/empty clips, exact duplicates, clipping/distortion, sample-rate
-   drift, label imbalance. Trainers refuse (or warn loudly) when a required label is empty.
-2. **Synthetic-to-real gap** - record distinct voice count per label and `source:
-   real | synthetic` per clip; warn on too-few voices or a 100% synthetic wake-word dataset (TTS
-   overfit risk at inference).
-3. **Dedup + reproducible splits** - exact/near-duplicate detection (perceptual hash) when mixing
-   datasets (no train/eval leakage); a "split dataset" op records a fixed train/val/test
-   partition in the manifest so every backend trains on the same split.
-4. **Reproducibility** - `recipe.seed`, tool versions, and `contentHash`; "regenerate" is
-   byte-reproducible; any silent change bumps `version`.
+1. **Quality gate** — a `dataset-check` job (`wake_train_kit/check_runner.py`, registry entry
+   `dataset-check`) produces a health report (`wake_train_kit/quality.py::check_dataset`): clip
+   counts per label, duration distribution, silence/empty clips, exact duplicates (sha256),
+   clipping, sample-rate drift, label imbalance + voice coverage. Every finding is a structured
+   warning (code + severity) and the verdict is `pass | warn | fail`. The job emits a `health`
+   NDJSON event (full report), writes `wake-studio-dataset-health.json` (artifact), and records
+   the **verdict + warnings into the manifest as `quality`** (a silent change — the dataset
+   `version` bumps, §9.4). The Datasets console renders the verdict/warnings from the manifest
+   (Actions → **Check**, backend-stored datasets). Trainers refuse (or warn loudly) when a
+   required label is empty — `validate_datasets` + the importer's empty-label rejection (SS6).
+2. **Synthetic-to-real gap** — labels carry distinct `voices[]` + `source: real|synthetic`
+   (generation adapters record the voices they used). The health check warns on positive labels
+   with < 2 voices (`too-few-voices`) and on 100%-synthetic wake-word datasets
+   (`all-synthetic-positive`); the console shows the voice counts per label.
+3. **Dedup + reproducible splits** — exact/near-duplicate detection (sha256 + perceptual
+   features: windowed amplitude envelope + zero-crossing-rate pitch cue, cosine ≥ 0.99 +
+   pitch tolerance ≤ 10%) when mixing datasets; materializers **warn loudly** (never silently
+   drop) via `_scan_duplicate_warnings`. A `dataset-split` job (registry entry `dataset-split`,
+   `split_runner.py`) records a fixed seeded train/val/test partition in the manifest as
+   `split {seed, ratios, train/val/test}` (canonical `audio/<label>/<clip>` refs). Near-duplicate
+   clips stay in ONE partition (union-find clustering) so evaluation never sees training data.
+   Every backend materializes the same split (SS6 consumers read `manifest.split`). Console:
+   Actions → **Split…** (seed picker).
+4. **Reproducibility** — `recipe.seed`, `recipe.toolVersions` (engine toolchain, e.g.
+   `edge-tts` version) and `contentHash`; regenerate is byte-reproducible (existing generation
+   is order-deterministic); any silent change bumps `version` + recomputes `contentHash`.
+
+The manifest contract (web `core/spec.ts` + backend `dataset.py`, byte-identical validation)
+adds the optional `quality` (`DatasetQuality`) and `split` (`DatasetSplit`) blocks.
 
 ## 10. Provenance chain to the export gate
 
@@ -506,3 +524,4 @@ license/provenance log shown in-app before export. The Datasets console shows th
 | 2026-08-20 | **#208 — Datasets console (web, ADR-044 §8):** top-level `Datasets` nav + `#/datasets` route; list-detail console (rail = built-ins + backend store + browser-local store; details = manifest/provenance/storage/quality-report); generation wizard with the **two-executor decision locked** (§8.1 — engine `runtime` + studio-backend connectivity picks browser vs backend executor); browser executor (fetch TTS → Web Audio → canonical zip → HF direct push) + backend executor (`dataset-generate` job with reused Training NDJSON job UI); actions New/Train-with/Upload/Download/Delete (`GET/DELETE /datasets/{id}` backend routes); Training `datasets[]` picker fed from the same consolidated store. Follow-up fix: `pyproject.toml` force-include path for `builtins.json` was relative to `apps/studio-backend` (broke the wheel build) — corrected to `../../packages/...`. | agent |
 | 2026-08-20 | **Storage & on-disk form (ADR-045, human discussion):** canonical form made HF-recognized — contents ARE the HF `AudioFolder` layout + **derived** `metadata.csv` / `README.md` exported from `dataset.json` (single source of truth, never drift). Two storage forms: **zip** (portable) and **unpacked directory** (live), a pure archive/unzip apart. **IndexedDB metadata-only** (no file bytes); browser-local bytes move to **OPFS**. **No eager auto-unpack on import** (large-dataset size concern); materialize stays deferred to train-prep. **Listenability = per-clip random access** (local dir / cloud dir / local zip via single-entry extract ✓; remote single zip blob ✗); console gains a gated per-clip player (spec §8.3). | agent |
 | 2026-08-25 | **#210 — provenance chain to the export gate:** dataset `commercialUse` flags **inherit** into trained bundles. `materialize.inherited_provenance` computes the bundle `provenance.json` (license flips `user-owned` → `research-only`, `commercialUse=false`, `restrictedBy` lists the restricting datasets); `materialize.dataset_refs_from_manifests` records per-dataset id/name/version + license flags in `metadata.datasetRefs` (both kws-streaming + openwakeword adapters, lazy materialize import on legacy paths). Web: bundle importer parses `commercialUse`/`restrictedBy` + `isCommerciallyExportable` (the Phase 4 export-gate input); colab-import surfaces the inherited restriction in-app. Tests: 5 backend inheritance + 4 adapter e2e (research-only dataset) + 5 TS. | agent |
+| 2026-08-25 | **#209 — quality gate & reproducibility (ADR-044 §9):** `wake_train_kit/quality.py` — health report (`check_dataset`: per-label counts/duration/silence/clipping/sample-rate drift/exact+near dups/voice coverage, structured warnings + `pass|warn|fail` verdict), dependency-free perceptual features (envelope cosine ≥ 0.99 + zcr pitch tolerance ≤ 10%), union-find near-dup clustering, in-place exact dedup, and the seeded `split_dataset` (near-dup clusters stay in ONE partition — no train/eval leakage). Jobs: `dataset-check` + `dataset-split` registry entries (`check_runner.py`/`split_runner.py`), `health` NDJSON event, `wake-studio-dataset-health.json` artifact, manifest `quality` block (verdict + warnings, version bump on silent change) + `split` block (seed/ratios/train/val/test refs); `DATASETS_DIR` injected into job env. Manifest contract web+backend gains optional `quality`/`split` (byte-identical validation). Reproducibility: generation records `recipe.seed` + `recipe.toolVersions` (edge-tts adapter emits engine version, voices per label). Materializers warn loudly on mix-time duplicates (`_scan_duplicate_warnings`). Console: Check/Split actions (backend jobs), quality panel renders verdict/warnings + split summary, job rail labels check/split. Tests: 17 quality + 6 runner/registry + manifest validation (backend + TS), dedup at mix time. | agent |

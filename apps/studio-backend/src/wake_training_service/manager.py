@@ -249,6 +249,9 @@ class JobManager:
         if job.checkpoint:
             env["WAKE_RESUME"] = "1"
             env["WAKE_CHECKPOINT"] = job.checkpoint
+        if self.datasets_dir is not None:
+            # dataset-* runners resolve the durable store via DATASETS_DIR
+            env["DATASETS_DIR"] = str(self.datasets_dir)
 
         proc = await asyncio.create_subprocess_exec(
             *cmd,
