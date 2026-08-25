@@ -247,8 +247,16 @@ def build_bundle(
     out_root: str | Path,
     log_text: str,
     reporter: Reporter,
+    dataset_sources: list[dict[str, Any]] | None = None,
+    dataset_refs: list[dict[str, Any]] | None = None,
 ) -> Path:
-    """Normalize the run into the standard bundle (§6) and zip it."""
+    """Normalize the run into the standard bundle (§6) and zip it.
+
+    ``dataset_sources`` / ``dataset_refs`` come from the wizard's ``datasets[]``
+    path (#206): the bundle provenance INHERITS the consumed datasets'
+    commercial restriction (#210), and metadata records the dataset refs +
+    license flags for the provenance chain.
+    """
     work_dir = Path(work_dir)
     model_name = config["model_name"]
     model_dir = work_dir / config.get("output_dir", "./my_custom_model")
@@ -297,19 +305,39 @@ def build_bundle(
         },
         "formats": {"requested": requested, "shipped": shipped},
         "labels": labels,
+        # #210: the consumed dataset refs + their license/commercialUse flags
+        # (auditable provenance chain into the export gate).
+        "datasetRefs": dataset_refs or None,
         "trainedAtMs": int(time.time() * 1000),
     }
     (bundle_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
-    provenance = {
-        "license": "user-owned",
-        "sourceData": [
-            {"name": "piper-sample-generator synthetic speech", "license": "MIT (code); Piper voice model license", "source": "https://github.com/rhasspy/piper-sample-generator"},
-            {"name": "openWakeWord feature extractors (frozen)", "license": "Apache-2.0", "source": "https://github.com/dscripka/openWakeWord"},
-            {"name": "background audio (AudioSet / FMA samples)", "license": "research-use; verify before commercial deployment", "source": "https://huggingface.co/datasets/agkphysics/AudioSet, https://huggingface.co/datasets/rudraml/fma"},
-        ],
-        "notes": "Trained from synthetic TTS audio + precomputed openWakeWord features. The classifier is user-owned; pre-trained openWakeWord models (CC BY-NC-SA) are NOT bundled.",
-    }
+    # #210: the trained model INHERITS the dataset's commercial restriction.
+    # With the wizard's datasets[] path the sources come from the consumed
+    # datasets; the legacy defaults (synthetic TTS + openWakeWord features +
+    # research-use background) apply only when no dataset was consumed. The
+    # materialize import stays lazy so the legacy path runs without it.
+    if dataset_sources:
+        mat = _import_materialize()
+        provenance = mat.inherited_provenance(
+            dataset_sources,
+            notes=(
+                "Trained from synthetic TTS audio + precomputed openWakeWord "
+                "features. The classifier is user-owned; pre-trained openWakeWord "
+                "models (CC BY-NC-SA) are NOT bundled."
+            ),
+        )
+    else:
+        provenance = {
+            "license": "user-owned",
+            "commercialUse": True,
+            "sourceData": [
+                {"name": "piper-sample-generator synthetic speech", "license": "MIT (code); Piper voice model license", "source": "https://github.com/rhasspy/piper-sample-generator"},
+                {"name": "openWakeWord feature extractors (frozen)", "license": "Apache-2.0", "source": "https://github.com/dscripka/openWakeWord"},
+                {"name": "background audio (AudioSet / FMA samples)", "license": "research-use; verify before commercial deployment", "source": "https://huggingface.co/datasets/agkphysics/AudioSet, https://huggingface.co/datasets/rudraml/fma"},
+            ],
+            "notes": "Trained from synthetic TTS audio + precomputed openWakeWord features. The classifier is user-owned; pre-trained openWakeWord models (CC BY-NC-SA) are NOT bundled.",
+        }
     (bundle_dir / "provenance.json").write_text(json.dumps(provenance, indent=2), encoding="utf-8")
 
     config_snapshot = {
@@ -405,8 +433,16 @@ def main(argv: list[str] | None = None) -> int:
             return code
 
     try:
-        bundle_zip = build_bundle(params, config, work_dir, out_root,
-                                  "\n".join(log_lines), reporter)
+        bundle_zip = build_bundle(
+            params,
+            config,
+            work_dir,
+            out_root,
+            "\n".join(log_lines),
+            reporter,
+            dataset_sources=materialized.sources if materialized is not None else None,
+            dataset_refs=materialized.dataset_refs if materialized is not None else None,
+        )
     except Exception as exc:  # noqa: BLE001
         reporter.emit("error", message=f"bundle error: {exc}")
         return 1
