@@ -29,8 +29,12 @@ STUDIO_SRC = Path(__file__).resolve().parents[6] / "apps" / "studio-backend" / "
 sys.path.insert(0, str(STUDIO_SRC))
 
 
-def build_dataset_zip(tmp_path: Path, dataset_id: str = "ds-1") -> Path:
-    """A canonical wake-studio-dataset.zip (role-positive/unknown/noise)."""
+def build_dataset_zip(tmp_path: Path, dataset_id: str = "ds-1", commercial_use: bool = True) -> Path:
+    """A canonical wake-studio-dataset.zip (role-positive/unknown/noise).
+
+    ``commercial_use=False`` builds a research-only dataset (provenance
+    ``commercialUse: false``) to exercise the #210 inheritance path.
+    """
     import io
     import json
     import zipfile
@@ -49,7 +53,7 @@ def build_dataset_zip(tmp_path: Path, dataset_id: str = "ds-1") -> Path:
             {"name": "_unknown", "role": "unknown"},
             {"name": "noise", "role": "noise"},
         ],
-        "provenance": [{"name": "edge-tts synthetic", "license": "user-owned", "commercialUse": True}],
+        "provenance": [{"name": "edge-tts synthetic" if commercial_use else "research corpus", "license": "user-owned" if commercial_use else "CC BY-NC-SA 4.0", "commercialUse": commercial_use}],
         "createdAtMs": 1700000000000,
     }
     clips = {
@@ -324,6 +328,48 @@ def test_end_to_end_adapter_with_datasets(tmp_path):
     assert provenance["sourceData"][0]["name"] == "edge-tts synthetic"
 
 
+def test_end_to_end_adapter_inherits_research_restriction(tmp_path):
+    """#210: a research-only dataset (commercialUse=false) makes the trained
+    bundle non-commercially-exportable — provenance.json inherits the
+    restriction and metadata records the dataset refs + license flags."""
+    from wake_train_kit.dataset_store import DatasetStore
+
+    store_dir = tmp_path / "datasets"
+    store = DatasetStore(store_dir)
+    store.save(build_dataset_zip(tmp_path, commercial_use=False))
+
+    work = tmp_path / "work"
+    out = tmp_path / "out"
+    work.mkdir()
+    res, events = run_adapter(
+        work,
+        FAKE_UPSTREAM,
+        out,
+        {
+            "STREAM_DATASETS": "ds-1",
+            "DATASETS_DIR": str(store_dir),
+            "STREAM_BACKEND": "self-hosted",
+            "PYTHONPATH": str(STUDIO_SRC),
+        },
+    )
+    assert res.returncode == 0, res.stderr
+
+    artifact = next(e for e in events if e["event"] == "artifact")
+    bundle = Path(artifact["path"]).parent
+
+    provenance = json.loads((bundle / "provenance.json").read_text())
+    assert provenance["license"] == "research-only"
+    assert provenance["commercialUse"] is False
+    assert provenance["restrictedBy"] == ["research corpus"]
+    assert provenance["sourceData"][0]["name"] == "research corpus"
+
+    metadata = json.loads((bundle / "metadata.json").read_text())
+    assert metadata["datasetRefs"] == [
+        {"id": "ds-1", "name": "wake-words", "version": 1,
+         "license": "CC BY-NC-SA 4.0", "commercialUse": False}
+    ]
+
+
 def test_read_params_datasets_env():
     from train_adapter import read_params
 
@@ -453,8 +499,9 @@ def test_prepare_data_mixed_edge_tts_plus_sc2(monkeypatch, tmp_path):
         def emit(self, event, **fields):
             pass
 
-    data_dir, sources, wanted = train_adapter.prepare_data(params, tmp_path, R())
+    data_dir, sources, wanted, refs = train_adapter.prepare_data(params, tmp_path, R())
     assert wanted == "hey_studio"
+    assert refs == []  # legacy dataSource paths record no dataset refs
     assert len(sources) == 2
     assert sources[0]["commercialUse"] is True  # edge-tts
     assert sources[1]["commercialUse"] is True  # sc2
@@ -494,8 +541,9 @@ def test_prepare_data_mixed_negative_none(monkeypatch, tmp_path):
         def emit(self, event, **fields):
             pass
 
-    data_dir, sources, wanted = train_adapter.prepare_data(params, tmp_path, R())
+    data_dir, sources, wanted, refs = train_adapter.prepare_data(params, tmp_path, R())
     assert wanted == "hey_studio"
+    assert refs == []
     assert len(sources) == 1
     assert (Path(data_dir) / "hey_studio").is_dir()
     """The edge-tts source builds the label tree + derives wanted words."""
@@ -518,10 +566,11 @@ def test_prepare_data_mixed_negative_none(monkeypatch, tmp_path):
         def emit(self, event, **fields):
             pass
 
-    data_dir, sources, wanted = train_adapter.prepare_data(
+    data_dir, sources, wanted, refs = train_adapter.prepare_data(
         params, tmp_path, R()
     )
     assert wanted == "hey_studio,ok_studio"
+    assert refs == []
     assert sources[0]["commercialUse"] is True
     assert (Path(data_dir) / "hey_studio").is_dir()
 
@@ -550,8 +599,9 @@ def test_prepare_data_user_url(monkeypatch, tmp_path):
         def emit(self, event, **fields):
             pass
 
-    data_dir, sources, wanted = train_adapter.prepare_data(params, tmp_path, R())
+    data_dir, sources, wanted, refs = train_adapter.prepare_data(params, tmp_path, R())
     assert wanted == "up,down"
+    assert refs == []
     assert sources[0]["commercialUse"] is False
     assert (Path(data_dir) / "up").is_dir()
 

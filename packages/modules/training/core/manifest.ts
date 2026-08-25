@@ -28,6 +28,14 @@ export interface ArtifactProvenance {
   license: 'user-owned' | string
   sourceData?: Array<{ name: string; license: string; source: string }>
   notes?: string
+  /**
+   * Inherited commercial flag (#210). `false` when any consumed dataset is
+   * research-only — the trained model is then NOT commercially exportable.
+   * Absent on pre-#210 bundles (fall back to `license === 'user-owned'`).
+   */
+  commercialUse?: boolean
+  /** Names of the consumed datasets/sources that restricted commercial use (#210). */
+  restrictedBy?: string[]
 }
 
 /** The standard bundle layout (wake-studio-results/<job-id>/). */
@@ -100,7 +108,23 @@ export function validateBundle(bundle: Partial<ArtifactBundle>): bundle is Artif
   )
 }
 
-/** Whether a bundle carries a model file (model.onnx | model.tflite). */
+/**
+ * Whether a trained bundle is commercially exportable (#210).
+ *
+ * The Phase 4 export gate input: the bundle's provenance.json INHERITS the
+ * restriction from any consumed dataset with `commercialUse: false` (a
+ * research-only dataset makes the whole model non-commercially-exportable).
+ * Pre-#210 bundles carry no `commercialUse`; fall back to the historical
+ * `license === 'user-owned'` convention.
+ */
+export function isCommerciallyExportable(prov: ArtifactProvenance): boolean {
+  if (prov.commercialUse === false) return false
+  if ((prov.restrictedBy ?? []).length > 0) return false
+  return prov.license === 'user-owned'
+}
+
+/**
+ * Whether a bundle carries a model file (model.onnx | model.tflite). */
 export function hasBundleModel(bundle: ArtifactBundle): boolean {
   return !!bundle.files.model
 }
@@ -282,6 +306,16 @@ export async function importColabBundle(
         license,
         sourceData: provenance.sourceData,
         notes: provenance.notes,
+        // #210: the inherited restriction (absent on pre-#210 bundles).
+        commercialUse:
+          typeof provenance.commercialUse === 'boolean'
+            ? provenance.commercialUse
+            : undefined,
+        restrictedBy:
+          Array.isArray(provenance.restrictedBy) &&
+          provenance.restrictedBy.every((r) => typeof r === 'string')
+            ? provenance.restrictedBy
+            : undefined,
       },
       configSnapshot: config,
     },

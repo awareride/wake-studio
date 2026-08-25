@@ -25,8 +25,12 @@ STUDIO_SRC = Path(__file__).resolve().parents[6] / "apps" / "studio-backend" / "
 sys.path.insert(0, str(STUDIO_SRC))
 
 
-def build_dataset_zip(tmp_path: Path, dataset_id: str = "ds-1") -> Path:
-    """A canonical wake-studio-dataset.zip (role-positive/unknown/noise)."""
+def build_dataset_zip(tmp_path: Path, dataset_id: str = "ds-1", commercial_use: bool = True) -> Path:
+    """A canonical wake-studio-dataset.zip (role-positive/unknown/noise).
+
+    ``commercial_use=False`` builds a research-only dataset (provenance
+    ``commercialUse: false``) to exercise the #210 inheritance path.
+    """
     import io
     import zipfile
 
@@ -44,7 +48,7 @@ def build_dataset_zip(tmp_path: Path, dataset_id: str = "ds-1") -> Path:
             {"name": "_unknown", "role": "unknown"},
             {"name": "noise", "role": "noise"},
         ],
-        "provenance": [{"name": "edge-tts synthetic", "license": "user-owned", "commercialUse": True}],
+        "provenance": [{"name": "edge-tts synthetic" if commercial_use else "research corpus", "license": "user-owned" if commercial_use else "CC BY-NC-SA 4.0", "commercialUse": commercial_use}],
         "createdAtMs": 1700000000000,
     }
     clips = {
@@ -246,6 +250,48 @@ def test_end_to_end_adapter_with_datasets(tmp_path):
     metadata = json.loads((bundle / "metadata.json").read_text())
     assert metadata["params"]["datasets"] == "ds-1"
     assert metadata["labels"] == ["hey_studio"]
+
+
+def test_end_to_end_adapter_inherits_research_restriction(tmp_path):
+    """#210: a research-only dataset (commercialUse=false) makes the trained
+    bundle non-commercially-exportable — provenance.json inherits the
+    restriction and metadata records the dataset refs + license flags."""
+    from wake_train_kit.dataset_store import DatasetStore
+
+    store_dir = tmp_path / "datasets"
+    store = DatasetStore(store_dir)
+    store.save(build_dataset_zip(tmp_path, commercial_use=False))
+
+    work = tmp_path / "work"
+    out = tmp_path / "out"
+    work.mkdir()
+    res, events = run_adapter(
+        work,
+        FAKE_UPSTREAM,
+        out,
+        {
+            "WAKE_DATASETS": "ds-1",
+            "DATASETS_DIR": str(store_dir),
+            "WAKE_BACKEND": "self-hosted",
+            "PYTHONPATH": os.pathsep.join([str(STUDIO_SRC), str(FAKE_FEATURES)]),
+        },
+    )
+    assert res.returncode == 0, res.stderr
+
+    artifact = next(e for e in events if e["event"] == "artifact")
+    bundle = Path(artifact["path"]).parent
+
+    provenance = json.loads((bundle / "provenance.json").read_text())
+    assert provenance["license"] == "research-only"
+    assert provenance["commercialUse"] is False
+    assert provenance["restrictedBy"] == ["research corpus"]
+    assert provenance["sourceData"][0]["name"] == "research corpus"
+
+    metadata = json.loads((bundle / "metadata.json").read_text())
+    assert metadata["datasetRefs"] == [
+        {"id": "ds-1", "name": "wake-words", "version": 1,
+         "license": "CC BY-NC-SA 4.0", "commercialUse": False}
+    ]
 
 
 def test_missing_upstream_fails_cleanly(tmp_path):

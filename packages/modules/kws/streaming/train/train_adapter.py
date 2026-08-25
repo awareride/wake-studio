@@ -205,18 +205,23 @@ def _module_train_dataset_spec() -> dict[str, Any]:
 
 def prepare_data(
     params: dict[str, Any], work_dir: Path, reporter: Reporter
-) -> tuple[str, list[dict[str, Any]], str]:
-    """Prepare the `label/*.wav` tree. -> (data_dir, provenance, wanted_words).
+) -> tuple[str, list[dict[str, Any]], str, list[dict[str, Any]]]:
+    """Prepare the `label/*.wav` tree.
+
+    -> (data_dir, provenance_sources, wanted_words, dataset_refs).
 
     When `datasets[]` is set (the wizard's dataset picker, #206) the data comes
     from the Datasets store: load refs → materialize → merge roles
-    (wake_train_kit.materialize, reusing the #158 collision rules). The legacy
-    `dataSource` selector remains for back-compat (tests / pre-existing jobs);
-    the wizard no longer renders it.
+    (wake_train_kit.materialize, reusing the #158 collision rules). `sources`
+    feeds the inherited `provenance.json` (#210); `dataset_refs` records the
+    consumed dataset ids + license/commercialUse flags in training metadata
+    (also #210). The legacy `dataSource` selector remains for back-compat
+    (tests / pre-existing jobs); the wizard no longer renders it.
     """
     source = params["dataSource"]
     wanted = params["wantedWords"]
     sources: list[dict[str, Any]] = []
+    dataset_refs: list[dict[str, Any]] = []
 
     if params.get("datasets"):
         mat = _import_materialize()
@@ -236,10 +241,11 @@ def prepare_data(
         for warning in result.warnings:
             reporter.emit("log", level="warn", message=f"dataset: {warning}")
         sources = result.sources
+        dataset_refs = result.dataset_refs
         # wanted words = the materialized positive labels, overridable to a
         # subset via `wantedWords` (empty = every positive label).
         wanted = params["wantedWords"] if params.get("wantedWords") else result.wanted_words
-        return str(result.data_dir), sources, wanted
+        return str(result.data_dir), sources, wanted, dataset_refs
 
     if source == "local-dir":
         data_dir = Path(params["dataDir"])
@@ -248,19 +254,19 @@ def prepare_data(
         data_dir = data_dir.resolve()
         if not data_dir.is_dir():
             raise FileNotFoundError(f"local data dir not found: {data_dir}")
-        return str(data_dir), sources, wanted
+        return str(data_dir), sources, wanted, dataset_refs
 
     ds = _import_data_sources()
 
     if source == "speech-commands-v2":
         root, prov = ds.prepare_speech_commands_v2(work_dir / "data2", reporter)
         sources.append(prov)
-        return str(root), sources, wanted
+        return str(root), sources, wanted, dataset_refs
 
     if source == "user-url":
         root, prov = ds.prepare_user_archive(params["dataUrl"], work_dir / "data", reporter)
         sources.append(prov)
-        return str(root), sources, wanted
+        return str(root), sources, wanted, dataset_refs
 
     if source == "edge-tts":
         phrases = [p.strip() for p in params["wakePhrases"].split(",") if p.strip()]
@@ -275,7 +281,7 @@ def prepare_data(
         )
         sources.append(prov)
         wanted = ",".join(_sanitize_label(p) for p in phrases)
-        return str(out), sources, wanted
+        return str(out), sources, wanted, dataset_refs
 
     if source == "mixed":
         # positives come from the positive source (edge-tts today; user-url /
@@ -327,7 +333,7 @@ def prepare_data(
             raise ValueError(f"mixed: unsupported negativeSource '{negative_source}'")
 
         merged = ds.merge_label_trees(pos_root, neg_root, work_dir / "data_mixed")
-        return str(merged), sources, wanted
+        return str(merged), sources, wanted, dataset_refs
 
     raise ValueError(f"unknown dataSource '{source}'")
 
@@ -426,6 +432,7 @@ def build_bundle(
     log_text: str,
     reporter: Reporter,
     data_dir: str | None = None,
+    dataset_refs: list[dict[str, Any]] | None = None,
 ) -> Path:
     """Normalize the upstream run dir into the standard bundle (§6) and zip it.
 
@@ -509,22 +516,42 @@ def build_bundle(
             "shipped": shipped,
         },
         "labels": labels or None,
+        # #210: the consumed dataset refs + their license/commercialUse flags
+        # (auditable provenance chain into the export gate).
+        "datasetRefs": dataset_refs or None,
         "trainedAtMs": int(time.time() * 1000),
     }
     (bundle_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
-    provenance = {
-        "license": "user-owned",
-        "sourceData": sources or [
-            {"name": "Google Speech Commands V2", "license": "CC BY 4.0",
-             "source": "https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz"}
-        ],
-        "notes": (
-            "Classifier trained from the Apache-2.0 google-research/kws_streaming "
-            "code (no restricted pre-trained weights). The model is commercially "
-            "ownable; verify any user-provided dataset license before commercial use."
-        ),
-    }
+    # #210: the trained model INHERITS the dataset's commercial restriction.
+    # `inherited_provenance` flips the bundle license to research-only and
+    # lists `restrictedBy` when any consumed dataset is not commercially
+    # usable, so the Phase 4 export gate is honest without manual review. The
+    # materialize import stays lazy so legacy dataSource paths run without it.
+    if sources:
+        mat = _import_materialize()
+        provenance = mat.inherited_provenance(
+            sources,
+            notes=(
+                "Classifier trained from the Apache-2.0 google-research/"
+                "kws_streaming code (no restricted pre-trained weights). Verify "
+                "any user-provided dataset license before commercial use."
+            ),
+        )
+    else:
+        provenance = {
+            "license": "user-owned",
+            "commercialUse": True,
+            "sourceData": [
+                {"name": "Google Speech Commands V2", "license": "CC BY 4.0",
+                 "source": "https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz"}
+            ],
+            "notes": (
+                "Classifier trained from the Apache-2.0 google-research/"
+                "kws_streaming code (no restricted pre-trained weights). Verify "
+                "any user-provided dataset license before commercial use."
+            ),
+        }
     (bundle_dir / "provenance.json").write_text(json.dumps(provenance, indent=2), encoding="utf-8")
 
     config_snapshot = {
@@ -696,7 +723,7 @@ def main(argv: list[str] | None = None) -> int:
     reporter.emit("progress", step=1, total=len(STAGES), progress=1 / len(STAGES),
                   message="prepare_data")
     try:
-        data_dir, sources, wanted = prepare_data(params, work_dir, reporter)
+        data_dir, sources, wanted, dataset_refs = prepare_data(params, work_dir, reporter)
     except Exception as exc:  # noqa: BLE001
         reporter.emit("error", message=f"data error: {exc}")
         return 1
@@ -725,6 +752,7 @@ def main(argv: list[str] | None = None) -> int:
             params, wanted, train_dir, out_root, sources,
             "\n".join(log_lines), reporter,
             data_dir=data_dir,
+            dataset_refs=dataset_refs,
         )
     except Exception as exc:  # noqa: BLE001
         reporter.emit("error", message=f"bundle error: {exc}")

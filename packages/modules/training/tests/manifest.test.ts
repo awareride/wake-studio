@@ -5,6 +5,7 @@ import {
   hasBundleModel,
   importColabBundle,
   importResultBundle,
+  isCommerciallyExportable,
   BundleImportError,
   BUNDLE_IMPORT_ERROR_MESSAGES,
 } from '../core/manifest'
@@ -97,6 +98,8 @@ function colabZip(opts: {
   withMetadata?: boolean
   prefix?: boolean
   labels?: string[] | unknown
+  commercialUse?: boolean
+  restrictedBy?: string[]
 } = {}): Uint8Array {
   const {
     jobId = 'kws-openwakeword-123',
@@ -107,6 +110,8 @@ function colabZip(opts: {
     withMetadata = true,
     prefix = true,
     labels,
+    commercialUse,
+    restrictedBy,
   } = opts
   const files: Record<string, Uint8Array> = {}
   const put = (name: string, obj: unknown) => {
@@ -126,6 +131,9 @@ function colabZip(opts: {
   if (withProvenance) {
     put('provenance.json', {
       license,
+      // #210: the inherited restriction (optional; absent on pre-#210 bundles).
+      ...(commercialUse === undefined ? {} : { commercialUse }),
+      ...(restrictedBy ? { restrictedBy } : {}),
       sourceData: [{ name: 'piper-sample-generator synthetic speech', license: 'MIT', source: 'https://github.com/rhasspy/piper-sample-generator' }],
       notes: 'Trained from synthetic TTS audio.',
     })
@@ -259,5 +267,52 @@ describe('importColabBundle (the PWA Colab-results importer)', () => {
       expect(err).toBeInstanceOf(BundleImportError)
       expect((err as BundleImportError).code).toBe('missing-provenance')
     }
+  })
+})
+
+describe('provenance inheritance / export gate input (#210)', () => {
+  it('imports the inherited commercialUse + restrictedBy from provenance.json', async () => {
+    const zip = colabZip({
+      license: 'research-only',
+      commercialUse: false,
+      restrictedBy: ['research corpus'],
+    })
+    const bundle = await importColabBundle(zip)
+    expect(bundle.files.provenance.commercialUse).toBe(false)
+    expect(bundle.files.provenance.restrictedBy).toEqual(['research corpus'])
+    expect(bundle.files.provenance.license).toBe('research-only')
+    expect(isCommerciallyExportable(bundle.files.provenance)).toBe(false)
+  })
+
+  it('leaves the inherited fields undefined on pre-#210 bundles', async () => {
+    const zip = colabZip() // no commercialUse / restrictedBy
+    const bundle = await importColabBundle(zip)
+    expect(bundle.files.provenance.commercialUse).toBeUndefined()
+    expect(bundle.files.provenance.restrictedBy).toBeUndefined()
+    // fall back to the historical user-owned convention
+    expect(isCommerciallyExportable(bundle.files.provenance)).toBe(true)
+  })
+
+  it('isCommerciallyExportable: user-owned is exportable', () => {
+    expect(isCommerciallyExportable({ license: 'user-owned' })).toBe(true)
+    expect(
+      isCommerciallyExportable({ license: 'user-owned', commercialUse: true }),
+    ).toBe(true)
+  })
+
+  it('isCommerciallyExportable: a research-only dataset restricts the whole model', () => {
+    expect(
+      isCommerciallyExportable({ license: 'research-only', commercialUse: false }),
+    ).toBe(false)
+    expect(
+      isCommerciallyExportable({
+        license: 'user-owned',
+        commercialUse: false,
+        restrictedBy: ['research corpus'],
+      }),
+    ).toBe(false)
+    expect(
+      isCommerciallyExportable({ license: 'user-owned', restrictedBy: ['nc-sa'] }),
+    ).toBe(false)
   })
 })

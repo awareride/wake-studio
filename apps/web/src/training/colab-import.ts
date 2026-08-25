@@ -67,11 +67,20 @@ export async function registerColabBundle(
       : String(metaParams.wakePhrase ?? metaParams.wakePhrases ?? '')
   const jobId = bundle.jobId
   const license = bundle.files.provenance.license
+  // #210: the inherited restriction from any consumed research-only dataset
+  // (absent on pre-#210 bundles). Surfaced in-app so the Phase 4 export gate
+  // input is honest — a restricted model is not commercially exportable.
+  const prov = bundle.files.provenance
+  const restricted =
+    prov.commercialUse === false || (prov.restrictedBy ?? []).length > 0
+  const restrictedNote = restricted
+    ? ` · RESTRICTED: not commercially exportable (research-only dataset: ${(prov.restrictedBy ?? []).join(', ') || 'unknown'})`
+    : ''
 
   const model = await importModelFile(
     file,
     'classifier',
-    `Imported from Colab bundle ${jobId} (license: ${license})`,
+    `Imported from ${bundle.files.metadata.backend} bundle ${jobId} (license: ${license})${restrictedNote}`,
   )
 
   const artifact = await saveProvisionArtifact(
@@ -84,7 +93,7 @@ export async function registerColabBundle(
     },
     {
       name: phrase ? `Trained “${phrase}”` : `Trained model · ${jobId}`,
-      notes: `Colab bundle ${jobId} · license ${license} · provenance feeds the Phase 4 export gate`,
+      notes: `Imported from ${bundle.files.metadata.backend} bundle ${jobId} · license ${license}${restrictedNote} · provenance feeds the Phase 4 export gate`,
     },
   )
 

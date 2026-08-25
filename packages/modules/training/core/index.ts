@@ -16,6 +16,7 @@ export {
   hasBundleModel,
   importColabBundle,
   importResultBundle,
+  isCommerciallyExportable,
   BundleImportError,
   type BundleImportErrorCode,
   BUNDLE_IMPORT_ERROR_MESSAGES,

@@ -60,6 +60,94 @@ def _log(reporter: Any, level: str, message: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Provenance inheritance (#210)
+#
+# Dataset `commercialUse` flags inherit into any model trained on the dataset
+# (docs/modules/data-sources.md §10): training metadata records the dataset
+# refs + license flags, and the trained bundle's `provenance.json` carries the
+# inherited restriction so the Phase 4 export gate is honest without manual
+# review. A research-only dataset makes the model non-commercially-exportable.
+# ---------------------------------------------------------------------------
+
+#: The canonical trained-bundle license when a consumed dataset restricts
+#: commercial use. Anything other than ``user-owned`` marks the model as not
+#: commercially exportable (the Phase 4 export gate reads ``commercialUse``).
+INHERITED_RESTRICTED_LICENSE = "research-only"
+
+
+def commercial_use_from_sources(
+    sources: list[dict[str, Any]],
+) -> tuple[bool, list[dict[str, Any]]]:
+    """Partition dataset sources into commercially-clean vs restricting (#210).
+
+    A trained model **inherits** a non-commercial restriction from ANY consumed
+    source whose ``provenance.commercialUse`` is ``false``. Returns
+    ``(all_commercial, restricted_sources)`` — ``all_commercial`` is ``True``
+    only when no consumed source restricts commercial use.
+    """
+    restricted = [s for s in sources if s.get("commercialUse") is False]
+    return len(restricted) == 0, restricted
+
+
+def inherited_provenance(
+    sources: list[dict[str, Any]],
+    *,
+    default_source_data: list[dict[str, Any]] | None = None,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """Compute the trained-bundle ``provenance.json`` from consumed sources.
+
+    The bundle **inherits** the restriction (#210): when any consumed dataset
+    is not commercially usable, ``license`` flips from ``user-owned`` to
+    ``research-only``, ``commercialUse`` is ``false`` and the restricting
+    sources are listed in ``restrictedBy`` so the Phase 4 export gate blocks
+    export without manual review. When every source is commercial (or no
+    dataset sources were consumed) the model stays ``user-owned``.
+    """
+    commercial, restricted = commercial_use_from_sources(sources)
+    provenance: dict[str, Any] = {
+        "license": "user-owned" if commercial else INHERITED_RESTRICTED_LICENSE,
+        "commercialUse": commercial,
+        "sourceData": sources or default_source_data or [],
+    }
+    if restricted:
+        provenance["restrictedBy"] = [
+            s.get("name", "unknown source") for s in restricted
+        ]
+    if notes:
+        provenance["notes"] = notes
+    return provenance
+
+
+def dataset_refs_from_manifests(
+    manifests: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Per-dataset training metadata: id/name/version + inherited license flags.
+
+    Records the dataset refs + their ``commercialUse`` flags in training
+    metadata (docs/modules/data-sources.md §10, #210) so the provenance chain
+    is auditable: which datasets fed the model and whether each was commercial.
+    """
+    refs: list[dict[str, Any]] = []
+    for manifest in manifests:
+        provs = manifest.get("provenance") or []
+        commercial = all(p.get("commercialUse") is not False for p in provs)
+        refs.append(
+            {
+                "id": manifest.get("id"),
+                "name": manifest.get("name"),
+                "version": manifest.get("version"),
+                "license": ", ".join(
+                    p.get("license", "") for p in provs if p.get("license")
+                )
+                or "unknown",
+                "commercialUse": commercial,
+            }
+        )
+    return refs
+
+
+# ---------------------------------------------------------------------------
 # Store access
 # ---------------------------------------------------------------------------
 
@@ -261,6 +349,7 @@ class KwsStreamingMaterialized:
     data_dir: Path
     wanted_words: str
     sources: list[dict[str, Any]]
+    dataset_refs: list[dict[str, Any]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
 
@@ -417,6 +506,7 @@ def materialize_kws_streaming(
         data_dir=merged,
         wanted_words=",".join(wanted),
         sources=sources,
+        dataset_refs=dataset_refs_from_manifests(manifests),
         warnings=warnings,
     )
 
@@ -435,6 +525,7 @@ class OpenWakeWordMaterialized:
     background_paths: list[str]
     feature_data_files: dict[str, str]
     sources: list[dict[str, Any]]
+    dataset_refs: list[dict[str, Any]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
 
@@ -589,6 +680,7 @@ def materialize_openwakeword(
         background_paths=background_paths,
         feature_data_files=feature_data_files,
         sources=sources,
+        dataset_refs=dataset_refs_from_manifests(manifests),
         warnings=warnings,
     )
 

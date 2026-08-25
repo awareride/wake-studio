@@ -260,3 +260,90 @@ def test_materialize_openwakeword_no_positives_fails(tmp_path):
             store, ["unk"], tmp_path / "out", feature_extractor=_fake_extractor(),
             requirements={"needsNoise": False, "needsUnknowns": True, "labelMode": "single"},
         )
+
+
+# ---------------------------------------------------------------------------
+# Provenance inheritance (#210)
+# ---------------------------------------------------------------------------
+
+def test_inherited_provenance_all_commercial():
+    sources = [
+        {"name": "edge-tts synthetic speech", "license": "user-owned (TTS)", "commercialUse": True},
+        {"name": "Speech Commands V2", "license": "CC BY 4.0", "commercialUse": True},
+    ]
+    prov = mat.inherited_provenance(sources)
+    assert prov["license"] == "user-owned"
+    assert prov["commercialUse"] is True
+    assert "restrictedBy" not in prov
+    assert prov["sourceData"] == sources
+
+
+def test_inherited_provenance_restricted_by_research_only_dataset():
+    sources = [
+        {"name": "edge-tts synthetic speech", "license": "user-owned (TTS)", "commercialUse": True},
+        {"name": "research corpus", "license": "CC BY-NC-SA 4.0", "commercialUse": False},
+    ]
+    prov = mat.inherited_provenance(sources)
+    # a research-only dataset makes the whole model non-commercially-exportable
+    assert prov["license"] == mat.INHERITED_RESTRICTED_LICENSE == "research-only"
+    assert prov["commercialUse"] is False
+    assert prov["restrictedBy"] == ["research corpus"]
+
+
+def test_inherited_provenance_empty_sources_uses_default():
+    default = [{"name": "Speech Commands V2", "license": "CC BY 4.0", "commercialUse": True}]
+    prov = mat.inherited_provenance([], default_source_data=default)
+    assert prov["license"] == "user-owned"
+    assert prov["commercialUse"] is True
+    assert prov["sourceData"] == default
+
+
+def test_dataset_refs_from_manifests_flags():
+    manifests = [
+        _manifest(id="ds-commercial", name="commercial ds",
+                  provenance=[{"name": "a", "license": "MIT", "commercialUse": True}]),
+        _manifest(id="ds-research", name="research ds", version=2,
+                  provenance=[{"name": "b", "license": "CC BY-NC", "commercialUse": False}]),
+    ]
+    refs = mat.dataset_refs_from_manifests(manifests)
+    assert refs == [
+        {"id": "ds-commercial", "name": "commercial ds", "version": 1,
+         "license": "MIT", "commercialUse": True},
+        {"id": "ds-research", "name": "research ds", "version": 2,
+         "license": "CC BY-NC", "commercialUse": False},
+    ]
+
+
+def test_materialize_kws_streaming_dataset_refs_and_sources(tmp_path):
+    commercial = _manifest(id="ds-commercial", name="commercial ds")
+    research = _manifest(
+        id="ds-research", name="research ds",
+        labels=[
+            {"name": "alexa", "role": "positive"},
+            {"name": "_unknown2", "role": "unknown"},
+            {"name": "noise", "role": "noise"},
+        ],
+        provenance=[{"name": "research corpus", "license": "CC BY-NC-SA 4.0", "commercialUse": False}],
+    )
+    store = _store_with(tmp_path, commercial)
+    store.save(_write_zip(
+        tmp_path,
+        research,
+        {
+            "alexa": {"a.wav": b"RIFF1", "b.wav": b"RIFF2"},
+            "_unknown2": {"x.wav": b"RIFF3"},
+            "noise": {"bg.wav": b"RIFF4"},
+        },
+    ))
+    out = mat.materialize_kws_streaming(store, ["ds-commercial", "ds-research"], tmp_path / "out")
+    # per-dataset refs carry the inherited flags
+    assert {r["id"]: r["commercialUse"] for r in out.dataset_refs} == {
+        "ds-commercial": True,
+        "ds-research": False,
+    }
+    # the merged sources include the restricting entry (provenance.json input)
+    assert any(s.get("commercialUse") is False for s in out.sources)
+    # and the inherited bundle provenance is restricted
+    prov = mat.inherited_provenance(out.sources)
+    assert prov["commercialUse"] is False
+    assert prov["restrictedBy"] == ["research corpus"]
