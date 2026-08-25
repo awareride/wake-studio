@@ -57,7 +57,7 @@ export interface ConsoleDataset {
 }
 
 /** Origin priority when the same dataset id exists in several sources:
- *  local (zip bytes in hand) > backend (materialized + downloadable) >
+ *  local (OPFS archive in hand) > backend (materialized + downloadable) >
  *  builtin (immutable reference). */
 const ORIGIN_RANK: Record<DatasetOrigin, number> = {
   local: 2,

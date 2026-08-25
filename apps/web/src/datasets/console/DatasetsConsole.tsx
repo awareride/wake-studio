@@ -25,7 +25,7 @@ import { rememberSelection, rememberedSelection } from '../../view-selection'
 import { useDatasetsStore, type ConsoleDataset } from '../store'
 import { useDatasetJobs, type SubmitGenerateInput } from '../useDatasetJobs'
 import type { StudioJob } from '../../training/studio-client'
-import { deleteLocalDataset, getLocalDataset, getLocalDatasetZip, saveLocalDataset } from '../local-store'
+import { deleteLocalDataset, getLocalDataset, getLocalDatasetZip, patchLocalDatasetManifest } from '../local-store'
 import { uploadDatasetToCloud, type CloudTarget } from '../cloud-upload'
 import { downloadBlob, fetchBytes } from '../download'
 import { setPendingTrainDataset } from '../train-link'
@@ -198,17 +198,15 @@ export function DatasetsConsole() {
           hfToken: platform['cloud.hf.token'],
         })
         // Persist the cloud ref into a LOCAL dataset's manifest (the backend
-        // store has no update route; the cloud copy exists regardless).
+        // store has no update route; the cloud copy exists regardless). The
+        // OPFS bytes are untouched — metadata-only patch (ADR-045).
         if (dataset.origin === 'local') {
           const record = await getLocalDataset(dataset.id)
           if (record) {
-            await saveLocalDataset(
-              {
-                ...record.manifest,
-                storage: { ...(record.manifest.storage ?? { backend: '' }), cloud: ref },
-              },
-              record.zipBytes,
-            )
+            await patchLocalDatasetManifest(dataset.id, {
+              ...record.manifest,
+              storage: { ...(record.manifest.storage ?? { backend: '' }), cloud: ref },
+            })
             await store.refresh()
           }
         }
