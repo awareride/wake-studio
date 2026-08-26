@@ -49,7 +49,7 @@ export function DatasetsConsole() {
   // backend (same convention as the Training console's datasets[] picker).
   const backend = backends[0]
   const store = useDatasetsStore(backend?.baseUrl, backend?.token)
-  const { jobs, submitGenerate, applyLive, remove } = useDatasetJobs(store.client)
+  const { jobs, submitGenerate, submitQuality, applyLive, remove } = useDatasetJobs(store.client)
   const [view, setView] = useState<View>(() => {
     const last = rememberedSelection('datasets')
     return last ? { kind: 'details', id: last } : { kind: 'empty' }
@@ -127,6 +127,35 @@ export function DatasetsConsole() {
   // -------------------------------------------------------------------------
   // Dataset actions
   // -------------------------------------------------------------------------
+
+  /** Run the check-dataset quality job on a backend dataset (#209). The job
+   *  writes the health report + records the verdict/warnings in the manifest
+   *  (version bump); the store refresh picks up the annotated dataset. */
+  const handleCheck = useCallback(
+    (datasetId: string) => {
+      if (!backend) return
+      void submitQuality('check', { datasetId }).then((job) => {
+        if (!job) return
+        rememberSelection('datasets', null)
+        setView({ kind: 'job', jobId: job.id })
+      })
+    },
+    [backend, submitQuality],
+  )
+
+  /** Run the dataset-split op (#209): records the reproducible partition in a
+   *  NEW dataset's manifest; the store refresh picks it up. */
+  const handleSplit = useCallback(
+    (datasetId: string, seed: number) => {
+      if (!backend) return
+      void submitQuality('split', { datasetId, seed: String(seed) }).then((job) => {
+        if (!job) return
+        rememberSelection('datasets', null)
+        setView({ kind: 'job', jobId: job.id })
+      })
+    },
+    [backend, submitQuality],
+  )
 
   /** Fetch a dataset's canonical zip bytes regardless of origin. */
   const datasetZipBytes = useCallback(
@@ -294,6 +323,8 @@ export function DatasetsConsole() {
                   client={store.client}
                   onNew={() => setView({ kind: 'wizard' })}
                   onTrain={handleTrain}
+                  onCheck={handleCheck}
+                  onSplit={handleSplit}
                   onUpload={handleUpload}
                   onDownload={handleDownload}
                   onDelete={handleDelete}

@@ -40,6 +40,7 @@ DEFAULTS: dict[str, Any] = {
     "sampleRate": 16000,
     "name": "",
     "datasetId": "",
+    "seed": "0",
 }
 
 ENV_MAP: dict[str, str] = {
@@ -57,6 +58,7 @@ ENV_MAP: dict[str, str] = {
     "GEN_SAMPLE_RATE": "sampleRate",
     "GEN_NAME": "name",
     "GEN_DATASET_ID": "datasetId",
+    "GEN_SEED": "seed",
 }
 
 

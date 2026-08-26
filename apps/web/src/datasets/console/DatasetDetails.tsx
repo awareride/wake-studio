@@ -116,6 +116,7 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
                   <th className="px-3 py-1.5 font-medium">Role</th>
                   <th className="px-3 py-1.5 font-medium">Language</th>
                   <th className="px-3 py-1.5 font-medium">Source</th>
+                  <th className="px-3 py-1.5 font-medium">Voices</th>
                   <th className="px-3 py-1.5 text-right font-medium">~Clips</th>
                 </tr>
               </thead>
@@ -126,6 +127,22 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
                     <td className="px-3 py-1.5 text-ink-2">{l.role}</td>
                     <td className="px-3 py-1.5 text-ink-2">{l.language ?? '—'}</td>
                     <td className="px-3 py-1.5 text-ink-2">{l.source ?? '—'}</td>
+                    <td className="px-3 py-1.5 text-ink-2">
+                      {l.voices?.length ? (
+                        <span
+                          title={l.voices.join(', ')}
+                          className={cn(
+                            l.role === 'positive' && l.voices.length < 2
+                              ? 'text-amber-700'
+                              : 'text-ink-2',
+                          )}
+                        >
+                          {l.voices.length}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td className="px-3 py-1.5 text-right font-mono text-ink-2">
                       {perLabel || '—'}
                     </td>
@@ -227,41 +244,110 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
         </dl>
       </section>
 
-      {/* Quality report — what the manifest carries today; the health-check
-          job (clip quality, silence, duplication, balance) is #209. */}
+      {/* Quality report — the check-dataset health report (#209). The verdict
+          + warnings travel in the manifest (recorded by the check job); the
+          full report (per-label stats) is the job's health NDJSON + artifact. */}
       <section className="rounded-xl border border-line bg-surface-2 p-4">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Quality report</h4>
-        <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
-          <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Role coverage</dt>
-            <dd className="font-mono text-ink-1">
-              {dataset.roles.length ? dataset.roles.join(' / ') : '—'}
-            </dd>
+
+        {m.quality ? (
+          <div className="mt-2 space-y-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={cn(
+                  'rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
+                  m.quality.verdict === 'pass'
+                    ? 'bg-emerald-500/10 text-emerald-600'
+                    : m.quality.verdict === 'warn'
+                      ? 'bg-amber-500/10 text-amber-700'
+                      : 'bg-red-500/10 text-red-600',
+                )}
+              >
+                {m.quality.verdict}
+              </span>
+              <span className="text-[11px] text-ink-3">
+                {m.quality.checkedAtSec
+                  ? `checked ${new Date(m.quality.checkedAtSec * 1000).toLocaleString()}`
+                  : 'checked on the studio-backend'}
+              </span>
+            </div>
+
+            {m.quality.warnings.length === 0 && (
+              <p className="text-[11px] text-ink-3">No quality warnings — the dataset looks clean.</p>
+            )}
+            {m.quality.warnings.length > 0 && (
+              <ul className="space-y-1.5">
+                {m.quality.warnings.map((w, i) => (
+                  <li
+                    key={`${w.code}-${i}`}
+                    className={cn(
+                      'rounded-lg border px-3 py-2 text-[11px] leading-relaxed',
+                      w.severity === 'fail'
+                        ? 'border-red-500/20 bg-red-500/5 text-red-600'
+                        : w.severity === 'warn'
+                          ? 'border-amber-500/20 bg-amber-500/5 text-amber-700'
+                          : 'border-line bg-surface-1 text-ink-3',
+                    )}
+                  >
+                    <span className="mr-1.5 font-mono text-[10px] uppercase tracking-wide opacity-70">
+                      {w.code}
+                    </span>
+                    {w.message}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Wake-word (positive) labels</dt>
-            <dd className="font-mono text-ink-1">
-              {dataset.roles.includes('positive') ? 'yes' : 'no'}
-            </dd>
+        ) : (
+          <>
+            <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
+              <div className="flex justify-between gap-3">
+                <dt className="text-ink-3">Role coverage</dt>
+                <dd className="font-mono text-ink-1">
+                  {dataset.roles.length ? dataset.roles.join(' / ') : '—'}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-ink-3">Wake-word (positive) labels</dt>
+                <dd className="font-mono text-ink-1">
+                  {dataset.roles.includes('positive') ? 'yes' : 'no'}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-ink-3">Unknowns / noise coverage</dt>
+                <dd className="font-mono text-ink-1">
+                  {[dataset.roles.includes('unknown') && 'unknowns', dataset.roles.includes('noise') && 'noise']
+                    .filter(Boolean)
+                    .join(' / ') || '—'}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-ink-3">Commercial use</dt>
+                <dd className="font-mono text-ink-1">{dataset.commercialUse ? 'yes' : 'no'}</dd>
+              </div>
+            </dl>
+            <p className="mt-3 text-[11px] leading-relaxed text-ink-3">
+              This manifest-level summary is rendered today. Run a <span className="font-medium text-ink-2">Check</span> on the
+              studio-backend (Actions) to produce the full health report — per-label clip quality,
+              silence/duplicate detection, sample-rate drift, label balance, voice coverage.
+            </p>
+          </>
+        )}
+
+        {/* Reproducible split (#209) — the fixed partition every backend trains on. */}
+        {m.split && (
+          <div className="mt-3 rounded-lg border border-line bg-surface-1 px-3 py-2.5">
+            <div className="flex items-center gap-2 text-[11px]">
+              <span className="font-medium text-ink-2">Reproducible split</span>
+              <span className="font-mono text-[10px] text-ink-3">seed {m.split.seed}</span>
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-3 text-[11px]">
+              <span className="text-ink-2">train <b className="font-mono text-ink-1">{m.split.train.length}</b></span>
+              <span className="text-ink-2">val <b className="font-mono text-ink-1">{m.split.val.length}</b></span>
+              <span className="text-ink-2">test <b className="font-mono text-ink-1">{m.split.test.length}</b></span>
+            </div>
           </div>
-          <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Unknowns / noise coverage</dt>
-            <dd className="font-mono text-ink-1">
-              {[dataset.roles.includes('unknown') && 'unknowns', dataset.roles.includes('noise') && 'noise']
-                .filter(Boolean)
-                .join(' / ') || '—'}
-            </dd>
-          </div>
-          <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Commercial use</dt>
-            <dd className="font-mono text-ink-1">{dataset.commercialUse ? 'yes' : 'no'}</dd>
-          </div>
-        </dl>
-        <p className="mt-3 text-[11px] leading-relaxed text-ink-3">
-          This manifest-level summary is rendered today. The full health check — per-label clip
-          quality, silence/duplicate detection, sample-rate drift, label balance — ships as a
-          dedicated job (issue #209).
-        </p>
+        )}
       </section>
     </div>
   )

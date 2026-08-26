@@ -188,10 +188,46 @@ export function useDatasetJobs(client: StudioClient | null) {
     [patch],
   )
 
+  /** Submit a quality op (check-dataset / dataset-split) on the BACKEND ONLY.
+   *
+   * These ops analyze/mix real store bytes, so there is no browser executor
+   * in v1 (#209) — the action is hidden without a connected studio-backend.
+   * Returns the recorded job; the details pane live-tracks it. */
+  const submitQuality = useCallback(
+    async (op: 'check' | 'split', params: Record<string, string>): Promise<DatasetJob | null> => {
+      const moduleId = op === 'check' ? 'dataset-check' : 'dataset-split'
+      const kind = op
+      const id = `dataset-${Date.now()}`
+      if (!client) {
+        return null
+      }
+      const job = startedDatasetJob({
+        id,
+        kind,
+        moduleId,
+        executor: 'backend',
+        params,
+      })
+      record(job)
+      void client
+        .createJob(moduleId, params, id)
+        .then(() => patch(id, { status: 'queued' }))
+        .catch((err: unknown) =>
+          patch(id, {
+            status: 'failed',
+            error: err instanceof Error ? err.message : String(err),
+            finishedAtMs: Date.now(),
+          }),
+        )
+      return job
+    },
+    [client, record, patch],
+  )
+
   const remove = useCallback((id: string) => {
     setJobs((prev) => prev.filter((j) => j.id !== id))
     void deleteDatasetJob(id)
   }, [])
 
-  return { jobs, submitGenerate, applyLive, patch, remove, refresh: () => listDatasetJobs().then(setJobs) }
+  return { jobs, submitGenerate, submitQuality, applyLive, patch, remove, refresh: () => listDatasetJobs().then(setJobs) }
 }

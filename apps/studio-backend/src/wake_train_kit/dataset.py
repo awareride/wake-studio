@@ -67,6 +67,8 @@ class DatasetManifest(TypedDict):
     recipe: dict[str, Any] | None
     contentHash: str | None
     storage: dict[str, Any] | None
+    quality: dict[str, Any] | None      # health-report summary (check-dataset, #209)
+    split: dict[str, Any] | None        # fixed train/val/test partition (split op, #209)
     createdAtMs: int | None
 
 
@@ -160,6 +162,54 @@ def validate_dataset_manifest(raw: Any) -> tuple[bool, list[str]]:
 
     if m.get("contentHash") is not None and not _is_nonempty_str(m.get("contentHash")):
         errors.append("contentHash, when present, must be a non-empty string")
+
+    quality = m.get("quality")
+    if quality is not None:
+        if not _is_plain_record(quality):
+            errors.append("quality must be an object")
+        else:
+            if quality.get("verdict") not in ("pass", "warn", "fail"):
+                errors.append('quality.verdict must be one of: pass, warn, fail')
+            if not isinstance(quality.get("warnings"), list):
+                errors.append("quality.warnings must be an array")
+            else:
+                for i, warning in enumerate(quality["warnings"]):
+                    if not _is_plain_record(warning):
+                        errors.append(f"quality.warnings[{i}] must be an object")
+                        continue
+                    if not _is_nonempty_str(warning.get("code")):
+                        errors.append(f"quality.warnings[{i}].code must be a non-empty string")
+                    if warning.get("severity") not in ("info", "warn", "fail"):
+                        errors.append(
+                            f"quality.warnings[{i}].severity must be one of: info, warn, fail"
+                        )
+
+    split = m.get("split")
+    if split is not None:
+        if not _is_plain_record(split):
+            errors.append("split must be an object")
+        else:
+            if not isinstance(split.get("seed"), int):
+                errors.append("split.seed must be an integer")
+            ratios = split.get("ratios")
+            if (
+                not isinstance(ratios, list)
+                or len(ratios) != 3
+                or not all(isinstance(r, (int, float)) and 0 <= r <= 1 for r in ratios)
+            ):
+                errors.append("split.ratios must be three numbers between 0 and 1")
+            seen_refs: dict[str, str] = {}
+            for part in ("train", "val", "test"):
+                refs = split.get(part)
+                if not isinstance(refs, list) or not all(
+                    _is_nonempty_str(r) and r.startswith("audio/") for r in refs
+                ):
+                    errors.append(f"split.{part} must be an array of audio/<label>/<clip> refs")
+                    continue
+                for ref in refs:
+                    if ref in seen_refs:
+                        errors.append(f"split ref \"{ref}\" appears in both {seen_refs[ref]} and {part}")
+                    seen_refs[ref] = part
 
     return len(errors) == 0, errors
 
