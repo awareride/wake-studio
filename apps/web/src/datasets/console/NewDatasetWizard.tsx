@@ -27,6 +27,7 @@ import { IconChevronRight } from '../../components/icons'
 import { useAppSettings } from '../../settings'
 import { ConfirmDialog } from '../../training/console/ConfirmDialog'
 import type { BrowserCloudSave, SubmitGenerateInput } from '../useDatasetJobs'
+import { useT } from '../../i18n'
 
 type WizardStep = 'engine' | 'config' | 'destination' | 'ready'
 
@@ -65,6 +66,7 @@ export function NewDatasetWizard({
   onDirtyChange,
 }: NewDatasetWizardProps) {
   const { platform } = useAppSettings()
+  const t = useT()
   const [step, setStep] = useState<WizardStep>('engine')
   const [engines, setEngines] = useState<TTSEngineDescriptor[]>([])
   const [engineError, setEngineError] = useState<string | null>(null)
@@ -185,19 +187,19 @@ export function NewDatasetWizard({
       {/* Header + Cancel. */}
       <div className="flex shrink-0 items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-ink-1">New generation task</h3>
+          <h3 className="text-base font-semibold text-ink-1">{t('New generation task')}</h3>
           <p className="mt-0.5 text-xs text-ink-3">
-            {STEPS[stepIndex]?.summary} Generation jobs land in the Datasets rail with live
-            progress (same UI as Training).
+            {t(STEPS[stepIndex]?.summary ?? '')}{' '}
+            {t('Generation jobs land in the Datasets rail with live progress (same UI as Training).')}
           </p>
         </div>
         <Button type="button" onClick={requestCancel} variant="outline" size="1" className="text-xs">
-          Cancel
+          {t('Cancel')}
         </Button>
       </div>
 
       {/* Step pills. */}
-      <nav aria-label="Generation steps" className="flex shrink-0 flex-wrap items-center gap-1.5">
+      <nav aria-label={t('Generation steps')} className="flex shrink-0 flex-wrap items-center gap-1.5">
         {STEPS.map((s, i) => {
           const active = s.id === step
           const done = stepIndex > i
@@ -226,7 +228,7 @@ export function NewDatasetWizard({
                 >
                   {done ? '✓' : i + 1}
                 </span>
-                {s.label}
+                {t(s.label)}
               </span>
             </div>
           )
@@ -248,10 +250,10 @@ export function NewDatasetWizard({
         {step === 'config' && engine && (
           <div className="space-y-5">
             <div className="rounded-xl border border-line bg-surface-2 p-4">
-              <h4 className="text-sm font-semibold text-ink-1">Wake phrases</h4>
+              <h4 className="text-sm font-semibold text-ink-1">{t('Wake phrases')}</h4>
               <p className="mt-0.5 text-xs text-ink-3">
-                One wake phrase per line (or comma-separated). Each phrase becomes a{' '}
-                <span className="font-mono">positive</span> label.
+                {t('One wake phrase per line (or comma-separated). Each phrase becomes a')}{' '}
+                <span className="font-mono">positive</span> {t('label')}.
               </p>
               <textarea
                 value={phrases}
@@ -262,15 +264,15 @@ export function NewDatasetWizard({
               />
               {phraseList.length > 0 && (
                 <p className="mt-1 text-[11px] text-ink-3">
-                  {phraseList.length} phrase(s): {phraseList.join(', ')}
+                  {`${phraseList.length} ${t('phrase(s)')}:`} {phraseList.join(', ')}
                 </p>
               )}
             </div>
 
             <div className="rounded-xl border border-line bg-surface-2 p-4">
-              <h4 className="text-sm font-semibold text-ink-1">Dataset name</h4>
+              <h4 className="text-sm font-semibold text-ink-1">{t('Dataset name')}</h4>
               <p className="mt-0.5 text-xs text-ink-3">
-                Optional — defaults to the first phrase + languages.
+                {t('Optional — defaults to the first phrase + languages.')}
               </p>
               <input
                 value={name}
@@ -283,10 +285,10 @@ export function NewDatasetWizard({
             {enginePanelSpec && (
               <div className="rounded-xl border border-line bg-surface-2 p-4">
                 <h4 className="text-sm font-semibold text-ink-1">
-                  {engine.name} settings
+                  {`${engine.name} ${t('settings')}`}
                 </h4>
                 <p className="mt-0.5 text-xs text-ink-3">
-                  The engine’s own parameters (rendered spec-driven).
+                  {t('The engine’s own parameters (rendered spec-driven).')}
                 </p>
                 <div className="mt-3">
                   <TrainParamsPanel
@@ -298,9 +300,9 @@ export function NewDatasetWizard({
             )}
 
             <div className="rounded-xl border border-line bg-surface-2 p-4">
-              <h4 className="text-sm font-semibold text-ink-1">Postprocess</h4>
+              <h4 className="text-sm font-semibold text-ink-1">{t('Postprocess')}</h4>
               <p className="mt-0.5 text-xs text-ink-3">
-                An optional transform applied to the synthesized clips.
+                {t('An optional transform applied to the synthesized clips.')}
               </p>
               <div className="mt-2 space-y-1.5">
                 {POSTPROCESS_OPTIONS.map((o) => (
@@ -320,8 +322,8 @@ export function NewDatasetWizard({
                       onChange={() => setPostprocess(o.value)}
                     />
                     <span className="min-w-0">
-                      <span className="block text-sm font-medium text-ink-1">{o.label}</span>
-                      <span className="block text-[11px] leading-relaxed text-ink-3">{o.note}</span>
+                      <span className="block text-sm font-medium text-ink-1">{t(o.label)}</span>
+                      <span className="block text-[11px] leading-relaxed text-ink-3">{t(o.note)}</span>
                     </span>
                   </label>
                 ))}
@@ -360,31 +362,32 @@ export function NewDatasetWizard({
       <div className="shrink-0 space-y-2 border-t border-line pt-4">
         <div className="flex items-center justify-between">
           <Button type="button" onClick={goBack} disabled={stepIndex === 0} variant="outline" size="2">
-            Back
+            {t('Back')}
           </Button>
           {step !== 'ready' ? (
             <Button type="button" onClick={goNext} disabled={!canNext} size="2">
-              Next
+              {t('Next')}
             </Button>
           ) : (
             <Button type="button" onClick={handleGenerate} disabled={starting} size="2" className="font-semibold">
-              {starting ? 'Starting…' : 'Generate dataset'}
+              {starting ? t('Starting…') : t('Generate dataset')}
             </Button>
           )}
         </div>
         {step === 'ready' && decision?.executor === 'browser' && (
           <p className="text-[11px] leading-relaxed text-ink-3">
-            Runs entirely in this tab (online HTTP TTS → canonical zip). The dataset is saved to
-            the browser-local store; no studio-backend is involved.
+            {t(
+              'Runs entirely in this tab (online HTTP TTS → canonical zip). The dataset is saved to the browser-local store; no studio-backend is involved.',
+            )}
           </p>
         )}
       </div>
 
       <ConfirmDialog
         open={confirmCancel}
-        title="Discard this generation?"
-        message="You have progress in the wizard. Leaving now discards your selections."
-        confirmLabel="Discard"
+        title={t('Discard this generation?')}
+        message={t('You have progress in the wizard. Leaving now discards your selections.')}
+        confirmLabel={t('Discard')}
         onConfirm={() => {
           setConfirmCancel(false)
           onCancel()
@@ -412,17 +415,18 @@ function EngineStep({
   backendConnected: boolean
   error: string | null
 }) {
+  const t = useT()
   if (error) {
     return (
       <div className="rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
-        Could not load the TTS engine catalog: {error}
+        {t('Could not load the TTS engine catalog:')}{error}
       </div>
     )
   }
   if (engines.length === 0) {
     return (
       <div className="rounded-xl border border-line bg-surface-2 p-8 text-center text-sm text-ink-2">
-        Loading engines…
+        {t('Loading engines…')}
       </div>
     )
   }
@@ -458,7 +462,7 @@ function EngineStep({
                   {e.id}
                 </span>
                 <span className="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-3">
-                  {e.kind}
+                  {t(e.kind)}
                 </span>
                 {e.runtime.map((r) => (
                   <span
@@ -473,7 +477,7 @@ function EngineStep({
                 ))}
               </span>
               <span className="mt-1 block text-[11px] leading-relaxed text-ink-3">
-                {available ? decision.note : decision.unavailable}
+                {available ? t(decision.note) : t(decision.unavailable ?? '')}
               </span>
             </span>
           </label>
@@ -481,9 +485,9 @@ function EngineStep({
       })}
       {!backendConnected && (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-[11px] leading-relaxed text-amber-700">
-          No studio-backend connected — browser-capable engines (green “browser” badge) run
-          client-side; backend-only engines are disabled until you connect one in the Backends
-          menu.
+          {t(
+            'No studio-backend connected — browser-capable engines (green “browser” badge) run client-side; backend-only engines are disabled until you connect one in the Backends menu.',
+          )}
         </p>
       )}
     </div>
@@ -507,17 +511,18 @@ function DestinationStep({
   onCloudRepoChange: (v: string) => void
   hfTokenPresent: boolean
 }) {
+  const t = useT()
   if (!decisionExecutor) {
     return (
       <div className="rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs leading-relaxed text-danger">
-        {unavailable ?? 'No executor is available for this engine.'}
+        {t(unavailable ?? 'No executor is available for this engine.')}
       </div>
     )
   }
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-line bg-surface-2 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Executor</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Executor')}</h4>
         <div
           className={cn(
             'mt-2 rounded-lg border px-3 py-2 text-xs leading-relaxed',
@@ -527,30 +532,33 @@ function DestinationStep({
           )}
         >
           <span className="font-medium text-ink-1">
-            {decisionExecutor === 'backend' ? 'Backend executor' : 'Browser executor'}
+            {decisionExecutor === 'backend' ? t('Backend executor') : t('Browser executor')}
           </span>
-          <span className="ml-2 text-ink-3">{note}</span>
+          <span className="ml-2 text-ink-3">{t(note)}</span>
         </div>
       </div>
 
       {decisionExecutor === 'backend' && (
         <div className="rounded-xl border border-line bg-surface-2 p-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Save destination</h4>
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Save destination')}</h4>
           <p className="mt-2 text-xs leading-relaxed text-ink-2">
-            The generated dataset is persisted to the connected studio-backend’s{' '}
-            <span className="font-mono">datasets/</span> store — it becomes trainable and
-            downloadable. Cloud upload (Hugging Face / R2 / Drive) is available as an action on
-            the dataset after generation.
+            {t(
+              'The generated dataset is persisted to the connected studio-backend’s',
+            )}{' '}
+            <span className="font-mono">datasets/</span>{' '}
+            {t(
+              'store — it becomes trainable and downloadable. Cloud upload (Hugging Face / R2 / Drive) is available as an action on the dataset after generation.',
+            )}
           </p>
         </div>
       )}
 
       {decisionExecutor === 'browser' && (
         <div className="rounded-xl border border-line bg-surface-2 p-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Save destination</h4>
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Save destination')}</h4>
           <p className="mt-2 text-xs leading-relaxed text-ink-2">
-            Saved to the <span className="font-medium text-ink-1">browser-local store</span> (this
-            tab’s IndexedDB) — it shows in the Datasets rail and the Training dataset picker.
+            {t('Saved to the')} <span className="font-medium text-ink-1">{t('browser-local store')}</span>{' '}
+            {t('(this tab’s IndexedDB) — it shows in the Datasets rail and the Training dataset picker.')}
           </p>
           <div className="mt-3 space-y-1.5">
             <label
@@ -566,15 +574,15 @@ function DestinationStep({
               />
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-ink-1">
-                  Also push to Hugging Face{' '}
+                  {t('Also push to Hugging Face')}{' '}
                   <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-700">
-                    browser direct push
+                    {t('browser direct push')}
                   </span>
                 </span>
                 <span className="block text-[11px] leading-relaxed text-ink-3">
                   {hfTokenPresent
-                    ? 'Uploads wake-studio-dataset.zip straight to a dataset repo using your Settings cloud token (R2 / Drive are not wired browser-side yet).'
-                    : 'Set a Hugging Face token in Settings → Cloud storage first.'}
+                    ? t('Uploads wake-studio-dataset.zip straight to a dataset repo using your Settings cloud token (R2 / Drive are not wired browser-side yet).')
+                    : t('Set a Hugging Face token in Settings → Cloud storage first.')}
                 </span>
               </span>
             </label>
@@ -590,8 +598,8 @@ function DestinationStep({
         </div>
       )}
       <p className="text-[11px] leading-relaxed text-ink-3">
-        Executor decided by the engine’s <span className="font-mono">runtime</span> + whether a
-        studio-backend is connected ({backendConnected ? 'connected' : 'not connected'}).
+        {t('Executor decided by the engine’s')} <span className="font-mono">runtime</span>{' '}
+        {t('+ whether a studio-backend is connected')} ({backendConnected ? t('connected') : t('not connected')}).
       </p>
     </div>
   )
@@ -612,22 +620,25 @@ function ReadySummary({
   postprocess: string
   cloudRepo: string
 }) {
+  const t = useT()
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-line bg-surface-2 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Review</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Review')}</h4>
         <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
-          <SummaryRow label="Engine" value={`${engine.name} (${engine.id})`} />
-          <SummaryRow label="Executor" value={executor === 'backend' ? 'studio-backend' : 'browser'} />
-          <SummaryRow label="Phrases" value={phraseList.join(', ') || '—'} />
-          <SummaryRow label="Name" value={name || '(auto)'} />
-          <SummaryRow label="Postprocess" value={postprocess} />
-          {executor === 'browser' && <SummaryRow label="Cloud push" value={cloudRepo || 'local only'} />}
+          <SummaryRow label={t('Engine')} value={`${engine.name} (${engine.id})`} />
+          <SummaryRow label={t('Executor')} value={executor === 'backend' ? t('studio-backend') : t('browser')} />
+          <SummaryRow label={t('Phrases')} value={phraseList.join(', ') || '—'} />
+          <SummaryRow label={t('Name')} value={name || t('(auto)')} />
+          <SummaryRow label={t('Postprocess')} value={t(postprocess)} />
+          {executor === 'browser' && <SummaryRow label={t('Cloud push')} value={cloudRepo || t('local only')} />}
         </dl>
       </div>
       <p className="text-xs leading-relaxed text-ink-2">
-        License: <span className="font-medium text-ink-1">user-owned (synthetic TTS)</span> — the
-        generated dataset is commercially usable and trains clean models (export gate, #210).
+        {t('License')}: <span className="font-medium text-ink-1">{t('user-owned (synthetic TTS)')}</span>{' '}
+        {t(
+          '— the generated dataset is commercially usable and trains clean models (export gate, #210).',
+        )}
       </p>
     </div>
   )

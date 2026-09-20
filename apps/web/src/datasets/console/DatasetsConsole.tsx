@@ -35,6 +35,7 @@ import { DatasetActions } from './DatasetActions'
 import { DatasetJobList } from './DatasetJobList'
 import { DatasetJobDetails } from './DatasetJobDetails'
 import { NewDatasetWizard } from './NewDatasetWizard'
+import { useT } from '../../i18n'
 
 type View =
   | { kind: 'empty' }
@@ -45,6 +46,7 @@ type View =
 export function DatasetsConsole() {
   const { backends, platform } = useAppSettings()
   const { toast } = useToast()
+  const t = useT()
   // The consolidated store + jobs are fed by the first configured managed
   // backend (same convention as the Training console's datasets[] picker).
   const backend = backends[0]
@@ -178,10 +180,10 @@ export function DatasetsConsole() {
       try {
         const bytes = await datasetZipBytes(dataset)
         downloadBlob(bytes, `${dataset.id}-wake-studio-dataset.zip`)
-        toast({ title: 'Dataset downloaded', description: `${dataset.name} (${bytes.byteLength} bytes).` })
+        toast({ title: t('Dataset downloaded'), description: `${dataset.name} (${bytes.byteLength} ${t('bytes')}).` })
       } catch (err) {
         toast({
-          title: 'Download failed',
+          title: t('Download failed'),
           description: err instanceof Error ? err.message : String(err),
           variant: 'error',
         })
@@ -203,10 +205,10 @@ export function DatasetsConsole() {
         await store.refresh()
         setView((v) => (v.kind === 'details' && v.id === dataset.id ? { kind: 'empty' } : v))
         if (view.kind === 'details' && view.id === dataset.id) rememberSelection('datasets', null)
-        toast({ title: 'Dataset deleted', description: dataset.name })
+        toast({ title: t('Dataset deleted'), description: dataset.name })
       } catch (err) {
         toast({
-          title: 'Delete failed',
+          title: t('Delete failed'),
           description: err instanceof Error ? err.message : String(err),
           variant: 'error',
         })
@@ -239,10 +241,10 @@ export function DatasetsConsole() {
             await store.refresh()
           }
         }
-        toast({ title: 'Uploaded to cloud', description: ref, variant: 'success' })
+        toast({ title: t('Uploaded to cloud'), description: ref, variant: 'success' })
       } catch (err) {
         toast({
-          title: 'Upload failed',
+          title: t('Upload failed'),
           description: err instanceof Error ? err.message : String(err),
           variant: 'error',
         })
@@ -270,8 +272,10 @@ export function DatasetsConsole() {
         />
       ) : (
         <ConsolePanel
-          title="Datasets"
-          description="First-class training-data artifacts: pick built-ins, generate synthetic audio with a TTS engine, and persist to the backend store and/or your cloud. Every dataset is one canonical wake-studio-dataset.zip."
+          title={t('Datasets')}
+          description={t(
+            'First-class training-data artifacts: pick built-ins, generate synthetic audio with a TTS engine, and persist to the backend store and/or your cloud. Every dataset is one canonical wake-studio-dataset.zip.',
+          )}
           actions={
             <Button
               type="button"
@@ -280,10 +284,10 @@ export function DatasetsConsole() {
               className="shrink-0 gap-1.5 font-semibold"
             >
               <IconWand className="h-4 w-4" />
-              New
+              {t('New')}
             </Button>
           }
-          railTitle="Datasets"
+          railTitle={t('Datasets')}
           railCount={store.datasets.length}
           rail={(close) => (
             <div className="min-h-0">
@@ -299,7 +303,7 @@ export function DatasetsConsole() {
               {jobs.length > 0 && (
                 <>
                   <div className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-ink-3">
-                    Generation jobs
+                    {t('Generation jobs')}
                   </div>
                   <DatasetJobList
                     jobs={jobs}
@@ -331,12 +335,12 @@ export function DatasetsConsole() {
                 />
                 {store.backendError && (
                   <div className="rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
-                    Could not load the backend dataset store: {store.backendError}
+                    {t('Could not load the backend dataset store:')}{store.backendError}
                   </div>
                 )}
                 {store.builtinError && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-700">
-                    Built-in catalog unavailable: {store.builtinError}
+                    {t('Built-in catalog unavailable:')}{store.builtinError}
                   </div>
                 )}
               </>
@@ -352,20 +356,21 @@ export function DatasetsConsole() {
           detailsEmpty={
             view.kind === 'details' ? (
               <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
-                This dataset is no longer in the list (deleted?). Pick another from the rail.
+                {t('This dataset is no longer in the list (deleted?). Pick another from the rail.')}
               </div>
             ) : view.kind === 'job' ? (
               <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
-                This job is no longer in the list (deleted?). Pick another from the rail.
+                {t('This job is no longer in the list (deleted?). Pick another from the rail.')}
               </div>
             ) : (
               <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
-                <p className="text-sm font-medium text-ink-1">No dataset selected</p>
+                <p className="text-sm font-medium text-ink-1">{t('No dataset selected')}</p>
                 <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
-                  Pick a dataset in the left rail to inspect its manifest, provenance, storage
-                  and quality report, or press{' '}
-                  <span className="font-medium text-ink-2">New</span> (the wizard wand) to
-                  generate one.
+                  {t(
+                    'Pick a dataset in the left rail to inspect its manifest, provenance, storage and quality report, or press',
+                  )}{' '}
+                  <span className="font-medium text-ink-2">{t('New')}</span>
+                  {t(' (the wizard wand) to generate one.')}.
                 </p>
               </div>
             )

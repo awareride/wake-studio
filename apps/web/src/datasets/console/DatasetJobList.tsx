@@ -9,6 +9,7 @@
  */
 
 import { cn } from '../../components/cn'
+import { useT } from '../../i18n'
 import { sortJobsNewestFirst, type DatasetJob, type DatasetJobKind } from '../jobs'
 import { STATUS_STYLE } from '../../training/console/StatusChip'
 
@@ -26,6 +27,7 @@ export interface DatasetJobListProps {
 }
 
 export function DatasetJobList({ jobs, selectedId, onSelect }: DatasetJobListProps) {
+  const t = useT()
   const ordered = sortJobsNewestFirst(jobs)
   if (ordered.length === 0) return null
 
@@ -54,14 +56,14 @@ export function DatasetJobList({ jobs, selectedId, onSelect }: DatasetJobListPro
                     STATUS_STYLE[job.status],
                   )}
                 >
-                  {job.status}
+                  {t(job.status)}
                 </span>
                 <span className="text-[10px] text-ink-3">
                   {new Date(job.startedAtMs).toLocaleString()}
                 </span>
               </div>
               <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-ink-1">
-                <span>{JOB_KIND_LABEL[job.kind]}</span>
+                <span>{t(JOB_KIND_LABEL[job.kind])}</span>
                 <span className="rounded-full bg-surface-3 px-1.5 py-0.5 font-mono text-[10px] text-ink-3">
                   {job.executor}
                 </span>
