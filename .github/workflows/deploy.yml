@@ -8,7 +8,9 @@ name: Deploy
 #   - Settings -> Pages -> Source = "GitHub Actions"
 #   - Settings -> Environments -> create "github-pages"
 #   - Secrets: CLOUDFLARE_API_TOKEN (needs Pages: Edit + Workers R2 Storage:
-#     Edit), CLOUDFLARE_ACCOUNT_ID
+#     Edit)
+#   - Variables: CLOUDFLARE_ACCOUNT_ID (the account id is public information,
+#     so it lives as a repository variable, not a secret)
 #   - A Cloudflare Pages project named "wake-studio" (ADR-014)
 #   - An R2 bucket named "wake-studio-assets" holding the heavy runtime assets
 #     served same-origin by the Pages Functions (ADR-046; see
@@ -119,14 +121,14 @@ jobs:
       - name: Publish runtime assets to R2
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: node scripts/publish-r2.mjs
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           # ADR-014: the project name is wake-studio. apps/web/wrangler.toml is
           # the Pages project config (name + pages_build_output_dir + the
           # RUNTIME_ASSETS R2 binding, ADR-046), so deploy from apps/web with no
