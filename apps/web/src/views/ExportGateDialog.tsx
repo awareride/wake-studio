@@ -20,6 +20,7 @@ import {
 import { Button } from '@radix-ui/themes'
 import { useToast } from '../components/toast'
 import { cn } from '../components/cn'
+import { useT } from '../i18n'
 
 interface ExportGateDialogProps {
   model: RegistryModel
@@ -35,6 +36,7 @@ const TARGETS = [
 
 export function ExportGateDialog({ model, open, onOpenChange }: ExportGateDialogProps) {
   const { toast } = useToast()
+  const t = useT()
   const usable = isCommerciallyUsable(model)
   const [target, setTarget] = React.useState<string>('onnx')
 
@@ -46,8 +48,8 @@ export function ExportGateDialog({ model, open, onOpenChange }: ExportGateDialog
   const handleExport = () => {
     // Stub: Phase 4 wires the actual export kit builder here.
     toast({
-      title: 'Export requested',
-      description: `${model.id} → ${target} (export kits land in Phase 4).`,
+      title: t('Export requested'),
+      description: `${model.id} → ${target} (${t('export kits land in Phase 4')}).`,
     })
     onOpenChange(false)
   }
@@ -55,7 +57,7 @@ export function ExportGateDialog({ model, open, onOpenChange }: ExportGateDialog
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle>Export {model.name}</DialogTitle>
+        <DialogTitle>{`${t('Export')} ${model.name}`}</DialogTitle>
         <DialogDescription>
           {model.license} · {model.source}
         </DialogDescription>
@@ -70,26 +72,26 @@ export function ExportGateDialog({ model, open, onOpenChange }: ExportGateDialog
           )}
         >
           <div className="font-medium">
-            {usable ? '✓ Commercially usable' : '⚠ License gate: export blocked'}
+            {usable ? `✓ ${t('Commercially usable')}` : `⚠ ${t('License gate: export blocked')}`}
           </div>
           <p className="mt-1 text-xs text-ink-2">
             {usable
-              ? 'This model is redistributable and explicitly commercial — safe to bundle.'
-              : `This model is ${model.class}. It cannot be used in a commercial bundle (Phase 4 gate).`}
+              ? t('This model is redistributable and explicitly commercial — safe to bundle.')
+              : `${t('This model is')} ${model.class}. ${t('It cannot be used in a commercial bundle (Phase 4 gate).')}`}
           </p>
         </div>
 
         {/* Target selection */}
         <div className="mt-4">
-          <div className="mb-2 text-sm text-ink-2">Export target</div>
+          <div className="mb-2 text-sm text-ink-2">{t('Export target')}</div>
           <div className="grid grid-cols-1 gap-2">
-            {TARGETS.map((t) => (
+            {TARGETS.map((targetOption) => (
               <button
-                key={t.value}
-                onClick={() => setTarget(t.value)}
+                key={targetOption.value}
+                onClick={() => setTarget(targetOption.value)}
                 className={cn(
                   'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm',
-                  target === t.value
+                  target === targetOption.value
                     ? 'border-brand-9 bg-brand-9/10 text-ink-1'
                     : 'border-line bg-surface-3 text-ink-2 hover:bg-surface-4',
                 )}
@@ -97,12 +99,12 @@ export function ExportGateDialog({ model, open, onOpenChange }: ExportGateDialog
                 <span
                   className={cn(
                     'flex h-4 w-4 items-center justify-center rounded-full border',
-                    target === t.value ? 'border-brand-9' : 'border-line-2',
+                    target === targetOption.value ? 'border-brand-9' : 'border-line-2',
                   )}
                 >
-                  {target === t.value && <span className="h-2 w-2 rounded-full bg-brand-9" />}
+                  {target === targetOption.value && <span className="h-2 w-2 rounded-full bg-brand-9" />}
                 </span>
-                {t.label}
+                {t(targetOption.label)}
               </button>
             ))}
           </div>
@@ -111,16 +113,16 @@ export function ExportGateDialog({ model, open, onOpenChange }: ExportGateDialog
         <div className="mt-5 flex justify-end gap-2">
           <DialogClose asChild>
             <Button variant="outline" size="2">
-              Cancel
+              {t('Cancel')}
             </Button>
           </DialogClose>
           <Button
             onClick={handleExport}
             disabled={!usable}
             size="2"
-            title={usable ? undefined : 'Blocked by the license gate'}
+            title={usable ? undefined : t('Blocked by the license gate')}
           >
-            Export
+            {t('Export')}
           </Button>
         </div>
       </DialogContent>

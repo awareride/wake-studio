@@ -284,4 +284,76 @@ export const ZH_CN: Record<string, string> = {
   'Wake word': '唤醒词',
   'Wake word (label)': '唤醒词（标签）',
   'Wake words (comma-separated)': '唤醒词（逗号分隔）',
+
+  // ---- Projects ----
+  'Wake-word projects: target word, domain, config snapshots, samples and prototypes. Select one to inspect; create new projects from the Workspace.':
+    '唤醒词项目：目标唤醒词、领域、配置快照、样本与原型。选择一个进行查看；从工作区新建项目。',
+  'No projects yet — create one from the Workspace.': '还没有项目——从工作区创建一个。',
+  'no wake word': '无唤醒词',
+  'Target chip': '目标芯片',
+  Samples: '样本',
+  Prototypes: '原型',
+  Updated: '更新时间',
+  'Edit samples, config and prototypes from the Workspace — this panel is read-only.':
+    '样本、配置与原型请从工作区编辑——此面板为只读。',
+  Operations: '操作',
+  'Delete this project and its stored config, samples and prototypes.':
+    '删除该项目及其存储的配置、样本和原型。',
+  'No project selected': '未选择项目',
+  'Pick a project from the left to inspect it (wake word, target, samples, prototypes). Create new projects from the Workspace.':
+    '从左侧选择一个项目查看详情（唤醒词、目标、样本、原型）。从工作区创建新项目。',
+  'Delete this project?': '删除该项目？',
+  'Deletes the project and its stored config, samples and prototypes. This cannot be undone.':
+    '将删除该项目及其存储的配置、样本和原型。此操作不可撤销。',
+
+  // ---- Session Console ----
+  'Session log cleared': '会话日志已清空',
+  'Triggers exported': '触发记录已导出',
+  'trigger(s)': '条触发',
+  'Live event log + wake-word trigger history. Events are captured app-wide (Phase 4).':
+    '实时事件日志 + 唤醒词触发历史。事件为全应用捕获（第 4 阶段）。',
+  Clear: '清空',
+  'Export triggers CSV': '导出触发记录 CSV',
+  'Event log': '事件日志',
+  Triggers: '触发记录',
+  All: '全部',
+  'No events yet.': '暂无事件。',
+  'No triggers yet — run detection and say the wake word.':
+    '暂无触发记录——运行检测并说出唤醒词。',
+  Time: '时间',
+  'Peak score': '峰值得分',
+
+  // ---- Model Registry ----
+  'Commercially usable': '可商用',
+  'Demo-only / check license': '仅演示 / 请查看许可',
+  commercial: '可商用',
+  'Cannot reach': '无法访问',
+  'unreachable · retry': '不可达 · 重试',
+  'probing…': '探测中……',
+  'verify reachable': '验证可达性',
+  'Failed to load model registry': '模型注册表加载失败',
+  'Could not load the model registry:': '无法加载模型注册表：',
+  'Loading model registry…': '正在加载模型注册表……',
+  'Search models…': '搜索模型……',
+  'Search models': '搜索模型',
+  'High-perf': '高性能',
+  'KWS backends': 'KWS 后端',
+  available: '可用',
+  'No models match your filter.': '没有符合筛选条件的模型。',
+  License: '许可',
+  'Export…': '导出……',
+
+  // ---- Export gate dialog ----
+  'Export requested': '已请求导出',
+  'export kits land in Phase 4': '导出套件将于第 4 阶段落地',
+  'License gate: export blocked': '许可门禁：导出已被阻止',
+  'This model is redistributable and explicitly commercial — safe to bundle.':
+    '该模型可再分发且明确允许商用——可以安全打包。',
+  'This model is': '该模型的类别是',
+  'It cannot be used in a commercial bundle (Phase 4 gate).':
+    '不能用于商业打包（第 4 阶段门禁）。',
+  'Export target': '导出目标',
+  'TFLite (int8 quantized)': 'TFLite（int8 量化）',
+  'Device SDK bundle': '设备 SDK 套件',
+  'Blocked by the license gate': '已被许可门禁阻止',
 }

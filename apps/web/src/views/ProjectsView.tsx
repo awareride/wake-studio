@@ -15,6 +15,7 @@ import { useProjects } from '../projects'
 import { ConfirmDialog } from '../training/console/ConfirmDialog'
 import { cn } from '../components/cn'
 import { rememberSelection, rememberedSelection } from '../view-selection'
+import { useT } from '../i18n'
 
 const DOMAIN_STYLE: Record<string, string> = {
   mcu: 'bg-surface-3 text-ink-2',
@@ -24,6 +25,7 @@ const DOMAIN_STYLE: Record<string, string> = {
 
 export function ProjectsView() {
   const { projects, deleteProject } = useProjects()
+  const t = useT()
   const [confirmDelete, setConfirmDelete] = useState(false)
   // Own selection — not the Workspace's current project (issue #138), and
   // remembered across view switches (issue #139).
@@ -50,15 +52,17 @@ export function ProjectsView() {
   return (
     <>
       <ConsolePanel
-      title="Projects"
-      description="Wake-word projects: target word, domain, config snapshots, samples and prototypes. Select one to inspect; create new projects from the Workspace."
-      railTitle="Projects"
+      title={t('Projects')}
+      description={t(
+        'Wake-word projects: target word, domain, config snapshots, samples and prototypes. Select one to inspect; create new projects from the Workspace.',
+      )}
+      railTitle={t('Projects')}
       railCount={projects.length}
       rail={(close) => (
         <ul className="space-y-1 px-2 pb-4">
           {ordered.length === 0 && (
             <li className="rounded-lg border border-dashed border-line px-3 py-3 text-xs text-ink-3">
-              No projects yet — create one from the Workspace.
+              {t('No projects yet — create one from the Workspace.')}
             </li>
           )}
           {ordered.map((p) => {
@@ -95,9 +99,9 @@ export function ProjectsView() {
                   </div>
                   <div className="mt-1 truncate text-xs font-medium text-ink-1">{p.name}</div>
                   <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-ink-3">
-                    <span className="truncate">{p.targetWord || 'no wake word'}</span>
+                    <span className="truncate">{p.targetWord || t('no wake word')}</span>
                     <span aria-hidden>·</span>
-                    <span>{p.sampleIds.length} samples</span>
+                    <span>{`${p.sampleIds.length} ${t('samples')}`}</span>
                   </div>
                 </button>
               </li>
@@ -122,31 +126,31 @@ export function ProjectsView() {
             </div>
             <dl className="mt-3 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
               <div className="flex justify-between gap-3">
-                <dt className="text-ink-3">Wake word</dt>
+                <dt className="text-ink-3">{t('Wake word')}</dt>
                 <dd className="truncate font-mono text-ink-1">{selected.targetWord || '—'}</dd>
               </div>
               {selected.targetChip && (
                 <div className="flex justify-between gap-3">
-                  <dt className="text-ink-3">Target chip</dt>
+                  <dt className="text-ink-3">{t('Target chip')}</dt>
                   <dd className="truncate font-mono text-ink-1">{selected.targetChip}</dd>
                 </div>
               )}
               <div className="flex justify-between gap-3">
-                <dt className="text-ink-3">Samples</dt>
+                <dt className="text-ink-3">{t('Samples')}</dt>
                 <dd className="font-mono text-ink-1">{selected.sampleIds.length}</dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-ink-3">Prototypes</dt>
+                <dt className="text-ink-3">{t('Prototypes')}</dt>
                 <dd className="font-mono text-ink-1">{selected.prototypeIds.length}</dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-ink-3">Created</dt>
+                <dt className="text-ink-3">{t('Created')}</dt>
                 <dd className="font-mono text-ink-1">
                   {new Date(selected.createdAtMs).toLocaleString()}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-ink-3">Updated</dt>
+                <dt className="text-ink-3">{t('Updated')}</dt>
                 <dd className="font-mono text-ink-1">
                   {new Date(selected.updatedAtMs).toLocaleString()}
                 </dd>
@@ -158,17 +162,19 @@ export function ProjectsView() {
               </p>
             )}
             <p className="mt-3 text-[11px] text-ink-3">
-              Edit samples, config and prototypes from the Workspace — this panel is read-only.
+              {t(
+                'Edit samples, config and prototypes from the Workspace — this panel is read-only.',
+              )}
             </p>
             </section>
             {/* Operations (Trains/Backends-style). */}
             <section className="rounded-xl border border-danger/25 bg-surface-2 p-4">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-                Operations
+                {t('Operations')}
               </h4>
               <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs text-ink-3">
-                  Delete this project and its stored config, samples and prototypes.
+                  {t('Delete this project and its stored config, samples and prototypes.')}
                 </p>
                 <Button
                   type="button"
@@ -178,7 +184,7 @@ export function ProjectsView() {
                   className="shrink-0"
                   onClick={() => setConfirmDelete(true)}
                 >
-                  Delete
+                  {t('Delete')}
                 </Button>
               </div>
             </section>
@@ -187,10 +193,11 @@ export function ProjectsView() {
       }
       detailsEmpty={
         <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
-          <p className="text-sm font-medium text-ink-1">No project selected</p>
+          <p className="text-sm font-medium text-ink-1">{t('No project selected')}</p>
           <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
-            Pick a project from the left to inspect it (wake word, target, samples, prototypes).
-            Create new projects from the Workspace.
+            {t(
+              'Pick a project from the left to inspect it (wake word, target, samples, prototypes). Create new projects from the Workspace.',
+            )}
           </p>
         </div>
       }
@@ -198,9 +205,11 @@ export function ProjectsView() {
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete this project?"
-        message="Deletes the project and its stored config, samples and prototypes. This cannot be undone."
-        confirmLabel="Delete"
+        title={t('Delete this project?')}
+        message={t(
+          'Deletes the project and its stored config, samples and prototypes. This cannot be undone.',
+        )}
+        confirmLabel={t('Delete')}
         onConfirm={() => {
           if (selected) {
             void deleteProject(selected.id)

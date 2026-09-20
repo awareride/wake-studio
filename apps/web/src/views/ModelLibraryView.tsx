@@ -19,6 +19,7 @@ import { Button, SegmentedControl, TextField } from '@radix-ui/themes'
 import { useToast } from '../components/toast'
 import { cn } from '../components/cn'
 import { ExportGateDialog } from './ExportGateDialog'
+import { useT } from '../i18n'
 
 function formatBytes(bytes: number | null): string {
   if (bytes == null) return '—'
@@ -28,6 +29,7 @@ function formatBytes(bytes: number | null): string {
 }
 
 function LicenseBadge({ model }: { model: RegistryModel }) {
+  const t = useT()
   const usable = isCommerciallyUsable(model)
   return (
     <span
@@ -37,15 +39,16 @@ function LicenseBadge({ model }: { model: RegistryModel }) {
           ? 'bg-emerald-500/10 text-emerald-700'
           : 'bg-amber-500/10 text-amber-700',
       )}
-      title={usable ? 'Commercially usable' : 'Demo-only / check license'}
+      title={t(usable ? 'Commercially usable' : 'Demo-only / check license')}
     >
-      {usable ? 'commercial' : model.class}
+      {usable ? t('commercial') : model.class}
     </span>
   )
 }
 
 function ProbeButton({ model }: { model: RegistryModel }) {
   const { toast } = useToast()
+  const t = useT()
   const [probe, setProbe] = React.useState<ProbeResult>({
     state: 'idle',
     sizeBytes: null,
@@ -56,7 +59,7 @@ function ProbeButton({ model }: { model: RegistryModel }) {
     setProbe(result)
     if (result.state === 'error') {
       toast({
-        title: `Cannot reach ${model.id}`,
+        title: t('Cannot reach') + ' ' + model.id,
         description: result.error ?? `HTTP ${result.status}`,
         variant: 'error',
       })
@@ -79,14 +82,14 @@ function ProbeButton({ model }: { model: RegistryModel }) {
         className="h-auto text-[11px] text-danger hover:underline"
         title={probe.error}
       >
-        unreachable · retry
+        {t('unreachable · retry')}
       </Button>
     )
   }
   if (probe.state === 'probing') {
     return (
       <span className="flex items-center gap-1 text-[11px] text-ink-3">
-        <IconSpinner className="h-3 w-3" /> probing…
+        <IconSpinner className="h-3 w-3" /> {t('probing…')}
       </span>
     )
   }
@@ -97,13 +100,14 @@ function ProbeButton({ model }: { model: RegistryModel }) {
       size="1"
       className="h-auto text-[11px] text-ink-3 hover:underline hover:text-ink-1"
     >
-      verify reachable
+      {t('verify reachable')}
     </Button>
   )
 }
 
 export function ModelLibraryView() {
   const { toast } = useToast()
+  const t = useT()
   const [registry, setRegistry] = React.useState<ModelRegistry | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [query, setQuery] = React.useState('')
@@ -120,7 +124,7 @@ export function ModelLibraryView() {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : String(e))
           toast({
-            title: 'Failed to load model registry',
+            title: t('Failed to load model registry'),
             description: e instanceof Error ? e.message : String(e),
             variant: 'error',
           })
@@ -129,7 +133,7 @@ export function ModelLibraryView() {
     return () => {
       cancelled = true
     }
-  }, [toast])
+  }, [toast, t])
 
   const models = React.useMemo(() => {
     if (!registry) return []
@@ -146,7 +150,7 @@ export function ModelLibraryView() {
   if (error) {
     return (
       <div className="rounded-xl border border-danger/40 bg-danger/5 p-6 text-sm text-danger">
-        Could not load the model registry: {error}
+        {t('Could not load the model registry:')}{error}
       </div>
     )
   }
@@ -155,7 +159,7 @@ export function ModelLibraryView() {
     return (
       <div className="flex items-center gap-3 py-16 text-sm text-ink-2">
         <IconSpinner className="h-4 w-4 text-brand-11" />
-        Loading model registry…
+        {t('Loading model registry…')}
       </div>
     )
   }
@@ -163,11 +167,11 @@ export function ModelLibraryView() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-lg font-semibold text-ink-1">Model Registry</h2>
+        <h2 className="text-lg font-semibold text-ink-1">{t('Model Registry')}</h2>
         <p className="mt-1 max-w-2xl text-sm text-ink-2">
-          Models are never bundled with the app — they are fetched
-          lazily from the registry. License + commercial flags drive the export
-          gate.
+          {t(
+            'Models are never bundled with the app — they are fetched lazily from the registry. License + commercial flags drive the export gate.',
+          )}
         </p>
       </div>
 
@@ -176,8 +180,8 @@ export function ModelLibraryView() {
         <TextField.Root
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search models…"
-          aria-label="Search models"
+          placeholder={t('Search models…')}
+          aria-label={t('Search models')}
           className="w-64"
         />
         <SegmentedControl.Root
@@ -185,9 +189,9 @@ export function ModelLibraryView() {
           value={tier}
           onValueChange={(v) => setTier(v as 'all' | ModelTier)}
         >
-          {(['all', 'low-power', 'high-performance'] as const).map((t) => (
-            <SegmentedControl.Item key={t} value={t}>
-              {t === 'all' ? 'All' : t === 'low-power' ? 'MCU' : 'High-perf'}
+          {(['all', 'low-power', 'high-performance'] as const).map((it) => (
+            <SegmentedControl.Item key={it} value={it}>
+              {it === 'all' ? t('All') : it === 'low-power' ? 'MCU' : t('High-perf')}
             </SegmentedControl.Item>
           ))}
         </SegmentedControl.Root>
@@ -195,7 +199,7 @@ export function ModelLibraryView() {
 
       {/* Backend availability */}
       <section>
-        <h3 className="mb-2 text-sm font-semibold text-ink-1">KWS backends</h3>
+        <h3 className="mb-2 text-sm font-semibold text-ink-1">{t('KWS backends')}</h3>
         <div className="grid gap-2 sm:grid-cols-2">
           {getBackendRegistry().map((b) => (
             <div
@@ -212,7 +216,7 @@ export function ModelLibraryView() {
                 )}
                 title={b.availabilityNote}
               >
-                {b.browserFeasible ? 'available' : b.availabilityNote}
+                {b.browserFeasible ? t('available') : b.availabilityNote}
               </span>
             </div>
           ))}
@@ -222,14 +226,14 @@ export function ModelLibraryView() {
       {/* Models */}
       <section>
         <h3 className="mb-2 text-sm font-semibold text-ink-1">
-          Models{' '}
+          {t('Models')}{' '}
           <span className="text-xs font-normal text-ink-3">
             ({models.length} of {registry.models.length})
           </span>
         </h3>
         {models.length === 0 ? (
           <div className="rounded-xl border border-dashed border-line bg-surface-2/50 p-10 text-center text-sm text-ink-3">
-            No models match your filter.
+            {t('No models match your filter.')}
           </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
@@ -252,11 +256,11 @@ export function ModelLibraryView() {
 
                 <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-ink-2">
                   <div className="flex justify-between gap-2">
-                    <dt className="text-ink-3">Size</dt>
+                    <dt className="text-ink-3">{t('Size')}</dt>
                     <dd className="font-mono">{formatBytes(m.sizeBytes)}</dd>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <dt className="text-ink-3">License</dt>
+                    <dt className="text-ink-3">{t('License')}</dt>
                     <dd className="truncate" title={m.license}>
                       {m.license}
                     </dd>
@@ -277,7 +281,7 @@ export function ModelLibraryView() {
                     size="1"
                     className="text-xs"
                   >
-                    Export…
+                    {t('Export…')}
                   </Button>
                 </div>
               </article>
