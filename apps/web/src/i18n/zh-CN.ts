@@ -32,7 +32,6 @@ export const ZH_CN: Record<string, string> = {
   'Settings · expanded': '设置（已展开）',
   'Settings · collapsed': '设置（已折叠）',
 
-  // ---- Shell: top bar ----
   'Session Console': '会话控制台',
   'RNNoise Playground': 'RNNoise 演练场',
   'Settings · General': '设置 · 常规',
@@ -79,7 +78,6 @@ export const ZH_CN: Record<string, string> = {
   Save: '保存',
   Save_: '保存',
 
-  // ---- Settings: sections ----
   'Console-wide appearance and runtime defaults. Changes apply on Save.':
     '控制台范围的外观与运行时默认值。保存后生效。',
   'Backend connection + credentials. Stored locally only; never sent. Changes apply on Save.':
@@ -96,7 +94,6 @@ export const ZH_CN: Record<string, string> = {
   'Cloud keys are optional. They stay in this browser, are masked on export, and are passed to backend dataset push jobs as job-scoped env only — never persisted (Q-DS-3).':
     '云端密钥为可选项。它们只保留在此浏览器中，导出时被掩码，并且只以任务级环境变量的方式传给后端数据集推送任务——永不落盘（Q-DS-3）。',
 
-  // ---- Settings: security ----
   'API key': 'API 密钥',
   'Fallback credential for Colab tunnel jobs (the notebook service token). Managed backends carry their own token. Stored locally only, never sent to a WakeStudio server, never logged or exported.':
     'Colab 隧道任务的备用凭据（即笔记本服务令牌）。托管后端自带令牌。仅存储在本地，绝不发送到 WakeStudio 服务器，也绝不记录或导出。',
@@ -104,7 +101,6 @@ export const ZH_CN: Record<string, string> = {
   'Fallback shared secret for Colab tunnel jobs. Same storage guarantees as the API key.':
     'Colab 隧道任务的备用共享密钥。存储保障与 API 密钥相同。',
 
-  // ---- Settings: cloud ----
   'Hugging Face token': 'Hugging Face 令牌',
   'Token for the Hugging Face dataset-repo storage backend (authKey "cloud.hf"). Stored locally only; passed to backend push jobs as job-scoped env.':
     'Hugging Face 数据集仓库存储后端的令牌（authKey “cloud.hf”）。仅存储在本地；以任务级环境变量的方式传给后端推送任务。',
@@ -126,7 +122,6 @@ export const ZH_CN: Record<string, string> = {
   'Google Drive OAuth client secret (authKey "cloud.gdrive").':
     'Google Drive OAuth 客户端密钥（authKey “cloud.gdrive”）。',
 
-  // ---- Settings: data ----
   'Allow data upload': '允许数据上传',
   'Gate for the pluggable data-source layer. Off by default; audio generation runs in backends, not WASM.':
     '可插拔数据源层的开关。默认关闭；音频生成在后端运行，而非 WASM。',
@@ -357,7 +352,6 @@ export const ZH_CN: Record<string, string> = {
   'Device SDK bundle': '设备 SDK 套件',
   'Blocked by the license gate': '已被许可门禁阻止',
 
-  // ---- Workspace: pipeline cards / run control ----
   'Start pipeline': '启动管线',
   'loading models…': '正在加载模型……',
   config: '配置',
@@ -672,4 +666,198 @@ export const ZH_CN: Record<string, string> = {
   'user-owned (synthetic TTS)': '用户自有（合成 TTS）',
   '— the generated dataset is commercially usable and trains clean models (export gate, #210).':
     '——生成的数据集可商用，可训练出干净的模型（导出门禁，#210）。',
+
+  // ---- Training console ----
+  Trains: '训练任务',
+  'No train selected': '未选择训练',
+  'Press': '点击',
+  '(the wizard wand) to pick a trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure it, choose a train method, and confirm. Past trains stay in the left rail.':
+    '（向导魔棒）选择一个可训练模块（KWS openwakeword、KWS streaming、RNNoise……），完成配置、选择训练方式并确认。历史训练保留在左侧列表中。',
+  'This train is no longer in the list (deleted?). Pick another from the rail.':
+    '该训练已不在列表中（可能已被删除）。请从列表中选择其他训练。',
+  'Could not load the trainable-modules catalog:': '无法加载可训练模块目录：',
+  'Leave without saving this train?': '不保存就离开该训练？',
+  'You have progress in the New-train wizard. Leaving now discards it.':
+    '新建训练向导中还有进度。现在离开将放弃它。',
+  'Leave anyway': '仍然离开',
+  'unknown phrase': '未知短语',
+  'No trains yet. Press': '还没有训练。点击',
+  '(the wizard wand) to start one — jobs land here for re-inspection (IndexedDB, client-side).':
+    '（向导魔棒）开始一个——任务会保存在这里以便复查（IndexedDB，客户端侧）。',
+  'Train': '训练',
+
+  // ---- Wizard steps (package core strings, translated at render) ----
+  'Choose model type': '选择模型类型',
+  'Pick the module you want to train.': '选择要训练的模块。',
+  'Each trainable module declares its own train config in its spec: what it produces (ONNX/TFLite) and how training runs.':
+    '每个可训练模块在其 spec 中声明自己的训练配置：产出的格式（ONNX/TFLite）与训练方式。',
+  'KWS openwakeword = app-class wake-word model (ONNX). KWS streaming = streaming-aware model (TFLite). RNNoise = noise suppression (ONNX).':
+    'KWS openwakeword = 应用级唤醒词模型（ONNX）。KWS streaming = 流式模型（TFLite）。RNNoise = 降噪（ONNX）。',
+  'Only modules with a spec.train entry appear here.': '只有声明了 spec.train 的模块才会显示在这里。',
+  'Set the training params for the chosen module.': '为所选模块设置训练参数。',
+  "Params come from the selected module's own spec.train.params (spec-driven) — every module declares its own train knobs.":
+    '参数来自所选模块自己的 spec.train.params（spec 驱动）——每个模块都声明自己的训练旋钮。',
+  'The module card shows the differences from its spec.train: notebook or script, invocation methods, outputs.':
+    '模块卡片展示其 spec.train 的差异：notebook 或脚本、调用方式、输出。',
+  'Defaults are safe — you can usually keep them.': '默认值是安全的——通常可以直接保留。',
+  'Choose train method': '选择训练方式',
+  'Pick where training runs, from the methods the module supports.': '从模块支持的方式中选择训练运行的位置。',
+  "The methods come from the module's spec.train.invocation: Google Colab (free GPU, your account), Studio-backend (one of your managed backends — Backends menu), CI (GitHub Actions).":
+    '方式来自模块的 spec.train.invocation：Google Colab（免费 GPU，你的账号）、Studio-backend（你管理的后端之一——后端菜单）、CI（GitHub Actions）。',
+  "Studio-backend runs the module's train adapter as a subprocess on the chosen backend: pick the backend in this step; connection details are saved in the Backends menu.":
+    'Studio-backend 会在所选后端上以子进程运行模块的训练适配器：在此步骤选择后端；连接详情保存在后端菜单中。',
+  'Colab is the v1 path: run the module-owned notebook in your own session, then bring results back in the train details pane (tunnel URL or manual zip submit, issue #106).':
+    'Colab 是 v1 的路径：在你的会话中运行模块自带的 notebook，然后在训练详情面板中取回结果（隧道 URL 或手动提交 zip，issue #106）。',
+  'Ready to start': '准备开始',
+  'Review the train, then start it.': '审阅该训练，然后启动。',
+  'For Colab: the module-owned .ipynb notebook is shown for review — you can download it or open it in Colab.':
+    '对 Colab：会展示模块自带的 .ipynb notebook 供审阅——可下载或在 Colab 中打开。',
+  "Starting opens this train's review (status + results). Training never runs in the browser.":
+    '启动后会打开该训练的审阅页（状态 + 结果）。训练从不在浏览器中进行。',
+  'A user-owned trained model (provenance.json) is commercially clean for export (Phase 4 license gate).':
+    '用户自有模型（provenance.json）在导出上是商用品干净的（第 4 阶段许可门禁）。',
+  'New train steps': '新建训练步骤',
+  'New train': '新建训练',
+  'Saving…': '保存中……',
+  'Start train': '启动训练',
+  'Save just confirms this train here — the run happens in your own Colab session (run the notebook, then bring results back in the train details pane: tunnel URL, or download + submit the results zip).':
+    '“保存”只是在此处确认该训练——实际运行在你自己的 Colab 会话中进行（运行 notebook，然后在训练详情面板中取回结果：隧道 URL，或下载并提交结果 zip）。',
+  'Discard this train?': '放弃该训练？',
+  'Methods': '方式',
+  'Output': '输出',
+  'train config': '训练配置',
+  'Invocation methods': '调用方式',
+  'Output checkpoint': '输出 checkpoint',
+  Metrics: '指标',
+  'Train entry': '训练入口',
+  'Upstream script': '上游脚本',
+  'Trained via the module-owned Colab notebook — the Ready step shows it for review and download.':
+    '通过模块自带的 Colab notebook 训练——“就绪”步骤会展示它供审阅和下载。',
+  'Trained by the upstream script — WakeStudio adapts to it (docs/modules/training.md §4), never rewrites it.':
+    '由上游脚本训练——WakeStudio 适配它（docs/modules/training.md §4），从不改写它。',
+  'Trained by the module-owned train entry via uv.': '由模块自有的训练入口通过 uv 训练。',
+  'Train config declared in the module spec (spec.train).': '训练配置声明在模块 spec 中（spec.train）。',
+  'Google Colab': 'Google Colab',
+  'Studio-backend': 'Studio-backend',
+  'Free GPU under your Google account. Run the module-owned notebook in your own Colab session, then bring results back in the train details pane — paste the Cloudflare tunnel URL the notebook prints (issue #106), or download the results zip and submit it. The URL is generated at run time, not here.':
+    '用你的 Google 账号免费使用 GPU。在你自己的 Colab 会话中运行模块自带的 notebook，然后在训练详情面板中取回结果——粘贴 notebook 打印的 Cloudflare 隧道 URL（issue #106），或下载结果 zip 后提交。URL 在运行时生成，不在此处。',
+  'A backend of your choice runs the train script: the WakeStudio studio-backend (uv / direct subprocess) or a backend you created in the app. The next step picks which backend — the train then runs there with live status.':
+    '由你选择的后端运行训练脚本：WakeStudio studio-backend（uv / 直接子进程）或你在应用中创建的后端。下一步选择哪个后端——训练将在该后端上运行并带实时状态。',
+  'CI': 'CI',
+  'Train in a GitHub Actions workflow (spec.train.invocation "ci"). Best for reproducible, scheduled retrains; artifacts land as workflow artifacts.':
+    '在 GitHub Actions 工作流中训练（spec.train.invocation “ci”）。适合可复现的定期重训；产物作为工作流 artifact 保存。',
+  'Manage backends →': '管理后端 →',
+  'No backends yet — add one in the': '还没有后端——请在',
+  'Backends menu': '后端菜单',
+  'long-term': '长期',
+  'short-term': '短期',
+  'run': '运行',
+  'openwakeword notebook Step 1.5 tunnel': 'openwakeword notebook 步骤 1.5 的隧道',
+  'Pick one of the methods above to continue.': '请选择上方一种方式以继续。',
+  'Ready to confirm': '准备确认',
+  'Notebook review': 'Notebook 审阅',
+  'Your params are baked in': '你的参数已内置',
+  'Expand all': '全部展开',
+  'Collapse all': '全部折叠',
+  'Loading notebook…': '正在加载 notebook……',
+  'How this step works': '本步骤的工作方式',
+  'click to expand': '点击展开',
+  '✓ This download includes your params': '✓ 本次下载已把你的参数',
+  'baked into the notebook.': '内置进 notebook。',
+  'Could not fetch the file (offline?) — the download may fail.': '无法获取文件（可能离线）——下载可能失败。',
+  selected: '已选',
+  'One or more existing datasets (built-ins + your store). The materializer merges roles — positives = wake word, unknowns →':
+    '一个或多个已有数据集（内置 + 你的存储）。实体化器会合并角色——positives = 唤醒词，unknowns →',
+  'noise →': 'noise →',
+  'No datasets available yet — generate one in the Datasets console (or import a wake-studio-dataset.zip), then come back.':
+    '还没有可用数据集——请先在数据集控制台生成一个（或导入 wake-studio-dataset.zip），再回来这里。',
+  'Built-ins are listed here, but training needs a': '此处列出了内置数据集，但训练需要',
+  "connection to materialize them (and to load your store's datasets) — connect one in the Backends menu.":
+    '连接来实体化它们（并加载你存储中的数据集）——请在“后端”菜单中连接一个。',
+  'These datasets satisfy the trainer’s requirements.': '这些数据集满足训练器的要求。',
+  'Notebook review —': 'Notebook 审阅 —',
+  'Run & import': '运行并导入',
+  'Re-import': '重新导入',
+  'Colab tunnel URL': 'Colab 隧道 URL',
+  '(generated when the notebook runs)': '（notebook 运行时生成）',
+  'The notebook prints this URL while running (cloudflared). With it, WakeStudio submits the job to the tunnel and tracks status live (issue #122). Auto-detect: if you set a Cloudflare API key in Settings, the notebook writes the URL into the results bundle and it is picked up on import.':
+    'notebook 运行时会打印此 URL（cloudflared）。有了它，WakeStudio 即可通过隧道提交任务并实时跟踪状态（issue #122）。自动检测：如果你在“设置”中配置了 Cloudflare API 密钥，notebook 会把该 URL 写入结果包，导入时自动拾取。',
+  'Retry — connect to tunnel': '重试——连接隧道',
+  'Connect to tunnel & submit': '连接隧道并提交',
+  '✓ Connected — status is tracked live (SSE, polling fallback) and results can be pulled.':
+    '✓ 已连接——状态实时跟踪（SSE，轮询兜底），结果可拉取。',
+  'Tunnel URL set — press “Connect to tunnel & submit” to start tracking this run.':
+    '已设置隧道 URL——点击“连接隧道并提交”开始跟踪本次运行。',
+  "No tunnel URL — WakeStudio cannot trace this Colab run's status. Finish the train manually: download":
+    '没有隧道 URL——WakeStudio 无法跟踪本次 Colab 运行的状态。请手动完成训练：下载',
+  'from Colab and submit it below.': '（来自 Colab）并在下方提交。',
+  "Run the notebook in Colab (free GPU, your Google account), download wake-studio-results.zip, and import it below — this train's results update here.":
+    '在 Colab 中运行 notebook（免费 GPU，你的 Google 账号），下载 wake-studio-results.zip 并在下方导入——该训练的结果会更新到这里。',
+  'This train was already imported. You can import an updated bundle below if you retrained.':
+    '该训练已导入过。如果你重新训练了，可以在下方导入更新后的包。',
+  'Remove this train from the list and delete the job on the backend (its artifacts are removed there too). The imported model stays in your model library.':
+    '从列表移除该训练并删除后端上的任务（其产物也会被删除）。已导入的模型仍保留在模型库中。',
+  'Remove this train from the list. The imported model stays in your model library.':
+    '从列表移除该训练。已导入的模型仍保留在模型库中。',
+  'Delete this train?': '删除该训练？',
+  'This deletes the job and its artifacts on the studio-backend and removes the train from your list (IndexedDB).':
+    '这会删除 studio-backend 上的任务及其产物，并将该训练从你的列表（IndexedDB）中移除。',
+  'This removes the train from your list (IndexedDB). The imported model in your model library is not affected.':
+    '这会将该训练从你的列表（IndexedDB）移除。模型库中已导入的模型不受影响。',
+  'Live status': '实时状态',
+  idle: '空闲',
+  'Re-submits the same config as a fresh run.': '以全新的运行重新提交相同配置。',
+  'Pulling': '正在拉取',
+  'from the backend and importing the trained model…': '（来自后端）并导入训练好的模型……',
+  'is on the backend.': '已在后端上。',
+  'Fetch the results from the backend and register the trained model': '从后端获取结果并注册训练好的模型',
+  'Import': '导入',
+  'Save the raw results zip to disk': '把原始结果 zip 保存到磁盘',
+  '✓ imported': '✓ 已导入',
+  'registers the trained model in your library (in-browser test + export);': '会把训练好的模型注册进你的模型库（浏览器内测试 + 导出）；',
+  'saves the raw zip.': '则保存原始 zip。',
+  Recall: '召回率',
+  Accuracy: '准确率',
+  Artifact: '产物',
+  'User-owned — the Phase 4 export license gate treats this model as commercially clean.':
+    '用户自有——第 4 阶段导出许可门禁把该模型视为商用品干净。',
+  'Not user-owned': '非用户自有',
+  'a commercial export will be blocked.': '商业导出将被阻止。',
+  'Not user-owned — the export license gate will block a commercial bundle.':
+    '非用户自有——导出许可门禁会阻止商业打包。',
+  'Provenance not recorded for this job.': '该任务未记录来源信息。',
+  'panel and press': '面板并点击',
+  'to test the model in-browser, then export a bundle in the Model library.':
+    '以在浏览器中测试该模型，然后在模型注册表中导出套件。',
+  'No results yet': '还没有结果',
+  '— the train is queued': '——该训练已排队',
+  'Results appear here once the train finishes and the artifact is pulled.':
+    '训练完成并拉取产物后，结果会显示在这里。',
+  'Results appear here once the train finishes and the bundle is imported.':
+    '训练完成并导入结果包后，结果会显示在这里。',
+  Notifications: '通知',
+  'Inputs review': '输入审阅',
+  'This module declares no train input file to review.': '该模块没有声明可供审阅的训练输入文件。',
+  'Trainable-module catalog unavailable for': '可训练模块目录不可用：',
+  'could not load train-modules.json': '无法加载 train-modules.json',
+  '✓ Model imported': '✓ 模型已导入',
+  'ready for in-browser test + export': '可在浏览器内测试 + 导出',
+  'Wake phrase': '唤醒短语',
+  Job: '任务',
+  Model: '模型',
+  'Colab model imported': 'Colab 模型已导入',
+  'is ready to test.': '已可测试。',
+  'Import Colab results': '导入 Colab 结果',
+  'Pick the': '选择',
+  'your Colab notebook downloaded (open the Training panel for the module, run the notebook, download the bundle). The importer validates the manifest —':
+    '（你的 Colab notebook 下载的结果包）（在训练面板中打开该模块、运行 notebook、下载结果包）。导入器会校验清单——',
+  'client-side only; no WakeStudio server is involved.': '仅客户端侧；不涉及任何 WakeStudio 服务器。',
+  'Importing…': '导入中……',
+  'Import Colab results…': '导入 Colab 结果……',
+  'Import failed': '导入失败',
+  'Training notebook (module-owned)': '训练 notebook（模块自有）',
+  'Training notebook (upstream)': '训练 notebook（上游）',
+  'Train script (upstream)': '训练脚本（上游）',
+  'Train script (module-owned)': '训练脚本（模块自有）',
+  'View source': '查看源码',
 }

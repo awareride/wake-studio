@@ -11,6 +11,7 @@ import type { HistoryJob } from '@wake-studio/module-training'
 import { latestMessage, sortJobsNewestFirst } from '@wake-studio/module-training'
 import { cn } from '../../components/cn'
 import { StatusChip } from './StatusChip'
+import { useT } from '../../i18n'
 
 export interface TrainListProps {
   jobs: HistoryJob[]
@@ -19,13 +20,16 @@ export interface TrainListProps {
 }
 
 export function TrainList({ jobs, selectedId, onSelect }: TrainListProps) {
+  const t = useT()
   const ordered = sortJobsNewestFirst(jobs)
 
   if (ordered.length === 0) {
     return (
       <div className="px-4 py-6 text-xs leading-relaxed text-ink-3">
-        No trains yet. Press <span className="font-medium text-ink-2">New</span> (the wizard
-        wand) to start one — jobs land here for re-inspection (IndexedDB, client-side).
+        {t('No trains yet. Press')} <span className="font-medium text-ink-2">{t('New')}</span>{' '}
+        {t(
+          '(the wizard wand) to start one — jobs land here for re-inspection (IndexedDB, client-side).',
+        )}
       </div>
     )
   }
@@ -55,7 +59,7 @@ export function TrainList({ jobs, selectedId, onSelect }: TrainListProps) {
                 </span>
               </div>
               <div className="mt-1 truncate text-xs font-medium text-ink-1">
-                “{job.phrase || 'unknown phrase'}”
+                “{job.phrase || t('unknown phrase')}”
               </div>
               <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-ink-3">
                 <span className="font-mono">{job.method}</span>

@@ -12,6 +12,7 @@ import type { TrainableModule } from '../train-modules'
 import type { ManagedBackend } from '../../backends/types'
 import { FileReviewCard } from './FileReviewCard'
 import { trainInputFile } from './train-files'
+import { useT } from '../../i18n'
 
 export interface ReadyStepProps {
   module: TrainableModule
@@ -23,15 +24,14 @@ export interface ReadyStepProps {
   onReview: () => void
 }
 
-function methodLabel(method: TrainMethodId): string {
-  return method === 'colab'
-    ? 'Google Colab'
-    : method === 'studio-backend'
-      ? 'Studio-backend'
-      : 'CI'
+const METHOD_KEYS: Record<TrainMethodId, string> = {
+  colab: 'Google Colab',
+  'studio-backend': 'Studio-backend',
+  ci: 'CI',
 }
 
 export function ReadyStep({ module, method, params, backend, onReview }: ReadyStepProps) {
+  const t = useT()
   const file = trainInputFile(module, method)
   const labels = new Map((module.train.params ?? []).map((p) => [p.id, p.label]))
   const paramRows = Object.entries(params)
@@ -41,19 +41,19 @@ export function ReadyStep({ module, method, params, backend, onReview }: ReadySt
       {/* Train summary. */}
       <div className="rounded-xl border border-line bg-surface-2 p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold text-ink-1">Ready to confirm</h3>
+          <h3 className="text-sm font-semibold text-ink-1">{t('Ready to confirm')}</h3>
           <span className="rounded-full bg-surface-3 px-2 py-0.5 font-mono text-[10px] text-ink-3">
             {module.id}
           </span>
           <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-success">
-            {methodLabel(method)}
+            {t(METHOD_KEYS[method])}
           </span>
         </div>
 
         <dl className="mt-3 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
           {paramRows.map(([key, value]) => (
             <div key={key} className="flex justify-between gap-3">
-              <dt className="text-ink-3">{labels.get(key) ?? key}</dt>
+              <dt className="text-ink-3">{t(labels.get(key) ?? key)}</dt>
               <dd className="truncate font-mono text-ink-1" title={value}>
                 {value || '—'}
               </dd>
@@ -61,7 +61,7 @@ export function ReadyStep({ module, method, params, backend, onReview }: ReadySt
           ))}
           {method === 'studio-backend' && (
             <div className="flex justify-between gap-3 sm:col-span-2">
-              <dt className="text-ink-3">Backend</dt>
+              <dt className="text-ink-3">{t('Backend')}</dt>
               <dd className="truncate font-mono text-ink-1" title={backend?.baseUrl}>
                 {backend ? `${backend.name} · ${backend.baseUrl}` : '—'}
               </dd>
@@ -74,13 +74,13 @@ export function ReadyStep({ module, method, params, backend, onReview }: ReadySt
           notebook dialog; the panel itself stays compact, issue #105). */}
       {file && (
         <FileReviewCard
-          title={file.title}
+          title={t(file.title ?? '')}
           fileName={file.fileName}
           kind={file.kind}
           rawUrl={file.rawUrl}
           openUrl={file.openUrl}
-          openLabel={file.openLabel}
-          description={file.description}
+          openLabel={file.openLabel ? t(file.openLabel) : undefined}
+          description={t(file.description ?? '')}
           onReview={onReview}
           params={params}
           paramMeta={module.train.params}

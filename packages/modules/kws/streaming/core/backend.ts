@@ -354,7 +354,7 @@ function missingAssetMessage(
   if (response.status === 404) {
     return (
       `kws-streaming: ${kind} '${name}' is not present (404). The ONNX models are ` +
-      'not committed (ADR-011): run `node scripts/fetch-artifact.mjs kws-streaming`. ' +
+      'not committed: run `node scripts/fetch-artifact.mjs kws-streaming`. ' +
       'If other models load but this one 404s, the artifact was built for a subset ' +
       'of checkpoints - rebuild with all of them: `gh workflow run build.yaml ' +
       `-f module=kws-streaming -f inputs_json='{"checkpoints":"kwt1,kwt2,kwt3,att_mh_rnn_1"}'\``

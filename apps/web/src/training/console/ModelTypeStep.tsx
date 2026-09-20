@@ -7,6 +7,7 @@
 
 import { cn } from '../../components/cn'
 import type { TrainableModule } from '../train-modules'
+import { useT } from '../../i18n'
 
 export interface ModelTypeStepProps {
   modules: TrainableModule[]
@@ -30,6 +31,7 @@ function outputSummary(module: TrainableModule): string {
 }
 
 export function ModelTypeStep({ modules, selectedId, onSelect }: ModelTypeStepProps) {
+  const t = useT()
   return (
     <div className="space-y-3">
       {modules.map((module) => {
@@ -53,23 +55,23 @@ export function ModelTypeStep({ modules, selectedId, onSelect }: ModelTypeStepPr
                 <div className="mt-0.5 font-mono text-[11px] text-ink-3">{module.id}</div>
               </div>
               <span className="shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-3">
-                {module.category}
+                {t(module.category)}
               </span>
             </div>
 
             <dl className="mt-2.5 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-3">
               <div>
-                <dt className="text-ink-3">Methods</dt>
+                <dt className="text-ink-3">{t('Methods')}</dt>
                 <dd className="mt-0.5 font-medium text-ink-1">{invocationSummary(module)}</dd>
               </div>
               <div>
-                <dt className="text-ink-3">Output</dt>
+                <dt className="text-ink-3">{t('Output')}</dt>
                 <dd className="mt-0.5 truncate font-mono text-ink-1" title={module.train.outputs?.checkpoint}>
                   {outputSummary(module)}
                 </dd>
               </div>
               <div>
-                <dt className="text-ink-3">License</dt>
+                <dt className="text-ink-3">{t('License')}</dt>
                 <dd className="mt-0.5 truncate text-ink-2" title={module.license}>
                   {module.license.split(';')[0]}
                 </dd>

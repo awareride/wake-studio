@@ -18,6 +18,7 @@ import {
 } from '@wake-studio/module-training'
 import { cn } from '../../components/cn'
 import { IconSpinner } from '../../components/icons'
+import { useT } from '../../i18n'
 
 export interface FileReviewCardProps {
   title: string
@@ -104,6 +105,7 @@ export function FileReviewCard({
   params,
   paramMeta,
 }: FileReviewCardProps) {
+  const t = useT()
   const [sizeBytes, setSizeBytes] = useState<number | null>(null)
   const [failed, setFailed] = useState(false)
 
@@ -154,7 +156,7 @@ export function FileReviewCard({
             size="2"
             className="gap-1.5 text-xs font-semibold"
           >
-            Review
+            {t('Review')}
           </Button>
         )}
         {rawUrl && (
@@ -169,7 +171,7 @@ export function FileReviewCard({
             size="2"
             className="text-xs font-medium"
           >
-            Download {fileName}
+            {`${t('Download')} ${fileName}`}
           </Button>
         )}
         {openUrl && (
@@ -186,13 +188,14 @@ export function FileReviewCard({
 
       {bakedIn.length > 0 && (
         <p className="mt-2 text-[11px] text-success">
-          ✓ This download includes your params ({bakedIn.join(', ')}) baked into the notebook.
+          {t('✓ This download includes your params')} ({bakedIn.join(', ')}){' '}
+          {t('baked into the notebook.')}
         </p>
       )}
 
       {failed && (
         <p className="mt-2 text-[11px] text-ink-3">
-          Could not fetch the file (offline?) — the download may fail.
+          {t('Could not fetch the file (offline?) — the download may fail.')}
         </p>
       )}
     </div>

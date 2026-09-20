@@ -31,6 +31,7 @@ import { resolveAsset } from '@wake-studio/platform'
 import { cn } from '../../components/cn'
 import type { StoreDataset, StudioClient } from '../studio-client'
 import { listLocalDatasets, type LocalDatasetSummary } from '../../datasets/local-store'
+import { useT } from '../../i18n'
 
 export interface DatasetPickerProps {
   /** The studio-backend client whose /datasets store feeds the picker. */
@@ -128,6 +129,7 @@ function fromLocalSummary(l: LocalDatasetSummary): PickableDataset {
 }
 
 export function DatasetPicker({ client, requirements, value, onChange }: DatasetPickerProps) {
+  const t = useT()
   const [storeDatasets, setStoreDatasets] = useState<StoreDataset[] | null>(null)
   const [builtins, setBuiltins] = useState<DatasetCatalogEntry[] | null>(null)
   const [localDatasets, setLocalDatasets] = useState<LocalDatasetSummary[]>([])
@@ -250,24 +252,25 @@ export function DatasetPicker({ client, requirements, value, onChange }: Dataset
   return (
     <div className="rounded-xl border border-line bg-surface-2 p-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-ink-1">Datasets</h3>
+        <h3 className="text-sm font-semibold text-ink-1">{t('Datasets')}</h3>
         <span className="rounded-full bg-surface-3 px-2 py-0.5 font-mono text-[10px] text-ink-3">
-          {selected.length} selected
+          {`${selected.length} ${t('selected')}`}
         </span>
       </div>
       <p className="mt-0.5 text-xs text-ink-3">
-        One or more existing datasets (built-ins + your store). The materializer merges
-        roles — positives = wake word, unknowns →{' '}
-        <span className="font-mono">_unknown_</span>, noise →{' '}
+        {t('One or more existing datasets (built-ins + your store). The materializer merges roles — positives = wake word, unknowns →')}{' '}
+        <span className="font-mono">_unknown_</span>,{' '}
+        {t('noise →')}{' '}
         <span className="font-mono">_background_noise_</span>.
       </p>
 
-      {loading && <p className="mt-3 text-xs text-ink-3">Loading datasets…</p>}
+      {loading && <p className="mt-3 text-xs text-ink-3">{t('Loading datasets…')}</p>}
       {error && <p className="mt-3 text-xs text-danger">{error}</p>}
       {empty && !error && (
         <p className="mt-3 text-xs text-ink-3">
-          No datasets available yet — generate one in the Datasets console (or import a
-          wake-studio-dataset.zip), then come back.
+          {t(
+            'No datasets available yet — generate one in the Datasets console (or import a wake-studio-dataset.zip), then come back.',
+          )}
         </p>
       )}
 
@@ -301,20 +304,20 @@ export function DatasetPicker({ client, requirements, value, onChange }: Dataset
                       v{d.version}
                     </span>
                     <span className="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-3">
-                      {KIND_LABEL[d.kind] ?? d.kind}
+                      {t(KIND_LABEL[d.kind] ?? d.kind)}
                     </span>
                     <span className="rounded-full bg-surface-3 px-1.5 py-0.5 font-mono text-[10px] text-ink-3">
-                      {d.clips > 0 ? `${d.clips} clips · ` : ''}
+                      {d.clips > 0 ? `${d.clips} ${t('clips')} · ` : ''}
                       {d.roles.join('/') || (ROLE_LABEL[d.role] ?? d.role)}
                     </span>
                     {d.commercialUse === false && (
                       <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-700">
-                        non-commercial
+                        {t('non-commercial')}
                       </span>
                     )}
                     {!d.available && (
                       <span className="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] text-ink-3">
-                        not hosted yet
+                        {t('not hosted yet')}
                       </span>
                     )}
                   </span>
@@ -336,10 +339,11 @@ export function DatasetPicker({ client, requirements, value, onChange }: Dataset
 
       {!client && pickable.length > 0 && (
         <p className="mt-3 border-t border-line pt-3 text-xs text-ink-3">
-          Built-ins are listed here, but training needs a{' '}
-          <span className="font-medium text-ink-2">studio-backend</span> connection to
-          materialize them (and to load your store's datasets) — connect one in the
-          Backends menu.
+          {t('Built-ins are listed here, but training needs a')}{' '}
+          <span className="font-medium text-ink-2">{t('studio-backend')}</span>{' '}
+          {t(
+            "connection to materialize them (and to load your store's datasets) — connect one in the Backends menu.",
+          )}
         </p>
       )}
 
@@ -356,7 +360,7 @@ export function DatasetPicker({ client, requirements, value, onChange }: Dataset
             </p>
           ))}
           {validation.ok && validation.errors.length === 0 && validation.warnings.length === 0 && (
-            <p className="text-xs text-success">These datasets satisfy the trainer's requirements.</p>
+            <p className="text-xs text-success">{t('These datasets satisfy the trainer’s requirements.')}</p>
           )}
         </div>
       )}

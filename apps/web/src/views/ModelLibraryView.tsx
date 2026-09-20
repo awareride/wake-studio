@@ -206,7 +206,7 @@ export function ModelLibraryView() {
               key={b.id}
               className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm"
             >
-              <span className="truncate text-ink-1">{b.label}</span>
+              <span className="truncate text-ink-1">{t(b.label)}</span>
               <span
                 className={cn(
                   'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
@@ -214,9 +214,9 @@ export function ModelLibraryView() {
                     ? 'bg-success/10 text-success'
                     : 'bg-surface-4 text-ink-3',
                 )}
-                title={b.availabilityNote}
+                title={t(b.availabilityNote)}
               >
-                {b.browserFeasible ? t('available') : b.availabilityNote}
+                {b.browserFeasible ? t('available') : t(b.availabilityNote)}
               </span>
             </div>
           ))}

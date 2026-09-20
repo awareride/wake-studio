@@ -33,6 +33,7 @@ import { TRAIN_NEW_HASH_PREFIX, trainNewReviewFromHash, trainNewStepFromHash } f
 import { consumePendingTrainDataset } from '../../datasets/train-link'
 import { findTrainableModule, type TrainableModule } from '../train-modules'
 import { ConfirmDialog } from './ConfirmDialog'
+import { useT } from '../../i18n'
 import { InlineGuide } from './InlineGuide'
 import { ModelTypeStep } from './ModelTypeStep'
 import { ConfigStep } from './ConfigStep'
@@ -82,6 +83,7 @@ export function NewTrainWizard({
   const [reviewing, setReviewing] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const { backends } = useAppSettings()
+  const t = useT()
 
   // Wizard steps are hash-encoded (`#/training/new[/<step>]`, issue #136):
   // every step is its own history entry, so browser back/forward walk the
@@ -195,8 +197,8 @@ export function NewTrainWizard({
       {/* Wizard header + step pills (pinned). */}
       <div className="flex shrink-0 items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-ink-1">New train</h3>
-          <p className="mt-0.5 text-xs text-ink-3">{def.summary}</p>
+          <h3 className="text-base font-semibold text-ink-1">{t('New train')}</h3>
+          <p className="mt-0.5 text-xs text-ink-3">{t(def.summary)}</p>
         </div>
         <Button
           type="button"
@@ -205,11 +207,11 @@ export function NewTrainWizard({
           size="1"
           className="text-xs"
         >
-          Cancel
+          {t('Cancel')}
         </Button>
       </div>
 
-      <nav aria-label="New train steps" className="flex shrink-0 flex-wrap items-center gap-1.5">
+      <nav aria-label={t('New train steps')} className="flex shrink-0 flex-wrap items-center gap-1.5">
         {STEP_ORDER.map((id, i) => {
           const active = id === step
           const done = STEP_ORDER.indexOf(step) > i
@@ -239,7 +241,7 @@ export function NewTrainWizard({
                 >
                   {done ? '✓' : i + 1}
                 </span>
-                {d.label}
+                {t(d.label)}
               </span>
             </div>
           )
@@ -248,7 +250,7 @@ export function NewTrainWizard({
 
       {/* Scrollable content. */}
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
-        <InlineGuide lines={def.help} />
+        <InlineGuide lines={def.help.map((h) => t(h))} />
 
         {step === 'model' && (
           <ModelTypeStep modules={modules} selectedId={moduleId} onSelect={selectModule} />
@@ -321,7 +323,7 @@ export function NewTrainWizard({
             variant="outline"
             size="2"
           >
-            Back
+            {t('Back')}
           </Button>
           {next ? (
             <Button
@@ -330,7 +332,7 @@ export function NewTrainWizard({
               disabled={!canNext}
               size="2"
             >
-              Next
+              {t('Next')}
             </Button>
           ) : (
             <Button
@@ -340,24 +342,24 @@ export function NewTrainWizard({
               size="2"
               className="font-semibold"
             >
-              {starting ? 'Saving…' : method === 'colab' ? 'Save' : 'Start train'}
+              {starting ? t('Saving…') : method === 'colab' ? t('Save') : t('Start train')}
             </Button>
           )}
         </div>
         {step === 'ready' && method === 'colab' && (
           <p className="text-[11px] leading-relaxed text-ink-3">
-            Save just confirms this train here — the run happens in your own Colab session (run the
-            notebook, then bring results back in the train details pane: tunnel URL, or download +
-            submit the results zip).
+            {t(
+              'Save just confirms this train here — the run happens in your own Colab session (run the notebook, then bring results back in the train details pane: tunnel URL, or download + submit the results zip).',
+            )}
           </p>
         )}
       </div>
 
       <ConfirmDialog
         open={confirmCancel}
-        title="Discard this train?"
-        message="You have progress in the wizard. Leaving now discards your selections."
-        confirmLabel="Discard"
+        title={t('Discard this train?')}
+        message={t('You have progress in the wizard. Leaving now discards your selections.')}
+        confirmLabel={t('Discard')}
         onConfirm={() => {
           setConfirmCancel(false)
           onCancel()

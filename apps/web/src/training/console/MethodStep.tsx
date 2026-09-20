@@ -13,6 +13,7 @@ import { methodsFor, type TrainMethodId } from '@wake-studio/module-training'
 import type { TrainableModule } from '../train-modules'
 import type { ManagedBackend } from '../../backends/types'
 import { cn } from '../../components/cn'
+import { useT } from '../../i18n'
 
 export interface MethodStepProps {
   module: TrainableModule
@@ -37,6 +38,7 @@ export function MethodStep({
   selectedBackendId,
   onSelectBackend,
 }: MethodStepProps) {
+  const t = useT()
   const methods = methodsFor(module.train.invocation)
   const wantsBackend = selected === 'studio-backend'
 
@@ -58,8 +60,8 @@ export function MethodStep({
             )}
           >
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-ink-1">{method.label}</div>
-              <p className="mt-1 text-xs leading-relaxed text-ink-2">{method.blurb}</p>
+              <div className="text-sm font-semibold text-ink-1">{t(method.label)}</div>
+              <p className="mt-1 text-xs leading-relaxed text-ink-2">{t(method.blurb)}</p>
             </div>
             <span
               className={cn(
@@ -77,20 +79,20 @@ export function MethodStep({
         <div className="space-y-2 rounded-xl border border-line bg-surface-2 p-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-              Backend
+              {t('Backend')}
             </span>
             <a href="#/backends" className="text-[11px] font-medium text-brand-11 hover:underline">
-              Manage backends →
+              {t('Manage backends →')}
             </a>
           </div>
           {backends.length === 0 ? (
             <p className="text-xs leading-relaxed text-ink-3">
-              No backends yet — add one in the{' '}
+              {t('No backends yet — add one in the')}{' '}
               <a href="#/backends" className="font-medium text-brand-11 hover:underline">
-                Backends menu
+                {t('Backends menu')}
               </a>{' '}
-              (long-term: run <code className="font-mono text-[10px]">uv run wake-service</code>;
-              short-term: openwakeword notebook Step 1.5 tunnel).
+              ({t('long-term')}: {t('run')} <code className="font-mono text-[10px]">uv run wake-service</code>;{' '}
+              {t('short-term')}: {t('openwakeword notebook Step 1.5 tunnel')}).
             </p>
           ) : (
             <ul className="space-y-1.5">
@@ -125,7 +127,7 @@ export function MethodStep({
                         <span className="block truncate font-mono text-[10px] text-ink-3">{b.baseUrl}</span>
                       </span>
                       <span className={cn('rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide', KIND_STYLE[b.kind])}>
-                        {b.kind === 'short-term' ? 'short-term' : 'long-term'}
+                        {b.kind === 'short-term' ? t('short-term') : t('long-term')}
                       </span>
                     </button>
                   </li>
@@ -137,7 +139,7 @@ export function MethodStep({
       )}
 
       {!selected && (
-        <p className="text-xs text-ink-3">Pick one of the methods above to continue.</p>
+        <p className="text-xs text-ink-3">{t('Pick one of the methods above to continue.')}</p>
       )}
     </div>
   )

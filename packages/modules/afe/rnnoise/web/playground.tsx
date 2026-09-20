@@ -113,9 +113,9 @@ export default function RnnoisePlayground() {
         RNNoise module playground
       </h2>
       <p className="mt-1 text-sm text-ink-2">
-        ADR-025 pilot · vendored emscripten wasm, runs fully in-browser. No
-        AFE, no KWS — just this module. Controls are spec-driven (module-kit
-        Ui* components).
+        Vendored emscripten wasm, runs fully in-browser. No AFE, no KWS —
+        just this module. Controls are spec-driven (module-kit Ui*
+        components).
       </p>
 
       {!ready && <p className="mt-4 text-warning">Loading RNNoise WASM…</p>}

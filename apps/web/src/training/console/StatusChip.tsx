@@ -4,6 +4,7 @@
 
 import type { HistoryJob } from '@wake-studio/module-training'
 import { cn } from '../../components/cn'
+import { useT } from '../../i18n'
 
 export const STATUS_STYLE: Record<HistoryJob['status'], string> = {
   queued: 'bg-amber-500/15 text-amber-700',
@@ -15,6 +16,7 @@ export const STATUS_STYLE: Record<HistoryJob['status'], string> = {
 }
 
 export function StatusChip({ status }: { status: HistoryJob['status'] }) {
+  const t = useT()
   return (
     <span
       className={cn(
@@ -22,7 +24,7 @@ export function StatusChip({ status }: { status: HistoryJob['status'] }) {
         STATUS_STYLE[status],
       )}
     >
-      {status}
+      {t(status)}
     </span>
   )
 }
