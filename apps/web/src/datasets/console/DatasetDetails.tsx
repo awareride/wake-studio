@@ -454,7 +454,7 @@ function ListenSection({ dataset }: { dataset: ConsoleDataset }) {
         setPlaying(null)
       }
     },
-    [playing, dataset, stop],
+    [playing, dataset, stop, t],
   )
 
   const byLabel = useMemo(() => {

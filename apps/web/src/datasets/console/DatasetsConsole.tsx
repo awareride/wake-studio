@@ -189,7 +189,7 @@ export function DatasetsConsole() {
         })
       }
     },
-    [datasetZipBytes, toast],
+    [datasetZipBytes, toast, t],
   )
 
   const handleDelete = useCallback(
@@ -214,7 +214,7 @@ export function DatasetsConsole() {
         })
       }
     },
-    [store, view, toast],
+    [store, view, toast, t],
   )
 
   const handleUpload = useCallback(
@@ -250,7 +250,7 @@ export function DatasetsConsole() {
         })
       }
     },
-    [datasetZipBytes, platform, store, toast],
+    [datasetZipBytes, platform, store, toast, t],
   )
 
   /** Train with this: pre-seed the dataset + deep-link into the Training
