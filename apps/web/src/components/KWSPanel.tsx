@@ -69,6 +69,7 @@ import {
 } from '../model-library'
 import type { UserModel, UserArtifact } from '../model-library'
 import { provisionActionLabel } from '../workspace/kws-config'
+import { useT } from '../i18n'
 
 const HISTORY_MAX = 300 // ~3 s at ~100 fps
 
@@ -129,6 +130,7 @@ export const KWSPanel = memo(function KWSPanel({
   onPreview,
   embedded,
 }: Props) {
+  const t = useT()
   const engineRef = useRef<KWSEngine | null>(null)
   const [status, setStatus] = useState<KWSStatus>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -969,11 +971,9 @@ export const KWSPanel = memo(function KWSPanel({
         <div>
           <h2 className="text-lg font-semibold text-ink-1">KWS detection</h2>
           <p className="text-sm text-ink-2">
-            Pluggable KWS backend running in a Web Worker. Pick a backend
-            below; models load from the platform registry. openWakeWord
-            (hey-buddy, mel-spectrogram -&gt; speech-embedding -&gt; classifier) is
-            the default; PLiX Few-Shot adds custom wake-word enrollment. VAD
-            gating via AFE RNNoise VAD.
+            {t(
+              'Pluggable KWS backend running in a Web Worker. Pick a backend below; models load from the platform registry. openWakeWord (hey-buddy, mel-spectrogram -> speech-embedding -> classifier) is the default; PLiX Few-Shot adds custom wake-word enrollment. VAD gating via AFE RNNoise VAD.',
+            )}
           </p>
         </div>
       )}
@@ -982,7 +982,7 @@ export const KWSPanel = memo(function KWSPanel({
           detection live in the Engine card below. */}
       <div className="flex flex-wrap items-center gap-4 whitespace-nowrap">
         <label className="flex items-center gap-2 text-sm">
-          <span className="text-ink-2">Backend</span>
+          <span className="text-ink-2">{t('Backend')}</span>
           <select
             value={config.backend}
             disabled={status === 'loading' || running || detecting}
@@ -1007,7 +1007,7 @@ export const KWSPanel = memo(function KWSPanel({
           for single-word backends. Shared threshold across words. */}
       {wordOptions.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-ink-2">Wake words</span>
+          <span className="text-ink-2">{t('Wake words')}</span>
           <UiMultiselect
             value={(config.words ?? []).join(',')}
             options={wordOptions.map((w) => ({ value: w, label: w }))}
@@ -1023,7 +1023,7 @@ export const KWSPanel = memo(function KWSPanel({
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-ink-1">Engine</h3>
+            <h3 className="text-sm font-semibold text-ink-1">{t('Engine')}</h3>
             <span className="text-xs text-ink-3">
               {selectedBackend?.label ?? config.backend} ·{' '}
               {status === 'ready' && provisionKind !== 'prototype'
@@ -1035,42 +1035,42 @@ export const KWSPanel = memo(function KWSPanel({
             {provisionKind !== 'prototype' && status === 'idle' && (
               <Button variant="solid" size="2" onClick={provisionKind === 'list' ? handleListLoad : handleLoad}>
                 {provisionKind === 'list'
-                  ? (provisionActionLabel(config.backend, 'load-with-list') ?? 'Load')
-                  : 'Load models'}
+                  ? (provisionActionLabel(config.backend, 'load-with-list') ?? t('Load'))
+                  : t('Load models')}
               </Button>
             )}
             {provisionKind !== 'prototype' && (status === 'ready' || status === 'error') && (
               <Button variant="surface" size="2" onClick={provisionKind === 'list' ? handleListLoad : handleLoad}>
                 {provisionKind === 'list'
-                  ? (provisionActionLabel(config.backend, 'load-with-list') ?? 'Reload')
-                  : 'Reload models'}
+                  ? (provisionActionLabel(config.backend, 'load-with-list') ?? t('Reload'))
+                  : t('Reload models')}
               </Button>
             )}
             {provisionKind === 'prototype' && status !== 'ready' && status !== 'running' && !detecting && (
               <Button variant="solid" size="2" onClick={handleProvisionLoad}
                 disabled={status === 'loading'}>
-                {status === 'loading' ? 'Loading…' : loadActionLabel(selectedBackend)}
+                {status === 'loading' ? t('Loading…') : t(loadActionLabel(selectedBackend))}
               </Button>
             )}
             {provisionKind !== 'prototype' && canStart && (
               <Button variant="solid" color="green" size="2" onClick={handleStart}>
-                Start detection
+                {t('Start detection')}
               </Button>
             )}
             {provisionKind !== 'prototype' && running && (
               <Button variant="solid" color="red" size="2" onClick={handleStop}>
-                Stop detection
+                {t('Stop detection')}
               </Button>
             )}
             {provisionKind === 'prototype' && artifact && !detecting && (
               <Button variant="solid" color="green" size="2" onClick={handleProvisionStart}
                 disabled={!afeRunning}>
-                {provisionActionLabel(config.backend, 'start') ?? 'Start detection'}
+                {provisionActionLabel(config.backend, 'start') ?? t('Start detection')}
               </Button>
             )}
             {provisionKind === 'prototype' && detecting && (
               <Button variant="solid" color="red" size="2" onClick={handleProvisionStop}>
-                {provisionActionLabel(config.backend, 'stop') ?? 'Stop detection'}
+                {provisionActionLabel(config.backend, 'stop') ?? t('Stop detection')}
               </Button>
             )}
           </div>
@@ -1079,29 +1079,29 @@ export const KWSPanel = memo(function KWSPanel({
         {/* Load status + resource hints */}
         <div className="flex flex-wrap items-center gap-3 text-xs text-ink-3">
           {status === 'loading' && (
-            <span className="text-ink-2">Loading models…</span>
+            <span className="text-ink-2">{t('Loading models…')}</span>
           )}
           {status === 'ready' && provisionKind !== 'prototype' && !afeRunning && (
             <span className="text-warning">
-              Start the AFE microphone first
+              {t('Start the AFE microphone first')}
             </span>
           )}
           {running && warmup && (
             <span className="text-warning">
-              Warming up… (collecting ~2 s of audio context)
+              {t('Warming up… (collecting ~2 s of audio context)')}
             </span>
           )}
           {status === 'ready' && provisionKind !== 'prototype' && (
-            <span>Models loaded · EP: {executionProvider === 'webgpu' ? 'WebGPU' : 'WASM'}</span>
+            <span>{`${t('Models loaded · EP:')} ${executionProvider === 'webgpu' ? 'WebGPU' : 'WASM'}`}</span>
           )}
           {status === 'ready' && provisionKind === 'prototype' && (
-            <span className="text-ink-2">Encoder loaded — record samples to enroll</span>
+            <span className="text-ink-2">{t('Encoder loaded — record samples to enroll')}</span>
           )}
           {provisionKind === 'prototype' && detecting && (
-            <span className="text-ink-2">Detection running</span>
+            <span className="text-ink-2">{t('Detection running')}</span>
           )}
           {error && status === 'error' && provisionKind !== 'prototype' && (
-            <span className="text-danger">Load failed — check the registry / assets</span>
+            <span className="text-danger">{t('Load failed — check the registry / assets')}</span>
           )}
         </div>
 
@@ -1112,7 +1112,7 @@ export const KWSPanel = memo(function KWSPanel({
             probe. */}
         <div className="space-y-1.5 border-t border-line pt-3">
           <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
-            Resources
+            {t('Resources')}
           </div>
           {(selectedBackend?.resources ?? [])
             .map((res) => {
@@ -1131,7 +1131,7 @@ export const KWSPanel = memo(function KWSPanel({
               const detail =
                 probe?.detail ??
                 (status === 'loading'
-                  ? 'loading…'
+                  ? t('loading…')
                   : res.urlKey
                     ? formatUrlDetail(urlsRef.current[res.urlKey])
                     : '')
@@ -1146,7 +1146,7 @@ export const KWSPanel = memo(function KWSPanel({
                           : 'bg-surface-4'
                     }`}
                   />
-                  <span className="text-ink-2">{res.label}</span>
+                  <span className="text-ink-2">{t(res.label)}</span>
                   {detail && (
                     <span className="max-w-[420px] truncate font-mono text-[10px] text-ink-3">
                       {detail}
@@ -1165,19 +1165,18 @@ export const KWSPanel = memo(function KWSPanel({
           registry defaults on the next Load. */}
       <div className="space-y-3">
         <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
-          Model sources
+          {t('Model sources')}
         </div>
           <p className="text-xs text-ink-3">
-            Pick the pretrained model per role (built-in registry), a saved
-            model from your library, a local file, or a custom URL. Saved
-            models are stored in your browser (IndexedDB) and can be exported
-            back to disk. Applied on the next Load/Reload.
+            {t(
+              'Pick the pretrained model per role (built-in registry), a saved model from your library, a local file, or a custom URL. Saved models are stored in your browser (IndexedDB) and can be exported back to disk. Applied on the next Load/Reload.',
+            )}
           </p>
           {modelRoles.length === 0 ? (
             <p className="text-xs text-ink-3">
-              This backend's model is bundled in its wasm runtime — there are
-              no model sources to pick. See the Engine card's resources
-              (sherpa-onnx KWS wasm runtime + wake-word list).
+              {t(
+                "This backend's model is bundled in its wasm runtime — there are no model sources to pick. See the Engine card's resources (sherpa-onnx KWS wasm runtime + wake-word list).",
+              )}
             </p>
           ) : (
             modelRoles.map(({ role, label, fallbackId }) => {
@@ -1200,7 +1199,7 @@ export const KWSPanel = memo(function KWSPanel({
                 return (
                   <div key={role} className="space-y-1">
                     <label className="flex items-center gap-2 text-xs">
-                      <span className="w-36 shrink-0 text-ink-2">{label}</span>
+                      <span className="w-36 shrink-0 text-ink-2">{t(label)}</span>
                       <select
                         value={selected ?? fallbackId}
                         onChange={(e) => {
@@ -1215,7 +1214,7 @@ export const KWSPanel = memo(function KWSPanel({
                         className="truncate rounded bg-surface-3 px-2 py-1 text-ink-2"
                       >
                         {options.length === 0 && (
-                          <option value={fallbackId}>Built-in ({fallbackId})</option>
+                          <option value={fallbackId}>{`${t('Built-in')} (${fallbackId})`}</option>
                         )}
                         {options.map((o) => (
                           <option key={o.id} value={o.id} title={o.note}>
@@ -1223,7 +1222,7 @@ export const KWSPanel = memo(function KWSPanel({
                           </option>
                         ))}
                         {roleUserModels.length > 0 && (
-                          <optgroup label="Saved models">
+                          <optgroup label={t('Saved models')}>
                             {roleUserModels.map((m) => (
                               <option key={m.id} value={`user:${m.id}`}>
                                 {m.name} ({m.sizeBytes / 1024 / 1024 > 1
@@ -1262,7 +1261,7 @@ export const KWSPanel = memo(function KWSPanel({
                           size="1"
                           className="text-brand-11 underline hover:text-brand-10"
                         >
-                          Export
+                          {t('Export')}
                         </Button>
                         <Button
                           onClick={() => {
@@ -1275,7 +1274,7 @@ export const KWSPanel = memo(function KWSPanel({
                           size="1"
                           className="text-danger underline hover:text-red-400"
                         >
-                          Delete
+                          {t('Delete')}
                         </Button>
                       </div>
                     )}
@@ -1287,7 +1286,7 @@ export const KWSPanel = memo(function KWSPanel({
                         size="1"
                         className="text-[10px]"
                       >
-                        Import local file…
+                        {t('Import local file…')}
                       </Button>
                       <input
                         ref={fileInputRef}
@@ -1303,10 +1302,10 @@ export const KWSPanel = memo(function KWSPanel({
                     </div>
                     <p className="text-[10px] text-ink-3">
                       {isCustom
-                        ? 'Custom URL — will be fetched as-is on Load.'
+                        ? t('Custom URL — will be fetched as-is on Load.')
                         : isUserModel
-                          ? 'Saved model — loaded from your browser library on Load.'
-                          : `URL: ${currentUrl || 'not loaded yet'}`}
+                          ? t('Saved model — loaded from your browser library on Load.')
+                          : `${t('URL')}: ${currentUrl || t('not loaded yet')}`}
                     </p>
                   </div>
                 )
@@ -1323,19 +1322,20 @@ export const KWSPanel = memo(function KWSPanel({
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-4">
             <h3 className="text-sm font-semibold text-ink-1">
-              Provisioning{' '}
+              {t('Provisioning')}{' '}
               <span className="text-xs font-normal text-ink-3">
                 {provisionKind === 'list'
-                  ? '(keyword-list backend — edit the wake words below, then load with the list)'
-                  : '(enroll a custom wake word, then detect)'}
+                  ? t('(keyword-list backend — edit the wake words below, then load with the list)')
+                  : t('(enroll a custom wake word, then detect)')}
               </span>
             </h3>
           </div>
 
           {provisionKind === 'prototype' && status === 'error' && !detecting && (
             <p className="text-sm text-danger">
-              Encoder load failed: {error} — check the encoder variant/runtime
-              or the exported model assets.
+              {`${t('Encoder load failed')}: `}{error} — {t(
+                'check the encoder variant/runtime or the exported model assets.',
+              )}
             </p>
           )}
 
@@ -1347,7 +1347,7 @@ export const KWSPanel = memo(function KWSPanel({
           {driverParams.length > 0 && !detecting && (
             <div className="space-y-1 border-t border-line pt-3">
               <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
-                {config.backend} driver
+                {`${config.backend} ${t('driver')}`}
               </div>
               <div className="divide-y divide-line">
                 <ParamRows
@@ -1366,14 +1366,13 @@ export const KWSPanel = memo(function KWSPanel({
           {provisionKind === 'list' && (
             <div className="space-y-1 border-t border-line pt-3">
               <p className="text-xs text-ink-3">
-                The keyword list above is the wake-word artifact:
-                {' '}
+                {t('The keyword list above is the wake-word artifact:')}{' '}
                 {(() => {
                   const text = String(driverValues.keywords ?? '')
                   const count = text.split('\n').filter((l) => l.trim()).length
                   return count > 0
-                    ? `${count} wake word(s) will be loaded with the keyword-list artifact.`
-                    : 'enter at least one wake word to load.'
+                    ? `${count} ${t('wake word(s) will be loaded with the keyword-list artifact.')}`
+                    : t('enter at least one wake word to load.')
                 })()}
               </p>
             </div>
@@ -1390,20 +1389,20 @@ export const KWSPanel = memo(function KWSPanel({
                   size="2"
                 >
                   {recording
-                    ? `Recording… (${RECORD_MS}ms)`
-                    : (provisionActionLabel(config.backend, 'record') ?? 'Record sample')}
+                    ? `${t('Recording…')} (${RECORD_MS}ms)`
+                    : (provisionActionLabel(config.backend, 'record') ?? t('Record sample'))}
                 </Button>
                 {samples.length >= MIN_SAMPLES && (
                   <Button variant="solid" size="2" onClick={handleBuildPrototype}
                     disabled={building}>
                     {building
-                      ? 'Building…'
-                      : `${provisionActionLabel(config.backend, 'enroll') ?? 'Build prototype'} (${samples.length} samples)`}
+                      ? t('Building…')
+                      : `${provisionActionLabel(config.backend, 'enroll') ?? t('Build prototype')} (${samples.length} ${t('samples')})`}
                   </Button>
                 )}
                 {samples.length > 0 && (
                   <span className="text-xs text-ink-3">
-                    {samples.length}/{MIN_SAMPLES}+ samples recorded
+                    {`${samples.length}/${MIN_SAMPLES}+ ${t('samples recorded')}`}
                   </span>
                 )}
               </div>
@@ -1417,7 +1416,7 @@ export const KWSPanel = memo(function KWSPanel({
                       <span>{s.quality.peakDbfs.toFixed(1)} dBFS</span>
                       <span>SNR {s.quality.snrDb.toFixed(1)} dB</span>
                       <span className={s.quality.acceptable ? 'text-success' : 'text-warning'}>
-                        {s.quality.clipped ? 'clipped' : s.quality.acceptable ? 'OK' : 'low quality'}
+                        {s.quality.clipped ? t('clipped') : s.quality.acceptable ? 'OK' : t('low quality')}
                       </span>
                     </div>
                   ))}
@@ -1427,12 +1426,11 @@ export const KWSPanel = memo(function KWSPanel({
               {artifactProto && (
                 <div className="space-y-2">
                   <p className="text-xs text-success">
-                    Prototype built: {artifactProto.word} ({artifactProto.vector.length}-dim
-                    vector). Ready for detection.
+                    {`${t('Prototype built')}: ${artifactProto.word} (${artifactProto.vector.length}-dim ${t('vector')}). ${t('Ready for detection.')}`}
                   </p>
                   {!afeRunning && (
                     <span className="text-xs text-warning">
-                      Start the AFE microphone (top panel) first.
+                      {t('Start the AFE microphone (top panel) first.')}
                     </span>
                   )}
                 </div>
@@ -1446,14 +1444,14 @@ export const KWSPanel = memo(function KWSPanel({
               <div className="space-y-2 border-t border-line pt-3">
                 <div className="flex items-center gap-2">
                   <h4 className="text-xs font-semibold text-ink-2">
-                    Negative samples{' '}
+                    {t('Negative samples')}{' '}
                     <span className="font-normal text-ink-3">
-                      (optional — other words / background, for open-set rejection)
+                      {t('(optional — other words / background, for open-set rejection)')}
                     </span>
                   </h4>
                   {artifactProto?.negativeVector && (
                     <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
-                      enrolled
+                      {t('enrolled')}
                     </span>
                   )}
                 </div>
@@ -1464,29 +1462,29 @@ export const KWSPanel = memo(function KWSPanel({
                     variant="surface"
                     size="2"
                   >
-                    {recordingNeg ? `Recording… (${RECORD_MS}ms)` : 'Record non-target sample'}
+                    {recordingNeg ? `${t('Recording…')} (${RECORD_MS}ms)` : t('Record non-target sample')}
                   </Button>
                   {negSamples.length >= MIN_SAMPLES && artifactProto && (
                     <Button variant="solid" size="2" onClick={handleBuildNegative}
                       disabled={buildingNeg}>
-                      {buildingNeg
-                        ? 'Building…'
+                    {buildingNeg
+                        ? t('Building…')
                         : artifactProto.negativeVector
-                          ? 'Re-enroll negative prototype'
-                          : `${provisionActionLabel(config.backend, 'enroll-negative') ?? 'Build negative prototype'} (${negSamples.length} samples)`}
+                          ? t('Re-enroll negative prototype')
+                          : `${provisionActionLabel(config.backend, 'enroll-negative') ?? t('Build negative prototype')} (${negSamples.length} ${t('samples')})`}
                     </Button>
                   )}
                   {negSamples.length > 0 && (
                     <span className="text-xs text-ink-3">
-                      {negSamples.length}/{MIN_SAMPLES}+ samples
+                      {`${negSamples.length}/${MIN_SAMPLES}+ ${t('samples')}`}
                     </span>
                   )}
                 </div>
                 {artifactProto && !artifactProto.negativeVector && negSamples.length === 0 && (
                   <p className="text-[10px] text-ink-3">
-                    Say other words you don't want to trigger on (e.g. "hello", "hi",
-                    background conversation) — the detector then scores them against this
-                    negative class instead of the wake word alone.
+                    {t(
+                      'Say other words you don\'t want to trigger on (e.g. "hello", "hi", background conversation) — the detector then scores them against this negative class instead of the wake word alone.',
+                    )}
                   </p>
                 )}
                 {negSamples.length > 0 && (
@@ -1498,7 +1496,7 @@ export const KWSPanel = memo(function KWSPanel({
                         <span>{s.quality.peakDbfs.toFixed(1)} dBFS</span>
                         <span>SNR {s.quality.snrDb.toFixed(1)} dB</span>
                         <span className={s.quality.acceptable ? 'text-success' : 'text-warning'}>
-                          {s.quality.clipped ? 'clipped' : s.quality.acceptable ? 'OK' : 'low quality'}
+                          {s.quality.clipped ? t('clipped') : s.quality.acceptable ? 'OK' : t('low quality')}
                         </span>
                       </div>
                     ))}
@@ -1511,7 +1509,7 @@ export const KWSPanel = memo(function KWSPanel({
           {provisionKind === 'prototype' && detecting && (
             <div className="space-y-2 border-t border-line pt-3">
               <div className="mb-2 flex items-center justify-between text-xs text-ink-3">
-                <span>Few-Shot score curve (prototype-distance similarity)</span>
+                <span>{t('Few-Shot score curve (prototype-distance similarity)')}</span>
                 <span className="font-mono">
                   {fsHistoryRef.current.length > 0
                     ? `score: ${fsHistoryRef.current[fsHistoryRef.current.length - 1].smoothedScore.toFixed(3)}`
@@ -1533,7 +1531,7 @@ export const KWSPanel = memo(function KWSPanel({
           {provisionKind === 'prototype' && artifactProto && (
             <div className="space-y-1 border-t border-line pt-3">
               <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
-                Few-Shot detection parameters
+                {t('Few-Shot detection parameters')}
               </div>
               <div className="divide-y divide-line">
                 <ParamRows
@@ -1565,9 +1563,9 @@ export const KWSPanel = memo(function KWSPanel({
       {provisionKind !== 'prototype' && (
         <div className="space-y-3">
           <h3 className="mb-4 text-sm font-semibold text-ink-1">
-            Configuration{' '}
+            {t('Configuration')}{' '}
             <span className="text-xs font-normal text-ink-3">
-              (backend · Primary)
+              {t('(backend · Primary)')}
             </span>
           </h3>
 
@@ -1578,7 +1576,7 @@ export const KWSPanel = memo(function KWSPanel({
           {!hasProvision && driverParams.length > 0 && (
             <div className="mt-3 border-t border-line pt-3">
               <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-ink-3">
-                {config.backend} driver
+                {`${config.backend} ${t('driver')}`}
               </div>
               <div className="divide-y divide-line">
                 <ParamRows
@@ -1612,12 +1610,12 @@ export const KWSPanel = memo(function KWSPanel({
             </div>
           </div>
           <p className="mt-3 text-xs text-ink-3">
-            {params.length} parameters exposed via{' '}
-            <code className="text-ink-2">describeParameters()</code>. Mel
-            window: {MEL_WINDOW_SIZE} samples (80 ms @ 16 kHz).
+            {`${params.length} ${t('parameters exposed via')}`}{' '}
+            <code className="text-ink-2">describeParameters()</code>. {t('Mel window')}: {MEL_WINDOW_SIZE}{' '}
+            {t('samples (80 ms @ 16 kHz)')}.
             {lastKeyword && (
               <>
-                {' '}Last keyword:{' '}
+                {' '}{`${t('Last keyword')}:`}{' '}
                 <span className="text-emerald-300/80">{lastKeyword}</span>
               </>
             )}

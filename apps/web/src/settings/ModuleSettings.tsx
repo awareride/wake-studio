@@ -10,6 +10,7 @@
 
 import * as React from 'react'
 import { renderParamRow } from '@wake-studio/module-kit'
+import { useT } from '../i18n'
 import { getBackendRegistry } from '@wake-studio/module-kws-engine'
 import type { ModuleParam } from '@wake-studio/contracts'
 import { mergeModuleDefaults } from './storage'
@@ -56,6 +57,7 @@ export function ModuleSettingsSection({
   /** Driver to keep focused (from the sidebar Settings -> driver). */
   focusBackendId?: string
 }) {
+  const tr = useT()
   const drivers = React.useMemo(() => getSpecDrivers(), [])
 
   // Scroll the focused driver card into view once.
@@ -69,8 +71,7 @@ export function ModuleSettingsSection({
   if (drivers.length === 0) {
     return (
       <p className="text-sm text-ink-3">
-        No module settings yet — drivers that carry a spec appear here
-        automatically.
+        {tr('No module settings yet — drivers that carry a spec appear here automatically.')}
       </p>
     )
   }
@@ -100,14 +101,22 @@ export function ModuleSettingsSection({
               )}
             </h3>
             <p className="mb-3 text-xs text-ink-3">
-              Params from the driver module spec. Changes apply on
-              Save; per-project overrides live in the project snapshot.
+              {tr(
+                'Params from the driver module spec. Changes apply on Save; per-project overrides live in the project snapshot.',
+              )}
             </p>
             <div className="divide-y divide-line">
               {driver.params.map((param) => (
                 <div key={param.id} className="py-1">
                   {renderParamRow(
-                    param,
+                    {
+                      ...param,
+                      label: tr(param.label),
+                      description: tr(param.description ?? ''),
+                      options: param.options?.map((o) =>
+                        typeof o === 'string' ? o : { ...o, label: tr(o.label) },
+                      ),
+                    },
                     valuesForDriver[param.id] ?? param.default,
                     (v: unknown) => onChange(driver.id, param.id, v),
                   )}

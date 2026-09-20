@@ -46,3 +46,41 @@ export function useT(): T {
 export function tFor(locale: AppLocale): T {
   return (s: string) => translate(locale, s)
 }
+
+/**
+ * Translate the user-facing strings of a train-panel spec (labels,
+ * descriptions, option labels, action labels) at the host call site. Spec
+ * JSON stays English; this maps a shallow copy for rendering.
+ */
+export function translateTrainSpec<S extends Record<string, unknown>>(spec: S, t: T): S {
+  const params = (spec['params'] as ModuleParamLike[] | undefined)?.map((p) => ({
+    ...p,
+    label: t(p.label),
+    description: p.description ? t(p.description) : p.description,
+    options: p.options?.map((o: string | { value: string; label: string }) =>
+      typeof o === 'string' ? o : { ...o, label: t(o.label) },
+    ),
+  }))
+  const actions = (spec['actions'] as { id: string; label: string }[] | undefined)?.map((a) => ({
+    ...a,
+    label: t(a.label),
+  }))
+  const status = (spec['status'] as { id: string; label: string }[] | undefined)?.map((s) => ({
+    ...s,
+    label: t(s.label),
+  }))
+  return {
+    ...spec,
+    name: spec['name'] !== undefined ? t(String(spec['name'])) : undefined,
+    params,
+    actions,
+    status,
+  } as S
+}
+
+interface ModuleParamLike {
+  id: string
+  label: string
+  description?: string
+  options?: ReadonlyArray<string | { value: string; label: string }>
+}

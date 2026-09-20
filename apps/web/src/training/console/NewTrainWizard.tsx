@@ -34,6 +34,7 @@ import { consumePendingTrainDataset } from '../../datasets/train-link'
 import { findTrainableModule, type TrainableModule } from '../train-modules'
 import { ConfirmDialog } from './ConfirmDialog'
 import { useT } from '../../i18n'
+import { translateTrainSpec } from '../../i18n'
 import { InlineGuide } from './InlineGuide'
 import { ModelTypeStep } from './ModelTypeStep'
 import { ConfigStep } from './ConfigStep'
@@ -303,7 +304,7 @@ export function NewTrainWizard({
         <div className={step === 'config' ? '' : 'hidden'}>
           {trainSpec && (
             <TrainParamsPanel
-              spec={trainSpec}
+              spec={translateTrainSpec(trainSpec, t) as typeof trainSpec}
               // merge (not replace) so the DatasetPicker's `datasets` value
               // survives TrainParamsPanel re-renders and vice versa (#206).
               onValuesChange={(values) => setParams((prev) => ({ ...prev, ...values }))}

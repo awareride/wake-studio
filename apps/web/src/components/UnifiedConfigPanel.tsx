@@ -15,6 +15,7 @@ import type { ModuleParam } from '@wake-studio/contracts'
 import { renderParamRow, UiCollapsible } from '@wake-studio/module-kit'
 import type { ParameterDescriptor } from '@wake-studio/module-afe-graph'
 import { cn } from '../components/cn'
+import { useT } from '../i18n'
 
 export type ParamValue = string | number | boolean
 
@@ -61,15 +62,23 @@ export function ParamRows({
   onParamChange: (id: string, value: ParamValue) => void
   disabled?: boolean
 }) {
+  const t = useT()
   return (
     <div className="divide-y divide-line">
       {ids.map((id) => {
         const desc = params.find((p) => p.id === id)
         if (!desc) return null
+        // Labels/descriptions are translated at this render seam so spec
+        // files stay English (the en strings are the dictionary keys).
         return (
           <div key={desc.id}>
             {renderParamRow(
-              toModuleParam(desc),
+              toModuleParam({
+                ...desc,
+                label: t(desc.label),
+                description: t(desc.description),
+                options: desc.options?.map((o) => ({ ...o, label: t(o.label) })),
+              }),
               values[desc.id] ?? desc.default,
               (v: unknown) => onParamChange(desc.id, v as ParamValue),
               disabled,

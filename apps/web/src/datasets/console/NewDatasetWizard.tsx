@@ -28,6 +28,7 @@ import { useAppSettings } from '../../settings'
 import { ConfirmDialog } from '../../training/console/ConfirmDialog'
 import type { BrowserCloudSave, SubmitGenerateInput } from '../useDatasetJobs'
 import { useT } from '../../i18n'
+import { translateTrainSpec } from '../../i18n'
 
 type WizardStep = 'engine' | 'config' | 'destination' | 'ready'
 
@@ -292,7 +293,7 @@ export function NewDatasetWizard({
                 </p>
                 <div className="mt-3">
                   <TrainParamsPanel
-                    spec={enginePanelSpec}
+                    spec={translateTrainSpec(enginePanelSpec, t) as typeof enginePanelSpec}
                     onValuesChange={(values) => setEngineParams(values)}
                   />
                 </div>
