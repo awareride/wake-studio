@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { UiSlider, UiToggle, UiButton, UiWaveform, UiCurve, UiBar, UiCollapsible, renderPanel, type ModulePanelController } from '@wake-studio/module-kit'
+import { UiSlider, UiToggle, UiButton, UiWaveform, UiCurve, UiBar, UiCollapsible, renderPanel, uiT, type ModulePanelController } from '@wake-studio/module-kit'
 import { loadRnnoise, type RnnoiseModule } from './index'
 import { RNNOISE_FRAME_SIZE } from '../core'
 import { frameRms } from '../core/constants'
@@ -110,21 +110,21 @@ export default function RnnoisePlayground() {
   return (
     <section className="mx-auto max-w-3xl px-6 py-12">
       <h2 className="text-lg font-semibold text-ink-1">
-        RNNoise module playground
+        {uiT('RNNoise module playground')}
       </h2>
       <p className="mt-1 text-sm text-ink-2">
-        Vendored emscripten wasm, runs fully in-browser. No AFE, no KWS —
-        just this module. Controls are spec-driven (module-kit Ui*
-        components).
+        {uiT(
+          'Vendored emscripten wasm, runs fully in-browser. No AFE, no KWS — just this module. Controls are spec-driven (module-kit Ui* components).',
+        )}
       </p>
 
-      {!ready && <p className="mt-4 text-warning">Loading RNNoise WASM…</p>}
+      {!ready && <p className="mt-4 text-warning">{uiT('Loading RNNoise WASM…')}</p>}
 
       <div className="mt-6 space-y-4 rounded-xl border border-line bg-surface-2 p-5">
         {/* Primary params (spec-driven controls). */}
         <div className="space-y-4">
           <div className="flex items-center gap-4">
-            <span className="w-28 shrink-0 text-sm text-ink-2">Noise level</span>
+            <span className="w-28 shrink-0 text-sm text-ink-2">{uiT('Noise level')}</span>
             <div className="flex-1">
               <UiSlider
                 value={noiseLevel}
@@ -132,12 +132,12 @@ export default function RnnoisePlayground() {
                 max={1}
                 step={0.05}
                 onChange={setNoiseLevel}
-                ariaLabel="Noise level"
+                ariaLabel={uiT('Noise level')}
               />
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <span className="w-28 shrink-0 text-sm text-ink-2">Strength</span>
+            <span className="w-28 shrink-0 text-sm text-ink-2">{uiT('Strength')}</span>
             <div className="flex-1">
               <UiSlider
                 value={strength}
@@ -145,31 +145,30 @@ export default function RnnoisePlayground() {
                 max={1}
                 step={0.1}
                 onChange={setStrength}
-                ariaLabel="Strength"
+                ariaLabel={uiT('Strength')}
               />
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <span className="w-28 shrink-0 text-sm text-ink-2">Denoise</span>
+            <span className="w-28 shrink-0 text-sm text-ink-2">{uiT('Denoise')}</span>
             <UiToggle
               checked={denoiseEnabled}
               onChange={setDenoiseEnabled}
-              label="Denoise frames"
+              label={uiT('Denoise frames')}
             />
           </div>
         </div>
 
         {/* Advanced (collapsible, ADR-024 dual layer). */}
         <UiCollapsible
-          label="Advanced"
+          label={uiT('Advanced')}
           open={advancedOpen}
           onOpenChange={setAdvancedOpen}
         >
           <div className="rounded-lg border border-line bg-surface-3 p-4 text-xs text-ink-2">
             <p>
-              Sample rate {SAMPLE_RATE / 1000} kHz · frame size{' '}
-              {RNNOISE_FRAME_SIZE} samples (10 ms) · RNNoise wasm embedded as
-              base64 in the vendored glue.
+              {`${uiT('Sample rate')} ${SAMPLE_RATE / 1000} kHz · ${uiT('frame size')} `}
+              {RNNOISE_FRAME_SIZE} {uiT('samples (10 ms)')} · {uiT('RNNoise wasm embedded as base64 in the vendored glue.')}
             </p>
           </div>
         </UiCollapsible>
@@ -177,25 +176,25 @@ export default function RnnoisePlayground() {
         {/* Actions. */}
         <div className="flex gap-3 pt-2">
           <UiButton
-            label="Process one frame"
+            label={uiT('Process one frame')}
             onClick={handleStep}
             variant="primary"
             disabled={!ready}
           />
-          <UiButton label="Reset" onClick={handleReset} variant="secondary" />
+          <UiButton label={uiT('Reset')} onClick={handleReset} variant="secondary" />
         </div>
 
         {/* Status: waveform + curve + VAD bar. */}
         <div className="grid gap-4 pt-2 sm:grid-cols-2">
           <div className="rounded-lg bg-surface-3 p-3">
             <div className="mb-1 text-xs uppercase tracking-wider text-ink-3">
-              Waveform (input vs denoised)
+              {uiT('Waveform (input vs denoised)')}
             </div>
             <UiWaveform data={output} overlay={input} height={56} />
           </div>
           <div className="rounded-lg bg-surface-3 p-3">
             <div className="mb-1 text-xs uppercase tracking-wider text-ink-3">
-              VAD history
+              {uiT('VAD history')}
             </div>
             <UiCurve data={curveData} threshold={0.5} height={56} />
           </div>
@@ -204,13 +203,13 @@ export default function RnnoisePlayground() {
         <div className="grid grid-cols-3 gap-4 pt-2 text-sm">
           <div className="rounded-lg bg-surface-3 p-3">
             <div className="text-xs uppercase tracking-wider text-ink-3">
-              Input RMS
+              {uiT('Input RMS')}
             </div>
             <div className="mt-1 text-lg text-ink-1">{inRms.toFixed(3)}</div>
           </div>
           <div className="rounded-lg bg-surface-3 p-3">
             <div className="text-xs uppercase tracking-wider text-ink-3">
-              Output RMS
+              {uiT('Output RMS')}
             </div>
             <div className="mt-1 text-lg text-success">{outRms.toFixed(3)}</div>
           </div>
@@ -227,7 +226,7 @@ export default function RnnoisePlayground() {
           spec params to the engine; proving spec -> panel -> engine end-to-end. */}
       <div className="mt-8 border-t border-line pt-6">
         <div className="mb-2 text-xs uppercase tracking-wider text-ink-3">
-          Spec-driven generated panel
+          {uiT('Spec-driven generated panel')}
         </div>
         <RnnoiseGeneratedPanel controller={generatedController} />
       </div>

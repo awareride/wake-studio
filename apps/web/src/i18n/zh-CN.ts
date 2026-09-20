@@ -840,4 +840,24 @@ export const ZH_CN: Record<string, string> = {
   'samples (80 ms @ 16 kHz)': '个采样（16 kHz 下 80 ms）',
   'to test it in-browser (the classifier role now points at this trained model).': '在浏览器中测试（分类器角色现在指向这个训练好的模型）。',
   vector: '维向量',
+
+  // ---- RNNoise playground (module-kit seam) ----
+  'RNNoise module playground': 'RNNoise 模块演练场',
+  'Vendored emscripten wasm, runs fully in-browser. No AFE, no KWS — just this module. Controls are spec-driven (module-kit Ui* components).':
+    '内嵌的 emscripten wasm，完全在浏览器内运行。无 AFE、无 KWS——只有本模块。控件由 spec 驱动（module-kit Ui* 组件）。',
+  'Loading RNNoise WASM…': '正在加载 RNNoise WASM……',
+  'Noise level': '噪声等级',
+  Strength: '降噪强度',
+  Denoise: '降噪',
+  'Denoise frames': '对帧降噪',
+  'frame size': '帧大小',
+  'samples (10 ms)': '个采样（10 ms）',
+  'RNNoise wasm embedded as base64 in the vendored glue.':
+    'RNNoise wasm 以 base64 内嵌在内置的 glue 中。',
+  'Process one frame': '处理一帧',
+  'Waveform (input vs denoised)': '波形（输入 vs 降噪后）',
+  'VAD history': 'VAD 历史',
+  'Input RMS': '输入 RMS',
+  'Output RMS': '输出 RMS',
+  'Spec-driven generated panel': 'Spec 驱动的生成面板',
 }
