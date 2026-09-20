@@ -376,7 +376,7 @@ function WorkspaceInner({
               color="#818cf8"
               number="2"
               title="AEC · Acoustic echo cancellation"
-              note="Passthrough for v1 (ADR-016); the real engine + persistence wiring lands with it."
+              note="Passthrough for v1; the real engine + persistence wiring lands with it."
               bypassed={bypass.aec}
               onToggleBypass={handleToggleBypass}
             />
@@ -387,7 +387,7 @@ function WorkspaceInner({
               color="#a78bfa"
               number="3"
               title="BSS · Blind source separation"
-              note="Passthrough for v1 (ADR-016); single-mic pipeline. Persistence lands with the real engine."
+              note="Passthrough for v1; single-mic pipeline. Persistence lands with the real engine."
               bypassed={bypass.bss}
               onToggleBypass={handleToggleBypass}
             />
@@ -405,7 +405,7 @@ function WorkspaceInner({
               color="#34d399"
               number="5"
               title="KWS detection"
-              note="Pluggable KWS backend (ADR-020) running in a Web Worker (ADR-018)"
+              note="Pluggable KWS backend running in a Web Worker"
               enabled={kwsEnabled}
               onToggle={() => toggleKws(!kwsEnabled)}
             >

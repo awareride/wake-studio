@@ -47,11 +47,11 @@ export function ConfigStep({ module }: ConfigStepProps) {
 
       <p className="mt-3 border-t border-line pt-3 text-xs leading-relaxed text-ink-3">
         {t.notebookLocal
-          ? 'Trained via the module-owned Colab notebook (ADR-035) — the Ready step shows it for review and download.'
+          ? 'Trained via the module-owned Colab notebook — the Ready step shows it for review and download.'
           : t.script
             ? 'Trained by the upstream script — WakeStudio adapts to it (docs/modules/training.md §4), never rewrites it.'
             : t.entry
-              ? 'Trained by the module-owned train entry via uv (ADR-028).'
+              ? 'Trained by the module-owned train entry via uv.'
               : 'Train config declared in the module spec (spec.train).'}
       </p>
     </div>

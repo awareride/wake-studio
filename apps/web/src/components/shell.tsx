@@ -34,6 +34,7 @@ import {
 } from '@radix-ui/react-icons'
 import { useAppSettings } from '../settings'
 import type { ThemeMode } from '../settings'
+import { useT } from '../i18n'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,7 +82,7 @@ function NavButton({
           className={cn('nav-row w-full justify-start', !active && 'text-ink-2')}
         >
           <Icon className="h-[18px] w-[18px] shrink-0" />
-          <span className="flex-1 truncate text-left">{item.label}</span>
+          <NavLabel label={item.label} />
           {item.badge && (
             <span className="rounded bg-surface-4 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-3">
               {item.badge}
@@ -89,9 +90,15 @@ function NavButton({
           )}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="right">{item.label}</TooltipContent>
+      <TooltipContent side="right"><NavLabel label={item.label} /></TooltipContent>
     </Tooltip>
   )
+}
+
+/** Translated nav label (the English label doubles as the i18n key). */
+function NavLabel({ label }: { label: string }) {
+  const t = useT()
+  return <span className="flex-1 truncate text-left">{t(label)}</span>
 }
 
 /**
@@ -121,6 +128,7 @@ function SettingsNav({
   }, [isOpen])
 
   const Icon = item.icon
+  const t = useT()
   const driversActive = activeSection === 'modules'
 
   // Settings -> xxx: sections first, then drivers directly (no Modules layer).
@@ -134,13 +142,13 @@ function SettingsNav({
       <Button
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        aria-label={`Settings menu ${open ? 'collapsed' : 'expanded'}`}
+        aria-label={open ? t('Settings · expanded') : t('Settings · collapsed')}
         variant="ghost"
         size="2"
         className="nav-row w-full justify-start text-ink-2"
       >
         <Icon className="h-[18px] w-[18px] shrink-0" />
-        <span className="flex-1 truncate text-left">{item.label}</span>
+        <NavLabel label={item.label} />
         <ChevronRightIcon
           className={cn(
             'h-3.5 w-3.5 shrink-0 text-ink-3 transition-transform',
@@ -161,7 +169,7 @@ function SettingsNav({
                 size="1"
                 className={cn('nav-row w-full justify-start', !childActive && 'text-ink-3')}
               >
-                <span className="flex-1 truncate text-left">{child.label}</span>
+                <NavLabel label={child.label} />
               </Button>
             )
           })}
@@ -180,7 +188,7 @@ function SettingsNav({
                 size="1"
                 className={cn('nav-row w-full justify-start', !active && 'text-ink-3')}
               >
-                <span className="flex-1 truncate text-left">{d.label}</span>
+                <NavLabel label={d.label} />
               </Button>
             )
           })}
@@ -223,6 +231,7 @@ export function Sidebar({
   /** When set (mobile drawer), renders a Close button beside the logo. */
   onClose?: () => void
 }) {
+  const t = useT()
   const drivers = useSettingsDrivers()
   // Current driver anchor (Settings -> driver focus).
   const [settingsBackend, setSettingsBackend] = React.useState<string | undefined>(
@@ -242,12 +251,12 @@ export function Sidebar({
           <span className="text-sm font-semibold tracking-tight text-ink-1">
             WakeStudio
           </span>
-          <span className="text-[11px] text-ink-3">on-device KWS studio</span>
+          <span className="text-[11px] text-ink-3">{t('on-device KWS studio')}</span>
         </div>
         {onClose && (
           <IconButton
             onClick={onClose}
-            aria-label="Close navigation"
+            aria-label={t('Close navigation')}
             variant="ghost"
             size="1"
             className="text-ink-3"
@@ -257,10 +266,10 @@ export function Sidebar({
         )}
       </div>
 
-      <NavSection title="Studio" items={PRIMARY_NAV} route={route} onNavigate={onNavigate} />
+      <NavSection title={t('Studio')} items={PRIMARY_NAV} route={route} onNavigate={onNavigate} />
       <div className="space-y-0.5">
         <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-ink-3">
-          Platform
+          {t('Platform')}
         </div>
         {SECONDARY_NAV.map((item) =>
           item.route === 'settings' ? (
@@ -286,7 +295,7 @@ export function Sidebar({
       <div className="mt-auto px-2.5 pt-2 text-[11px] leading-relaxed text-ink-3">
         <div className="rounded-lg border border-line bg-surface-2 px-2.5 py-2">
           <span className="font-medium text-ink-2">v0.1.0</span>
-          <span className="ml-1">· console shell</span>
+          <span className="ml-1">· {t('console shell')}</span>
         </div>
       </div>
     </div>
@@ -306,6 +315,7 @@ const THEME_OPTIONS: ReadonlyArray<{ mode: ThemeMode; label: string; Icon: typeo
 
 function ThemeSwitchButton() {
   const { platform, set } = useAppSettings()
+  const t = useT()
   const mode: ThemeMode = platform.theme ?? 'light'
   const current = THEME_OPTIONS.find((o) => o.mode === mode) ?? THEME_OPTIONS[0]
   const CurrentIcon = current.Icon
@@ -316,8 +326,8 @@ function ThemeSwitchButton() {
         <IconButton
           variant="ghost"
           size="2"
-          aria-label={`Theme: ${current.label}`}
-          title="Theme"
+          aria-label={`${t('Theme')}: ${t(current.label)}`}
+          title={t('Theme')}
           className="text-ink-3"
         >
           <CurrentIcon className="h-4 w-4" />
@@ -328,7 +338,7 @@ function ThemeSwitchButton() {
           <DropdownMenuItem key={m} onSelect={() => set('theme', m)}>
             <span className="flex flex-1 items-center gap-2">
               <Icon className="h-3.5 w-3.5 text-ink-3" />
-              <span className="text-sm">{label}</span>
+              <span className="text-sm">{t(label)}</span>
             </span>
             {mode === m && <CheckIcon className="h-3.5 w-3.5 text-brand-11" />}
           </DropdownMenuItem>
@@ -359,6 +369,7 @@ export function TopBar({
   onToggleSidebar: () => void
 }) {
   const [barOpen, setBarOpen] = React.useState(true)
+  const t = useT()
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface-2/90 px-4 backdrop-blur">
@@ -367,7 +378,7 @@ export function TopBar({
         variant="ghost"
         size="2"
         className="text-ink-3 lg:hidden"
-        aria-label="Toggle navigation"
+        aria-label={t('Toggle navigation')}
       >
         <HamburgerMenuIcon className="h-5 w-5" />
       </IconButton>
@@ -393,6 +404,7 @@ export function TopBar({
 function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { running, bypass, stopPipeline } = useLiveAfe()
   const { kwsRunning, lastScore, threshold } = useLiveKws()
+  const t = useT()
 
   // Edge-triggered wake flash: the indicator lights for ~1.5 s when the
   // score first crosses the threshold, then returns to gray. The timer lives
@@ -459,7 +471,7 @@ function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => vo
         <span className={cn('h-2 w-2 shrink-0 rounded-full', dotClass)} />
         {wakeFlash && (
           <span className="animate-pulse rounded bg-emerald-500/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-300">
-            Wake!
+            {t('Wake!')}
           </span>
         )}
         {stages.map((s, i) => (
@@ -478,7 +490,7 @@ function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => vo
         <span className="mx-1 h-4 w-px shrink-0 bg-line-2" />
         <IconButton
           onClick={stopPipeline}
-          aria-label="Stop pipeline"
+          aria-label={t('Stop pipeline')}
           variant="ghost"
           color="red"
           size="1"
@@ -488,7 +500,7 @@ function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => vo
         </IconButton>
         <IconButton
           onClick={onToggle}
-          aria-label="Minimize pipeline status"
+          aria-label={t('Minimize pipeline status')}
           variant="ghost"
           size="1"
           className="shrink-0 text-ink-3"
@@ -503,7 +515,7 @@ function MiniPipelineBar({ open, onToggle }: { open: boolean; onToggle: () => vo
       {!open && (
         <button
           onClick={onToggle}
-          aria-label="Show pipeline status"
+          aria-label={t('Show pipeline status')}
           className={cn(
             'absolute inset-0 m-auto h-7 w-7 rounded-full transition-colors',
             dotClass,

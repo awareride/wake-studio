@@ -165,7 +165,7 @@ export function ModelLibraryView() {
       <div>
         <h2 className="text-lg font-semibold text-ink-1">Model Registry</h2>
         <p className="mt-1 max-w-2xl text-sm text-ink-2">
-          Models are never bundled with the app (ADR-011) — they are fetched
+          Models are never bundled with the app — they are fetched
           lazily from the registry. License + commercial flags drive the export
           gate.
         </p>

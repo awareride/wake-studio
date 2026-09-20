@@ -100,7 +100,7 @@ export function ModuleSettingsSection({
               )}
             </h3>
             <p className="mb-3 text-xs text-ink-3">
-              Params from the driver module spec (ADR-025). Changes apply on
+              Params from the driver module spec. Changes apply on
               Save; per-project overrides live in the project snapshot.
             </p>
             <div className="divide-y divide-line">

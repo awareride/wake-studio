@@ -122,7 +122,7 @@ function BackendEditor({
             <span className="block text-xs font-medium text-ink-2">
               Access token{' '}
               <span className="font-normal text-ink-3">
-                (optional; for job mutations, ADR-036 §5)
+                (optional; for job mutations)
               </span>
             </span>
             <TextField.Root
@@ -196,7 +196,7 @@ function ColabGuide({
           <h3 className="text-base font-semibold text-ink-1">Free on Google Colab</h3>
           <p className="mt-0.5 text-xs text-ink-3">
             A short-term studio-backend on a free Colab runtime behind a trycloudflare tunnel
-            (ADR-023 amendment) — no server, no keys, only your Google account.
+            — no server, no keys, only your Google account.
           </p>
         </div>
         <Button type="button" variant="outline" size="1" onClick={onBack}>
@@ -697,7 +697,7 @@ export function BackendsView() {
     <>
       <ConsolePanel
         title="Backends"
-        description="Your studio-backend endpoints for the Studio-backend train method (ADR-036). Health is checked automatically; kind (long-term / short-term) is detected from the service. Jobs and logs here are read-only — train and control jobs from the Training view."
+        description="Your studio-backend endpoints for the Studio-backend train method. Health is checked automatically; kind (long-term / short-term) is detected from the service. Jobs and logs here are read-only — train and control jobs from the Training view."
         actions={
           <>
             <Button

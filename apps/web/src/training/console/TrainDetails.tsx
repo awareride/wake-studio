@@ -595,7 +595,7 @@ export function TrainDetails({
               className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-xs text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-8"
             />
             <p className="text-[11px] leading-relaxed text-ink-3">
-              The notebook prints this URL while running (cloudflared, ADR-023 amendment). With
+              The notebook prints this URL while running (cloudflared). With
               it, WakeStudio submits the job to the tunnel and tracks status live (issue #122).
               Auto-detect: if you set a Cloudflare API key in Settings, the notebook writes the
               URL into the results bundle and it is picked up on import.

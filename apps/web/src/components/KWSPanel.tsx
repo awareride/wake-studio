@@ -969,11 +969,11 @@ export const KWSPanel = memo(function KWSPanel({
         <div>
           <h2 className="text-lg font-semibold text-ink-1">KWS detection</h2>
           <p className="text-sm text-ink-2">
-            Pluggable KWS backend (ADR-020) running in a Web Worker (ADR-018).
-            Pick a backend below; models load from the platform registry
-            (ADR-011/027). openWakeWord (hey-buddy, mel-spectrogram -&gt;
-            speech-embedding -&gt; classifier) is the default; PLiX Few-Shot adds
-            custom wake-word enrollment. VAD gating via AFE RNNoise VAD.
+            Pluggable KWS backend running in a Web Worker. Pick a backend
+            below; models load from the platform registry. openWakeWord
+            (hey-buddy, mel-spectrogram -&gt; speech-embedding -&gt; classifier) is
+            the default; PLiX Few-Shot adds custom wake-word enrollment. VAD
+            gating via AFE RNNoise VAD.
           </p>
         </div>
       )}
@@ -1328,7 +1328,6 @@ export const KWSPanel = memo(function KWSPanel({
                 {provisionKind === 'list'
                   ? '(keyword-list backend — edit the wake words below, then load with the list)'
                   : '(enroll a custom wake word, then detect)'}
-                {' '}· ADR-033
               </span>
             </h3>
           </div>
@@ -1367,7 +1366,7 @@ export const KWSPanel = memo(function KWSPanel({
           {provisionKind === 'list' && (
             <div className="space-y-1 border-t border-line pt-3">
               <p className="text-xs text-ink-3">
-                The keyword list above is the wake-word artifact (ADR-033):
+                The keyword list above is the wake-word artifact:
                 {' '}
                 {(() => {
                   const text = String(driverValues.keywords ?? '')

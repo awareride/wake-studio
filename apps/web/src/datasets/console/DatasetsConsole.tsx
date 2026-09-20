@@ -271,7 +271,7 @@ export function DatasetsConsole() {
       ) : (
         <ConsolePanel
           title="Datasets"
-          description="First-class training-data artifacts: pick built-ins, generate synthetic audio with a TTS engine, and persist to the backend store and/or your cloud. Every dataset is one canonical wake-studio-dataset.zip (ADR-044)."
+          description="First-class training-data artifacts: pick built-ins, generate synthetic audio with a TTS engine, and persist to the backend store and/or your cloud. Every dataset is one canonical wake-studio-dataset.zip."
           actions={
             <Button
               type="button"

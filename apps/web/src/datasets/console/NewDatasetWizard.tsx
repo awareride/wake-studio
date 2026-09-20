@@ -286,7 +286,7 @@ export function NewDatasetWizard({
                   {engine.name} settings
                 </h4>
                 <p className="mt-0.5 text-xs text-ink-3">
-                  The engine’s own parameters (rendered spec-driven, ADR-025).
+                  The engine’s own parameters (rendered spec-driven).
                 </p>
                 <div className="mt-3">
                   <TrainParamsPanel

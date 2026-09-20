@@ -74,7 +74,7 @@ export function trainInputFile(
         fileName,
         rawUrl: moduleOwnedUrl(module.id, fileName),
         description:
-          'WakeStudio-owned template notebook (ADR-035): generates synthetic data (Piper), runs the pinned upstream trainer, and writes the standard result bundle. Download it and upload it to Google Colab — the repo only provides the template, your run is your own.',
+          'WakeStudio-owned template notebook: generates synthetic data (Piper), runs the pinned upstream trainer, and writes the standard result bundle. Download it and upload it to Google Colab — the repo only provides the template, your run is your own.',
       }
     }
     if (t.notebook) {

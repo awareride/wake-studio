@@ -407,7 +407,7 @@ export function TrainingConsole() {
       ) : (
         <ConsolePanel
           title="Training"
-          description="Train a custom model end to end: pick a trainable module, configure it, choose a train method (Colab / Studio-backend / CI), then review the run. Training never runs in the browser (ADR-013)."
+          description="Train a custom model end to end: pick a trainable module, configure it, choose a train method (Colab / Studio-backend / CI), then review the run. Training never runs in the browser."
           actions={
             <Button
               type="button"

@@ -84,7 +84,7 @@ export const PLATFORM_SETTING_DESCRIPTORS: ReadonlyArray<SettingDescriptor> = [
     id: 'kws.executionProvider',
     label: 'KWS execution provider',
     description:
-      'onnxruntime-web execution provider. WebGPU-first with WASM fallback (ADR-018).',
+      'onnxruntime-web execution provider. WebGPU-first with WASM fallback.',
     type: 'select',
     default: 'wasm',
     options: [
@@ -99,7 +99,7 @@ export const PLATFORM_SETTING_DESCRIPTORS: ReadonlyArray<SettingDescriptor> = [
     id: 'backend.apiKey',
     label: 'API key',
     description:
-      'Fallback credential for Colab tunnel jobs (the notebook service token, ADR-036 §5). Managed backends carry their own token. Stored locally only, never sent to a WakeStudio server, never logged or exported.',
+      'Fallback credential for Colab tunnel jobs (the notebook service token). Managed backends carry their own token. Stored locally only, never sent to a WakeStudio server, never logged or exported.',
     type: 'secret',
     default: '',
     group: 'security',
@@ -184,7 +184,7 @@ export const PLATFORM_SETTING_DESCRIPTORS: ReadonlyArray<SettingDescriptor> = [
     id: 'data.upload',
     label: 'Allow data upload',
     description:
-      'Gate for the pluggable data-source layer (ADR-022). Off by default; audio generation runs in backends, not WASM.',
+      'Gate for the pluggable data-source layer. Off by default; audio generation runs in backends, not WASM.',
     type: 'boolean',
     default: false,
     group: 'data',
@@ -233,10 +233,15 @@ export function isSecretSetting(id: PlatformSettingId): boolean {
  * `renderParamRow` renders it unchanged (group is always primary - the
  * settings rail handles grouping).
  */
-export function descriptorToModuleParam(d: SettingDescriptor): import('@wake-studio/contracts').ModuleParam {
+export function descriptorToModuleParam(
+  d: SettingDescriptor,
+  /** Optional i18n translate applied to label/description/option labels. */
+  t?: (s: string) => string,
+): import('@wake-studio/contracts').ModuleParam {
+  const tr = t ?? ((s: string) => s)
   return {
     id: d.id as string,
-    label: d.label,
+    label: tr(d.label),
     group: 'primary',
     // Keep select as select (module-kit renders UiSelect); boolean -> UiToggle;
     // secret -> password input; else string -> text input.
@@ -249,7 +254,10 @@ export function descriptorToModuleParam(d: SettingDescriptor): import('@wake-stu
             ? 'select'
             : 'string',
     default: d.default,
-    description: d.description,
-    options: d.options,
+    description: tr(d.description),
+    options: d.options?.map((o) => ({
+      value: o.value,
+      label: o.label ? tr(o.label) : o.label,
+    })),
   }
 }

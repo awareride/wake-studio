@@ -252,7 +252,7 @@ export function NsPanel({
       color="#38bdf8"
       number="4"
       title="NS · RNNoise noise suppression"
-      note="The only real DSP core in v1 — AEC/BSS are passthrough until the real engines land (ADR-016)."
+      note="The only real DSP core in v1 — AEC/BSS are passthrough until the real engines land."
       bypassed={bypassed}
       onToggleBypass={onToggleBypass}
       persistence={

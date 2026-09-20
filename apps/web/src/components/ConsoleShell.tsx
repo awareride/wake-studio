@@ -6,6 +6,7 @@
 import * as React from 'react'
 import type { ConsoleRoute } from '../router'
 import { Sidebar, TopBar } from './shell'
+import { useT } from '../i18n'
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,7 @@ export function ConsoleShell({
   children: React.ReactNode
 }) {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false)
+  const t = useT()
 
   const navigate = (r: ConsoleRoute) => {
     onNavigate(r)
@@ -79,9 +81,9 @@ export function ConsoleShell({
               centered={false}
               className="drawer-content left-0 top-0 h-screen w-[min(80vw,17rem)] max-w-[calc(100vw-2rem)] rounded-r-xl border-l border-t-0 border-r-0 border-b-0 p-0 data-[state=open]:animate-[drawer-in_180ms_ease-out] data-[state=closed]:animate-[drawer-out_160ms_ease-in]"
             >
-              <DialogTitle className="sr-only">Navigation</DialogTitle>
+              <DialogTitle className="sr-only">{t('Navigation')}</DialogTitle>
               <DialogDescription className="sr-only">
-                Primary navigation
+                {t('Primary navigation')}
               </DialogDescription>
               <Sidebar
                 route={route}
@@ -94,7 +96,7 @@ export function ConsoleShell({
           {/* Main column */}
           <div className="flex min-w-0 flex-1 flex-col">
             <TopBar
-              title={VIEW_TITLES[route]}
+              title={t(VIEW_TITLES[route])}
               onToggleSidebar={() => setMobileNavOpen(true)}
             />
             <main className="flex-1 overflow-y-auto">
