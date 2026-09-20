@@ -32,6 +32,20 @@ const VIEW_TITLES: Record<ConsoleRoute, string> = {
   'device-sdk': 'Device SDK',
 }
 
+/**
+ * Master-detail routes: views built on the shared ConsolePanel (left rail +
+ * details pane). Their content fills the column and aligns left so the rail
+ * sits directly beside the nav sidebar — centering them visually splits the
+ * two-level menu (nav sidebar | rail | details) apart. All other routes stay
+ * centered at a readable max width.
+ */
+const RAIL_ROUTES: ReadonlySet<ConsoleRoute> = new Set([
+  'training',
+  'datasets',
+  'backends',
+  'projects',
+])
+
 export function ConsoleShell({
   route,
   onNavigate,
@@ -84,7 +98,15 @@ export function ConsoleShell({
               onToggleSidebar={() => setMobileNavOpen(true)}
             />
             <main className="flex-1 overflow-y-auto">
-              <div className="mx-auto max-w-6xl px-6 py-8">{children}</div>
+              <div
+                className={
+                  RAIL_ROUTES.has(route)
+                    ? 'w-full px-6 py-8'
+                    : 'mx-auto max-w-6xl px-6 py-8'
+                }
+              >
+                {children}
+              </div>
             </main>
           </div>
         </div>
