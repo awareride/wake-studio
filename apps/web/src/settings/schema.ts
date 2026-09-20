@@ -71,7 +71,7 @@ export const PLATFORM_SETTING_DESCRIPTORS: ReadonlyArray<SettingDescriptor> = [
   {
     id: 'locale',
     label: 'Language',
-    description: 'UI language. Stored now; i18n lands in Phase 6.',
+    description: 'UI language. Applies immediately and is stored in this browser.',
     type: 'select',
     default: 'en',
     options: [

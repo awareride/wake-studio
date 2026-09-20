@@ -9,6 +9,7 @@
 
 import type { ModuleParam, ModuleAction } from '@wake-studio/contracts'
 import { UiSlider, UiNumber, UiSelect, UiToggle, UiMultiselect, UiParamRow } from './controls'
+import { uiT } from '../i18n'
 
 export interface ParamControlProps {
   param: ModuleParam
@@ -142,7 +143,10 @@ export function renderParamRow(
   disabled?: boolean,
 ) {
   return (
-    <UiParamRow label={param.label} description={param.description}>
+    <UiParamRow
+      label={uiT(param.label)}
+      description={param.description ? uiT(param.description) : param.description}
+    >
       {renderParamControl({ param, value, onChange, disabled })}
     </UiParamRow>
   )

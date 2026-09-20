@@ -13,6 +13,10 @@ export type { ModuleScorecard } from '@wake-studio/contracts'
 // notebooks (spec.train.notebookLocal).
 export { buildColabUrl, SOURCE_REPO } from './panel-generator'
 
+// i18n seam: the host registers its translator; generated panels translate
+// their fixed copy through it (English identity when unregistered).
+export { setUiTranslator, uiT, type UiTranslator } from './i18n'
+
 // Spec-driven UI kit (ADR-025 §3 panel generator).
 export * from './ui'
 

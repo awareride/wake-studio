@@ -12,6 +12,8 @@
 
 import * as React from 'react'
 import { PLATFORM_DEFAULTS, PLATFORM_SETTING_IDS } from './schema'
+import { setUiTranslator } from '@wake-studio/module-kit'
+import { translate } from '../i18n'
 import {
   loadModuleSettings,
   loadPlatformSettings,
@@ -98,6 +100,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [backends, setBackendsState] = React.useState<ManagedBackend[]>(() =>
     loadBackends(),
   )
+  // Keep the module-kit panel generator in sync with the locale (the seam
+  // translates the generated panels' fixed copy; identity for English).
+  React.useEffect(() => {
+    setUiTranslator((s) => translate(platform.locale ?? 'en', s))
+  }, [platform.locale])
   // Follow OS theme changes when in `system` mode.
   const [osTheme, setOsTheme] = React.useState<'light' | 'dark'>('light')
 
