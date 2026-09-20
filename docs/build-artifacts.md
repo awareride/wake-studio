@@ -177,7 +177,8 @@ npx wrangler pages dev        # Miniflare local R2; seed it with
 **Operational notes**
 
 - The bucket must exist before the first deploy; the binding is validated at
-  deploy time.
+  deploy time. The Pages project itself is created by the deploy job on its
+  first run (Direct Upload, production branch `main`).
 - `wrangler.toml` becomes the source of truth for the Pages project — check the
   dashboard settings once with `npx wrangler pages download config wake-studio`.
 - The ORT files are resolved from the onnxruntime-web version pnpm links for the

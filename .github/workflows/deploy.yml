@@ -11,7 +11,8 @@ name: Deploy
 #     Edit)
 #   - Variables: CLOUDFLARE_ACCOUNT_ID (the account id is public information,
 #     so it lives as a repository variable, not a secret)
-#   - A Cloudflare Pages project named "wake-studio" (ADR-014)
+#   - A Cloudflare Pages project named "wake-studio" (ADR-014); the deploy job
+#     creates it on the first run, so no dashboard step is needed
 #   - An R2 bucket named "wake-studio-assets" holding the heavy runtime assets
 #     served same-origin by the Pages Functions (ADR-046; see
 #     apps/web/wrangler.toml and docs/build-artifacts.md §6)
@@ -123,6 +124,25 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: node scripts/publish-r2.mjs
+
+      # Bootstrap the Direct Upload Pages project on the first run (ADR-014);
+      # idempotent, later runs no-op. Needs Pages: Edit on the token. The
+      # `pages deploy` below is the real assertion - if the project is still
+      # missing there, the deploy fails with the Cloudflare API error.
+      - name: Ensure Cloudflare Pages project exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          api="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects"
+          auth="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          if [ "$(curl -s -o /dev/null -w '%{http_code}' -H "$auth" "$api/wake-studio")" = "200" ]; then
+            echo "Pages project 'wake-studio' already exists"
+          else
+            echo "Creating Pages project 'wake-studio' (Direct Upload, production branch: main)"
+            curl -fsS -X POST "$api" -H "$auth" -H 'Content-Type: application/json' \
+              -d '{"name":"wake-studio","production_branch":"main"}'
+          fi
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
