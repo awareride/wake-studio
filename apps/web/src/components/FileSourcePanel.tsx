@@ -15,6 +15,7 @@ import { useCallback, useRef } from 'react'
 import { Button, Checkbox, Slider } from '@radix-ui/themes'
 import type { FileChannelConfig, FileSourceItem } from '../workspace/types'
 import { decodeAudioFile } from '../workspace/sources/fileSource'
+import { useT } from '../i18n'
 
 interface Props {
   files: FileSourceItem[]
@@ -31,6 +32,7 @@ function formatDuration(ms: number): string {
 }
 
 export function FileSourcePanel({ files, onChange, disabled }: Props) {
+  const t = useT()
   const inputRef = useRef<HTMLInputElement>(null)
   const decodeCtxRef = useRef<AudioContext | null>(null)
 
@@ -105,7 +107,7 @@ export function FileSourcePanel({ files, onChange, disabled }: Props) {
           variant="surface"
           size="2"
         >
-          + Add audio files…
+          {t('+ Add audio files…')}
         </Button>
         <input
           ref={inputRef}
@@ -120,8 +122,8 @@ export function FileSourcePanel({ files, onChange, disabled }: Props) {
         />
         <span className="text-xs text-ink-3">
           {files.length === 0
-            ? 'No files — files play concurrently, each channel with its own loop + offset.'
-            : `${files.length} file(s) · total ${formatDuration(files.reduce((a, f) => a + f.durationMs, 0))}`}
+            ? t('No files — files play concurrently, each channel with its own loop + offset.')
+            : `${files.length} ${t('file(s)')} · ${t('total')} ${formatDuration(files.reduce((a, f) => a + f.durationMs, 0))}`}
         </span>
       </div>
 
@@ -150,7 +152,7 @@ export function FileSourcePanel({ files, onChange, disabled }: Props) {
                   size="1"
                   className="shrink-0 text-xs"
                 >
-                  Remove
+                  {t('Remove')}
                 </Button>
               </div>
 
@@ -162,7 +164,7 @@ export function FileSourcePanel({ files, onChange, disabled }: Props) {
                     className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
                   >
                     <span className="w-20 shrink-0 text-ink-3">
-                      Ch {ch.index + 1}
+                      {`${t('Ch')} ${ch.index + 1}`}
                     </span>
                     <label className="flex items-center gap-1.5">
                       <Checkbox
@@ -173,10 +175,10 @@ export function FileSourcePanel({ files, onChange, disabled }: Props) {
                         }
                         size="1"
                       />
-                      <span className="text-ink-2">Loop</span>
+                      <span className="text-ink-2">{t('Loop')}</span>
                     </label>
                     <label className="flex items-center gap-1.5">
-                      <span className="text-ink-3">Offset</span>
+                      <span className="text-ink-3">{t('Offset')}</span>
                       <Slider
                         min={0}
                         max={Math.max(1, Math.round(f.durationMs))}

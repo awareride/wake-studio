@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from './ui'
 import { useToast } from './toast'
+import { useT } from '../i18n'
 
 interface Props {
   open: boolean
@@ -27,6 +28,7 @@ interface Props {
 export function NewProjectDialog({ open, onOpenChange }: Props) {
   const { createProject, busy } = useProjects()
   const { toast } = useToast()
+  const t = useT()
   const [draft, setDraft] = React.useState({
     name: '',
     targetWord: '',
@@ -39,10 +41,10 @@ export function NewProjectDialog({ open, onOpenChange }: Props) {
       await createProject(draft)
       onOpenChange(false)
       setDraft({ name: '', targetWord: '', domain: 'high-performance', targetChip: '' })
-      toast({ title: 'Project created', description: draft.name || 'Untitled project' })
+      toast({ title: t('Project created'), description: draft.name || t('Untitled project') })
     } catch (err) {
       toast({
-        title: 'Failed to create project',
+        title: t('Failed to create project'),
         description: err instanceof Error ? err.message : String(err),
         variant: 'error',
       })
@@ -52,31 +54,31 @@ export function NewProjectDialog({ open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle>New project</DialogTitle>
+        <DialogTitle>{t('New project')}</DialogTitle>
         <DialogDescription>
-          Create a wake-word project: target word, domain and target chip.
+          {t('Create a wake-word project: target word, domain and target chip.')}
         </DialogDescription>
         <div className="mt-4 space-y-3">
           <label className="block text-sm">
-            <span className="text-ink-2">Project name</span>
+            <span className="text-ink-2">{t('Project name')}</span>
             <TextField.Root
               className="mt-1"
               value={draft.name}
               onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-              placeholder="e.g. Hey Studio"
+              placeholder={t('e.g. Hey Studio')}
             />
           </label>
           <label className="block text-sm">
-            <span className="text-ink-2">Wake word</span>
+            <span className="text-ink-2">{t('Wake word')}</span>
             <TextField.Root
               className="mt-1"
               value={draft.targetWord}
               onChange={(e) => setDraft((d) => ({ ...d, targetWord: e.target.value }))}
-              placeholder="e.g. hey studio"
+              placeholder={t('e.g. hey studio')}
             />
           </label>
           <label className="block text-sm">
-            <span className="text-ink-2">Domain</span>
+            <span className="text-ink-2">{t('Domain')}</span>
             <select
               value={draft.domain}
               onChange={(e) => setDraft((d) => ({ ...d, domain: e.target.value as ProjectDomain }))}
@@ -84,18 +86,18 @@ export function NewProjectDialog({ open, onOpenChange }: Props) {
             >
               {PROJECT_DOMAINS.map((d) => (
                 <option key={d.value} value={d.value}>
-                  {d.label}
+                  {t(d.label)}
                 </option>
               ))}
             </select>
           </label>
           <label className="block text-sm">
-            <span className="text-ink-2">Target chip (optional)</span>
+            <span className="text-ink-2">{t('Target chip (optional)')}</span>
             <TextField.Root
               className="mt-1"
               value={draft.targetChip}
               onChange={(e) => setDraft((d) => ({ ...d, targetChip: e.target.value }))}
-              placeholder="e.g. rpi4, esp32-s3, linux-x64"
+              placeholder={t('e.g. rpi4, esp32-s3, linux-x64')}
             />
           </label>
         </div>
@@ -105,14 +107,14 @@ export function NewProjectDialog({ open, onOpenChange }: Props) {
             variant="outline"
             size="2"
           >
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             onClick={submitCreate}
             disabled={busy}
             size="2"
           >
-            {busy ? 'Creating…' : 'Create'}
+            {busy ? t('Creating…') : t('Create')}
           </Button>
         </div>
       </DialogContent>

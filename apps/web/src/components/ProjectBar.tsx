@@ -6,26 +6,31 @@
  */
 
 import { useProjects, PROJECT_DOMAINS } from '../projects'
+import { useT } from '../i18n'
 
 export function ProjectBar() {
   const { current } = useProjects()
+  const t = useT()
   if (!current) return null
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-2">
       <span>
-        Target:{' '}
+        {`${t('Target')}:`}{' '}
         <span className="font-medium text-ink-1">{current.targetWord || '—'}</span>
       </span>
       <span>
-        Domain:{' '}
+        {`${t('Domain')}:`}{' '}
         <span className="font-medium text-ink-1">
-          {PROJECT_DOMAINS.find((d) => d.value === current.domain)?.label ?? current.domain}
+          {(() => {
+            const label = PROJECT_DOMAINS.find((d) => d.value === current.domain)?.label ?? current.domain
+            return t(label)
+          })()}
         </span>
       </span>
       {current.targetChip && (
         <span>
-          Chip: <span className="font-medium text-ink-1">{current.targetChip}</span>
+          {`${t('Chip')}:`} <span className="font-medium text-ink-1">{current.targetChip}</span>
         </span>
       )}
     </div>

@@ -8,6 +8,7 @@
 import { IconPlay, IconStop, IconSpinner } from './icons'
 import { IconButton } from '@radix-ui/themes'
 import { cn } from './cn'
+import { useT } from '../i18n'
 
 export interface PipelineRunState {
   phase: 'idle' | 'starting' | 'running' | 'stopping' | 'error'
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export function RunControl({ runState, onStart, onStop }: Props) {
+  const t = useT()
   const running = runState.phase === 'running' || runState.afeRunning
   const busy = runState.phase === 'starting' || runState.phase === 'stopping' || runState.kwsLoading
 
@@ -36,8 +38,8 @@ export function RunControl({ runState, onStart, onStop }: Props) {
         <IconButton
           onClick={onStart}
           disabled={busy}
-          aria-label="Start pipeline"
-          title="Start pipeline"
+          aria-label={t('Start pipeline')}
+          title={t('Start pipeline')}
           size="4"
           radius="full"
           className={cn('shadow-lg', busy && 'cursor-not-allowed')}
@@ -48,8 +50,8 @@ export function RunControl({ runState, onStart, onStop }: Props) {
         <IconButton
           onClick={onStop}
           disabled={busy}
-          aria-label="Stop pipeline"
-          title="Stop pipeline"
+          aria-label={t('Stop pipeline')}
+          title={t('Stop pipeline')}
           size="4"
           radius="full"
           variant="solid"
@@ -61,7 +63,7 @@ export function RunControl({ runState, onStart, onStop }: Props) {
       )}
       {busy && <IconSpinner className="h-5 w-5 text-brand-11" />}
       {runState.kwsLoading && (
-        <span className="text-xs text-amber-400">loading models…</span>
+        <span className="text-xs text-amber-400">{t('loading models…')}</span>
       )}
     </div>
   )

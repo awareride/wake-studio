@@ -20,6 +20,7 @@ import {
   requestMicPermission,
 } from '../workspace/sources/deviceList'
 import type { MicDevice } from '../workspace/sources/deviceList'
+import { useT } from '../i18n'
 
 interface Props {
   /** Current value (from the workspace/project snapshot). */
@@ -56,6 +57,7 @@ function ToggleRow({
 }
 
 export function SourceSelector({ value, onChange, disabled }: Props) {
+  const t = useT()
   const [devices, setDevices] = useState<MicDevice[]>([])
   const [permissionGranted, setPermissionGranted] = useState(false)
 
@@ -92,14 +94,14 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
   return (
     <Card className="flex flex-wrap items-center gap-x-5 gap-y-3 !p-4">
       <label className="flex items-center gap-2 text-sm">
-        <span className="text-ink-2">Input device</span>
+        <span className="text-ink-2">{t('Input device')}</span>
         <select
           value={value.deviceId ?? ''}
           disabled={disabled || devices.length === 0}
           onChange={(e) => onChange({ ...value, deviceId: e.target.value || undefined })}
           className="max-w-72 truncate rounded bg-surface-3 px-2.5 py-1 text-sm text-ink-1"
         >
-          {devices.length === 0 && <option value="">Default device</option>}
+          {devices.length === 0 && <option value="">{t('Default device')}</option>}
           {devices.map((d) => (
             <option key={d.deviceId} value={d.deviceId}>
               {d.label || `Microphone (${d.deviceId.slice(0, 8)}…)`}
@@ -114,7 +116,7 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
           disabled={disabled}
           size="1"
         >
-          Allow mic to see device names
+          {t('Allow mic to see device names')}
         </Button>
       )}
 
@@ -148,7 +150,7 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
           disabled={disabled}
         />
         <label className="flex items-center gap-2 text-xs">
-          <span className="text-ink-2">Channels</span>
+          <span className="text-ink-2">{t('Channels')}</span>
           <select
             value={value.channelCount ?? 1}
             disabled={disabled}
@@ -157,15 +159,16 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
             }
             className="rounded bg-surface-3 px-1.5 py-0.5 text-xs text-ink-1"
           >
-            <option value={1}>Mono</option>
-            <option value={2}>Stereo</option>
+            <option value={1}>{t('Mono')}</option>
+            <option value={2}>{t('Stereo')}</option>
           </select>
         </label>
       </div>
 
       <p className="w-full text-[10px] text-ink-3">
-        Browser DSP is off by default — our RNNoise is the only noise
-        suppressor. Toggle browser AEC/NS/AGC to let the device do it instead.
+        {t(
+          'Browser DSP is off by default — our RNNoise is the only noise suppressor. Toggle browser AEC/NS/AGC to let the device do it instead.',
+        )}
       </p>
 
       {value.monitor && (

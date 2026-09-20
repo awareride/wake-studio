@@ -26,6 +26,7 @@ import {
   type SavedClip,
 } from '../workspace/persistence'
 import { WaveformCanvas, useWavPlayback } from './viz'
+import { useT } from '../i18n'
 
 const STAGE_LABELS = {
   raw: 'Raw input',
@@ -143,11 +144,12 @@ export function ClipsPanel({ pipeline, running, config }: Props) {
   const enabledCount = (['raw', 'ns', 'kws'] as const).filter(
     (s) => cfg[s]?.enabled,
   ).length
+  const t = useT()
 
   return (
     <div className="rounded-xl border border-line bg-surface-2 p-5">
       <div className="flex flex-wrap items-center gap-3">
-        <h3 className="text-sm font-semibold text-ink-1">Per-stage clips</h3>
+        <h3 className="text-sm font-semibold text-ink-1">{t('Per-stage clips')}</h3>
         <Button
           onClick={() => void handleCapture()}
           disabled={!running || enabledCount === 0}
@@ -155,11 +157,11 @@ export function ClipsPanel({ pipeline, running, config }: Props) {
           color={capturing ? 'red' : 'gray'}
           size="2"
         >
-          {capturing ? 'Stop & save clips' : 'Capture'}
+          {capturing ? t('Stop & save clips') : t('Capture')}
         </Button>
         {running && enabledCount === 0 && (
           <span className="text-xs text-warning">
-            Enable persistence in a module config (Source/NS/KWS) first.
+            {t('Enable persistence in a module config (Source/NS/KWS) first.')}
           </span>
         )}
       </div>
@@ -168,15 +170,15 @@ export function ClipsPanel({ pipeline, running, config }: Props) {
         <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between">
             <div className="text-[11px] font-medium uppercase tracking-widest text-ink-3">
-              Saved clips
+              {t('Saved clips')}
             </div>
-            <span className="text-[11px] text-ink-3">{clips.length} total</span>
+            <span className="text-[11px] text-ink-3">{`${clips.length} ${t('total')}`}</span>
           </div>
           {clips.map((clip) => (
             <div key={clip.id} className="rounded-lg border border-line bg-surface-2 p-2">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-xs font-medium text-ink-1">
-                  {STAGE_LABELS[clip.stageId]}
+                  {t(STAGE_LABELS[clip.stageId])}
                 </span>
                 <span className="text-[10px] text-ink-3">
                   {clip.name} · {(clip.durationMs / 1000).toFixed(1)}s ·{' '}
@@ -190,7 +192,7 @@ export function ClipsPanel({ pipeline, running, config }: Props) {
                       size="1"
                       className="text-xs"
                     >
-                      Stop
+                      {t('Stop')}
                     </Button>
                   ) : (
                     <Button
@@ -200,7 +202,7 @@ export function ClipsPanel({ pipeline, running, config }: Props) {
                       size="1"
                       className="text-xs"
                     >
-                      Play
+                      {t('Play')}
                     </Button>
                   )}
                   <Button
@@ -213,7 +215,7 @@ export function ClipsPanel({ pipeline, running, config }: Props) {
                     size="1"
                     className="text-xs"
                   >
-                    Export
+                    {t('Export')}
                   </Button>
                   <Button
                     onClick={() => handleDelete(clip.id)}
@@ -222,7 +224,7 @@ export function ClipsPanel({ pipeline, running, config }: Props) {
                     size="1"
                     className="text-xs"
                   >
-                    Delete
+                    {t('Delete')}
                   </Button>
                 </div>
               </div>

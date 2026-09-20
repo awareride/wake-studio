@@ -16,6 +16,7 @@
 import * as React from 'react'
 import { Button } from '@radix-ui/themes'
 import { cn } from './cn'
+import { useT } from '../i18n'
 
 export type PipelineTabId = 'source' | 'aec' | 'bss' | 'ns' | 'kws'
 
@@ -54,11 +55,12 @@ export function StageCard({
   active,
   onSelect,
 }: StageCardProps) {
+  const t = useT()
   return (
     <div
       role={onSelect ? 'button' : undefined}
       tabIndex={onSelect ? 0 : undefined}
-      aria-label={`${label} config`}
+      aria-label={`${label} ${t('config')}`}
       aria-pressed={active}
       onClick={onSelect}
       onKeyDown={
@@ -113,7 +115,7 @@ export function StageCard({
                 e.stopPropagation()
                 onToggleEnabled?.()
               }}
-              aria-label={`${label} toggle`}
+              aria-label={`${label} ${t('toggle')}`}
               aria-pressed={enabled}
               variant={enabled ? 'soft' : 'ghost'}
               color={enabled ? 'green' : 'gray'}
@@ -121,7 +123,7 @@ export function StageCard({
               radius="full"
               className="shrink-0 px-2 text-[9px] font-bold uppercase tracking-widest"
             >
-              {enabled ? 'On' : 'Off'}
+              {enabled ? t('On') : t('Off')}
             </Button>
           )}
         </div>
