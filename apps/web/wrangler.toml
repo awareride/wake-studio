@@ -1,0 +1,24 @@
+# Cloudflare Pages project configuration for the web app (ADR-046).
+#
+# This file is the source of truth for the `wake-studio` Pages project when
+# deployed with `wrangler pages deploy` (run from apps/web). It binds the
+# private R2 bucket that holds the heavy runtime assets served same-origin by
+# the Functions in ./functions (`/modules/*`, `/ort/*`) for
+# `VITE_ASSETS_MODE=external` builds.
+#
+# Requires Wrangler >= 3.45.0 (Pages config support). The bucket must exist in
+# the account before deploying; see docs/build-artifacts.md §6.
+
+name = "wake-studio"
+compatibility_date = "2026-09-20"
+pages_build_output_dir = "dist"
+
+# Heavy runtime assets: module assets + the vendored onnxruntime-web wasm
+# runtime. Keys mirror the URL paths (`modules/...`, `ort/...`); published by
+# scripts/publish-r2.mjs. The bucket stays private — only this binding reads it.
+#
+# NOTE: `ASSETS` is reserved by Pages Functions (env.ASSETS.fetch() serves the
+# static build), so the binding must use a different name.
+[[r2_buckets]]
+binding = "RUNTIME_ASSETS"
+bucket_name = "wake-studio-assets"

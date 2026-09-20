@@ -106,3 +106,82 @@ node scripts/fetch-<artifact>.mjs [--force] [--version <v>]
 
 > Inventory entries are filled as the SOP lands; the RNNoise row is the ADR-025
 > pilot and will prove the SOP end-to-end.
+
+## 6. Serving heavy assets from R2 (`VITE_ASSETS_MODE=external`, ADR-046)
+
+Cloudflare Pages rejects any single file above **25 MiB**, which the heavy
+artifacts exceed (sherpa-onnx KWS wasm bundle ~50 MB extracted;
+`ort-wasm-simd-threaded.jsep.wasm` 25.58 MiB). The web app therefore has two
+runtime-asset modes, selected at build time:
+
+| Mode | `dist/` contents | Served by | Used by |
+|---|---|---|---|
+| `bundled` (default) | `modules/**` + `ort/**` copied in | the deploy origin (static files) | local dev/preview, GitHub Pages |
+| `external` | app shell only + `_routes.json` | Pages Functions (`/modules/*`, `/ort/*`) reading the private R2 bucket | Cloudflare Pages |
+
+The client URL layout is the same in both modes, so nothing in the app, the
+model registry or the service worker changes.
+
+**`dist/` hygiene in `external` mode.** Vite still emits a hashed copy of the
+onnxruntime-web wasm for the library's internal `new URL(..., import.meta.url)`
+fallback. That fallback never runs here - every ORT consumer sets
+`ort.env.wasm.wasmPaths` to `/ort/` - and at 25.58 MiB the copy alone would
+still trip the 25 MiB/file limit. The `wake-studio:prune-external-dist` plugin
+(`apps/web/vite.config.ts`) therefore drops `ort-wasm-*.wasm` from the build
+output and fails the build if any remaining file is over the limit, so an
+oversized artifact breaks the **build** and not the deploy.
+
+**Bucket & binding.** `apps/web/wrangler.toml` declares the Pages project and
+the binding:
+
+```toml
+name = "wake-studio"
+pages_build_output_dir = "dist"
+
+[[r2_buckets]]
+binding = "RUNTIME_ASSETS"
+bucket_name = "wake-studio-assets"
+```
+
+The bucket is private: it needs no public access, custom domain or CORS rules.
+The only reader is the `RUNTIME_ASSETS` binding used by
+`apps/web/functions/{modules,ort}/[[path]].ts`.
+
+**Publishing.** `scripts/publish-r2.mjs` uploads the module assets and the
+vendored onnxruntime-web runtime with keys that mirror the URL paths
+(`modules/<category>/<module>/assets/...`, `ort/...`), setting the content type
+and `Cache-Control` per object. It talks to the Cloudflare REST API directly
+(same endpoint as `wrangler r2 object put`) and needs:
+
+```bash
+export CLOUDFLARE_API_TOKEN=...   # Workers R2 Storage: Edit (+ Pages: Edit)
+export CLOUDFLARE_ACCOUNT_ID=...
+pnpm fetch:all                    # populate module assets/ first
+pnpm publish:assets               # or: node scripts/publish-r2.mjs --dry-run
+```
+
+The `deploy.yml` Cloudflare job runs it after the build and before
+`wrangler pages deploy`, so a new build never goes live before its assets.
+Uploads are idempotent overwrites; objects removed from a module are not
+deleted from the bucket (prune manually if needed).
+
+**Local testing of `external` mode.** `pnpm dev`/`pnpm preview` serve assets
+from disk (`bundled` behavior). To exercise the Functions locally:
+
+```bash
+cd apps/web
+npx wrangler pages dev        # Miniflare local R2; seed it with
+                              # `npx wrangler r2 object put --local ...`
+```
+
+**Operational notes**
+
+- The bucket must exist before the first deploy; the binding is validated at
+  deploy time. The Pages project itself is created by the deploy job on its
+  first run (Direct Upload, production branch `main`).
+- `wrangler.toml` becomes the source of truth for the Pages project — check the
+  dashboard settings once with `npx wrangler pages download config wake-studio`.
+- The ORT files are resolved from the onnxruntime-web version pnpm links for the
+  KWS drivers (`^1.27.0`), not from the first `onnxruntime-web@*` entry in the
+  pnpm store (which can be a different version pulled by an optional
+  dependency). Keep the wasm/loader pair and the bundled JS on the same version.

@@ -386,6 +386,11 @@ package and offers to train a clean replacement instead.
   `docs/modules/data-sources.md`.
 - **Deploy (ADR-012).** `VITE_BASE_PATH` configures the base path - `/` for
   Cloudflare Pages, `/<repo-name>/` for GitHub Pages project sites.
+- **Runtime assets (ADR-046).** `VITE_ASSETS_MODE=bundled` (default) copies
+  module assets + the onnxruntime-web wasm into `dist/`; `external` publishes
+  them to the private R2 bucket `wake-studio-assets` and serves `/modules/*` and
+  `/ort/*` same-origin through Cloudflare Pages Functions (see
+  `docs/build-artifacts.md` §6). The GitHub Pages deploy stays `bundled`.
 - **CI/CD (ADR-015).** Workflow files (`ci.yml`, `deploy.yml`) are scaffolded but
   **dormant** until post-MVP: deploy is manual (`workflow_dispatch`), and CI runs
   only on push/PR to the remote (not yet in use). Local

@@ -7,8 +7,15 @@ name: Deploy
 # Required repo configuration (set once by the human):
 #   - Settings -> Pages -> Source = "GitHub Actions"
 #   - Settings -> Environments -> create "github-pages"
-#   - Secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
-#   - A Cloudflare Pages project named "wake-studio" (ADR-014)
+#   - Secrets: CLOUDFLARE_API_TOKEN (needs Pages: Edit + Workers R2 Storage:
+#     Edit)
+#   - Variables: CLOUDFLARE_ACCOUNT_ID (the account id is public information,
+#     so it lives as a repository variable, not a secret)
+#   - A Cloudflare Pages project named "wake-studio" (ADR-014); the deploy job
+#     creates it on the first run, so no dashboard step is needed
+#   - An R2 bucket named "wake-studio-assets" holding the heavy runtime assets
+#     served same-origin by the Pages Functions (ADR-046; see
+#     apps/web/wrangler.toml and docs/build-artifacts.md §6)
 on:
   workflow_dispatch:
 
@@ -91,23 +98,64 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # Fetch runtime assets into module assets dirs before build (P0-3).
+      # The openwakeword/hey-buddy onnx are part of the published R2 set too.
       - name: Fetch runtime assets
         run: |
           node scripts/fetch-artifact.mjs kws-sherpa || echo "sherpa wasm fetch failed (non-fatal for deploy; backend will 404 until built)"
+          node scripts/fetch-artifact.mjs kws-openwakeword || echo "openwakeword assets fetch failed (non-fatal)"
           node scripts/fetch-artifact.mjs kws-plix || echo "plixkws fetch failed (non-fatal)"
           node scripts/fetch-artifact.mjs kws-streaming || echo "kws-streaming onnx fetch failed (non-fatal; backend will 404 until built)"
 
-      # Cloudflare Pages serves at root (ADR-012).
-      - name: Build PWA (Cloudflare base)
+      # Cloudflare Pages serves at root (ADR-012). VITE_ASSETS_MODE=external
+      # keeps the heavy module assets + ORT wasm out of dist/ (they exceed the
+      # Pages 25 MiB/file limit) and emits dist/_routes.json so the Pages
+      # Functions serve /modules/* and /ort/* same-origin from R2 (ADR-046).
+      - name: Build PWA (Cloudflare base, external assets)
         env:
           VITE_BASE_PATH: /
+          VITE_ASSETS_MODE: external
         run: pnpm build
+
+      # Publish the heavy runtime assets to the private R2 bucket BEFORE the
+      # Pages deploy, so the new build never goes live before its assets
+      # (ADR-046). Idempotent overwrite; keys mirror the URL paths.
+      - name: Publish runtime assets to R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/publish-r2.mjs
+
+      # Bootstrap the Direct Upload Pages project on the first run (ADR-014);
+      # idempotent, later runs no-op. Needs Pages: Edit on the token. The
+      # `pages deploy` below is the real assertion - if the project is still
+      # missing there, the deploy fails with the Cloudflare API error.
+      - name: Ensure Cloudflare Pages project exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          api="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects"
+          auth="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          if [ "$(curl -s -o /dev/null -w '%{http_code}' -H "$auth" "$api/wake-studio")" = "200" ]; then
+            echo "Pages project 'wake-studio' already exists"
+          else
+            echo "Creating Pages project 'wake-studio' (Direct Upload, production branch: main)"
+            curl -fsS -X POST "$api" -H "$auth" -H 'Content-Type: application/json' \
+              -d '{"name":"wake-studio","production_branch":"main"}'
+          fi
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # ADR-014: the project name is wake-studio (was wave-studio). The
-          # web app's vite root is apps/web -> build emits apps/web/dist.
-          command: pages deploy apps/web/dist --project-name=wake-studio
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          # ADR-014: the project name is wake-studio. apps/web/wrangler.toml is
+          # the Pages project config (name + pages_build_output_dir + the
+          # RUNTIME_ASSETS R2 binding, ADR-046), so deploy from apps/web with no
+          # --project-name/--path args; apps/web/functions ship with it.
+          # packageManager is pinned because Pages requires the Wrangler config
+          # in the working directory, and the action's lockfile detection would
+          # otherwise pick npm (which cannot resolve the workspace:* deps).
+          workingDirectory: apps/web
+          packageManager: pnpm
+          command: pages deploy
