@@ -59,7 +59,7 @@ test('clicking a sub-item highlights only that item, not the Settings parent', a
   await expect(
     page
       .locator('aside')
-      .getByRole('button', { name: /Settings menu/ }),
+      .getByRole('button', { name: /Settings · (collapsed|expanded)/ }),
   ).not.toHaveAttribute('aria-current', 'page')
 })
 
@@ -162,7 +162,7 @@ test('mobile drawer positions correctly and expands Settings sub-menu', async ({
   expect(geo!.h).toBe(geo!.vh)
 
   // Settings expands inside the drawer and the sub-items render.
-  await drawer.getByRole('button', { name: /Settings menu/ }).click()
+  await drawer.getByRole('button', { name: /Settings · (collapsed|expanded)/ }).click()
   await expect(
     drawer.getByRole('button', { name: 'General' }),
   ).toBeVisible()

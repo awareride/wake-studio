@@ -96,7 +96,7 @@ export function WorkspaceView() {
         toast({ title: t('Pipeline start failed'), description: state.error, variant: 'error' })
       }
     })
-  }, [start, state.error, toast])
+  }, [start, state.error, toast, t])
 
   const handleStop = React.useCallback(() => {
     stop()

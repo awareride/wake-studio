@@ -46,7 +46,7 @@ test('hash routing navigates between views', async ({ page }) => {
   // sub-item to reach a section.
   await page
     .locator('aside')
-    .getByRole('button', { name: /Settings menu/ })
+    .getByRole('button', { name: /Settings · (collapsed|expanded)/ })
     .click()
   await expect(
     page.locator('aside').getByRole('button', { name: 'General' }),
