@@ -116,6 +116,28 @@ pnpm fetch:all
 
 > The first `pnpm install` requires authorization per `AGENTS.md`.
 
+## Deployment
+
+The PWA deploys to Cloudflare Pages (`wake-studio.awareride.com`) and GitHub
+Pages from the manual `deploy.yml` workflow. Runtime assets have two modes
+(ADR-046):
+
+- **`bundled`** (default; local dev, preview, GitHub Pages) — module assets and
+  the onnxruntime-web wasm are copied into `dist/` and served from the deploy
+  origin.
+- **`external`** (Cloudflare Pages) — the same files are published to the private
+  R2 bucket `wake-studio-assets` and served same-origin by Pages Functions
+  (`/modules/*`, `/ort/*`), because they exceed the Pages 25 MiB/file limit.
+  The Cloudflare API token needs **Workers R2 Storage: Edit**.
+
+```bash
+pnpm fetch:all        # populate the module assets/ dirs
+pnpm publish:assets   # upload them to R2 (CLOUDFLARE_API_TOKEN / _ACCOUNT_ID)
+```
+
+See [`docs/build-artifacts.md`](./docs/build-artifacts.md) §6 for the bucket /
+binding setup and local `external`-mode testing with `wrangler pages dev`.
+
 ## WIP tips (working conventions)
 
 Conventions collected during development. Keep them in mind when working on

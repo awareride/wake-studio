@@ -1,8 +1,8 @@
 import { defineConfig, type ViteDevServer, type PreviewServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import { createReadStream, statSync, cpSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
-import { resolve, dirname, extname, join } from 'node:path'
+import { createReadStream, statSync, cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { resolve, dirname, extname, join, basename, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
@@ -14,16 +14,32 @@ const projectRoot = dirname(fileURLToPath(import.meta.url))
 const modulesRoot = resolve(projectRoot, '../../packages/modules')
 
 /**
+ * Runtime-asset mode (ADR-046):
+ *   - 'bundled' (default): module assets + the onnxruntime-web runtime are
+ *     copied into dist/ and served from the deploy origin (local dev/preview,
+ *     GitHub Pages).
+ *   - 'external': the same files are published to R2 and served same-origin by
+ *     the Pages Functions in apps/web/functions (see scripts/publish-r2.mjs);
+ *     dist/ keeps only the app shell, so the Cloudflare Pages 25 MiB/file
+ *     limit no longer applies.
+ */
+const externalAssets = (process.env.VITE_ASSETS_MODE ?? 'bundled') === 'external'
+
+/**
  * Copy each module's assets/ dir into the build output at
  * dist/modules/<category>/<module>/assets/... (Q-K2 / ADR-025), and copy the
  * onnxruntime-web WASM runtime from node_modules into dist/ort/ (P0-4; the
  * wasm is a pinned npm artifact, gitignored, not committed).
+ *
+ * Skipped entirely in 'external' mode (ADR-046) - both trees are served from
+ * R2 instead.
  */
 function copyModuleAssets(): Plugin {
   return {
     name: 'wake-studio:copy-module-assets',
     apply: 'build',
     closeBundle() {
+      if (externalAssets) return
       const distModules = resolve(projectRoot, 'dist', 'modules')
       if (existsSync(modulesRoot)) {
         const copyTree = (src: string, dest: string) => {
@@ -88,6 +104,81 @@ function findOrtDist(pnpmRoot: string): string | null {
     if (isDir(cand)) return cand
   }
   return null
+}
+
+/**
+ * In 'external' mode, write dist/_routes.json so Cloudflare Pages only invokes
+ * the asset Functions for /modules/* and /ort/*; every other request is served
+ * as a static asset without a Function invocation (ADR-046). The file is
+ * intentionally not emitted in 'bundled' mode (GH Pages has no Functions).
+ */
+function writeRoutesManifest(): Plugin {
+  return {
+    name: 'wake-studio:write-routes-manifest',
+    apply: 'build',
+    closeBundle() {
+      if (!externalAssets) return
+      const dist = resolve(projectRoot, 'dist')
+      mkdirSync(dist, { recursive: true })
+      writeFileSync(
+        join(dist, '_routes.json'),
+        `${JSON.stringify(
+          { version: 1, include: ['/modules/*', '/ort/*'], exclude: [] },
+          null,
+          2,
+        )}\n`,
+      )
+    },
+  }
+}
+
+/** Cloudflare Pages rejects any single file above 25 MiB (ADR-046). */
+const PAGES_MAX_FILE_BYTES = 25 * 1024 * 1024
+
+/** Recursively list every file under a directory (best-effort). */
+function walkFiles(dir: string): string[] {
+  const files: string[] = []
+  for (const entry of readdirSafe(dir)) {
+    const p = join(dir, entry)
+    if (isDir(p)) files.push(...walkFiles(p))
+    else files.push(p)
+  }
+  return files
+}
+
+/**
+ * External mode ships only the app shell, but Vite still emits a hashed copy of
+ * the onnxruntime-web wasm for the `new URL(..., import.meta.url)` fallback
+ * inside the library. That fallback never runs - every driver sets
+ * `ort.env.wasm.wasmPaths` to /ort/, which R2 serves (ADR-046) - and at
+ * 25.58 MiB the copy alone would still trip the Pages 25 MiB/file limit this
+ * mode exists to escape. Prune it, then assert nothing else in dist is over the
+ * limit, so an oversized artifact fails the build instead of the deploy.
+ */
+function pruneExternalDist(): Plugin {
+  return {
+    name: 'wake-studio:prune-external-dist',
+    apply: 'build',
+    closeBundle() {
+      if (!externalAssets) return
+      const dist = resolve(projectRoot, 'dist')
+      for (const file of walkFiles(dist)) {
+        const name = basename(file)
+        if (name.startsWith('ort-wasm-') && name.endsWith('.wasm')) {
+          rmSync(file, { force: true }) // served from R2 at /ort/<name> instead
+          continue
+        }
+        const size = statSync(file).size
+        if (size > PAGES_MAX_FILE_BYTES) {
+          throw new Error(
+            `[wake-studio] external assets: ${relative(projectRoot, file)} is ` +
+              `${(size / 1024 / 1024).toFixed(2)} MiB, over the Cloudflare Pages ` +
+              `${PAGES_MAX_FILE_BYTES / 1024 / 1024} MiB/file limit (ADR-046)`,
+          )
+        }
+      }
+    },
+  }
 }
 
 function readdirSafe(p: string): string[] {
@@ -235,6 +326,8 @@ export default defineConfig({
     react(),
     serveAssets(),
     copyModuleAssets(),
+    writeRoutesManifest(),
+    pruneExternalDist(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'model-registry.json'],

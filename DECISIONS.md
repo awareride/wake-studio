@@ -1625,3 +1625,58 @@ applied per this log and may be overridden._
     quality/health job (#209) remains separate.
   - HF exact field names / per-file viewer caps to be confirmed against current HF docs before
     finalizing `metadata.csv`/`README.md` templates.
+
+## ADR-046 — Heavy runtime assets are served same-origin from R2 on Cloudflare (bundled mode stays the default)
+
+- **Status:** Accepted (2026-09-20)
+- **Origin:** The Cloudflare Pages deploy fails on its 25 MiB/file limit. The heavy
+  runtime artifacts exceed it: the sherpa-onnx KWS wasm bundle (~50 MB extracted;
+  the release archive alone is 36.3 MB), `ort-wasm-simd-threaded.jsep.wasm`
+  (25.58 MiB), and `kws-streaming-kwt3.onnx` (22.8 MB) is close to the cap.
+  GitHub Pages still works (100 MB/file cap) and must keep working as-is.
+- **Decision:** Runtime assets have two build-time modes, selected by
+  `VITE_ASSETS_MODE`:
+  1. **`bundled` (default)** — module `assets/` trees and the onnxruntime-web wasm
+     runtime are copied into `dist/` and served from the deploy origin. Local
+     dev/preview and the GitHub Pages job keep using this mode.
+  2. **`external`** — the same files are published to the **private** R2 bucket
+     `wake-studio-assets` and served **same-origin** by Cloudflare Pages
+     Functions (`apps/web/functions/modules/[[path]].ts`,
+     `.../ort/[[path]].ts`) through a `RUNTIME_ASSETS` R2 binding declared in
+     `apps/web/wrangler.toml`. `dist/` then contains only the app shell, so the
+     Pages 25 MiB/file limit no longer applies.
+
+  The URL layout is identical in both modes (`/modules/...`, `/ort/...`); only
+  the serving mechanism changes. The model registry, the drivers and the PWA
+  service-worker runtime caching need no knowledge of the mode. `dist/_routes.json`
+  (emitted only in `external` mode) limits Functions to `/modules/*` and
+  `/ort/*`, so every other request stays a static asset with no Function
+  invocation. Publishing happens in the CF deploy job before the Pages deploy,
+  via `scripts/publish-r2.mjs` (Cloudflare REST API, keys mirror the URL paths,
+  per-file content type + cache-control, no wrangler dependency).
+- **Rationale:** The assets are already lazy-fetched at runtime (ADR-011), so
+  moving their origin is invisible to the product. Serving through the Pages
+  project keeps the site **same-origin**: no CORS/CORP configuration, no public
+  bucket or extra domain, the bucket stays private (only the binding reads it),
+  and the service worker's `CacheFirst` rules keep working unchanged. Pages
+  Functions ride the existing Pages deploy, so there is no separate Worker or
+  zone route to maintain. Keeping `bundled` as the default preserves the
+  GH Pages deploy, local dev (`pnpm dev` serves from disk) and `pnpm preview`.
+- **Consequences:**
+  - The Cloudflare API token needs **Workers R2 Storage: Edit** in addition to
+    Pages: Edit; the bucket must exist before deploying.
+  - `apps/web/wrangler.toml` becomes the source of truth for the `wake-studio`
+    Pages project (name, build output dir, R2 binding) — verify the dashboard
+    settings once with `wrangler pages download config wake-studio`. The binding
+    is named `RUNTIME_ASSETS` because Pages reserves `ASSETS` for its static
+    asset fetcher.
+  - `pnpm preview` only exercises `bundled` mode; to test `external` locally use
+    `wrangler pages dev` (local R2 via Miniflare) after
+    `node scripts/publish-r2.mjs --dry-run`/a local put.
+  - Object keys are stable (no content hashes), so a redeploy overwrites the
+    same keys; the service worker may still serve a cached copy until its cache
+    entry expires (same behavior as the previous bundled mode).
+  - `external` mode is Cloudflare-specific; the GitHub Pages job and any other
+    static host stay on `bundled`.
+  - Asset publishing is idempotent and additive — objects removed from a module
+    are not deleted from the bucket; prune manually if that ever matters.

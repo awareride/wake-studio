@@ -20,6 +20,7 @@
     "gen:registry:check": "node scripts/build-model-registry.mjs --check",
     "lint": "pnpm -r lint",
     "preview": "pnpm --filter @wake-studio/web preview",
+    "publish:assets": "node scripts/publish-r2.mjs",
     "test": "pnpm test:unit && pnpm test:e2e",
     "test:e2e": "pnpm --filter @wake-studio/web test:e2e",
     "test:unit": "pnpm -r test:unit",
