@@ -156,7 +156,7 @@
       "releaseTag": "models-openwakeword-v1",
       "pattern": "*.tar.gz"
     },
-    "notes": "melspectrogram/embedding (Apache-2.0, upstream openWakeWord) + hey-buddy classifier (CC-BY-4.0) hosted as a GitHub Release (ADR-027 §6.7); fetched via scripts/fetch-artifact.mjs. The tar.gz preserves the module asset layout (openWakeWord/ + hey-buddy/models/)."
+    "notes": "melspectrogram/embedding (Apache-2.0, upstream openWakeWord) + hey-buddy classifier (CC-BY-4.0) hosted as a GitHub Release; fetched via scripts/fetch-artifact.mjs. The tar.gz preserves the module asset layout (openWakeWord/ + hey-buddy/models/)."
   },
   "tests": {
     "l1": "packages/modules/kws/openwakeword/tests/backend.test.ts",

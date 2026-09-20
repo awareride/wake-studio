@@ -1217,8 +1217,8 @@ export const KWSPanel = memo(function KWSPanel({
                           <option value={fallbackId}>{`${t('Built-in')} (${fallbackId})`}</option>
                         )}
                         {options.map((o) => (
-                          <option key={o.id} value={o.id} title={o.note}>
-                            {o.label}
+                          <option key={o.id} value={o.id} title={o.note ? t(o.note) : undefined}>
+                            {t(o.label)}
                           </option>
                         ))}
                         {roleUserModels.length > 0 && (

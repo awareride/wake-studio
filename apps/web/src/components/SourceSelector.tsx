@@ -143,8 +143,8 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
           disabled={disabled}
         />
         <ToggleRow
-          label="Monitor"
-          hint="(speaker)"
+          label={t('Monitor')}
+          hint={t('(speaker)')}
           checked={value.monitor ?? false}
           onChecked={(v) => onChange({ ...value, monitor: v })}
           disabled={disabled}
@@ -173,9 +173,9 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
 
       {value.monitor && (
         <p className="w-full rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-700">
-          ⚠️ Monitor is on: mic audio plays through your speakers. Without
-          headphones the speakers feed back into the mic (feedback noise) —
-          wear headphones or turn Monitor off.
+          ⚠️ {t(
+            'Monitor is on: mic audio plays through your speakers. Without headphones the speakers feed back into the mic (feedback noise) — wear headphones or turn Monitor off.',
+          )}
         </p>
       )}
     </Card>

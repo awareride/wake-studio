@@ -103,6 +103,8 @@ export function UnifiedConfigPanel({
   const primaryIds = params.map((p) => p.id).filter((id) => !advancedIds.includes(id))
   const advanced = params.filter((p) => advancedIds.includes(p.id))
 
+  const t = useT()
+  const tAdvanced = t('Advanced')
   return (
     <div className={cn('rounded-xl border border-line bg-surface-2 p-5', className)}>
       {title && <h3 className="mb-1 text-sm font-semibold text-ink-1">{title}</h3>}
@@ -116,7 +118,7 @@ export function UnifiedConfigPanel({
       />
       {advanced.length > 0 && (
         <div className="mt-3 border-t border-line pt-2">
-          <UiCollapsible label="Advanced">
+          <UiCollapsible label={tAdvanced}>
             <div className="pt-2">
               <ParamRows
                 ids={advanced.map((p) => p.id)}

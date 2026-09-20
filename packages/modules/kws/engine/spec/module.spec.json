@@ -51,7 +51,7 @@
       "group": "advanced",
       "type": "boolean",
       "default": true,
-      "description": "Suppress triggers during VAD-off silence (ADR-018)."
+      "description": "Suppress triggers during VAD-off silence."
     },
     {
       "id": "vadThreshold",
@@ -83,7 +83,7 @@
       "type": "select",
       "default": "webgpu",
       "options": ["webgpu", "wasm"],
-      "description": "onnxruntime-web EP (WebGPU-first with WASM fallback, ADR-018)."
+      "description": "onnxruntime-web EP (WebGPU-first with WASM fallback, )."
     }
   ],
   "actions": [

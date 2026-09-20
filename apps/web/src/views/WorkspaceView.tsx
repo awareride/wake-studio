@@ -28,6 +28,7 @@ import { MiniScoreCurve } from '../components/MiniScoreCurve'
 import { ScoreCurvePanel } from '../components/ScoreCurvePanel'
 import { ClipsPanel } from '../components/ClipsPanel'
 import { SourcePanel, StageModulePanel, NsPanel, StageModuleShell, StageSection } from '../components/ModulePanels'
+import { useT } from '../i18n'
 import { PersistenceStageToggle } from '../components/PersistenceStageToggle'
 import type { AFEPipeline } from '@wake-studio/module-afe-graph'
 import { useConsoleStatus } from '../status'
@@ -54,6 +55,7 @@ const EMPTY_PERSISTENCE: import('../workspace/types').WorkspaceConfig['persisten
 }
 
 export function WorkspaceView() {
+  const t = useT()
   const afeCommandRef = React.useRef<import('../workspace/usePipelineRunner').PanelCommands | null>(null)
   const kwsCommandRef = React.useRef<import('../workspace/usePipelineRunner').PanelCommands | null>(null)
   const { setStatus } = useConsoleStatus()
@@ -91,7 +93,7 @@ export function WorkspaceView() {
   const handleStart = React.useCallback(() => {
     void start().then(() => {
       if (state.error) {
-        toast({ title: 'Pipeline start failed', description: state.error, variant: 'error' })
+        toast({ title: t('Pipeline start failed'), description: state.error, variant: 'error' })
       }
     })
   }, [start, state.error, toast])
@@ -118,7 +120,7 @@ export function WorkspaceView() {
       {/* Compact page header: title + Recent (project switcher) + core info,
           left-aligned. */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-line bg-surface-2 px-4 py-3">
-        <h2 className="text-base font-semibold text-ink-1">Workspace</h2>
+        <h2 className="text-base font-semibold text-ink-1">{t('Workspace')}</h2>
         <div className="flex flex-wrap items-center gap-2">
           <RecentProjectsMenu />
           <ProjectBar />
@@ -183,6 +185,7 @@ function WorkspaceInner({
   wsCfg: import('../workspace/types').WorkspaceConfig | undefined
   current: { id: string; name: string } | null
 }) {
+  const t = useT()
   const { frameData, bypass, toggleBypass } = useLiveAfe()
   const { setKwsRunning } = useLiveKws()
   const [afePipeline, setAfePipeline] = React.useState<AFEPipeline | null>(null)
@@ -261,8 +264,8 @@ function WorkspaceInner({
   const previewVisible = runState.afeRunning || runState.kwsRunning
   const sourcePreview =
     source.appliedSource.kind === 'file'
-      ? `Files (${source.appliedSource.files.length})`
-      : 'Mic · default'
+      ? `${t('Files')} (${source.appliedSource.files.length})`
+      : t('Mic · default')
   const afeInfo = `AFE · ${afeCfg?.topology ?? 'single-worklet'} · ${afeCfg?.latencyBudgetMs ?? 150} ms`
 
   const stageCards = [
@@ -281,7 +284,7 @@ function WorkspaceInner({
     {
       id: 'aec' as const,
       label: 'AEC',
-      preview: bypass.aec ? 'Bypassed — passthrough' : 'Active',
+      preview: bypass.aec ? t('Bypassed — passthrough') : t('Active'),
       color: '#818cf8',
       enabled: !bypass.aec,
       onToggleEnabled: () => handleToggleBypass('aec'),
@@ -289,7 +292,7 @@ function WorkspaceInner({
     {
       id: 'bss' as const,
       label: 'BSS',
-      preview: bypass.bss ? 'Bypassed — passthrough' : 'Active',
+      preview: bypass.bss ? t('Bypassed — passthrough') : t('Active'),
       color: '#a78bfa',
       enabled: !bypass.bss,
       onToggleEnabled: () => handleToggleBypass('bss'),
@@ -297,7 +300,7 @@ function WorkspaceInner({
     {
       id: 'ns' as const,
       label: 'NS',
-      preview: bypass.ns ? 'Bypassed' : 'Active',
+      preview: bypass.ns ? t('Bypassed') : t('Active'),
       color: '#38bdf8',
       enabled: !bypass.ns,
       onToggleEnabled: () => handleToggleBypass('ns'),
@@ -340,9 +343,9 @@ function WorkspaceInner({
             <div className="rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
             <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-line pb-2">
               <span className="rounded bg-brand-9/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-brand-11">
-                Setup
+                {t('Setup')}
               </span>
-              <span className="text-xs text-ink-3">configure each module, then Start — Stop returns here</span>
+              <span className="text-xs text-ink-3">{t('configure each module, then Start — Stop returns here')}</span>
               <div className="ml-auto">
                 <RunControl runState={runState} onStart={onStart} onStop={onStop} />
               </div>
@@ -375,7 +378,7 @@ function WorkspaceInner({
               id="aec"
               color="#818cf8"
               number="2"
-              title="AEC · Acoustic echo cancellation"
+              title={t('AEC · Acoustic echo cancellation')}
               note="Passthrough for v1; the real engine + persistence wiring lands with it."
               bypassed={bypass.aec}
               onToggleBypass={handleToggleBypass}
@@ -386,7 +389,7 @@ function WorkspaceInner({
               id="bss"
               color="#a78bfa"
               number="3"
-              title="BSS · Blind source separation"
+              title={t('BSS · Blind source separation')}
               note="Passthrough for v1; single-mic pipeline. Persistence lands with the real engine."
               bypassed={bypass.bss}
               onToggleBypass={handleToggleBypass}
@@ -404,8 +407,8 @@ function WorkspaceInner({
             <StageModuleShell
               color="#34d399"
               number="5"
-              title="KWS detection"
-              note="Pluggable KWS backend running in a Web Worker"
+              title={t('KWS detection')}
+              note={t('Pluggable KWS backend running in a Web Worker')}
               enabled={kwsEnabled}
               onToggle={() => toggleKws(!kwsEnabled)}
             >
@@ -420,14 +423,14 @@ function WorkspaceInner({
                       }}
                       size="1"
                     />
-                    <span className="text-ink-2">Preload KWS models on Start</span>
+                    <span className="text-ink-2">{t('Preload KWS models on Start')}</span>
                     <span className="text-xs text-ink-3">
-                      (off = Start runs AFE only until you load models manually)
+                      {t('(off = Start runs AFE only until you load models manually)')}
                     </span>
                   </label>
                   <PersistenceStageToggle
                     stageId="kws"
-                    label="Persist KWS output (16 kHz stream)"
+                    label={t('Persist KWS output (16 kHz stream)')}
                     config={persistence}
                     onChange={setPersistence}
                   />
@@ -446,8 +449,7 @@ function WorkspaceInner({
                   />
                 ) : (
                   <p className="text-xs text-ink-3">
-                    KWS is off — toggle it on above to configure the backend,
-                    models and enrollment.
+                    {t('KWS is off — toggle it on above to configure the backend, models and enrollment.')}
                   </p>
                 )}
               </StageSection>
@@ -464,9 +466,9 @@ function WorkspaceInner({
             <div className="rounded-xl bg-surface-1/90 px-2 pb-2 shadow-md shadow-black/5 backdrop-blur-md">
             <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-line pb-2">
               <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-emerald-300">
-                Live
+                {t('Live')}
               </span>
-              <span className="text-xs text-ink-3">running effects — Stop to reconfigure</span>
+              <span className="text-xs text-ink-3">{t('running effects — Stop to reconfigure')}</span>
               <div className="ml-auto">
                 <RunControl runState={runState} onStart={onStart} onStop={onStop} />
               </div>
@@ -476,7 +478,7 @@ function WorkspaceInner({
             <div className="flex flex-wrap gap-2">
               <StageCard
                 id="source"
-                label="Source"
+                label={t('Source')}
                 glyph="⌗"
                 color="#64748b"
                 enabled

@@ -9,7 +9,8 @@
  */
 
 export const ZH_CN: Record<string, string> = {
-  // ---- Shell: sidebar navigation ----
+
+  // ---- ---- Shell: sidebar navigation ---- ----
   Workspace: '工作区',
   'Model Registry': '模型注册表',
   Training: '训练',
@@ -28,10 +29,8 @@ export const ZH_CN: Record<string, string> = {
   soon: '即将上线',
   'on-device KWS studio': '端侧 KWS 工作室',
   'console shell': '控制台外壳',
-
   'Settings · expanded': '设置（已展开）',
   'Settings · collapsed': '设置（已折叠）',
-
   'Session Console': '会话控制台',
   'RNNoise Playground': 'RNNoise 演练场',
   'Settings · General': '设置 · 常规',
@@ -52,15 +51,12 @@ export const ZH_CN: Record<string, string> = {
   'Minimize pipeline status': '最小化管线状态',
   'Show pipeline status': '显示管线状态',
 
-  // ---- Settings: general ----
+  // ---- ---- Settings: general ---- ----
   Language: '语言',
-  'UI language. Stored now; i18n lands in Phase 6.':
-    '界面语言。选择后立即生效并保存。',
-  'Console appearance. "System" follows your OS light/dark preference.':
-    '控制台外观。“跟随系统”会遵循操作系统的浅色/深色偏好。',
+  'UI language. Stored now; i18n lands in Phase 6.': '界面语言。选择后立即生效并保存。',
+  'Console appearance. "System" follows your OS light/dark preference.': '控制台外观。“跟随系统”会遵循操作系统的浅色/深色偏好。',
   'Accent color': '强调色',
-  'Accent theme (Radix Colors scales). Gray is the default; Sky is the classic WakeStudio look.':
-    '强调色主题（Radix Colors 色阶）。默认为灰色；天蓝是 WakeStudio 的经典配色。',
+  'Accent theme (Radix Colors scales). Gray is the default; Sky is the classic WakeStudio look.': '强调色主题（Radix Colors 色阶）。默认为灰色；天蓝是 WakeStudio 的经典配色。',
   Jade: '碧绿',
   Gray: '灰色',
   Indigo: '靛蓝',
@@ -68,8 +64,7 @@ export const ZH_CN: Record<string, string> = {
   Mint: '薄荷',
   Sky: '天蓝',
   'KWS execution provider': 'KWS 执行后端',
-  'onnxruntime-web execution provider. WebGPU-first with WASM fallback.':
-    'onnxruntime-web 执行后端。优先 WebGPU，WASM 作为回退。',
+  'onnxruntime-web execution provider. WebGPU-first with WASM fallback.': 'onnxruntime-web 执行后端。优先 WebGPU，WASM 作为回退。',
   'WebGPU (faster)': 'WebGPU（更快）',
   'WASM (universal)': 'WASM（通用）',
   'Settings saved': '设置已保存',
@@ -77,106 +72,74 @@ export const ZH_CN: Record<string, string> = {
   'All changes saved': '所有更改已保存',
   Save: '保存',
   Save_: '保存',
-
-  'Console-wide appearance and runtime defaults. Changes apply on Save.':
-    '控制台范围的外观与运行时默认值。保存后生效。',
-  'Backend connection + credentials. Stored locally only; never sent. Changes apply on Save.':
-    '后端连接与凭据。仅存储在本地，绝不发送。保存后生效。',
-  'Local data preferences and future data-source gates. Changes apply on Save.':
-    '本地数据偏好与未来的数据源开关。保存后生效。',
-  'Optional cloud storage credentials for datasets. Masked secrets, stored locally only; backend push jobs receive them as job-scoped env, never persisted. Changes apply on Save.':
-    '数据集的可选云存储凭据。密钥以掩码显示，仅存储在本地；后端推送任务以任务级环境变量的方式接收，永不落盘。保存后生效。',
-  'Per-driver defaults from the module specs. The active project can override these per project. Changes apply on Save.':
-    '来自模块规格的各驱动默认值。当前项目可以在项目级别覆盖这些值。保存后生效。',
+  'Console-wide appearance and runtime defaults. Changes apply on Save.': '控制台范围的外观与运行时默认值。保存后生效。',
+  'Backend connection + credentials. Stored locally only; never sent. Changes apply on Save.': '后端连接与凭据。仅存储在本地，绝不发送。保存后生效。',
+  'Local data preferences and future data-source gates. Changes apply on Save.': '本地数据偏好与未来的数据源开关。保存后生效。',
+  'Optional cloud storage credentials for datasets. Masked secrets, stored locally only; backend push jobs receive them as job-scoped env, never persisted. Changes apply on Save.': '数据集的可选云存储凭据。密钥以掩码显示，仅存储在本地；后端推送任务以任务级环境变量的方式接收，永不落盘。保存后生效。',
+  'Per-driver defaults from the module specs. The active project can override these per project. Changes apply on Save.': '来自模块规格的各驱动默认值。当前项目可以在项目级别覆盖这些值。保存后生效。',
   'Module settings': '模块设置',
-  'Credentials never leave this browser. Changes apply on Save.':
-    '凭据绝不离开此浏览器。保存后生效。',
-  'Cloud keys are optional. They stay in this browser, are masked on export, and are passed to backend dataset push jobs as job-scoped env only — never persisted (Q-DS-3).':
-    '云端密钥为可选项。它们只保留在此浏览器中，导出时被掩码，并且只以任务级环境变量的方式传给后端数据集推送任务——永不落盘（Q-DS-3）。',
-
+  'Credentials never leave this browser. Changes apply on Save.': '凭据绝不离开此浏览器。保存后生效。',
+  'Cloud keys are optional. They stay in this browser, are masked on export, and are passed to backend dataset push jobs as job-scoped env only — never persisted (Q-DS-3).': '云端密钥为可选项。它们只保留在此浏览器中，导出时被掩码，并且只以任务级环境变量的方式传给后端数据集推送任务——永不落盘（Q-DS-3）。',
   'API key': 'API 密钥',
-  'Fallback credential for Colab tunnel jobs (the notebook service token). Managed backends carry their own token. Stored locally only, never sent to a WakeStudio server, never logged or exported.':
-    'Colab 隧道任务的备用凭据（即笔记本服务令牌）。托管后端自带令牌。仅存储在本地，绝不发送到 WakeStudio 服务器，也绝不记录或导出。',
+  'Fallback credential for Colab tunnel jobs (the notebook service token). Managed backends carry their own token. Stored locally only, never sent to a WakeStudio server, never logged or exported.': 'Colab 隧道任务的备用凭据（即笔记本服务令牌）。托管后端自带令牌。仅存储在本地，绝不发送到 WakeStudio 服务器，也绝不记录或导出。',
   Secret: '共享密钥',
-  'Fallback shared secret for Colab tunnel jobs. Same storage guarantees as the API key.':
-    'Colab 隧道任务的备用共享密钥。存储保障与 API 密钥相同。',
-
+  'Fallback shared secret for Colab tunnel jobs. Same storage guarantees as the API key.': 'Colab 隧道任务的备用共享密钥。存储保障与 API 密钥相同。',
   'Hugging Face token': 'Hugging Face 令牌',
-  'Token for the Hugging Face dataset-repo storage backend (authKey "cloud.hf"). Stored locally only; passed to backend push jobs as job-scoped env.':
-    'Hugging Face 数据集仓库存储后端的令牌（authKey “cloud.hf”）。仅存储在本地；以任务级环境变量的方式传给后端推送任务。',
+  'Token for the Hugging Face dataset-repo storage backend (authKey "cloud.hf"). Stored locally only; passed to backend push jobs as job-scoped env.': 'Hugging Face 数据集仓库存储后端的令牌（authKey “cloud.hf”）。仅存储在本地；以任务级环境变量的方式传给后端推送任务。',
   'R2 access key ID': 'R2 访问密钥 ID',
-  'Cloudflare R2 (S3-compatible) access key id (authKey "cloud.r2").':
-    'Cloudflare R2（S3 兼容）访问密钥 ID（authKey “cloud.r2”）。',
+  'Cloudflare R2 (S3-compatible) access key id (authKey "cloud.r2").': 'Cloudflare R2（S3 兼容）访问密钥 ID（authKey “cloud.r2”）。',
   'R2 secret access key': 'R2 私有访问密钥',
-  'Cloudflare R2 secret access key (authKey "cloud.r2").':
-    'Cloudflare R2 私有访问密钥（authKey “cloud.r2”）。',
+  'Cloudflare R2 secret access key (authKey "cloud.r2").': 'Cloudflare R2 私有访问密钥（authKey “cloud.r2”）。',
   'R2 endpoint': 'R2 端点',
-  'Cloudflare R2 S3-compatible endpoint, e.g. https://<account>.r2.cloudflarestorage.com':
-    'Cloudflare R2 S3 兼容端点，例如 https://<account>.r2.cloudflarestorage.com',
+  'Cloudflare R2 S3-compatible endpoint, e.g. https://<account>.r2.cloudflarestorage.com': 'Cloudflare R2 S3 兼容端点，例如 https://<account>.r2.cloudflarestorage.com',
   'R2 bucket': 'R2 存储桶',
   'Cloudflare R2 bucket name holding datasets.': '存放数据集的 Cloudflare R2 存储桶名称。',
   'Google Drive client ID': 'Google Drive 客户端 ID',
-  'Google Drive OAuth client id (authKey "cloud.gdrive").':
-    'Google Drive OAuth 客户端 ID（authKey “cloud.gdrive”）。',
+  'Google Drive OAuth client id (authKey "cloud.gdrive").': 'Google Drive OAuth 客户端 ID（authKey “cloud.gdrive”）。',
   'Google Drive client secret': 'Google Drive 客户端密钥',
-  'Google Drive OAuth client secret (authKey "cloud.gdrive").':
-    'Google Drive OAuth 客户端密钥（authKey “cloud.gdrive”）。',
-
+  'Google Drive OAuth client secret (authKey "cloud.gdrive").': 'Google Drive OAuth 客户端密钥（authKey “cloud.gdrive”）。',
   'Allow data upload': '允许数据上传',
-  'Gate for the pluggable data-source layer. Off by default; audio generation runs in backends, not WASM.':
-    '可插拔数据源层的开关。默认关闭；音频生成在后端运行，而非 WASM。',
+  'Gate for the pluggable data-source layer. Off by default; audio generation runs in backends, not WASM.': '可插拔数据源层的开关。默认关闭；音频生成在后端运行，而非 WASM。',
   'Data retention': '数据保留',
   'Future export/cleanup policy for local artifacts.': '本地产物的导出/清理策略（即将推出）。',
   'Keep local data': '保留本地数据',
   'Session only': '仅本次会话',
   'Export then delete': '导出后删除',
   'Remember mic permission': '记住麦克风授权',
-  'Anchor for the mic permission prompt flow (the browser owns the real permission).':
-    '麦克风授权提示流程的锚点（真正的授权由浏览器管理）。',
-  'Params from the driver module spec. Changes apply on Save; per-project overrides live in the project snapshot.':
-    '来自驱动模块规格的参数。保存后生效；项目级覆盖保存在项目快照中。',
+  'Anchor for the mic permission prompt flow (the browser owns the real permission).': '麦克风授权提示流程的锚点（真正的授权由浏览器管理）。',
+  'Params from the driver module spec. Changes apply on Save; per-project overrides live in the project snapshot.': '来自驱动模块规格的参数。保存后生效；项目级覆盖保存在项目快照中。',
   active: '使用中',
 
-  // ---- Coming soon / placeholders ----
+  // ---- ---- Coming soon / placeholders ---- ----
   'Coming soon': '即将推出',
-  'Export kits and device-side SDK tooling for your target chips arrive in Phase 4.':
-    '面向目标芯片的导出套件与设备端 SDK 工具将在第 4 阶段推出。',
+  'Export kits and device-side SDK tooling for your target chips arrive in Phase 4.': '面向目标芯片的导出套件与设备端 SDK 工具将在第 4 阶段推出。',
 
-  // ---- Model Registry ----
-  'Models are never bundled with the app — they are fetched lazily from the registry. License + commercial flags drive the export gate.':
-    '模型永远不会随应用打包——它们从注册表按需懒加载。许可与商用标志驱动导出门禁。',
+  // ---- ---- Model Registry ---- ----
+  'Models are never bundled with the app — they are fetched lazily from the registry. License + commercial flags drive the export gate.': '模型永远不会随应用打包——它们从注册表按需懒加载。许可与商用标志驱动导出门禁。',
 
-  // ---- Backends ----
-  'Your studio-backend endpoints for the Studio-backend train method. Health is checked automatically; kind (long-term / short-term) is detected from the service. Jobs and logs here are read-only — train and control jobs from the Training view.':
-    'Studio-backend 训练方式的 studio-backend 端点。会自动检查健康状态；服务类型（长期 / 短期）由服务自动识别。此处的任务与日志只读——请在训练视图中提交和控制任务。',
+  // ---- ---- Backends ---- ----
+  'Your studio-backend endpoints for the Studio-backend train method. Health is checked automatically; kind (long-term / short-term) is detected from the service. Jobs and logs here are read-only — train and control jobs from the Training view.': 'Studio-backend 训练方式的 studio-backend 端点。会自动检查健康状态；服务类型（长期 / 短期）由服务自动识别。此处的任务与日志只读——请在训练视图中提交和控制任务。',
   'New backend': '新建后端',
   'Free on Google Colab': '在 Google Colab 上免费运行',
-  'A short-term studio-backend on a free Colab runtime behind a trycloudflare tunnel — no server, no keys, only your Google account.':
-    '在免费的 Colab 运行时上通过 trycloudflare 隧道搭建的短期 studio-backend——无需服务器、无需密钥，只要你的 Google 账号。',
+  'A short-term studio-backend on a free Colab runtime behind a trycloudflare tunnel — no server, no keys, only your Google account.': '在免费的 Colab 运行时上通过 trycloudflare 隧道搭建的短期 studio-backend——无需服务器、无需密钥，只要你的 Google 账号。',
   'Access token': '访问令牌',
   '(optional; for job mutations)': '（可选；用于任务操作）',
 
-  // ---- Training ----
-  'Train a custom model end to end: pick a trainable module, configure it, choose a train method (Colab / Studio-backend / CI), then review the run. Training never runs in the browser.':
-    '端到端训练自定义模型：选择可训练模块、完成配置、选择训练方式（Colab / Studio-backend / CI），然后审阅运行。训练从不在浏览器中进行。',
+  // ---- ---- Training ---- ----
+  'Train a custom model end to end: pick a trainable module, configure it, choose a train method (Colab / Studio-backend / CI), then review the run. Training never runs in the browser.': '端到端训练自定义模型：选择可训练模块、完成配置、选择训练方式（Colab / Studio-backend / CI），然后审阅运行。训练从不在浏览器中进行。',
 
-  // ---- Datasets ----
-  'First-class training-data artifacts: pick built-ins, generate synthetic audio with a TTS engine, and persist to the backend store and/or your cloud. Every dataset is one canonical wake-studio-dataset.zip.':
-    '一等公民的训练数据产物：选择内置数据集、用 TTS 引擎生成合成音频，并持久化到后端存储和/或你的云端。每个数据集都是一个规范的 wake-studio-dataset.zip。',
+  // ---- ---- Datasets ---- ----
+  'First-class training-data artifacts: pick built-ins, generate synthetic audio with a TTS engine, and persist to the backend store and/or your cloud. Every dataset is one canonical wake-studio-dataset.zip.': '一等公民的训练数据产物：选择内置数据集、用 TTS 引擎生成合成音频，并持久化到后端存储和/或你的云端。每个数据集都是一个规范的 wake-studio-dataset.zip。',
 
-  // ---- Workspace: stage cards ----
-  'Passthrough for v1; the real engine + persistence wiring lands with it.':
-    'v1 中为直通；真正的引擎与持久化接线将随其一同落地。',
-  'Passthrough for v1; single-mic pipeline. Persistence lands with the real engine.':
-    'v1 中为直通；单麦克风管线。持久化将随真正的引擎落地。',
-  'The only real DSP core in v1 — AEC/BSS are passthrough until the real engines land.':
-    'v1 中唯一真正的 DSP 核心——在真正的引擎落地之前，AEC/BSS 均为直通。',
+  // ---- ---- Workspace: stage cards ---- ----
+  'Passthrough for v1; the real engine + persistence wiring lands with it.': 'v1 中为直通；真正的引擎与持久化接线将随其一同落地。',
+  'Passthrough for v1; single-mic pipeline. Persistence lands with the real engine.': 'v1 中为直通；单麦克风管线。持久化将随真正的引擎落地。',
+  'The only real DSP core in v1 — AEC/BSS are passthrough until the real engines land.': 'v1 中唯一真正的 DSP 核心——在真正的引擎落地之前，AEC/BSS 均为直通。',
   'Pluggable KWS backend running in a Web Worker': '运行在 Web Worker 中的可插拔 KWS 后端',
 
-  // ---- KWS panel ----
+  // ---- ---- KWS panel ---- ----
   'KWS detection': 'KWS 检测',
-  'Pluggable KWS backend running in a Web Worker. Pick a backend below; models load from the platform registry. openWakeWord (hey-buddy, mel-spectrogram -> speech-embedding -> classifier) is the default; PLiX Few-Shot adds custom wake-word enrollment. VAD gating via AFE RNNoise VAD.':
-    '运行在 Web Worker 中的可插拔 KWS 后端。在下方选择后端；模型从平台注册表加载。openWakeWord（hey-buddy，梅尔频谱 -> 语音嵌入 -> 分类器）为默认；PLiX Few-Shot 支持自定义唤醒词注册。VAD 门控由 AFE RNNoise VAD 提供。',
+  'Pluggable KWS backend running in a Web Worker. Pick a backend below; models load from the platform registry. openWakeWord (hey-buddy, mel-spectrogram -> speech-embedding -> classifier) is the default; PLiX Few-Shot adds custom wake-word enrollment. VAD gating via AFE RNNoise VAD.': '运行在 Web Worker 中的可插拔 KWS 后端。在下方选择后端；模型从平台注册表加载。openWakeWord（hey-buddy，梅尔频谱 -> 语音嵌入 -> 分类器）为默认；PLiX Few-Shot 支持自定义唤醒词注册。VAD 门控由 AFE RNNoise VAD 提供。',
   Backend: '后端',
   'Wake words': '唤醒词',
   Engine: '引擎',
@@ -193,10 +156,8 @@ export const ZH_CN: Record<string, string> = {
   'Load failed — check the registry / assets': '加载失败——请检查注册表 / 资源',
   Resources: '资源',
   'Model sources': '模型来源',
-  'Pick the pretrained model per role (built-in registry), a saved model from your library, a local file, or a custom URL. Saved models are stored in your browser (IndexedDB) and can be exported back to disk. Applied on the next Load/Reload.':
-    '为每个角色选择预训练模型（内置注册表）、模型库中已保存的模型、本地文件或自定义 URL。已保存的模型存放在浏览器（IndexedDB）中，也可以导出回磁盘。在下次加载/重新加载时生效。',
-  "This backend's model is bundled in its wasm runtime — there are no model sources to pick. See the Engine card's resources (sherpa-onnx KWS wasm runtime + wake-word list).":
-    '该后端的模型已打包进其 wasm 运行时——没有可选的模型来源。请查看引擎卡片中的资源（sherpa-onnx KWS wasm 运行时 + 唤醒词列表）。',
+  'Pick the pretrained model per role (built-in registry), a saved model from your library, a local file, or a custom URL. Saved models are stored in your browser (IndexedDB) and can be exported back to disk. Applied on the next Load/Reload.': '为每个角色选择预训练模型（内置注册表）、模型库中已保存的模型、本地文件或自定义 URL。已保存的模型存放在浏览器（IndexedDB）中，也可以导出回磁盘。在下次加载/重新加载时生效。',
+  "This backend's model is bundled in its wasm runtime — there are no model sources to pick. See the Engine card's resources (sherpa-onnx KWS wasm runtime + wake-word list).": '该后端的模型已打包进其 wasm 运行时——没有可选的模型来源。请查看引擎卡片中的资源（sherpa-onnx KWS wasm 运行时 + 唤醒词列表）。',
   'Built-in': '内置',
   'Saved models': '已保存的模型',
   Export: '导出',
@@ -205,35 +166,31 @@ export const ZH_CN: Record<string, string> = {
   'Custom URL — will be fetched as-is on Load.': '自定义 URL——加载时按原样获取。',
   'Saved model — loaded from your browser library on Load.': '已保存的模型——加载时从浏览器模型库读取。',
   Provisioning: '唤醒词供应',
-  '(keyword-list backend — edit the wake words below, then load with the list)':
-    '（关键词列表后端——在下方编辑唤醒词，然后用该列表加载）',
+  '(keyword-list backend — edit the wake words below, then load with the list)': '（关键词列表后端——在下方编辑唤醒词，然后用该列表加载）',
   '(enroll a custom wake word, then detect)': '（注册自定义唤醒词，然后进行检测）',
-  'The keyword list above is the wake-word artifact:':
-    '上方的关键词列表即唤醒词产物：',
-  'wake word(s) will be loaded with the keyword-list artifact.':
-    '个唤醒词将随关键词列表产物一起加载。',
+  'The keyword list above is the wake-word artifact:': '上方的关键词列表即唤醒词产物：',
+  'wake word(s) will be loaded with the keyword-list artifact.': '个唤醒词将随关键词列表产物一起加载。',
   'enter at least one wake word to load.': '请至少输入一个唤醒词再加载。',
   'Record sample': '录制样本',
   'Build prototype': '构建原型',
   'Building…': '构建中……',
   'samples recorded': '个样本已录制',
   'Negative samples': '负样本',
-  '(optional — other words / background, for open-set rejection)':
-    '（可选——其他词语 / 背景语音，用于开集拒识）',
+  '(optional — other words / background, for open-set rejection)': '（可选——其他词语 / 背景语音，用于开集拒识）',
   'Record non-target sample': '录制非目标样本',
   'Re-enroll negative prototype': '重新注册负样本原型',
   'Build negative prototype': '构建负样本原型',
   samples: '个样本',
   'Few-Shot detection parameters': 'Few-Shot 检测参数',
-  'Configuration': '配置',
+  Configuration: '配置',
   '(backend · Primary)': '（后端 · 主要）',
   'Tunable parameters': '可调参数',
-  'Advanced': '高级',
+  Advanced: '高级',
   driver: '驱动',
   'Confirm?': '确认？',
   'Open in Colab': '在 Colab 中打开',
 
-  // ---- Module settings (spec-driven labels, host-side) ----
+  // ---- ---- Module settings (spec-driven labels, host-side) ---- ----
   'KWS backend': 'KWS 后端',
   'OpenWakeWord (available)': 'OpenWakeWord（可用）',
   'micro-wake-word (MCU / Phase 5)': 'micro-wake-word（MCU / 第 5 阶段）',
@@ -256,7 +213,7 @@ export const ZH_CN: Record<string, string> = {
   'Single worklet (default)': '单 worklet（默认）',
   'Node per stage': '每阶段一个节点',
 
-  // ---- Misc UI verbs ----
+  // ---- ---- Misc UI verbs ---- ----
   New: '新建',
   Next: '下一步',
   Back: '上一步',
@@ -280,45 +237,38 @@ export const ZH_CN: Record<string, string> = {
   'Wake word (label)': '唤醒词（标签）',
   'Wake words (comma-separated)': '唤醒词（逗号分隔）',
 
-  // ---- Projects ----
-  'Wake-word projects: target word, domain, config snapshots, samples and prototypes. Select one to inspect; create new projects from the Workspace.':
-    '唤醒词项目：目标唤醒词、领域、配置快照、样本与原型。选择一个进行查看；从工作区新建项目。',
+  // ---- ---- Projects ---- ----
+  'Wake-word projects: target word, domain, config snapshots, samples and prototypes. Select one to inspect; create new projects from the Workspace.': '唤醒词项目：目标唤醒词、领域、配置快照、样本与原型。选择一个进行查看；从工作区新建项目。',
   'No projects yet — create one from the Workspace.': '还没有项目——从工作区创建一个。',
   'no wake word': '无唤醒词',
   'Target chip': '目标芯片',
   Samples: '样本',
   Prototypes: '原型',
   Updated: '更新时间',
-  'Edit samples, config and prototypes from the Workspace — this panel is read-only.':
-    '样本、配置与原型请从工作区编辑——此面板为只读。',
+  'Edit samples, config and prototypes from the Workspace — this panel is read-only.': '样本、配置与原型请从工作区编辑——此面板为只读。',
   Operations: '操作',
-  'Delete this project and its stored config, samples and prototypes.':
-    '删除该项目及其存储的配置、样本和原型。',
+  'Delete this project and its stored config, samples and prototypes.': '删除该项目及其存储的配置、样本和原型。',
   'No project selected': '未选择项目',
-  'Pick a project from the left to inspect it (wake word, target, samples, prototypes). Create new projects from the Workspace.':
-    '从左侧选择一个项目查看详情（唤醒词、目标、样本、原型）。从工作区创建新项目。',
+  'Pick a project from the left to inspect it (wake word, target, samples, prototypes). Create new projects from the Workspace.': '从左侧选择一个项目查看详情（唤醒词、目标、样本、原型）。从工作区创建新项目。',
   'Delete this project?': '删除该项目？',
-  'Deletes the project and its stored config, samples and prototypes. This cannot be undone.':
-    '将删除该项目及其存储的配置、样本和原型。此操作不可撤销。',
+  'Deletes the project and its stored config, samples and prototypes. This cannot be undone.': '将删除该项目及其存储的配置、样本和原型。此操作不可撤销。',
 
-  // ---- Session Console ----
+  // ---- ---- Session Console ---- ----
   'Session log cleared': '会话日志已清空',
   'Triggers exported': '触发记录已导出',
   'trigger(s)': '条触发',
-  'Live event log + wake-word trigger history. Events are captured app-wide (Phase 4).':
-    '实时事件日志 + 唤醒词触发历史。事件为全应用捕获（第 4 阶段）。',
+  'Live event log + wake-word trigger history. Events are captured app-wide (Phase 4).': '实时事件日志 + 唤醒词触发历史。事件为全应用捕获（第 4 阶段）。',
   Clear: '清空',
   'Export triggers CSV': '导出触发记录 CSV',
   'Event log': '事件日志',
   Triggers: '触发记录',
   All: '全部',
   'No events yet.': '暂无事件。',
-  'No triggers yet — run detection and say the wake word.':
-    '暂无触发记录——运行检测并说出唤醒词。',
+  'No triggers yet — run detection and say the wake word.': '暂无触发记录——运行检测并说出唤醒词。',
   Time: '时间',
   'Peak score': '峰值得分',
 
-  // ---- Model Registry ----
+  // ---- ---- Model Registry ---- ----
   'Commercially usable': '可商用',
   'Demo-only / check license': '仅演示 / 请查看许可',
   commercial: '可商用',
@@ -338,32 +288,29 @@ export const ZH_CN: Record<string, string> = {
   License: '许可',
   'Export…': '导出……',
 
-  // ---- Export gate dialog ----
+  // ---- ---- Export gate dialog ---- ----
   'Export requested': '已请求导出',
   'export kits land in Phase 4': '导出套件将于第 4 阶段落地',
   'License gate: export blocked': '许可门禁：导出已被阻止',
-  'This model is redistributable and explicitly commercial — safe to bundle.':
-    '该模型可再分发且明确允许商用——可以安全打包。',
+  'This model is redistributable and explicitly commercial — safe to bundle.': '该模型可再分发且明确允许商用——可以安全打包。',
   'This model is': '该模型的类别是',
-  'It cannot be used in a commercial bundle (Phase 4 gate).':
-    '不能用于商业打包（第 4 阶段门禁）。',
+  'It cannot be used in a commercial bundle (Phase 4 gate).': '不能用于商业打包（第 4 阶段门禁）。',
   'Export target': '导出目标',
   'TFLite (int8 quantized)': 'TFLite（int8 量化）',
   'Device SDK bundle': '设备 SDK 套件',
   'Blocked by the license gate': '已被许可门禁阻止',
-
   'Start pipeline': '启动管线',
   'loading models…': '正在加载模型……',
   config: '配置',
   toggle: '开关',
   On: '开',
   Off: '关',
-  'Bypassed': '已旁路',
-  'Active': '生效中',
+  Bypassed: '已旁路',
+  Active: '生效中',
   Level: '电平',
   'Echo red.': '回声抑制',
   'Separ.': '分离度',
-  'Spectrum': '频谱',
+  Spectrum: '频谱',
   passthrough: '直通',
   'Score curve (raw + smoothed + threshold)': '得分管线（原始 + 平滑 + 阈值）',
   score: '得分',
@@ -373,19 +320,17 @@ export const ZH_CN: Record<string, string> = {
   'Per-stage clips': '分阶段音频片段',
   'Stop & save clips': '停止并保存片段',
   Capture: '捕获',
-  'Enable persistence in a module config (Source/NS/KWS) first.':
-    '请先在模块配置（Source/NS/KWS）中启用持久化。',
+  'Enable persistence in a module config (Source/NS/KWS) first.': '请先在模块配置（Source/NS/KWS）中启用持久化。',
   'Saved clips': '已保存片段',
   total: '共',
   Play: '播放',
   Stop: '停止',
 
-  // ---- Source / persistence ----
+  // ---- ---- Source / persistence ---- ----
   Persistence: '持久化',
   'Persist raw input (captures the mic/file stream)': '持久化原始输入（捕获麦克风/文件流）',
   'Persist NS output (denoised audio)': '持久化降噪输出（降噪后的音频）',
-  'Pipeline-wide settings for the whole AEC → BSS → NS chain.':
-    '整条 AEC → BSS → NS 链路的管线级设置。',
+  'Pipeline-wide settings for the whole AEC → BSS → NS chain.': '整条 AEC → BSS → NS 链路的管线级设置。',
   'input feed, raw persistence and AFE-wide settings': '输入源、原始持久化与 AFE 全局设置',
   Microphone: '麦克风',
   'Audio files': '音频文件',
@@ -393,32 +338,28 @@ export const ZH_CN: Record<string, string> = {
   'Use microphone as source': '使用麦克风作为输入源',
   'Apply source changes': '应用输入源更改',
   'Applies on the next Start': '将在下次启动时生效',
-  'Not saved yet — press Apply to make it the project source.':
-    '尚未保存——点击“应用”将其设为项目输入源。',
+  'Not saved yet — press Apply to make it the project source.': '尚未保存——点击“应用”将其设为项目输入源。',
   'Input device': '输入设备',
   'Default device': '默认设备',
   'Allow mic to see device names': '授权麦克风以显示设备名称',
   Channels: '声道',
   Mono: '单声道',
   Stereo: '立体声',
-  'Browser DSP is off by default — our RNNoise is the only noise suppressor. Toggle browser AEC/NS/AGC to let the device do it instead.':
-    '浏览器 DSP 默认关闭——RNNoise 是唯一的降噪器。如需让设备处理，可开启浏览器 AEC/NS/AGC。',
+  'Browser DSP is off by default — our RNNoise is the only noise suppressor. Toggle browser AEC/NS/AGC to let the device do it instead.': '浏览器 DSP 默认关闭——RNNoise 是唯一的降噪器。如需让设备处理，可开启浏览器 AEC/NS/AGC。',
   '+ Add audio files…': '+ 添加音频文件……',
-  'No files — files play concurrently, each channel with its own loop + offset.':
-    '暂无文件——文件将并发播放，每个声道可单独设置循环与偏移。',
+  'No files — files play concurrently, each channel with its own loop + offset.': '暂无文件——文件将并发播放，每个声道可单独设置循环与偏移。',
   'file(s)': '个文件',
-  'Remove': '移除',
+  Remove: '移除',
   Loop: '循环',
   Offset: '偏移',
   Ch: '声道',
 
-  // ---- Projects / project bar ----
+  // ---- ---- Projects / project bar ---- ----
   'Project created': '项目已创建',
   'Untitled project': '未命名项目',
   'Failed to create project': '项目创建失败',
   'New project': '新建项目',
-  'Create a wake-word project: target word, domain and target chip.':
-    '创建唤醒词项目：目标唤醒词、领域与目标芯片。',
+  'Create a wake-word project: target word, domain and target chip.': '创建唤醒词项目：目标唤醒词、领域与目标芯片。',
   'Project name': '项目名称',
   'e.g. Hey Studio': '例如 Hey Studio',
   'e.g. hey studio': '例如 hey studio',
@@ -438,14 +379,14 @@ export const ZH_CN: Record<string, string> = {
   updated: '更新于',
   'min ago': '分钟前',
   'h ago': '小时前',
-  'list': '列表',
+  list: '列表',
   'Your list': '你的列表',
   'Toggle list': '切换列表',
   'Show list': '显示列表',
   'Open list': '打开列表',
   'Close list': '关闭列表',
 
-  // ---- Datasets console ----
+  // ---- ---- Datasets console ---- ----
   Generated: '已生成',
   Uploaded: '已上传',
   Public: '公开',
@@ -455,10 +396,8 @@ export const ZH_CN: Record<string, string> = {
   clip: '个片段',
   clips: '个片段',
   'Loading datasets…': '正在加载数据集……',
-  'No datasets yet. Press (the wizard wand) to generate one with a TTS engine — built-ins and generated datasets land here.':
-    '还没有数据集。点击"新建"（向导魔棒）用 TTS 引擎生成一个——内置与已生成的数据集都会出现在这里。',
-  ' (the wizard wand) to generate one with a TTS engine — built-ins and generated datasets land here.':
-    '（向导魔棒）用 TTS 引擎生成一个——内置与已生成的数据集都会出现在这里。',
+  'No datasets yet. Press (the wizard wand) to generate one with a TTS engine — built-ins and generated datasets land here.': '还没有数据集。点击"新建"（向导魔棒）用 TTS 引擎生成一个——内置与已生成的数据集都会出现在这里。',
+  ' (the wizard wand) to generate one with a TTS engine — built-ins and generated datasets land here.': '（向导魔棒）用 TTS 引擎生成一个——内置与已生成的数据集都会出现在这里。',
   Generate: '生成',
   Storage: '存储',
   Check: '检查',
@@ -483,10 +422,8 @@ export const ZH_CN: Record<string, string> = {
   Log: '日志',
   lines: '行',
   Inputs: '输入',
-  'This deletes the job on the studio-backend and removes it from the rail.':
-    '这会在 studio-backend 上删除该任务并将其从列表移除。',
-  'This removes the job from the rail. Any dataset it generated stays in the local store.':
-    '这会将该任务从列表移除。其生成的数据集仍保留在本地存储中。',
+  'This deletes the job on the studio-backend and removes it from the rail.': '这会在 studio-backend 上删除该任务并将其从列表移除。',
+  'This removes the job from the rail. Any dataset it generated stays in the local store.': '这会将该任务从列表移除。其生成的数据集仍保留在本地存储中。',
   'Delete this job?': '删除该任务？',
   'Dataset downloaded': '数据集已下载',
   bytes: '字节',
@@ -497,16 +434,13 @@ export const ZH_CN: Record<string, string> = {
   'Upload failed': '上传失败',
   'Could not load the backend dataset store:': '无法加载后端数据集存储：',
   'Built-in catalog unavailable:': '内置目录不可用：',
-  'This dataset is no longer in the list (deleted?). Pick another from the rail.':
-    '该数据集已不在列表中（可能已被删除）。请从列表中选择其他数据集。',
-  'This job is no longer in the list (deleted?). Pick another from the rail.':
-    '该任务已不在列表中（可能已被删除）。请从列表中选择其他任务。',
+  'This dataset is no longer in the list (deleted?). Pick another from the rail.': '该数据集已不在列表中（可能已被删除）。请从列表中选择其他数据集。',
+  'This job is no longer in the list (deleted?). Pick another from the rail.': '该任务已不在列表中（可能已被删除）。请从列表中选择其他任务。',
   'No dataset selected': '未选择数据集',
-  'Pick a dataset in the left rail to inspect its manifest, provenance, storage and quality report, or press':
-    '在左侧列表中选择一个数据集以查看其清单、来源、存储与质量报告，或点击',
+  'Pick a dataset in the left rail to inspect its manifest, provenance, storage and quality report, or press': '在左侧列表中选择一个数据集以查看其清单、来源、存储与质量报告，或点击',
   'Generation jobs': '生成任务',
 
-  // ---- Dataset details ----
+  // ---- ---- Dataset details ---- ----
   Manifest: '清单',
   Role: '角色',
   Duration: '时长',
@@ -520,8 +454,7 @@ export const ZH_CN: Record<string, string> = {
   Provenance: '来源信息',
   'commercial use': '可商用',
   'non-commercial': '非商用',
-  'A model trained on this dataset inherits the restriction — the export gate blocks commercial bundles (#210).':
-    '在该数据集上训练的模型会继承此限制——导出门禁会阻止商业打包（#210）。',
+  'A model trained on this dataset inherits the restriction — the export gate blocks commercial bundles (#210).': '在该数据集上训练的模型会继承此限制——导出门禁会阻止商业打包（#210）。',
   'browser-local': '浏览器本地',
   'Quality report': '质量报告',
   pass: '通过',
@@ -535,8 +468,7 @@ export const ZH_CN: Record<string, string> = {
   'Commercial use': '商用性',
   yes: '是',
   no: '否',
-  'This manifest-level summary is rendered today. Run a Check on the studio-backend (Actions) to produce the full health report — per-label clip quality, silence/duplicate detection, sample-rate drift, label balance, voice coverage.':
-    '目前仅渲染清单级摘要。在 studio-backend 上运行一次"检查"（操作）即可生成完整健康报告——逐标签片段质量、静音/重复检测、采样率漂移、标签均衡、音色覆盖。',
+  'This manifest-level summary is rendered today. Run a Check on the studio-backend (Actions) to produce the full health report — per-label clip quality, silence/duplicate detection, sample-rate drift, label balance, voice coverage.': '目前仅渲染清单级摘要。在 studio-backend 上运行一次"检查"（操作）即可生成完整健康报告——逐标签片段质量、静音/重复检测、采样率漂移、标签均衡、音色覆盖。',
   'Run a': '运行一次',
   'Reproducible split': '可复现拆分',
   train: '训练',
@@ -550,20 +482,16 @@ export const ZH_CN: Record<string, string> = {
   play: '播放',
   '…and': '……还有',
   'more clips in': '个片段位于',
-  'Playback reads a single clip on demand — never the whole archive (§8.3).':
-    '播放按需读取单个片段——绝不下载整个归档（§8.3）。',
+  'Playback reads a single clip on demand — never the whole archive (§8.3).': '播放按需读取单个片段——绝不下载整个归档（§8.3）。',
 
-  // ---- Dataset actions ----
+  // ---- ---- Dataset actions ---- ----
   'New generation task': '新建生成任务',
   'Open the Training wizard with this dataset pre-picked': '打开训练向导并预选该数据集',
   'Train with this': '用此数据集训练',
   'Upload to cloud': '上传到云端',
-  'Run the check-dataset quality job (clip quality, silence/duplication, voice coverage) on the studio-backend':
-    '在 studio-backend 上运行 check-dataset 质量任务（片段质量、静音/重复、音色覆盖）',
-  'Requires a connected studio-backend (backend-stored dataset)':
-    '需要已连接的 studio-backend（后端存储的数据集）',
-  'Built-ins are immutable references — materialize them on the backend to download.':
-    '内置数据集是不可变引用——请在后端实体化后再下载。',
+  'Run the check-dataset quality job (clip quality, silence/duplication, voice coverage) on the studio-backend': '在 studio-backend 上运行 check-dataset 质量任务（片段质量、静音/重复、音色覆盖）',
+  'Requires a connected studio-backend (backend-stored dataset)': '需要已连接的 studio-backend（后端存储的数据集）',
+  'Built-ins are immutable references — materialize them on the backend to download.': '内置数据集是不可变引用——请在后端实体化后再下载。',
   'Download the canonical wake-studio-dataset.zip': '下载规范的 wake-studio-dataset.zip',
   'Downloading…': '下载中……',
   Download: '下载',
@@ -571,32 +499,24 @@ export const ZH_CN: Record<string, string> = {
   'Delete this dataset': '删除该数据集',
   'Built-ins are immutable references (': '内置数据集是不可变引用（',
   'materialized on the backend on first use': '首次使用时在后端实体化',
-  'Use them in training directly; download/delete are not applicable.':
-    '可直接在训练中使用；下载/删除不适用。',
+  'Use them in training directly; download/delete are not applicable.': '可直接在训练中使用；下载/删除不适用。',
   Upload: '上传',
   'to cloud': '到云端',
-  'Direct browser push of the canonical zip using your Settings cloud credentials (client-side, masked, never persisted).':
-    '使用"设置"中的云凭据直接从浏览器推送规范的 zip（客户端侧、掩码显示、永不落盘）。',
+  'Direct browser push of the canonical zip using your Settings cloud credentials (client-side, masked, never persisted).': '使用"设置"中的云凭据直接从浏览器推送规范的 zip（客户端侧、掩码显示、永不落盘）。',
   'not wired browser-side': '浏览器端尚未接入',
   'Hugging Face repo id': 'Hugging Face 仓库 ID',
-  'Token comes from Settings → Cloud storage → Hugging Face.':
-    '令牌来自"设置 → 云存储 → Hugging Face"。',
+  'Token comes from Settings → Cloud storage → Hugging Face.': '令牌来自"设置 → 云存储 → Hugging Face"。',
   Keep: '保留',
   'Uploading…': '上传中……',
-  'Removes the dataset from the backend store (its zip + index). Datasets that feed an existing train keep working through their copied materialization.':
-    '会从后端存储中删除该数据集（其 zip 与索引）。已作为训练输入的数据集仍可通过其拷贝的实体化继续工作。',
-  'Removes this dataset from the browser-local store. This cannot be undone unless you have the zip elsewhere.':
-    '会从浏览器本地存储中删除该数据集。此操作不可撤销，除非你在别处保存了 zip。',
-  'Split into a fixed train/val/test partition (reproducible, no leakage) and save it as a new dataset':
-    '拆分为固定的 train/val/test 划分（可复现、无泄漏），并保存为新数据集',
+  'Removes the dataset from the backend store (its zip + index). Datasets that feed an existing train keep working through their copied materialization.': '会从后端存储中删除该数据集（其 zip 与索引）。已作为训练输入的数据集仍可通过其拷贝的实体化继续工作。',
+  'Removes this dataset from the browser-local store. This cannot be undone unless you have the zip elsewhere.': '会从浏览器本地存储中删除该数据集。此操作不可撤销，除非你在别处保存了 zip。',
+  'Split into a fixed train/val/test partition (reproducible, no leakage) and save it as a new dataset': '拆分为固定的 train/val/test 划分（可复现、无泄漏），并保存为新数据集',
   'Split…': '拆分……',
-  'Records a fixed train/val/test partition (80/10/10) in a new dataset’s manifest. Near-duplicate clips stay in one partition — evaluation never sees training data.':
-    '在新数据集的清单中记录固定的 train/val/test 划分（80/10/10）。近似重复的片段会留在同一划分中——评估永远看不到训练数据。',
+  'Records a fixed train/val/test partition (80/10/10) in a new dataset’s manifest. Near-duplicate clips stay in one partition — evaluation never sees training data.': '在新数据集的清单中记录固定的 train/val/test 划分（80/10/10）。近似重复的片段会留在同一划分中——评估永远看不到训练数据。',
   'Reproducibility seed': '可复现性种子',
-  'Same dataset + seed → identical partition every time (byte-reproducible).':
-    '相同数据集 + 相同种子 → 每次都得到完全一致的划分（字节级可复现）。',
+  'Same dataset + seed → identical partition every time (byte-reproducible).': '相同数据集 + 相同种子 → 每次都得到完全一致的划分（字节级可复现）。',
 
-  // ---- New dataset wizard ----
+  // ---- ---- New dataset wizard ---- ----
   'Pick the TTS engine that synthesizes the audio.': '选择用于合成音频的 TTS 引擎。',
   'Wake phrases + the engine’s own settings.': '唤醒短语 + 引擎自身的设置。',
   'Where the dataset is generated + saved.': '数据集的生成与保存位置。',
@@ -605,11 +525,9 @@ export const ZH_CN: Record<string, string> = {
   Destination: '保存位置',
   Ready: '就绪',
   'Generation steps': '生成步骤',
-  'Generation jobs land in the Datasets rail with live progress (same UI as Training).':
-    '生成任务会出现在数据集列表中，并带有实时进度（与训练相同的 UI）。',
+  'Generation jobs land in the Datasets rail with live progress (same UI as Training).': '生成任务会出现在数据集列表中，并带有实时进度（与训练相同的 UI）。',
   'Wake phrases': '唤醒短语',
-  'One wake phrase per line (or comma-separated). Each phrase becomes a':
-    '每行一个唤醒短语（或用逗号分隔）。每个短语都会成为',
+  'One wake phrase per line (or comma-separated). Each phrase becomes a': '每行一个唤醒短语（或用逗号分隔）。每个短语都会成为',
   label: '标签',
   'phrase(s)': '个短语',
   'Dataset name': '数据集名称',
@@ -621,37 +539,29 @@ export const ZH_CN: Record<string, string> = {
   Passthrough: '直通',
   'Use the synthesized clips as-is.': '直接使用合成的片段。',
   'openWakeWord-style': 'openWakeWord 风格',
-  'Pitch/rate/volume perturbation (backend, ffmpeg) — browser runs use passthrough.':
-    '音调/语速/音量扰动（后端，ffmpeg）——浏览器运行时使用直通。',
+  'Pitch/rate/volume perturbation (backend, ffmpeg) — browser runs use passthrough.': '音调/语速/音量扰动（后端，ffmpeg）——浏览器运行时使用直通。',
   'Starting…': '启动中……',
   'Generate dataset': '生成数据集',
-  'Runs entirely in this tab (online HTTP TTS → canonical zip). The dataset is saved to the browser-local store; no studio-backend is involved.':
-    '完全在此标签页内运行（在线 HTTP TTS → 规范 zip）。数据集保存到浏览器本地存储；不涉及 studio-backend。',
+  'Runs entirely in this tab (online HTTP TTS → canonical zip). The dataset is saved to the browser-local store; no studio-backend is involved.': '完全在此标签页内运行（在线 HTTP TTS → 规范 zip）。数据集保存到浏览器本地存储；不涉及 studio-backend。',
   'Discard this generation?': '放弃本次生成？',
-  'You have progress in the wizard. Leaving now discards your selections.':
-    '向导中还有未完成的进度。现在离开将放弃你的选择。',
+  'You have progress in the wizard. Leaving now discards your selections.': '向导中还有未完成的进度。现在离开将放弃你的选择。',
   Discard: '放弃',
   'Could not load the TTS engine catalog:': '无法加载 TTS 引擎目录：',
   'Loading engines…': '正在加载引擎……',
-  'No studio-backend connected — browser-capable engines (green “browser” badge) run client-side; backend-only engines are disabled until you connect one in the Backends menu.':
-    '未连接 studio-backend——支持浏览器的引擎（绿色"browser"徽标）在客户端运行；仅后端引擎会保持禁用，直到你在"后端"菜单中连接一个。',
+  'No studio-backend connected — browser-capable engines (green “browser” badge) run client-side; backend-only engines are disabled until you connect one in the Backends menu.': '未连接 studio-backend——支持浏览器的引擎（绿色"browser"徽标）在客户端运行；仅后端引擎会保持禁用，直到你在"后端"菜单中连接一个。',
   'No executor is available for this engine.': '该引擎没有可用的执行器。',
   Executor: '执行器',
   'Backend executor': '后端执行器',
   'Browser executor': '浏览器执行器',
   'Save destination': '保存位置',
-  'The generated dataset is persisted to the connected studio-backend’s':
-    '生成的数据集会持久化到已连接 studio-backend 的',
-  'store — it becomes trainable and downloadable. Cloud upload (Hugging Face / R2 / Drive) is available as an action on the dataset after generation.':
-    '存储中——变为可训练、可下载。生成后可通过数据集上的操作上传到云端（Hugging Face / R2 / Drive）。',
+  'The generated dataset is persisted to the connected studio-backend’s': '生成的数据集会持久化到已连接 studio-backend 的',
+  'store — it becomes trainable and downloadable. Cloud upload (Hugging Face / R2 / Drive) is available as an action on the dataset after generation.': '存储中——变为可训练、可下载。生成后可通过数据集上的操作上传到云端（Hugging Face / R2 / Drive）。',
   'Saved to the': '保存到',
   'browser-local store': '浏览器本地存储',
-  '(this tab’s IndexedDB) — it shows in the Datasets rail and the Training dataset picker.':
-    '（此标签页的 IndexedDB）——会显示在数据集列表和训练数据集选择器中。',
+  '(this tab’s IndexedDB) — it shows in the Datasets rail and the Training dataset picker.': '（此标签页的 IndexedDB）——会显示在数据集列表和训练数据集选择器中。',
   'Also push to Hugging Face': '同时推送到 Hugging Face',
   'browser direct push': '浏览器直推',
-  'Uploads wake-studio-dataset.zip straight to a dataset repo using your Settings cloud token (R2 / Drive are not wired browser-side yet).':
-    '使用"设置"中的云端令牌将 wake-studio-dataset.zip 直接上传到数据集仓库（R2 / Drive 尚未在浏览器端接入）。',
+  'Uploads wake-studio-dataset.zip straight to a dataset repo using your Settings cloud token (R2 / Drive are not wired browser-side yet).': '使用"设置"中的云端令牌将 wake-studio-dataset.zip 直接上传到数据集仓库（R2 / Drive 尚未在浏览器端接入）。',
   'Set a Hugging Face token in Settings → Cloud storage first.': '请先在"设置 → 云存储"中设置 Hugging Face 令牌。',
   '+ whether a studio-backend is connected': '+ 是否已连接 studio-backend',
   connected: '已连接',
@@ -664,94 +574,73 @@ export const ZH_CN: Record<string, string> = {
   'studio-backend': 'studio-backend',
   browser: '浏览器',
   'user-owned (synthetic TTS)': '用户自有（合成 TTS）',
-  '— the generated dataset is commercially usable and trains clean models (export gate, #210).':
-    '——生成的数据集可商用，可训练出干净的模型（导出门禁，#210）。',
+  '— the generated dataset is commercially usable and trains clean models (export gate, #210).': '——生成的数据集可商用，可训练出干净的模型（导出门禁，#210）。',
 
-  // ---- Training console ----
+  // ---- ---- Training console ---- ----
   Trains: '训练任务',
   'No train selected': '未选择训练',
-  'Press': '点击',
-  '(the wizard wand) to pick a trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure it, choose a train method, and confirm. Past trains stay in the left rail.':
-    '（向导魔棒）选择一个可训练模块（KWS openwakeword、KWS streaming、RNNoise……），完成配置、选择训练方式并确认。历史训练保留在左侧列表中。',
-  'This train is no longer in the list (deleted?). Pick another from the rail.':
-    '该训练已不在列表中（可能已被删除）。请从列表中选择其他训练。',
+  Press: '点击',
+  '(the wizard wand) to pick a trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure it, choose a train method, and confirm. Past trains stay in the left rail.': '（向导魔棒）选择一个可训练模块（KWS openwakeword、KWS streaming、RNNoise……），完成配置、选择训练方式并确认。历史训练保留在左侧列表中。',
+  'This train is no longer in the list (deleted?). Pick another from the rail.': '该训练已不在列表中（可能已被删除）。请从列表中选择其他训练。',
   'Could not load the trainable-modules catalog:': '无法加载可训练模块目录：',
   'Leave without saving this train?': '不保存就离开该训练？',
-  'You have progress in the New-train wizard. Leaving now discards it.':
-    '新建训练向导中还有进度。现在离开将放弃它。',
+  'You have progress in the New-train wizard. Leaving now discards it.': '新建训练向导中还有进度。现在离开将放弃它。',
   'Leave anyway': '仍然离开',
   'unknown phrase': '未知短语',
   'No trains yet. Press': '还没有训练。点击',
-  '(the wizard wand) to start one — jobs land here for re-inspection (IndexedDB, client-side).':
-    '（向导魔棒）开始一个——任务会保存在这里以便复查（IndexedDB，客户端侧）。',
-  'Train': '训练',
+  '(the wizard wand) to start one — jobs land here for re-inspection (IndexedDB, client-side).': '（向导魔棒）开始一个——任务会保存在这里以便复查（IndexedDB，客户端侧）。',
+  Train: '训练',
 
-  // ---- Wizard steps (package core strings, translated at render) ----
+  // ---- ---- Wizard steps (package core strings, translated at render) ---- ----
   'Choose model type': '选择模型类型',
   'Pick the module you want to train.': '选择要训练的模块。',
-  'Each trainable module declares its own train config in its spec: what it produces (ONNX/TFLite) and how training runs.':
-    '每个可训练模块在其 spec 中声明自己的训练配置：产出的格式（ONNX/TFLite）与训练方式。',
-  'KWS openwakeword = app-class wake-word model (ONNX). KWS streaming = streaming-aware model (TFLite). RNNoise = noise suppression (ONNX).':
-    'KWS openwakeword = 应用级唤醒词模型（ONNX）。KWS streaming = 流式模型（TFLite）。RNNoise = 降噪（ONNX）。',
+  'Each trainable module declares its own train config in its spec: what it produces (ONNX/TFLite) and how training runs.': '每个可训练模块在其 spec 中声明自己的训练配置：产出的格式（ONNX/TFLite）与训练方式。',
+  'KWS openwakeword = app-class wake-word model (ONNX). KWS streaming = streaming-aware model (TFLite). RNNoise = noise suppression (ONNX).': 'KWS openwakeword = 应用级唤醒词模型（ONNX）。KWS streaming = 流式模型（TFLite）。RNNoise = 降噪（ONNX）。',
   'Only modules with a spec.train entry appear here.': '只有声明了 spec.train 的模块才会显示在这里。',
   'Set the training params for the chosen module.': '为所选模块设置训练参数。',
-  "Params come from the selected module's own spec.train.params (spec-driven) — every module declares its own train knobs.":
-    '参数来自所选模块自己的 spec.train.params（spec 驱动）——每个模块都声明自己的训练旋钮。',
-  'The module card shows the differences from its spec.train: notebook or script, invocation methods, outputs.':
-    '模块卡片展示其 spec.train 的差异：notebook 或脚本、调用方式、输出。',
+  "Params come from the selected module's own spec.train.params (spec-driven) — every module declares its own train knobs.": '参数来自所选模块自己的 spec.train.params（spec 驱动）——每个模块都声明自己的训练旋钮。',
+  'The module card shows the differences from its spec.train: notebook or script, invocation methods, outputs.': '模块卡片展示其 spec.train 的差异：notebook 或脚本、调用方式、输出。',
   'Defaults are safe — you can usually keep them.': '默认值是安全的——通常可以直接保留。',
   'Choose train method': '选择训练方式',
   'Pick where training runs, from the methods the module supports.': '从模块支持的方式中选择训练运行的位置。',
-  "The methods come from the module's spec.train.invocation: Google Colab (free GPU, your account), Studio-backend (one of your managed backends — Backends menu), CI (GitHub Actions).":
-    '方式来自模块的 spec.train.invocation：Google Colab（免费 GPU，你的账号）、Studio-backend（你管理的后端之一——后端菜单）、CI（GitHub Actions）。',
-  "Studio-backend runs the module's train adapter as a subprocess on the chosen backend: pick the backend in this step; connection details are saved in the Backends menu.":
-    'Studio-backend 会在所选后端上以子进程运行模块的训练适配器：在此步骤选择后端；连接详情保存在后端菜单中。',
-  'Colab is the v1 path: run the module-owned notebook in your own session, then bring results back in the train details pane (tunnel URL or manual zip submit, issue #106).':
-    'Colab 是 v1 的路径：在你的会话中运行模块自带的 notebook，然后在训练详情面板中取回结果（隧道 URL 或手动提交 zip，issue #106）。',
+  "The methods come from the module's spec.train.invocation: Google Colab (free GPU, your account), Studio-backend (one of your managed backends — Backends menu), CI (GitHub Actions).": '方式来自模块的 spec.train.invocation：Google Colab（免费 GPU，你的账号）、Studio-backend（你管理的后端之一——后端菜单）、CI（GitHub Actions）。',
+  "Studio-backend runs the module's train adapter as a subprocess on the chosen backend: pick the backend in this step; connection details are saved in the Backends menu.": 'Studio-backend 会在所选后端上以子进程运行模块的训练适配器：在此步骤选择后端；连接详情保存在后端菜单中。',
+  'Colab is the v1 path: run the module-owned notebook in your own session, then bring results back in the train details pane (tunnel URL or manual zip submit, issue #106).': 'Colab 是 v1 的路径：在你的会话中运行模块自带的 notebook，然后在训练详情面板中取回结果（隧道 URL 或手动提交 zip，issue #106）。',
   'Ready to start': '准备开始',
   'Review the train, then start it.': '审阅该训练，然后启动。',
-  'For Colab: the module-owned .ipynb notebook is shown for review — you can download it or open it in Colab.':
-    '对 Colab：会展示模块自带的 .ipynb notebook 供审阅——可下载或在 Colab 中打开。',
-  "Starting opens this train's review (status + results). Training never runs in the browser.":
-    '启动后会打开该训练的审阅页（状态 + 结果）。训练从不在浏览器中进行。',
-  'A user-owned trained model (provenance.json) is commercially clean for export (Phase 4 license gate).':
-    '用户自有模型（provenance.json）在导出上是商用品干净的（第 4 阶段许可门禁）。',
+  'For Colab: the module-owned .ipynb notebook is shown for review — you can download it or open it in Colab.': '对 Colab：会展示模块自带的 .ipynb notebook 供审阅——可下载或在 Colab 中打开。',
+  "Starting opens this train's review (status + results). Training never runs in the browser.": '启动后会打开该训练的审阅页（状态 + 结果）。训练从不在浏览器中进行。',
+  'A user-owned trained model (provenance.json) is commercially clean for export (Phase 4 license gate).': '用户自有模型（provenance.json）在导出上是商用品干净的（第 4 阶段许可门禁）。',
   'New train steps': '新建训练步骤',
   'New train': '新建训练',
   'Saving…': '保存中……',
   'Start train': '启动训练',
-  'Save just confirms this train here — the run happens in your own Colab session (run the notebook, then bring results back in the train details pane: tunnel URL, or download + submit the results zip).':
-    '“保存”只是在此处确认该训练——实际运行在你自己的 Colab 会话中进行（运行 notebook，然后在训练详情面板中取回结果：隧道 URL，或下载并提交结果 zip）。',
+  'Save just confirms this train here — the run happens in your own Colab session (run the notebook, then bring results back in the train details pane: tunnel URL, or download + submit the results zip).': '“保存”只是在此处确认该训练——实际运行在你自己的 Colab 会话中进行（运行 notebook，然后在训练详情面板中取回结果：隧道 URL，或下载并提交结果 zip）。',
   'Discard this train?': '放弃该训练？',
-  'Methods': '方式',
-  'Output': '输出',
+  Methods: '方式',
+  Output: '输出',
   'train config': '训练配置',
   'Invocation methods': '调用方式',
   'Output checkpoint': '输出 checkpoint',
   Metrics: '指标',
   'Train entry': '训练入口',
   'Upstream script': '上游脚本',
-  'Trained via the module-owned Colab notebook — the Ready step shows it for review and download.':
-    '通过模块自带的 Colab notebook 训练——“就绪”步骤会展示它供审阅和下载。',
-  'Trained by the upstream script — WakeStudio adapts to it (docs/modules/training.md §4), never rewrites it.':
-    '由上游脚本训练——WakeStudio 适配它（docs/modules/training.md §4），从不改写它。',
+  'Trained via the module-owned Colab notebook — the Ready step shows it for review and download.': '通过模块自带的 Colab notebook 训练——“就绪”步骤会展示它供审阅和下载。',
+  'Trained by the upstream script — WakeStudio adapts to it (docs/modules/training.md §4), never rewrites it.': '由上游脚本训练——WakeStudio 适配它（docs/modules/training.md §4），从不改写它。',
   'Trained by the module-owned train entry via uv.': '由模块自有的训练入口通过 uv 训练。',
   'Train config declared in the module spec (spec.train).': '训练配置声明在模块 spec 中（spec.train）。',
   'Google Colab': 'Google Colab',
   'Studio-backend': 'Studio-backend',
-  'Free GPU under your Google account. Run the module-owned notebook in your own Colab session, then bring results back in the train details pane — paste the Cloudflare tunnel URL the notebook prints (issue #106), or download the results zip and submit it. The URL is generated at run time, not here.':
-    '用你的 Google 账号免费使用 GPU。在你自己的 Colab 会话中运行模块自带的 notebook，然后在训练详情面板中取回结果——粘贴 notebook 打印的 Cloudflare 隧道 URL（issue #106），或下载结果 zip 后提交。URL 在运行时生成，不在此处。',
-  'A backend of your choice runs the train script: the WakeStudio studio-backend (uv / direct subprocess) or a backend you created in the app. The next step picks which backend — the train then runs there with live status.':
-    '由你选择的后端运行训练脚本：WakeStudio studio-backend（uv / 直接子进程）或你在应用中创建的后端。下一步选择哪个后端——训练将在该后端上运行并带实时状态。',
-  'CI': 'CI',
-  'Train in a GitHub Actions workflow (spec.train.invocation "ci"). Best for reproducible, scheduled retrains; artifacts land as workflow artifacts.':
-    '在 GitHub Actions 工作流中训练（spec.train.invocation “ci”）。适合可复现的定期重训；产物作为工作流 artifact 保存。',
+  'Free GPU under your Google account. Run the module-owned notebook in your own Colab session, then bring results back in the train details pane — paste the Cloudflare tunnel URL the notebook prints (issue #106), or download the results zip and submit it. The URL is generated at run time, not here.': '用你的 Google 账号免费使用 GPU。在你自己的 Colab 会话中运行模块自带的 notebook，然后在训练详情面板中取回结果——粘贴 notebook 打印的 Cloudflare 隧道 URL（issue #106），或下载结果 zip 后提交。URL 在运行时生成，不在此处。',
+  'A backend of your choice runs the train script: the WakeStudio studio-backend (uv / direct subprocess) or a backend you created in the app. The next step picks which backend — the train then runs there with live status.': '由你选择的后端运行训练脚本：WakeStudio studio-backend（uv / 直接子进程）或你在应用中创建的后端。下一步选择哪个后端——训练将在该后端上运行并带实时状态。',
+  CI: 'CI',
+  'Train in a GitHub Actions workflow (spec.train.invocation "ci"). Best for reproducible, scheduled retrains; artifacts land as workflow artifacts.': '在 GitHub Actions 工作流中训练（spec.train.invocation “ci”）。适合可复现的定期重训；产物作为工作流 artifact 保存。',
   'Manage backends →': '管理后端 →',
   'No backends yet — add one in the': '还没有后端——请在',
   'Backends menu': '后端菜单',
   'long-term': '长期',
   'short-term': '短期',
-  'run': '运行',
+  run: '运行',
   'openwakeword notebook Step 1.5 tunnel': 'openwakeword notebook 步骤 1.5 的隧道',
   'Pick one of the methods above to continue.': '请选择上方一种方式以继续。',
   'Ready to confirm': '准备确认',
@@ -766,52 +655,40 @@ export const ZH_CN: Record<string, string> = {
   'baked into the notebook.': '内置进 notebook。',
   'Could not fetch the file (offline?) — the download may fail.': '无法获取文件（可能离线）——下载可能失败。',
   selected: '已选',
-  'One or more existing datasets (built-ins + your store). The materializer merges roles — positives = wake word, unknowns →':
-    '一个或多个已有数据集（内置 + 你的存储）。实体化器会合并角色——positives = 唤醒词，unknowns →',
+  'One or more existing datasets (built-ins + your store). The materializer merges roles — positives = wake word, unknowns →': '一个或多个已有数据集（内置 + 你的存储）。实体化器会合并角色——positives = 唤醒词，unknowns →',
   'noise →': 'noise →',
-  'No datasets available yet — generate one in the Datasets console (or import a wake-studio-dataset.zip), then come back.':
-    '还没有可用数据集——请先在数据集控制台生成一个（或导入 wake-studio-dataset.zip），再回来这里。',
+  'No datasets available yet — generate one in the Datasets console (or import a wake-studio-dataset.zip), then come back.': '还没有可用数据集——请先在数据集控制台生成一个（或导入 wake-studio-dataset.zip），再回来这里。',
   'Built-ins are listed here, but training needs a': '此处列出了内置数据集，但训练需要',
-  "connection to materialize them (and to load your store's datasets) — connect one in the Backends menu.":
-    '连接来实体化它们（并加载你存储中的数据集）——请在“后端”菜单中连接一个。',
+  "connection to materialize them (and to load your store's datasets) — connect one in the Backends menu.": '连接来实体化它们（并加载你存储中的数据集）——请在“后端”菜单中连接一个。',
   'These datasets satisfy the trainer’s requirements.': '这些数据集满足训练器的要求。',
   'Notebook review —': 'Notebook 审阅 —',
   'Run & import': '运行并导入',
   'Re-import': '重新导入',
   'Colab tunnel URL': 'Colab 隧道 URL',
   '(generated when the notebook runs)': '（notebook 运行时生成）',
-  'The notebook prints this URL while running (cloudflared). With it, WakeStudio submits the job to the tunnel and tracks status live (issue #122). Auto-detect: if you set a Cloudflare API key in Settings, the notebook writes the URL into the results bundle and it is picked up on import.':
-    'notebook 运行时会打印此 URL（cloudflared）。有了它，WakeStudio 即可通过隧道提交任务并实时跟踪状态（issue #122）。自动检测：如果你在“设置”中配置了 Cloudflare API 密钥，notebook 会把该 URL 写入结果包，导入时自动拾取。',
+  'The notebook prints this URL while running (cloudflared). With it, WakeStudio submits the job to the tunnel and tracks status live (issue #122). Auto-detect: if you set a Cloudflare API key in Settings, the notebook writes the URL into the results bundle and it is picked up on import.': 'notebook 运行时会打印此 URL（cloudflared）。有了它，WakeStudio 即可通过隧道提交任务并实时跟踪状态（issue #122）。自动检测：如果你在“设置”中配置了 Cloudflare API 密钥，notebook 会把该 URL 写入结果包，导入时自动拾取。',
   'Retry — connect to tunnel': '重试——连接隧道',
   'Connect to tunnel & submit': '连接隧道并提交',
-  '✓ Connected — status is tracked live (SSE, polling fallback) and results can be pulled.':
-    '✓ 已连接——状态实时跟踪（SSE，轮询兜底），结果可拉取。',
-  'Tunnel URL set — press “Connect to tunnel & submit” to start tracking this run.':
-    '已设置隧道 URL——点击“连接隧道并提交”开始跟踪本次运行。',
-  "No tunnel URL — WakeStudio cannot trace this Colab run's status. Finish the train manually: download":
-    '没有隧道 URL——WakeStudio 无法跟踪本次 Colab 运行的状态。请手动完成训练：下载',
+  '✓ Connected — status is tracked live (SSE, polling fallback) and results can be pulled.': '✓ 已连接——状态实时跟踪（SSE，轮询兜底），结果可拉取。',
+  'Tunnel URL set — press “Connect to tunnel & submit” to start tracking this run.': '已设置隧道 URL——点击“连接隧道并提交”开始跟踪本次运行。',
+  "No tunnel URL — WakeStudio cannot trace this Colab run's status. Finish the train manually: download": '没有隧道 URL——WakeStudio 无法跟踪本次 Colab 运行的状态。请手动完成训练：下载',
   'from Colab and submit it below.': '（来自 Colab）并在下方提交。',
-  "Run the notebook in Colab (free GPU, your Google account), download wake-studio-results.zip, and import it below — this train's results update here.":
-    '在 Colab 中运行 notebook（免费 GPU，你的 Google 账号），下载 wake-studio-results.zip 并在下方导入——该训练的结果会更新到这里。',
-  'This train was already imported. You can import an updated bundle below if you retrained.':
-    '该训练已导入过。如果你重新训练了，可以在下方导入更新后的包。',
-  'Remove this train from the list and delete the job on the backend (its artifacts are removed there too). The imported model stays in your model library.':
-    '从列表移除该训练并删除后端上的任务（其产物也会被删除）。已导入的模型仍保留在模型库中。',
-  'Remove this train from the list. The imported model stays in your model library.':
-    '从列表移除该训练。已导入的模型仍保留在模型库中。',
+  "Run the notebook in Colab (free GPU, your Google account), download wake-studio-results.zip, and import it below — this train's results update here.": '在 Colab 中运行 notebook（免费 GPU，你的 Google 账号），下载 wake-studio-results.zip 并在下方导入——该训练的结果会更新到这里。',
+  "Say other words you don't want to trigger on (e.g. \"hello\", \"hi\", background conversation) — the detector then scores them against this negative class instead of the wake word alone.": '说出你不想触发唤醒的其他词语（例如 "hello""hi"、背景对话）——检测器随后会对照该负样本类别打分，而不是仅对照唤醒词。',
+  'This train was already imported. You can import an updated bundle below if you retrained.': '该训练已导入过。如果你重新训练了，可以在下方导入更新后的包。',
+  'Remove this train from the list and delete the job on the backend (its artifacts are removed there too). The imported model stays in your model library.': '从列表移除该训练并删除后端上的任务（其产物也会被删除）。已导入的模型仍保留在模型库中。',
+  'Remove this train from the list. The imported model stays in your model library.': '从列表移除该训练。已导入的模型仍保留在模型库中。',
   'Delete this train?': '删除该训练？',
-  'This deletes the job and its artifacts on the studio-backend and removes the train from your list (IndexedDB).':
-    '这会删除 studio-backend 上的任务及其产物，并将该训练从你的列表（IndexedDB）中移除。',
-  'This removes the train from your list (IndexedDB). The imported model in your model library is not affected.':
-    '这会将该训练从你的列表（IndexedDB）移除。模型库中已导入的模型不受影响。',
+  'This deletes the job and its artifacts on the studio-backend and removes the train from your list (IndexedDB).': '这会删除 studio-backend 上的任务及其产物，并将该训练从你的列表（IndexedDB）中移除。',
+  'This removes the train from your list (IndexedDB). The imported model in your model library is not affected.': '这会将该训练从你的列表（IndexedDB）移除。模型库中已导入的模型不受影响。',
   'Live status': '实时状态',
   idle: '空闲',
   'Re-submits the same config as a fresh run.': '以全新的运行重新提交相同配置。',
-  'Pulling': '正在拉取',
+  Pulling: '正在拉取',
   'from the backend and importing the trained model…': '（来自后端）并导入训练好的模型……',
   'is on the backend.': '已在后端上。',
   'Fetch the results from the backend and register the trained model': '从后端获取结果并注册训练好的模型',
-  'Import': '导入',
+  Import: '导入',
   'Save the raw results zip to disk': '把原始结果 zip 保存到磁盘',
   '✓ imported': '✓ 已导入',
   'registers the trained model in your library (in-browser test + export);': '会把训练好的模型注册进你的模型库（浏览器内测试 + 导出）；',
@@ -819,22 +696,17 @@ export const ZH_CN: Record<string, string> = {
   Recall: '召回率',
   Accuracy: '准确率',
   Artifact: '产物',
-  'User-owned — the Phase 4 export license gate treats this model as commercially clean.':
-    '用户自有——第 4 阶段导出许可门禁把该模型视为商用品干净。',
+  'User-owned — the Phase 4 export license gate treats this model as commercially clean.': '用户自有——第 4 阶段导出许可门禁把该模型视为商用品干净。',
   'Not user-owned': '非用户自有',
   'a commercial export will be blocked.': '商业导出将被阻止。',
-  'Not user-owned — the export license gate will block a commercial bundle.':
-    '非用户自有——导出许可门禁会阻止商业打包。',
+  'Not user-owned — the export license gate will block a commercial bundle.': '非用户自有——导出许可门禁会阻止商业打包。',
   'Provenance not recorded for this job.': '该任务未记录来源信息。',
   'panel and press': '面板并点击',
-  'to test the model in-browser, then export a bundle in the Model library.':
-    '以在浏览器中测试该模型，然后在模型注册表中导出套件。',
+  'to test the model in-browser, then export a bundle in the Model library.': '以在浏览器中测试该模型，然后在模型注册表中导出套件。',
   'No results yet': '还没有结果',
   '— the train is queued': '——该训练已排队',
-  'Results appear here once the train finishes and the artifact is pulled.':
-    '训练完成并拉取产物后，结果会显示在这里。',
-  'Results appear here once the train finishes and the bundle is imported.':
-    '训练完成并导入结果包后，结果会显示在这里。',
+  'Results appear here once the train finishes and the artifact is pulled.': '训练完成并拉取产物后，结果会显示在这里。',
+  'Results appear here once the train finishes and the bundle is imported.': '训练完成并导入结果包后，结果会显示在这里。',
   Notifications: '通知',
   'Inputs review': '输入审阅',
   'This module declares no train input file to review.': '该模块没有声明可供审阅的训练输入文件。',
@@ -849,8 +721,7 @@ export const ZH_CN: Record<string, string> = {
   'is ready to test.': '已可测试。',
   'Import Colab results': '导入 Colab 结果',
   'Pick the': '选择',
-  'your Colab notebook downloaded (open the Training panel for the module, run the notebook, download the bundle). The importer validates the manifest —':
-    '（你的 Colab notebook 下载的结果包）（在训练面板中打开该模块、运行 notebook、下载结果包）。导入器会校验清单——',
+  'your Colab notebook downloaded (open the Training panel for the module, run the notebook, download the bundle). The importer validates the manifest —': '（你的 Colab notebook 下载的结果包）（在训练面板中打开该模块、运行 notebook、下载结果包）。导入器会校验清单——',
   'client-side only; no WakeStudio server is involved.': '仅客户端侧；不涉及任何 WakeStudio 服务器。',
   'Importing…': '导入中……',
   'Import Colab results…': '导入 Colab 结果……',
@@ -861,23 +732,21 @@ export const ZH_CN: Record<string, string> = {
   'Train script (module-owned)': '训练脚本（模块自有）',
   'View source': '查看源码',
 
-  // ---- Backends ----
+  // ---- ---- Backends ---- ----
   'Edit backend': '编辑后端',
-  'Endpoint URL + access token of a studio-backend (long-term server or a short-term Colab tunnel). The kind is detected from /health — no need to pick it.':
-    'studio-backend 的端点 URL + 访问令牌（长期服务器或短期 Colab 隧道）。类型由 /health 自动识别——无需手动选择。',
+  'Endpoint URL + access token of a studio-backend (long-term server or a short-term Colab tunnel). The kind is detected from /health — no need to pick it.': 'studio-backend 的端点 URL + 访问令牌（长期服务器或短期 Colab 隧道）。类型由 /health 自动识别——无需手动选择。',
   'Update the endpoint, token or name.': '更新端点、令牌或名称。',
   'Endpoint URL': '端点 URL',
   'Must start with http(s)://': '必须以 http(s):// 开头',
   'leave empty for read-only (health/jobs/logs are open)': '留空则为只读（health/jobs/logs 开放）',
-  'The': '“',
+  The: '“',
   kind: '类型',
   "is detected automatically from the service's": '由服务的',
   'the Colab launcher reports': 'Colab 启动器会报告',
   Add: '添加',
   'Save studio-backend.ipynb (you can review it first).': '保存 studio-backend.ipynb（可先审阅）。',
   'colab.research.google.com — free in your browser, no setup.': 'colab.research.google.com——浏览器内免费，无需安装。',
-  'File → Upload notebook, or drag the .ipynb file into the Colab file picker.':
-    '“文件 → 上传 notebook”，或把 .ipynb 文件拖进 Colab 的文件选择器。',
+  'File → Upload notebook, or drag the .ipynb file into the Colab file picker.': '“文件 → 上传 notebook”，或把 .ipynb 文件拖进 Colab 的文件选择器。',
   'Then press': '然后点击',
   'Run all': '全部运行',
   'and copy the URL + token.': '并复制 URL + 令牌。',
@@ -887,36 +756,30 @@ export const ZH_CN: Record<string, string> = {
   and: '和',
   token: '令牌',
   'and paste them into': '并粘贴到',
-  'the kind (short-term) is detected automatically. The runtime is ephemeral: after a reconnect, re-run the last cell for a fresh URL (jobs checkpoint/resume across drops).':
-    '——类型（短期）会自动识别。运行时是临时的：重连后重新运行最后一个单元格即可获得新的 URL（任务在断连之间会 checkpoint/恢复）。',
+  'the kind (short-term) is detected automatically. The runtime is ephemeral: after a reconnect, re-run the last cell for a fresh URL (jobs checkpoint/resume across drops).': '——类型（短期）会自动识别。运行时是临时的：重连后重新运行最后一个单元格即可获得新的 URL（任务在断连之间会 checkpoint/恢复）。',
   'Jobs on': '任务（',
   Refresh: '刷新',
   'Loading jobs…': '正在加载任务……',
-  'No jobs on this backend yet — start one from the Training view.':
-    '该后端上还没有任务——请从训练视图启动一个。',
-  'Logs': '日志',
+  'No jobs on this backend yet — start one from the Training view.': '该后端上还没有任务——请从训练视图启动一个。',
+  Logs: '日志',
   '(no log lines)': '（无日志行）',
   'last seen': '最近在线',
   'auto health check every 30s': '每 30 秒自动健康检查',
   'not checked yet — the first health check is running': '尚未检查——首次健康检查正在运行',
   Reset: '重置',
   'Save backend changes?': '保存后端更改？',
-  'Updates name, endpoint URL and token for this backend. Jobs already started keep their recorded endpoint in the Training list.':
-    '更新该后端的名称、端点 URL 和令牌。已启动的任务在训练列表中保留其记录的端点。',
-  'Remove this backend. Jobs already started keep their recorded endpoint in the Training list.':
-    '移除该后端。已启动的任务在训练列表中保留其记录的端点。',
+  'Updates name, endpoint URL and token for this backend. Jobs already started keep their recorded endpoint in the Training list.': '更新该后端的名称、端点 URL 和令牌。已启动的任务在训练列表中保留其记录的端点。',
+  'Remove this backend. Jobs already started keep their recorded endpoint in the Training list.': '移除该后端。已启动的任务在训练列表中保留其记录的端点。',
   'Check health': '检查健康状态',
   'No backends yet — press': '还没有后端——点击',
   'to add one, or': '添加一个，或使用',
   'for a short-term runtime.': '获取短期运行时。',
   'No backend selected': '未选择后端',
-  'Pick a backend from the left to see its jobs and logs (read-only). Use':
-    '从左侧选择一个后端以查看其任务与日志（只读）。使用',
+  'Pick a backend from the left to see its jobs and logs (read-only). Use': '从左侧选择一个后端以查看其任务与日志（只读）。使用',
   'to add an endpoint, or': '添加端点，或使用',
   'to generate a short-term runtime notebook.': '生成短期运行时 notebook。',
   'Delete this backend?': '删除该后端？',
-  'Removes it from the Backends menu. Jobs already started on it keep their recorded endpoint in the Training list; live tracking stops if the backend is gone.':
-    '会将其从“后端”菜单移除。已在其上启动的任务在训练列表中保留记录的端点；后端消失后实时跟踪停止。',
+  'Removes it from the Backends menu. Jobs already started on it keep their recorded endpoint in the Training list; live tracking stops if the backend is gone.': '会将其从“后端”菜单移除。已在其上启动的任务在训练列表中保留记录的端点；后端消失后实时跟踪停止。',
   'Free On Google Colab': '在 Google Colab 上免费运行',
   online: '在线',
   offline: '离线',
@@ -924,4 +787,57 @@ export const ZH_CN: Record<string, string> = {
   unknown: '未知',
   'Open Google Colab': '打开 Google Colab',
   'Upload notebook': '上传 notebook',
+
+  // ---- ---- Final coverage pass ---- ----
+  ' (the wizard wand) to generate one.': '（向导魔棒）生成一个。',
+  '(off = Start runs AFE only until you load models manually)': '（关闭时“启动”只运行 AFE，直到你手动加载模型）',
+  '(speaker)': '（扬声器）',
+  'AEC · Acoustic echo cancellation': 'AEC · 声学回声消除',
+  'BSS · Blind source separation': 'BSS · 盲源分离',
+  'NS · RNNoise noise suppression': 'NS · RNNoise 降噪',
+  Artifacts: '产物',
+  'Bypassed — passthrough': '已旁路——直通',
+  Clips: '片段',
+  Cloud: '云端',
+  'Encoder load failed': '编码器加载失败',
+  'Few-Shot score curve (prototype-distance similarity)': 'Few-Shot 得分曲线（原型距离相似度）',
+  Files: '文件',
+  'KWS is off — toggle it on above to configure the backend, models and enrollment.': 'KWS 已关闭——在上方打开开关以配置后端、模型与唤醒词注册。',
+  'Last keyword': '上一个关键词',
+  Live: '运行中',
+  Load: '加载',
+  'Mel window': '梅尔窗口',
+  'Mic · default': '麦克风 · 默认',
+  Models: '模型',
+  Monitor: '监听',
+  'Monitor is on: mic audio plays through your speakers. Without headphones the speakers feed back into the mic (feedback noise) — wear headphones or turn Monitor off.': '监听已开启：麦克风音频会通过扬声器播放。不戴耳机时扬声器会回灌进麦克风（啸叫）——请戴耳机或关闭监听。',
+  'No datasets yet. Press': '还没有数据集。点击',
+  'Open the': '打开',
+  Pause: '暂停',
+  'Persist KWS output (16 kHz stream)': '持久化 KWS 输出（16 kHz 流）',
+  'Pipeline start failed': '管线启动失败',
+  'Preload KWS models on Start': '启动时预加载 KWS 模型',
+  'Prototype built': '原型已构建',
+  'Ready for detection.': '可开始检测。',
+  'Recording…': '录制中……',
+  Reload: '重新加载',
+  'Remove this job from the rail. For a backend job this also cancels/deletes it on the studio-backend; generated datasets already persisted are not affected.': '将该任务从列表移除。后端任务同时会在 studio-backend 上取消/删除；已持久化的数据集不受影响。',
+  Results: '结果',
+  Resume: '恢复',
+  Retry: '重试',
+  'Start the AFE microphone (top panel) first.': '请先启动（顶部面板的）AFE 麦克风。',
+  URL: 'URL',
+  'check the encoder variant/runtime or the exported model assets.': '请检查编码器变体/运行时或导出的模型资源。',
+  checkpoint: 'checkpoint',
+  clipped: '削波',
+  'configure each module, then Start — Stop returns here': '配置各模块后点击“启动”——“停止”会回到这里',
+  enrolled: '已注册',
+  'loading…': '加载中……',
+  'low quality': '质量偏低',
+  'not loaded yet': '尚未加载',
+  'parameters exposed via': '个参数经',
+  'running effects — Stop to reconfigure': '效果运行中——点击“停止”重新配置',
+  'samples (80 ms @ 16 kHz)': '个采样（16 kHz 下 80 ms）',
+  'to test it in-browser (the classifier role now points at this trained model).': '在浏览器中测试（分类器角色现在指向这个训练好的模型）。',
+  vector: '维向量',
 }
