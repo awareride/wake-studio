@@ -1,398 +1,398 @@
 {
- "$schema": "./model-registry.schema.json",
- "version": 1,
- "updated": "2026-08-18",
- "note": "Catalog of lazily-fetched models. Weights are never bundled. Each entry's 'license' and 'commercial' fields drive the Phase 4 export license gate.",
- "models": [
- {
- "id": "melspectrogram",
- "name": "openWakeWord melspectrogram (16 kHz log-Mel front-end)",
- "tier": [
- "low-power",
- "high-performance"
- ],
- "source": "dscripka/openWakeWord",
- "url": "/modules/kws/openwakeword/assets/openWakeWord/melspectrogram.onnx",
- "format": "onnx",
- "license": "Apache-2.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": "TODO-phase2",
- "sizeBytes": 1087958,
- "notes": "openWakeWord Mel front-end (Apache-2.0); 16 kHz log-Mel. Byte-identical to the hey-buddy re-host. Served from the module assets dir."
- },
- {
- "id": "speech_embedding",
- "name": "Google speech_embedding backbone (re-implemented in openWakeWord)",
- "tier": [
- "low-power",
- "high-performance"
- ],
- "source": "dscripka/openWakeWord (re-impl of google/speech_embedding)",
- "url": "/modules/kws/openwakeword/assets/openWakeWord/embedding_model.onnx",
- "format": "onnx",
- "license": "Apache-2.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": "TODO-phase2",
- "sizeBytes": 1326578,
- "notes": "Google speech_embedding backbone re-implemented in openWakeWord (Apache-2.0, ~1.4M params). Byte-identical to the hey-buddy re-host. Local prebuilt."
- },
- {
- "id": "hey-buddy",
- "name": "Hey Buddy wake-word model (hey buddy)",
- "tier": [
- "high-performance"
- ],
- "source": "benjamin-paine/hey-buddy",
- "url": "/modules/kws/openwakeword/assets/hey-buddy/models/hey-buddy.onnx",
- "format": "onnx",
- "license": "CC-BY-4.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": "TODO-phase2",
- "sizeBytes": 1186048,
- "notes": "Browser-first wake-word model. Commercially clean (CC-BY-4.0). Replaces the CC BY-NC-SA openWakeWord alexa demo model. Fetched from the GitHub Release models-openwakeword-v1."
- },
- {
- "id": "silero-vad",
- "name": "Silero VAD (voice activity detection)",
- "tier": [
- "low-power",
- "high-performance"
- ],
- "source": "snakers4/silero-vad",
- "url": "/modules/kws/openwakeword/assets/openWakeWord/silero_vad.onnx",
- "format": "onnx",
- "license": "MIT",
- "commercial": true,
- "class": "redistributable",
- "sha256": "TODO-phase1",
- "sizeBytes": 1807522,
- "notes": "Gates KWS to reduce compute and false alarms. Local prebuilt (bundled in openWakeWord release). Not loaded in v1 (RNNoise VAD is used)."
- },
- {
- "id": "microwakeword-demo",
- "name": "microWakeWord demo model (e.g. 'okay_nabu')",
- "tier": [
- "low-power"
- ],
- "source": "esphome/micro-wake-word-models",
- "url": "TODO-phase2",
- "format": "tflite",
- "license": "Apache-2.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": "TODO-phase2",
- "sizeBytes": null,
- "notes": "Used as a browser-demo MCU model until Phase 5 trains a WakeStudio-owned word."
- },
- {
- "id": "openwakeword-alexa",
- "name": "openWakeWord 'alexa' demo classifier",
- "tier": [
- "high-performance"
- ],
- "source": "dscripka/openWakeWord",
- "url": "/modules/kws/openwakeword/assets/openWakeWord/alexa_v0.1.onnx",
- "format": "onnx",
- "license": "CC BY-NC-SA 4.0",
- "commercial": false,
- "class": "demo-only",
- "sha256": "TODO-phase2",
- "sizeBytes": 854246,
- "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
- },
- {
- "id": "openwakeword-hey-jarvis",
- "name": "openWakeWord 'hey_jarvis' demo classifier",
- "tier": [
- "high-performance"
- ],
- "source": "dscripka/openWakeWord",
- "url": "/modules/kws/openwakeword/assets/openWakeWord/hey_jarvis_v0.1.onnx",
- "format": "onnx",
- "license": "CC BY-NC-SA 4.0",
- "commercial": false,
- "class": "demo-only",
- "sha256": "TODO-phase2",
- "sizeBytes": 1271370,
- "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
- },
- {
- "id": "openwakeword-hey-mycroft",
- "name": "openWakeWord 'hey_mycroft' demo classifier",
- "tier": [
- "high-performance"
- ],
- "source": "dscripka/openWakeWord",
- "url": "/modules/kws/openwakeword/assets/openWakeWord/hey_mycroft_v0.1.onnx",
- "format": "onnx",
- "license": "CC BY-NC-SA 4.0",
- "commercial": false,
- "class": "demo-only",
- "sha256": "TODO-phase2",
- "sizeBytes": 857691,
- "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
- },
- {
- "id": "openwakeword-hey-rhasspy",
- "name": "openWakeWord 'hey_rhasspy' demo classifier",
- "tier": [
- "high-performance"
- ],
- "source": "dscripka/openWakeWord",
- "url": "/modules/kws/openwakeword/assets/openWakeWord/hey_rhasspy_v0.1.onnx",
- "format": "onnx",
- "license": "CC BY-NC-SA 4.0",
- "commercial": false,
- "class": "demo-only",
- "sha256": "TODO-phase2",
- "sizeBytes": 204081,
- "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
- },
- {
- "id": "openwakeword-timer",
- "name": "openWakeWord 'timer' demo classifier",
- "tier": [
- "high-performance"
- ],
- "source": "dscripka/openWakeWord",
- "url": "/modules/kws/openwakeword/assets/openWakeWord/timer_v0.1.onnx",
- "format": "onnx",
- "license": "CC BY-NC-SA 4.0",
- "commercial": false,
- "class": "demo-only",
- "sha256": "TODO-phase2",
- "sizeBytes": 1742475,
- "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
- },
- {
- "id": "openwakeword-weather",
- "name": "openWakeWord 'weather' demo classifier",
- "tier": [
- "high-performance"
- ],
- "source": "dscripka/openWakeWord",
- "url": "/modules/kws/openwakeword/assets/openWakeWord/weather_v0.1.onnx",
- "format": "onnx",
- "license": "CC BY-NC-SA 4.0",
- "commercial": false,
- "class": "demo-only",
- "sha256": "TODO-phase2",
- "sizeBytes": 1149158,
- "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
- },
- {
- "id": "hi-buddy",
- "name": "Hi Buddy wake word",
- "tier": [
- "high-performance"
- ],
- "source": "benjamin-paine/hey-buddy",
- "url": "/modules/kws/openwakeword/assets/hey-buddy/models/hi-buddy.onnx",
- "format": "onnx",
- "license": "CC-BY-4.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": "TODO-phase3",
- "sizeBytes": 1186048,
- "notes": "benjamin-paine/hey-buddy 'hi-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'hi buddy' phrase with the openwakeword mel->embedding pipeline."
- },
- {
- "id": "yo-buddy",
- "name": "Yo Buddy wake word",
- "tier": [
- "high-performance"
- ],
- "source": "benjamin-paine/hey-buddy",
- "url": "/modules/kws/openwakeword/assets/hey-buddy/models/yo-buddy.onnx",
- "format": "onnx",
- "license": "CC-BY-4.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": "TODO-phase3",
- "sizeBytes": 1186048,
- "notes": "benjamin-paine/hey-buddy 'yo-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'yo buddy' phrase with the openwakeword mel->embedding pipeline."
- },
- {
- "id": "sup-buddy",
- "name": "Sup Buddy wake word",
- "tier": [
- "high-performance"
- ],
- "source": "benjamin-paine/hey-buddy",
- "url": "/modules/kws/openwakeword/assets/hey-buddy/models/sup-buddy.onnx",
- "format": "onnx",
- "license": "CC-BY-4.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": "TODO-phase3",
- "sizeBytes": 1186048,
- "notes": "benjamin-paine/hey-buddy 'sup-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'sup buddy' phrase with the openwakeword mel->embedding pipeline."
- },
- {
- "id": "okay-buddy",
- "name": "Okay Buddy wake word",
- "tier": [
- "high-performance"
- ],
- "source": "benjamin-paine/hey-buddy",
- "url": "/modules/kws/openwakeword/assets/hey-buddy/models/okay-buddy.onnx",
- "format": "onnx",
- "license": "CC-BY-4.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": "TODO-phase3",
- "sizeBytes": 1031918,
- "notes": "benjamin-paine/hey-buddy 'okay-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'okay buddy' phrase with the openwakeword mel->embedding pipeline."
- },
- {
- "id": "hello-buddy",
- "name": "Hello Buddy wake word",
- "tier": [
- "high-performance"
- ],
- "source": "benjamin-paine/hey-buddy",
- "url": "/modules/kws/openwakeword/assets/hey-buddy/models/hello-buddy.onnx",
- "format": "onnx",
- "license": "CC-BY-4.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": "TODO-phase3",
- "sizeBytes": 1186048,
- "notes": "benjamin-paine/hey-buddy 'hello-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'hello buddy' phrase with the openwakeword mel->embedding pipeline."
- },
- {
- "id": "buddy",
- "name": "Buddy wake word",
- "tier": [
- "high-performance"
- ],
- "source": "benjamin-paine/hey-buddy",
- "url": "/modules/kws/openwakeword/assets/hey-buddy/models/buddy.onnx",
- "format": "onnx",
- "license": "CC-BY-4.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": "TODO-phase3",
- "sizeBytes": 1186048,
- "notes": "benjamin-paine/hey-buddy 'buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'buddy' phrase with the openwakeword mel->embedding pipeline."
- },
- {
- "id": "plixkws",
- "name": "PLiX Few-Shot encoder (base)",
- "tier": [
- "high-performance"
- ],
- "source": "aaqibsaeed/plixkws (ONNX export of FewshotML/plix)",
- "url": "/modules/kws/plix/assets/plixkws-small.onnx",
- "format": "onnx",
- "runtime": "onnx",
- "encoderVariant": "small",
- "transformersModel": "aaqibsaeed/plixkws",
- "embeddingDim": 1280,
- "license": "Apache-2.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": "TODO-phase3",
- "sizeBytes": null,
- "notes": "PLiX 'base' encoder variant (EfficientNet-v2-M). Compact CNN trained as a Prototypical Network; outputs a 1280-dim embedding for prototype-distance matching. Replaces WavLM-base-plus as the Few-Shot encoder (WavLM was too heavy for end-side devices). Apache-2.0 (FewshotML/plix). Two runtimes: 'onnx' (default) loads the exported plixkws-base.onnx via onnxruntime-web; 'transformers' loads the encoder browser-native via @huggingface/transformers v4 (CDN, no .pt / no npm install) and fetches the ONNX weights itself from the Hugging Face 'transformersModel' id (or a locally-served HF-style dir). ONNX stays the default; switch runtime to 'transformers' for a zero-Python deployment. The .pt weights are on Dropbox; export to ONNX via packages/modules/kws/plix/scripts/export-plixkws-onnx.py. NOTE (2026-08-07): only the small ONNX export is vendored in assets/; the base export (plixkws-base.onnx) is not present, so this entry resolves to the small asset. Set a custom encoder URL or export base via scripts/export-plixkws-onnx.py to use base.",
- "externalData": "plixkws-small.onnx.data"
- },
- {
- "id": "plixkws-small",
- "name": "PLiX Few-Shot encoder (small / TinyNet-E)",
- "tier": [
- "low-power",
- "high-performance"
- ],
- "source": "aaqibsaeed/plixkws (ONNX export of FewshotML/plix)",
- "url": "/modules/kws/plix/assets/plixkws-small.onnx",
- "format": "onnx",
- "runtime": "onnx",
- "encoderVariant": "small",
- "transformersModel": "aaqibsaeed/plixkws",
- "embeddingDim": 1280,
- "externalData": "plixkws-small.onnx.data",
- "license": "Apache-2.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": "TODO-phase3",
- "sizeBytes": null,
- "notes": "PLiX 'small' encoder variant (TinyNet-E) - lighter than 'base', for low-RAM / end-side devices. Still outputs a 1280-dim embedding from the same 1x64x100 log-Mel front-end, so prototype-distance scoring is identical to 'base'. Exported with external data: plixkws-small.onnx references plixkws-small.onnx.data (co-located, served from /modules/kws/plix/assets/). Select this variant via the encoder selector in the Few-Shot panel. Same two runtimes as 'base' (onnx / transformers). The 'transformers' runtime loads from a LOCALLY-EXPORTED HF-style dir (staged by the PLiX module build under /modules/kws/plix/assets/hf/plixkws); the Hugging Face repo only ships .pt weights, not ONNX."
- },
- {
- "id": "kws-streaming-kwt1",
- "name": "Keyword Transformer KWT-1 (Speech Commands V2, 12 labels)",
- "tier": [
- "high-performance"
- ],
- "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
- "url": "/modules/kws/streaming/assets/kws-streaming/kwt1.onnx",
- "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/kwt1.json",
- "format": "onnx",
- "license": "Apache-2.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": null,
- "sizeBytes": 3714000,
- "accuracy": 97.61,
- "notes": "ARM Keyword Transformer, 1 head. Sliding-window (non-streamable topology): 1 s window re-evaluated every 100 ms; the MFCC front-end is inside the graph (preprocess=raw, feature_type=mfcc_tf). Labels: _silence_/_unknown_/yes/no/up/down/left/right/on/off/stop/go. Upstream-reported top-1 97.61% (accuracy_last.txt); CI re-validated on real Speech Commands clips at 100.0% (120/120) argmax with silence -> _silence_ (build run 31385112437). sha256 is null and sizeBytes is nominal (rounded): tf2onnx output is not byte-reproducible across runs, so exact values would be wrong after any rebuild."
- },
- {
- "id": "kws-streaming-kwt2",
- "name": "Keyword Transformer KWT-2 (Speech Commands V2, 12 labels)",
- "tier": [
- "high-performance"
- ],
- "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
- "url": "/modules/kws/streaming/assets/kws-streaming/kwt2.onnx",
- "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/kwt2.json",
- "format": "onnx",
- "license": "Apache-2.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": null,
- "sizeBytes": 10963000,
- "accuracy": 98.24,
- "notes": "ARM Keyword Transformer, wider than KWT-1. Same sliding-window geometry and labels as kws-streaming-kwt1. Upstream-reported top-1 98.24% (accuracy_last.txt); CI re-validated on real Speech Commands clips at 100.0% (120/120) argmax with silence -> _silence_ (build run 31385112437). sha256 is null and sizeBytes is nominal (rounded): tf2onnx output is not byte-reproducible across runs, so exact values would be wrong after any rebuild."
- },
- {
- "id": "kws-streaming-kwt3",
- "name": "Keyword Transformer KWT-3 (Speech Commands V2, 12 labels)",
- "tier": [
- "high-performance"
- ],
- "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
- "url": "/modules/kws/streaming/assets/kws-streaming/kwt3.onnx",
- "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/kwt3.json",
- "format": "onnx",
- "license": "Apache-2.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": null,
- "sizeBytes": 22852000,
- "accuracy": 98.65,
- "notes": "ARM Keyword Transformer, largest variant. Same sliding-window geometry and labels as kws-streaming-kwt1; best accuracy, heaviest download. Upstream-reported top-1 98.65% (accuracy_last.txt); CI re-validated on real Speech Commands clips at 99.2% (119/120) argmax with silence -> _silence_ (build run 31385112437). sha256 is null and sizeBytes is nominal (rounded): tf2onnx output is not byte-reproducible across runs, so exact values would be wrong after any rebuild."
- },
- {
- "id": "kws-streaming-att-mh-rnn",
- "name": "att_mh_rnn (multi-head attention RNN, Speech Commands V2, 12 labels)",
- "tier": [
- "high-performance"
- ],
- "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
- "url": "/modules/kws/streaming/assets/kws-streaming/att_mh_rnn_1.onnx",
- "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/att_mh_rnn_1.json",
- "format": "onnx",
- "license": "Apache-2.0",
- "commercial": true,
- "class": "redistributable",
- "sha256": null,
- "sizeBytes": 5998000,
- "accuracy": 98.48,
- "notes": "google-research/kws_streaming att_mh_rnn (CNN + biLSTM + multi-head attention). Non-streamable by design (attends over the whole sequence), so it runs in sliding-window mode. Upstream-reported top-1 98.48% (accuracy_last.txt); CI re-validated on real Speech Commands clips at 99.2% (119/120) argmax with silence -> _silence_ (build run 31385112437). sha256 is null and sizeBytes is nominal (rounded): tf2onnx output is not byte-reproducible across runs, so exact values would be wrong after any rebuild."
- }
- ]
+  "$schema": "./model-registry.schema.json",
+  "version": 1,
+  "updated": "2026-09-21",
+  "note": "Catalog of lazily-fetched models (ADR-011). Weights are never bundled. Each entry's 'license' and 'commercial' fields drive the Phase 4 export license gate.",
+  "models": [
+    {
+      "id": "melspectrogram",
+      "name": "openWakeWord melspectrogram (16 kHz log-Mel front-end)",
+      "tier": [
+        "low-power",
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/melspectrogram.onnx",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 1087958,
+      "notes": "openWakeWord Mel front-end (Apache-2.0); 16 kHz log-Mel. Byte-identical to the hey-buddy re-host. Served from the module assets dir."
+    },
+    {
+      "id": "speech_embedding",
+      "name": "Google speech_embedding backbone (re-implemented in openWakeWord)",
+      "tier": [
+        "low-power",
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord (re-impl of google/speech_embedding)",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/embedding_model.onnx",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 1326578,
+      "notes": "Google speech_embedding backbone re-implemented in openWakeWord (Apache-2.0, ~1.4M params). Byte-identical to the hey-buddy re-host. Local prebuilt."
+    },
+    {
+      "id": "hey-buddy",
+      "name": "Hey Buddy wake-word model (hey buddy)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/hey-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 1186048,
+      "notes": "Browser-first wake-word model. Commercially clean (CC-BY-4.0). Replaces the CC BY-NC-SA openWakeWord alexa demo model. Fetched from the GitHub Release models-openwakeword-v1."
+    },
+    {
+      "id": "silero-vad",
+      "name": "Silero VAD (voice activity detection)",
+      "tier": [
+        "low-power",
+        "high-performance"
+      ],
+      "source": "snakers4/silero-vad",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/silero_vad.onnx",
+      "format": "onnx",
+      "license": "MIT",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase1",
+      "sizeBytes": 1807522,
+      "notes": "Gates KWS to reduce compute and false alarms. Local prebuilt (bundled in openWakeWord release). Not loaded in v1 (RNNoise VAD is used)."
+    },
+    {
+      "id": "microwakeword-demo",
+      "name": "microWakeWord demo model (e.g. 'okay_nabu')",
+      "tier": [
+        "low-power"
+      ],
+      "source": "esphome/micro-wake-word-models",
+      "url": "TODO-phase2",
+      "format": "tflite",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase2",
+      "sizeBytes": null,
+      "notes": "Used as a browser-demo MCU model until Phase 5 trains a WakeStudio-owned word."
+    },
+    {
+      "id": "openwakeword-alexa",
+      "name": "openWakeWord 'alexa' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/alexa_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 854246,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-hey-jarvis",
+      "name": "openWakeWord 'hey_jarvis' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/hey_jarvis_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 1271370,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-hey-mycroft",
+      "name": "openWakeWord 'hey_mycroft' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/hey_mycroft_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 857691,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-hey-rhasspy",
+      "name": "openWakeWord 'hey_rhasspy' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/hey_rhasspy_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 204081,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-timer",
+      "name": "openWakeWord 'timer' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/timer_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 1742475,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "openwakeword-weather",
+      "name": "openWakeWord 'weather' demo classifier",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "dscripka/openWakeWord",
+      "url": "/modules/kws/openwakeword/assets/openWakeWord/weather_v0.1.onnx",
+      "format": "onnx",
+      "license": "CC BY-NC-SA 4.0",
+      "commercial": false,
+      "class": "demo-only",
+      "sha256": "TODO-phase2",
+      "sizeBytes": 1149158,
+      "notes": "openWakeWord demo classifier (CC BY-NC-SA 4.0, demo-only, NON-commercial). Selectable in the KWS Model-source editor for demo use; the Phase-4 export gate rejects it. See LICENSES.md highest-risk item."
+    },
+    {
+      "id": "hi-buddy",
+      "name": "Hi Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/hi-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'hi-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'hi buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "yo-buddy",
+      "name": "Yo Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/yo-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'yo-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'yo buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "sup-buddy",
+      "name": "Sup Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/sup-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'sup-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'sup buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "okay-buddy",
+      "name": "Okay Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/okay-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1031918,
+      "notes": "benjamin-paine/hey-buddy 'okay-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'okay buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "hello-buddy",
+      "name": "Hello Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/hello-buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'hello-buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'hello buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "buddy",
+      "name": "Buddy wake word",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "benjamin-paine/hey-buddy",
+      "url": "/modules/kws/openwakeword/assets/hey-buddy/models/buddy.onnx",
+      "format": "onnx",
+      "license": "CC-BY-4.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": 1186048,
+      "notes": "benjamin-paine/hey-buddy 'buddy' classifier (CC-BY-4.0, commercially clean). Detects the 'buddy' phrase with the openwakeword mel->embedding pipeline."
+    },
+    {
+      "id": "plixkws",
+      "name": "PLiX Few-Shot encoder (base)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "aaqibsaeed/plixkws (ONNX export of FewshotML/plix)",
+      "url": "/modules/kws/plix/assets/plixkws-small.onnx",
+      "format": "onnx",
+      "runtime": "onnx",
+      "encoderVariant": "small",
+      "transformersModel": "aaqibsaeed/plixkws",
+      "embeddingDim": 1280,
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": null,
+      "notes": "PLiX 'base' encoder variant (EfficientNet-v2-M). Compact CNN trained as a Prototypical Network; outputs a 1280-dim embedding for prototype-distance matching. Replaces WavLM-base-plus as the Few-Shot encoder (WavLM was too heavy for end-side devices). Apache-2.0 (FewshotML/plix). Two runtimes: 'onnx' (default) loads the exported plixkws-base.onnx via onnxruntime-web; 'transformers' loads the encoder browser-native via @huggingface/transformers v4 (CDN, no .pt / no npm install) and fetches the ONNX weights itself from the Hugging Face 'transformersModel' id (or a locally-served HF-style dir). ONNX stays the default; switch runtime to 'transformers' for a zero-Python deployment. The .pt weights are on Dropbox; export to ONNX via packages/modules/kws/plix/scripts/export-plixkws-onnx.py. NOTE (2026-08-07): only the small ONNX export is vendored in assets/; the base export (plixkws-base.onnx) is not present, so this entry resolves to the small asset. Set a custom encoder URL or export base via scripts/export-plixkws-onnx.py to use base.",
+      "externalData": "plixkws-small.onnx.data"
+    },
+    {
+      "id": "plixkws-small",
+      "name": "PLiX Few-Shot encoder (small / TinyNet-E)",
+      "tier": [
+        "low-power",
+        "high-performance"
+      ],
+      "source": "aaqibsaeed/plixkws (ONNX export of FewshotML/plix)",
+      "url": "/modules/kws/plix/assets/plixkws-small.onnx",
+      "format": "onnx",
+      "runtime": "onnx",
+      "encoderVariant": "small",
+      "transformersModel": "aaqibsaeed/plixkws",
+      "embeddingDim": 1280,
+      "externalData": "plixkws-small.onnx.data",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": "TODO-phase3",
+      "sizeBytes": null,
+      "notes": "PLiX 'small' encoder variant (TinyNet-E) - lighter than 'base', for low-RAM / end-side devices. Still outputs a 1280-dim embedding from the same 1x64x100 log-Mel front-end, so prototype-distance scoring is identical to 'base'. Exported with external data: plixkws-small.onnx references plixkws-small.onnx.data (co-located, served from /modules/kws/plix/assets/). Select this variant via the encoder selector in the Few-Shot panel. Same two runtimes as 'base' (onnx / transformers). The 'transformers' runtime loads from a LOCALLY-EXPORTED HF-style dir (staged by the PLiX module build under /modules/kws/plix/assets/hf/plixkws); the Hugging Face repo only ships .pt weights, not ONNX."
+    },
+    {
+      "id": "kws-streaming-kwt1",
+      "name": "Keyword Transformer KWT-1 (Speech Commands V2, 12 labels)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
+      "url": "/modules/kws/streaming/assets/kws-streaming/kwt1.onnx",
+      "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/kwt1.json",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": null,
+      "sizeBytes": 3714000,
+      "accuracy": 97.61,
+      "notes": "ARM Keyword Transformer, 1 head. Sliding-window (non-streamable topology): 1 s window re-evaluated every 100 ms; the MFCC front-end is inside the graph (preprocess=raw, feature_type=mfcc_tf). Labels: _silence_/_unknown_/yes/no/up/down/left/right/on/off/stop/go. Upstream-reported top-1 97.61% (accuracy_last.txt); CI re-validated on real Speech Commands clips at 100.0% (120/120) argmax with silence -> _silence_ (build run 31385112437). sha256 is null and sizeBytes is nominal (rounded): tf2onnx output is not byte-reproducible across runs, so exact values would be wrong after any rebuild."
+    },
+    {
+      "id": "kws-streaming-kwt2",
+      "name": "Keyword Transformer KWT-2 (Speech Commands V2, 12 labels)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
+      "url": "/modules/kws/streaming/assets/kws-streaming/kwt2.onnx",
+      "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/kwt2.json",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": null,
+      "sizeBytes": 10963000,
+      "accuracy": 98.24,
+      "notes": "ARM Keyword Transformer, wider than KWT-1. Same sliding-window geometry and labels as kws-streaming-kwt1. Upstream-reported top-1 98.24% (accuracy_last.txt); CI re-validated on real Speech Commands clips at 100.0% (120/120) argmax with silence -> _silence_ (build run 31385112437). sha256 is null and sizeBytes is nominal (rounded): tf2onnx output is not byte-reproducible across runs, so exact values would be wrong after any rebuild."
+    },
+    {
+      "id": "kws-streaming-kwt3",
+      "name": "Keyword Transformer KWT-3 (Speech Commands V2, 12 labels)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
+      "url": "/modules/kws/streaming/assets/kws-streaming/kwt3.onnx",
+      "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/kwt3.json",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": null,
+      "sizeBytes": 22852000,
+      "accuracy": 98.65,
+      "notes": "ARM Keyword Transformer, largest variant. Same sliding-window geometry and labels as kws-streaming-kwt1; best accuracy, heaviest download. Upstream-reported top-1 98.65% (accuracy_last.txt); CI re-validated on real Speech Commands clips at 99.2% (119/120) argmax with silence -> _silence_ (build run 31385112437). sha256 is null and sizeBytes is nominal (rounded): tf2onnx output is not byte-reproducible across runs, so exact values would be wrong after any rebuild."
+    },
+    {
+      "id": "kws-streaming-att-mh-rnn",
+      "name": "att_mh_rnn (multi-head attention RNN, Speech Commands V2, 12 labels)",
+      "tier": [
+        "high-performance"
+      ],
+      "source": "ARM-software/keyword-transformer (kws_streaming family), converted TFLite->ONNX by .github/workflows/build.yaml (module kws-streaming)",
+      "url": "/modules/kws/streaming/assets/kws-streaming/att_mh_rnn_1.onnx",
+      "manifestUrl": "/modules/kws/streaming/assets/kws-streaming/att_mh_rnn_1.json",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "commercial": true,
+      "class": "redistributable",
+      "sha256": null,
+      "sizeBytes": 5998000,
+      "accuracy": 98.48,
+      "notes": "google-research/kws_streaming att_mh_rnn (CNN + biLSTM + multi-head attention). Non-streamable by design (attends over the whole sequence), so it runs in sliding-window mode. Upstream-reported top-1 98.48% (accuracy_last.txt); CI re-validated on real Speech Commands clips at 99.2% (119/120) argmax with silence -> _silence_ (build run 31385112437). sha256 is null and sizeBytes is nominal (rounded): tf2onnx output is not byte-reproducible across runs, so exact values would be wrong after any rebuild."
+    }
+  ]
 }

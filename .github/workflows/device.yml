@@ -128,12 +128,20 @@ jobs:
         run: node scripts/fetch-artifact.mjs kws-streaming || echo "kws-streaming assets fetch failed; L1 runtime test will skip"
 
       # Stage the model + manifest under the names the driver declares
-      # (ADR-040 §4.1): model.onnx / manifest.json.
+      # (ADR-040 §4.1): model.onnx / manifest.json. The fetch above is
+      # best-effort (the kws-streaming-onnx artifact only exists after a
+      # manual build.yaml dispatch), so an absent artifact degrades to the
+      # no-model contract test instead of failing the job — the L1 test
+      # skips its real-inference assertions when the files are missing.
       - name: Stage driver model dir
         run: |
           mkdir -p models
-          cp packages/modules/kws/streaming/assets/kws-streaming/kwt1.onnx models/model.onnx
-          cp packages/modules/kws/streaming/assets/kws-streaming/kwt1.json models/manifest.json
+          if [ -f packages/modules/kws/streaming/assets/kws-streaming/kwt1.onnx ] && [ -f packages/modules/kws/streaming/assets/kws-streaming/kwt1.json ]; then
+            cp packages/modules/kws/streaming/assets/kws-streaming/kwt1.onnx models/model.onnx
+            cp packages/modules/kws/streaming/assets/kws-streaming/kwt1.json models/manifest.json
+          else
+            echo "kws-streaming assets absent; L1 runtime test will run the no-model contract only"
+          fi
 
       - name: Configure (runtime ON)
         run: cmake -S device -B build -DCMAKE_BUILD_TYPE=Debug -DWAKE_SDK_PROFILE=app \
