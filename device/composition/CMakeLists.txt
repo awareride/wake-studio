@@ -10,4 +10,12 @@ target_link_libraries(wake_composition_host PUBLIC
   wake_afe_aec
   wake_afe_bss
   wake_adapters_host
+  # App-class KWS drivers (#187 slice A: plix/openwakeword/streaming/sherpa).
+  # Each driver is runtime-gated: without its -DHAS_RUNTIME=ON build it still
+  # compiles and registers, but load() fails loudly and process_frame() stays
+  # in warmup — so the host build needs no third_party fetches.
+  wake_kws_plix
+  wake_kws_openwakeword
+  wake_kws_streaming
+  wake_kws_sherpa
 )

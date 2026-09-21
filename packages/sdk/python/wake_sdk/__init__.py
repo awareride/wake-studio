@@ -147,6 +147,15 @@ class SDK:
     def capabilities(self) -> Capabilities:
         return self._lib.wake_sdk_capabilities(self._handle)
 
+    def backend_id_list(self) -> list[str]:
+        """Backend ids registered on this build, decoded to str.
+
+        Wraps wake_sdk_capabilities: backend_ids is a raw c_char_p array
+        valid for the SDK's lifetime.
+        """
+        caps = self.capabilities
+        return [caps.backend_ids[i].decode() for i in range(caps.backend_count)]
+
     def pipeline(self, backend_id: str = "rms",
                  cfg: Optional[dict[str, Any]] = None,
                  model_dir: Optional[str] = None) -> "Pipeline":
