@@ -59,7 +59,7 @@
       "options": [
         "wasm"
       ],
-      "description": "WASM only. The WebGPU (jsep) EP mis-executes this graph's Slice->Squeeze (CLS-token extraction), failing at run with \"Dimension of input 2 must be 1 instead of 64\"; the driver forces WASM regardless of the engine-level setting. These graphs are tiny, so WebGPU dispatch overhead would dominate anyway."
+      "description": "WASM only. The WebGPU (jsep) EP mis-executes this graph's Slice->Squeeze (CLS-token extraction), failing at run() with \"Dimension of input 2 must be 1 instead of 64\"; the driver forces WASM regardless of the engine-level setting. These graphs are tiny, so WebGPU dispatch overhead would dominate anyway."
     }
   ],
   "actions": [

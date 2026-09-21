@@ -120,7 +120,7 @@
         "required": false
       }
     ],
-    "notes": "The wasm runtime (built by scripts/build-sherpa-kws.mjs, ) is hosted as a GitHub Release and fetched via scripts/fetch-artifact.mjs; regenerate with the build script if a new build is required."
+    "notes": "The wasm runtime (built by scripts/build-sherpa-kws.mjs) is hosted as a GitHub Release and fetched via scripts/fetch-artifact.mjs; regenerate with the build script if a new build is required."
   },
   "tests": {
     "l1": "packages/modules/kws/sherpa/tests/spec.test.ts",

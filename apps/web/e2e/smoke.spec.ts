@@ -9,6 +9,21 @@ import { enableKws } from './helpers'
  * render, but under the new shell.
  */
 
+// Aria-labels are locale-dependent (translated via the i18n seam); pin the
+// app locale to English so selectors stay stable.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      const raw = localStorage.getItem('wake-studio:settings:platform')
+      const obj = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
+      obj.locale = 'en'
+      localStorage.setItem('wake-studio:settings:platform', JSON.stringify(obj))
+    } catch {
+      /* ignore */
+    }
+  })
+})
+
 test('console shell renders: sidebar + workspace default view', async ({ page }) => {
   await page.goto('/')
 

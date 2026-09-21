@@ -143,7 +143,7 @@ export function SettingsView({
               {platformIds.map((d) => (
                 <div key={d.id} className="py-1">
                   {renderParamRow(
-                    descriptorToModuleParam(d, t),
+                    descriptorToModuleParam(d),
                     platformDraft[d.id],
                     (v: unknown) => handlePlatformChange(d.id, v),
                   )}

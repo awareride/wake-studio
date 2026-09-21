@@ -71,7 +71,7 @@ export function translateTrainSpec<S extends Record<string, unknown>>(spec: S, t
   }))
   return {
     ...spec,
-    name: spec['name'] !== undefined ? t(String(spec['name'])) : undefined,
+    ...(spec['name'] !== undefined ? { name: t(String(spec['name'])) } : null),
     params,
     actions,
     status,

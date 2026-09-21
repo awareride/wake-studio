@@ -50,7 +50,7 @@
       "group": "primary",
       "type": "boolean",
       "default": true,
-      "description": "Passthrough for v1 (WebRTC AEC3 deferred to v1.x, )."
+      "description": "Passthrough for v1; WebRTC AEC3 deferred to v1.x."
     },
     {
       "id": "bypass.bss",

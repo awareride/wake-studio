@@ -10,6 +10,21 @@ import { test, expect } from '@playwright/test'
  * save-to-apply theme, secret password inputs, module settings save.
  */
 
+// Aria-labels are locale-dependent (translated via the i18n seam); pin the
+// app locale to English so selectors stay stable.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      const raw = localStorage.getItem('wake-studio:settings:platform')
+      const obj = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
+      obj.locale = 'en'
+      localStorage.setItem('wake-studio:settings:platform', JSON.stringify(obj))
+    } catch {
+      /* ignore */
+    }
+  })
+})
+
 test('settings sub-routes render section content', async ({ page }) => {
   // General is the default settings landing.
   await page.goto('/#/settings/general')

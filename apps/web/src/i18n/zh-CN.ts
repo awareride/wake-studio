@@ -53,7 +53,7 @@ export const ZH_CN: Record<string, string> = {
 
   // ---- ---- Settings: general ---- ----
   Language: '语言',
-  'UI language. Stored now; i18n lands in Phase 6.': '界面语言。选择后立即生效并保存。',
+  'UI language. Applies immediately and is stored in this browser.': '界面语言。选择后立即生效并保存。',
   'Console appearance. "System" follows your OS light/dark preference.': '控制台外观。“跟随系统”会遵循操作系统的浅色/深色偏好。',
   'Accent color': '强调色',
   'Accent theme (Radix Colors scales). Gray is the default; Sky is the classic WakeStudio look.': '强调色主题（Radix Colors 色阶）。默认为灰色；天蓝是 WakeStudio 的经典配色。',
@@ -108,6 +108,7 @@ export const ZH_CN: Record<string, string> = {
   'Remember mic permission': '记住麦克风授权',
   'Anchor for the mic permission prompt flow (the browser owns the real permission).': '麦克风授权提示流程的锚点（真正的授权由浏览器管理）。',
   'Params from the driver module spec. Changes apply on Save; per-project overrides live in the project snapshot.': '来自驱动模块规格的参数。保存后生效；项目级覆盖保存在项目快照中。',
+  'No module settings yet — drivers that carry a spec appear here automatically.': '还没有模块设置——带规格的驱动会自动显示在这里。',
   active: '使用中',
 
   // ---- ---- Coming soon / placeholders ---- ----

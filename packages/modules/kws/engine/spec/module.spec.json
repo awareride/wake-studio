@@ -83,7 +83,7 @@
       "type": "select",
       "default": "webgpu",
       "options": ["webgpu", "wasm"],
-      "description": "onnxruntime-web EP (WebGPU-first with WASM fallback, )."
+      "description": "onnxruntime-web EP (WebGPU-first with WASM fallback)."
     }
   ],
   "actions": [

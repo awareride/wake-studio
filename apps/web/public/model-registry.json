@@ -2,7 +2,7 @@
  "$schema": "./model-registry.schema.json",
  "version": 1,
  "updated": "2026-08-18",
- "note": "Catalog of lazily-fetched models . Weights are never bundled. Each entry's 'license' and 'commercial' fields drive the Phase 4 export license gate.",
+ "note": "Catalog of lazily-fetched models. Weights are never bundled. Each entry's 'license' and 'commercial' fields drive the Phase 4 export license gate.",
  "models": [
  {
  "id": "melspectrogram",
@@ -19,7 +19,7 @@
  "class": "redistributable",
  "sha256": "TODO-phase2",
  "sizeBytes": 1087958,
- "notes": "openWakeWord Mel front-end (Apache-2.0); 16 kHz log-Mel. Byte-identical to the hey-buddy re-host. Served from the module assets dir ."
+ "notes": "openWakeWord Mel front-end (Apache-2.0); 16 kHz log-Mel. Byte-identical to the hey-buddy re-host. Served from the module assets dir."
  },
  {
  "id": "speech_embedding",
@@ -52,7 +52,7 @@
  "class": "redistributable",
  "sha256": "TODO-phase2",
  "sizeBytes": 1186048,
- "notes": "Browser-first wake-word model. Commercially clean (CC-BY-4.0). Replaces the CC BY-NC-SA openWakeWord alexa demo model. Fetched from the GitHub Release models-openwakeword-v1 ."
+ "notes": "Browser-first wake-word model. Commercially clean (CC-BY-4.0). Replaces the CC BY-NC-SA openWakeWord alexa demo model. Fetched from the GitHub Release models-openwakeword-v1."
  },
  {
  "id": "silero-vad",
@@ -69,7 +69,7 @@
  "class": "redistributable",
  "sha256": "TODO-phase1",
  "sizeBytes": 1807522,
- "notes": "Gates KWS to reduce compute and false alarms. Local prebuilt (bundled in openWakeWord release). Not loaded in v1 (RNNoise VAD is used, )."
+ "notes": "Gates KWS to reduce compute and false alarms. Local prebuilt (bundled in openWakeWord release). Not loaded in v1 (RNNoise VAD is used)."
  },
  {
  "id": "microwakeword-demo",
@@ -320,7 +320,7 @@
  "class": "redistributable",
  "sha256": "TODO-phase3",
  "sizeBytes": null,
- "notes": "PLiX 'small' encoder variant (TinyNet-E) - lighter than 'base', for low-RAM / end-side devices. Still outputs a 1280-dim embedding from the same 1x64x100 log-Mel front-end, so prototype-distance scoring is identical to 'base'. Exported with external data: plixkws-small.onnx references plixkws-small.onnx.data (co-located, served from /modules/kws/plix/assets/). Select this variant via the encoder selector in the Few-Shot panel . Same two runtimes as 'base' (onnx / transformers). The 'transformers' runtime loads from a LOCALLY-EXPORTED HF-style dir (staged by the PLiX module build under /modules/kws/plix/assets/hf/plixkws); the Hugging Face repo only ships .pt weights, not ONNX."
+ "notes": "PLiX 'small' encoder variant (TinyNet-E) - lighter than 'base', for low-RAM / end-side devices. Still outputs a 1280-dim embedding from the same 1x64x100 log-Mel front-end, so prototype-distance scoring is identical to 'base'. Exported with external data: plixkws-small.onnx references plixkws-small.onnx.data (co-located, served from /modules/kws/plix/assets/). Select this variant via the encoder selector in the Few-Shot panel. Same two runtimes as 'base' (onnx / transformers). The 'transformers' runtime loads from a LOCALLY-EXPORTED HF-style dir (staged by the PLiX module build under /modules/kws/plix/assets/hf/plixkws); the Hugging Face repo only ships .pt weights, not ONNX."
  },
  {
  "id": "kws-streaming-kwt1",

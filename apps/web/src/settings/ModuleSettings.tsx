@@ -93,10 +93,10 @@ export function ModuleSettingsSection({
             )}
           >
             <h3 className="mb-1 text-sm font-semibold text-ink-1">
-              {driver.label}
+              {tr(driver.label)}
               {focused && (
                 <span className="ml-2 rounded bg-brand-9/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-11">
-                  active
+                  {tr('active')}
                 </span>
               )}
             </h3>
@@ -109,14 +109,7 @@ export function ModuleSettingsSection({
               {driver.params.map((param) => (
                 <div key={param.id} className="py-1">
                   {renderParamRow(
-                    {
-                      ...param,
-                      label: tr(param.label),
-                      description: tr(param.description ?? ''),
-                      options: param.options?.map((o) =>
-                        typeof o === 'string' ? o : { ...o, label: tr(o.label) },
-                      ),
-                    },
+                    param,
                     valuesForDriver[param.id] ?? param.default,
                     (v: unknown) => onChange(driver.id, param.id, v),
                   )}

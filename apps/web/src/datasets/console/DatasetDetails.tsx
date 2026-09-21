@@ -332,7 +332,7 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
             <p className="mt-3 text-[11px] leading-relaxed text-ink-3">
               {t(
                 'This manifest-level summary is rendered today. Run a Check on the studio-backend (Actions) to produce the full health report — per-label clip quality, silence/duplicate detection, sample-rate drift, label balance, voice coverage.',
-              ).replace('Run a Check', `${t('Run a')} ${t('Check')}`)}
+              )}
             </p>
           </>
         )}

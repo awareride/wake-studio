@@ -65,7 +65,7 @@
       "class": "redistributable",
       "sha256": "TODO-phase1",
       "sizeBytes": 1807522,
-      "notes": "Gates KWS to reduce compute and false alarms. Local prebuilt (bundled in openWakeWord release). Not loaded in v1 (RNNoise VAD is used, )."
+      "notes": "Gates KWS to reduce compute and false alarms. Local prebuilt (bundled in openWakeWord release). Not loaded in v1 (RNNoise VAD is used)."
     },
     {
       "id": "microwakeword-demo",
