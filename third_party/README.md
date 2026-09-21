@@ -41,7 +41,18 @@ upstream cuts no releases/tags, so the pin is a commit SHA
 (`0ee39f5`, main @ 2026-09-21), and the codeload source tarball is
 sha256-verified by `node scripts/fetch-tflite-micro.mjs` (issue #185, the
 MCU-tier microwakeword driver). The same script fetches the pinned int8 demo
-model (`okay_nabu.tflite`) into the module's `assets/` dir.
+model (`okay_nabu.tflite`) into the module's `assets/` dir, plus the pinned
+flatbuffers headers (`third_party/flatbuffers`, TFLM MODULE.bazel pin
+25.9.23 — the vendored schema parser needs
+`<flatbuffers/flatbuffers.h>`, which upstream resolves via Bazel) and the
+pinned gemmlowp fixedpoint headers (`third_party/gemmlowp`, MODULE.bazel pin
+fda83bdc, tensorflow.org mirror — the reference kernels need
+`<fixedpoint/fixedpoint.h>`), the pinned ruy profiler
+(`third_party/ruy`, MODULE.bazel pin 54774a7a, mirror — the reference
+kernels include `<ruy/profiler/instrumentation.h>`; only that TU is
+compiled), and kissfft (`third_party/kissfft`, MODULE.bazel tag v130 —
+the microfrontend FFT `#include`s `kiss_fft.c`; TFLM's `kissfft.patch`
+is applied).
 
 Import details live in each pristine-import commit message; the policy
 itself is ADR-037 in `DECISIONS.md`.
