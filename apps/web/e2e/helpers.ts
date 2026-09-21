@@ -31,12 +31,17 @@ export async function selectRadixOption(
   const trigger = page.getByRole('combobox', { name: triggerName })
   await expect(trigger).toBeVisible()
   await trigger.click()
-  const option = page.getByRole('option', { name: optionName })
+  // String names match exactly (a substring id like 'openwakeword' must not
+  // also match a longer sibling); regex callers keep substring semantics.
+  const option =
+    typeof optionName === 'string'
+      ? page.getByRole('option', { name: optionName, exact: true })
+      : page.getByRole('option', { name: optionName })
   await expect(option).toBeVisible()
   await option.click()
 }
 
 /** Pick a KWS backend in the KWS panel's backend selector. */
 export async function selectBackend(page: Page, backendId: string): Promise<void> {
-  await selectRadixOption(page, /Backend/, new RegExp(backendId))
+  await selectRadixOption(page, 'Backend', backendId)
 }

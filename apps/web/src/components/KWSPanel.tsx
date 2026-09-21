@@ -37,6 +37,7 @@ import {
   driverParamsFor,
   loadActionLabel,
   modelSourcesForRole,
+  type ModelSourceOption,
 } from '../workspace/kws-config'
 import { ParamRows, type ParamValue } from './UnifiedConfigPanel'
 import { UiMultiselect, UiSelect } from '@wake-studio/module-kit'
@@ -96,6 +97,153 @@ function formatUrlDetail(value: unknown): string {
 // plixkws enrollment constants (mirrors the removed Few-Shot panel).
 const RECORD_MS = 1500
 const MIN_SAMPLES = 3
+
+interface ModelSourceRowProps {
+  role: string
+  label: string
+  fallbackId: string
+  options: ReadonlyArray<ModelSourceOption>
+  /** Effective selection (already defaulted to fallbackId by the caller). */
+  selected: string
+  customUrl: string
+  roleUserModels: UserModel[]
+  selectedModel: UserModel | undefined
+  currentUrl: string
+  disabled: boolean
+  onSelect: (value: string) => void
+  onCustomUrlChange: (url: string) => void
+  onImportFile: (file: File | undefined) => void
+  onDeleteSelected: () => void
+}
+
+/**
+ * One model-source row (one backend role). Owns its file input ref so the
+ * "Import local file…" button always opens THIS role's picker — a shared
+ * ref across roles resolved to the last-mounted input and could import a
+ * file into the wrong role.
+ */
+function ModelSourceRow({
+  role,
+  label,
+  fallbackId,
+  options,
+  selected,
+  customUrl,
+  roleUserModels,
+  selectedModel,
+  currentUrl,
+  disabled,
+  onSelect,
+  onCustomUrlChange,
+  onImportFile,
+  onDeleteSelected,
+}: ModelSourceRowProps) {
+  const t = useT()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const isCustom = selected === 'custom'
+  const isUserModel = selected.startsWith('user:')
+  return (
+    <div className="space-y-1" data-testid={`model-source-${role}`}>
+      <label className="flex items-center gap-2 text-xs">
+        <span className="w-36 shrink-0 text-ink-2">{t(label)}</span>
+        <UiSelect
+          value={selected}
+          onChange={onSelect}
+          disabled={disabled}
+          ariaLabel={t(label)}
+          options={
+            options.length === 0
+              ? [{ value: fallbackId, label: `${t('Built-in')} (${fallbackId})` }]
+              : options.map((o) => ({
+                  value: o.id,
+                  label: t(o.label),
+                  title: o.note ? t(o.note) : undefined,
+                }))
+          }
+          groups={
+            roleUserModels.length > 0
+              ? [
+                  {
+                    label: t('Saved models'),
+                    options: roleUserModels.map((m) => ({
+                      value: `user:${m.id}`,
+                      label: `${m.name} (${m.sizeBytes / 1024 / 1024 > 1
+                        ? (m.sizeBytes / 1024 / 1024).toFixed(1) + ' MB'
+                        : Math.round(m.sizeBytes / 1024) + ' KB'})`,
+                    })),
+                  },
+                ]
+              : undefined
+          }
+        />
+      </label>
+      {isCustom && (
+        <input
+          type="text"
+          value={customUrl}
+          onChange={(e) => onCustomUrlChange(e.target.value)}
+          placeholder="https://… or /modules/…/model.onnx"
+          disabled={disabled}
+          className="w-full rounded bg-surface-3 px-2 py-1 text-xs font-mono text-ink-2"
+        />
+      )}
+      {isUserModel && selectedModel && (
+        <div className="flex items-center gap-2 text-[10px] text-ink-3">
+          <span>
+            Saved: {selectedModel.name} · {Math.round(selectedModel.sizeBytes / 1024)} KB ·{' '}
+            {new Date(selectedModel.createdAtMs).toLocaleDateString()}
+          </span>
+          <Button
+            onClick={() => void exportUserModel(selectedModel)}
+            variant="ghost"
+            size="1"
+            className="text-brand-11 underline hover:text-brand-10"
+          >
+            {t('Export')}
+          </Button>
+          <Button
+            onClick={onDeleteSelected}
+            variant="ghost"
+            color="red"
+            size="1"
+            className="text-danger underline hover:text-red-400"
+          >
+            {t('Delete')}
+          </Button>
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled}
+          variant="soft"
+          size="1"
+          className="text-[10px]"
+        >
+          {t('Import local file…')}
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".onnx,.tflite"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            onImportFile(f)
+            e.target.value = ''
+          }}
+        />
+      </div>
+      <p className="text-[10px] text-ink-3">
+        {isCustom
+          ? t('Custom URL — will be fetched as-is on Load.')
+          : isUserModel
+            ? t('Saved model — loaded from your browser library on Load.')
+            : `${t('URL')}: ${currentUrl || t('not loaded yet')}`}
+      </p>
+    </div>
+  )
+}
 
 interface Props {
   afePipeline: AFEPipeline | null
@@ -235,10 +383,13 @@ export const KWSPanel = memo(function KWSPanel({
   // User model library (IndexedDB): local-file imports and future training
   // artifacts. Listed in the Model-source editor; exportable back to disk.
   const [userModels, setUserModels] = useState<UserModel[]>([])
+  // Whether the library load has settled (success or failure). Stale
+  // user-model selections are only sanitized after this flips, so a valid
+  // persisted selection is never clobbered while the library is loading.
+  const [userModelsLoaded, setUserModelsLoaded] = useState(false)
   // Object URLs for selected user models (role -> blob URL). Created when a
   // saved model is chosen, so the backend can fetch() it.
   const userBlobUrlRef = useRef<Record<string, string>>({})
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // Preload the model registry on mount so the Model-source editor shows the
   // built-in candidates immediately (the registry JSON is local, ADR-011).
@@ -262,10 +413,13 @@ export const KWSPanel = memo(function KWSPanel({
     let cancelled = false
     void listUserModels()
       .then((models) => {
-        if (!cancelled) setUserModels(models)
+        if (cancelled) return
+        setUserModels(models)
+        setUserModelsLoaded(true)
       })
       .catch(() => {
         // IndexedDB unavailable - the editor just shows no saved models.
+        if (!cancelled) setUserModelsLoaded(true)
       })
     return () => {
       cancelled = true
@@ -460,7 +614,31 @@ export const KWSPanel = memo(function KWSPanel({
   // bundles its model into the wasm .data package and only takes a keyword
   // list — it declares NO roles, so the section renders a note instead of the
   // openwakeword pickers (issue #64).
-  const modelRoles = selectedBackend?.modelRoles ?? []
+  const modelRoles = useMemo(
+    () => selectedBackend?.modelRoles ?? [],
+    [selectedBackend],
+  )
+  // Drop persisted user-model selections whose library entry is gone (a
+  // deleted IndexedDB entry, or a selection restored on a browser without
+  // it). The Radix trigger renders blank when its value matches no option,
+  // so fall back to the role's built-in instead. Runs only after the
+  // library load settles — never while it is still loading.
+  useEffect(() => {
+    if (!userModelsLoaded) return
+    const stale = modelRoles.filter(({ role }) => {
+      const sel = modelSources[role]
+      return (
+        sel?.startsWith('user:') === true &&
+        !userModels.some((m) => m.role === role && `user:${m.id}` === sel)
+      )
+    })
+    if (stale.length === 0) return
+    setModelSources((prev) => {
+      const next = { ...prev }
+      for (const { role, fallbackId } of stale) next[role] = fallbackId
+      return next
+    })
+  }, [userModelsLoaded, userModels, modelRoles, modelSources])
   // Backend switching is lightweight: it only updates the selection (and any
   // pending load state), it does NOT auto-load models. Loading a different
   // backend re-initializes the worker + model session, which is slow; the user
@@ -1196,120 +1374,37 @@ export const KWSPanel = memo(function KWSPanel({
                         ?.url ?? ''
                     : ''
                 return (
-                  <div key={role} className="space-y-1" data-testid={`model-source-${role}`}>
-                    <label className="flex items-center gap-2 text-xs">
-                      <span className="w-36 shrink-0 text-ink-2">{t(label)}</span>
-                      <UiSelect
-                        value={selected ?? fallbackId}
-                        onChange={(v) => {
-                          if (v.startsWith('user:')) {
-                            void handleSelectUserModel(role, v.slice(5))
-                          } else {
-                            setModelSources((prev) => ({ ...prev, [role]: v }))
-                          }
-                        }}
-                        disabled={status === 'loading' || running}
-                        ariaLabel={t(label)}
-                        options={
-                          options.length === 0
-                            ? [{ value: fallbackId, label: `${t('Built-in')} (${fallbackId})` }]
-                            : options.map((o) => ({
-                                value: o.id,
-                                label: t(o.label),
-                                title: o.note ? t(o.note) : undefined,
-                              }))
-                        }
-                        groups={
-                          roleUserModels.length > 0
-                            ? [
-                                {
-                                  label: t('Saved models'),
-                                  options: roleUserModels.map((m) => ({
-                                    value: `user:${m.id}`,
-                                    label: `${m.name} (${m.sizeBytes / 1024 / 1024 > 1
-                                      ? (m.sizeBytes / 1024 / 1024).toFixed(1) + ' MB'
-                                      : Math.round(m.sizeBytes / 1024) + ' KB'})`,
-                                  })),
-                                },
-                              ]
-                            : undefined
-                        }
-                      />
-                    </label>
-                    {isCustom && (
-                      <input
-                        type="text"
-                        value={customUrls[role] ?? ''}
-                        onChange={(e) =>
-                          setCustomUrls((prev) => ({
-                            ...prev,
-                            [role]: e.target.value,
-                          }))
-                        }
-                        placeholder="https://… or /modules/…/model.onnx"
-                        disabled={status === 'loading' || running}
-                        className="w-full rounded bg-surface-3 px-2 py-1 text-xs font-mono text-ink-2"
-                      />
-                    )}
-                    {isUserModel && selectedModel && (
-                      <div className="flex items-center gap-2 text-[10px] text-ink-3">
-                        <span>
-                          Saved: {selectedModel.name} · {Math.round(selectedModel.sizeBytes / 1024)} KB ·{' '}
-                          {new Date(selectedModel.createdAtMs).toLocaleDateString()}
-                        </span>
-                        <Button
-                          onClick={() => void exportUserModel(selectedModel)}
-                          variant="ghost"
-                          size="1"
-                          className="text-brand-11 underline hover:text-brand-10"
-                        >
-                          {t('Export')}
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            void deleteUserModel(selectedModel.id)
-                            setUserModels((prev) => prev.filter((m) => m.id !== selectedModel.id))
-                            setModelSources((prev) => ({ ...prev, [role]: fallbackId }))
-                          }}
-                          variant="ghost"
-                          color="red"
-                          size="1"
-                          className="text-danger underline hover:text-red-400"
-                        >
-                          {t('Delete')}
-                        </Button>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <Button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={status === 'loading' || running}
-                        variant="soft"
-                        size="1"
-                        className="text-[10px]"
-                      >
-                        {t('Import local file…')}
-                      </Button>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".onnx,.tflite"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0]
-                          void handleImportModelFile(f, role)
-                          e.target.value = ''
-                        }}
-                      />
-                    </div>
-                    <p className="text-[10px] text-ink-3">
-                      {isCustom
-                        ? t('Custom URL — will be fetched as-is on Load.')
-                        : isUserModel
-                          ? t('Saved model — loaded from your browser library on Load.')
-                          : `${t('URL')}: ${currentUrl || t('not loaded yet')}`}
-                    </p>
-                  </div>
+                  <ModelSourceRow
+                    key={role}
+                    role={role}
+                    label={label}
+                    fallbackId={fallbackId}
+                    options={options}
+                    selected={selected ?? fallbackId}
+                    customUrl={customUrls[role] ?? ''}
+                    roleUserModels={roleUserModels}
+                    selectedModel={selectedModel}
+                    currentUrl={currentUrl}
+                    disabled={status === 'loading' || running}
+                    onSelect={(v) => {
+                      if (v.startsWith('user:')) {
+                        void handleSelectUserModel(role, v.slice(5))
+                      } else {
+                        setModelSources((prev) => ({ ...prev, [role]: v }))
+                      }
+                    }}
+                    onCustomUrlChange={(url) =>
+                      setCustomUrls((prev) => ({ ...prev, [role]: url }))
+                    }
+                    onImportFile={(f) => void handleImportModelFile(f, role)}
+                    onDeleteSelected={() => {
+                      if (!selectedModel) return
+                      const id = selectedModel.id
+                      void deleteUserModel(id)
+                      setUserModels((prev) => prev.filter((m) => m.id !== id))
+                      setModelSources((prev) => ({ ...prev, [role]: fallbackId }))
+                    }}
+                  />
                 )
               })
             )
