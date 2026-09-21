@@ -1,6 +1,7 @@
 /*
  * Composition-root integration test (#182): core + AFE stages (aec/bss/ns)
- * + the RMS reference backend + detection loop, wav-in → trigger asserted.
+ * + the RMS reference backend (+ runtime-gated app-class drivers on the app
+ *   profile, #187) + detection loop, wav-in → trigger asserted.
  * This is the L2-style boot test for the device world (ADR-026).
  */
 #include <cmath>
@@ -37,15 +38,30 @@ TEST_CASE("composition root registers the host module set") {
   REQUIRE(sdk != nullptr);
   wake_sdk_compose(sdk);
 
+#if defined(WAKE_SDK_PROFILE_APP)
+  /* rms + the four runtime-gated app-class drivers (#187 slice A) */
+  CHECK(wake_sdk_backend_count(sdk) == 5);
+  CHECK(wake_sdk_backend_by_id(sdk, "rms") != nullptr);
+  CHECK(wake_sdk_backend_by_id(sdk, "plixkws") != nullptr);
+  CHECK(wake_sdk_backend_by_id(sdk, "openwakeword") != nullptr);
+  CHECK(wake_sdk_backend_by_id(sdk, "kws-streaming") != nullptr);
+  CHECK(wake_sdk_backend_by_id(sdk, "sherpa-onnx-kws") != nullptr);
+#else
+  /* MCU profile stays single-backend (rms) per ADR-040 §4 */
   CHECK(wake_sdk_backend_count(sdk) == 1);
   CHECK(wake_sdk_backend_by_id(sdk, "rms") != nullptr);
+#endif
   CHECK(wake_sdk_stage_count(sdk) == 3);
   CHECK(wake_sdk_stage_by_id(sdk, "aec") != nullptr);
   CHECK(wake_sdk_stage_by_id(sdk, "bss") != nullptr);
   CHECK(wake_sdk_stage_by_id(sdk, "ns") != nullptr);
 
   wake_sdk_capabilities_t c = wake_sdk_capabilities(sdk);
+#if defined(WAKE_SDK_PROFILE_APP)
+  CHECK(c.backend_count == 5);
+#else
   CHECK(c.backend_count == 1);
+#endif
   CHECK(c.sample_rate_hz == 16000);
 
   wake_sdk_destroy(sdk);
