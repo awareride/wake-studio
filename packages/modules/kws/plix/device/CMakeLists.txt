@@ -12,6 +12,14 @@ add_library(wake_kws_plix STATIC src/plix_driver.c)
 target_link_libraries(wake_kws_plix PUBLIC wake_sdk_core)
 
 if(WAKE_SDK_PLIX_HAS_RUNTIME)
+  set(WAKE_SDK_KISSFFT_DIR "${WAKE_REPO_ROOT}/third_party/kissfft"
+      CACHE PATH "kissfft root (fetched; never committed)")
+  if(NOT EXISTS "${WAKE_SDK_KISSFFT_DIR}/kiss_fft.h")
+    message(FATAL_ERROR
+      "kissfft not found at ${WAKE_SDK_KISSFFT_DIR} — run: "
+      "node scripts/fetch-tflite-micro.mjs")
+  endif()
+
   set(WAKE_SDK_ONNXRUNTIME_DIR "${WAKE_REPO_ROOT}/third_party/onnxruntime"
       CACHE PATH "onnxruntime prebuilt root (fetched; never committed)")
   if(APPLE)
@@ -36,6 +44,11 @@ if(WAKE_SDK_PLIX_HAS_RUNTIME)
     PRIVATE WAKE_SDK_PLIX_HAS_RUNTIME=1)
   target_include_directories(wake_kws_plix
     PUBLIC "${_ort_root}/include")
+  # C mel frontend (slice 2a): pure C99 + kissfft, no onnxruntime dep, but
+  # gated on the runtime build so OFF builds stay third_party-free.
+  target_include_directories(wake_kws_plix
+    PRIVATE "${WAKE_SDK_KISSFFT_DIR}")
+  target_sources(wake_kws_plix PRIVATE src/plix_frontend.c)
   target_link_libraries(wake_kws_plix
     PUBLIC "${_ort_root}/lib/${_ort_lib}")
   # Consumers (test binaries, bundles) must find the runtime at load time.
