@@ -73,19 +73,19 @@
     },
     {
       "id": "microwakeword-demo",
-      "name": "microWakeWord demo model (e.g. 'okay_nabu')",
+      "name": "microWakeWord demo model ('okay_nabu')",
       "tier": [
         "low-power"
       ],
       "source": "esphome/micro-wake-word-models",
-      "url": "TODO-phase2",
+      "url": "/modules/kws/microwakeword/assets/okay_nabu.tflite",
       "format": "tflite",
       "license": "Apache-2.0",
       "commercial": true,
       "class": "redistributable",
-      "sha256": "TODO-phase2",
-      "sizeBytes": null,
-      "notes": "Used as a browser-demo MCU model until Phase 5 trains a WakeStudio-owned word."
+      "sha256": "f9af22ab15bf72a23157ac6d47593d48636ea6fbf65af57dc2ff7e65ad6769fe",
+      "sizeBytes": 115400,
+      "notes": "Fetched direct-URL at pinned ref 05b6592 (main @ 2026-09-21) via node scripts/fetch-tflite-micro.mjs (issue #185). L1 real-inference model + default MCU bundle model."
     },
     {
       "id": "openwakeword-alexa",

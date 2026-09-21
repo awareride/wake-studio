@@ -36,6 +36,13 @@ on the record instead of pointing at a moving (or frozen) remote.
 with `node scripts/fetch-onnxruntime.mjs` / `node scripts/fetch-sherpa-onnx.mjs`;
 the pins + sha256s live in those scripts and `LICENSES.md`.
 
+`tflite-micro/` holds **fetched source** (gitignored), not a prebuilt:
+upstream cuts no releases/tags, so the pin is a commit SHA
+(`0ee39f5`, main @ 2026-09-21), and the codeload source tarball is
+sha256-verified by `node scripts/fetch-tflite-micro.mjs` (issue #185, the
+MCU-tier microwakeword driver). The same script fetches the pinned int8 demo
+model (`okay_nabu.tflite`) into the module's `assets/` dir.
+
 Import details live in each pristine-import commit message; the policy
 itself is ADR-037 in `DECISIONS.md`.
 

@@ -73,6 +73,9 @@ third_party/onnxruntime/osx-universal2/
 third_party/sherpa-onnx/linux-x64/
 third_party/sherpa-onnx/osx-arm64/
 third_party/sherpa-onnx/linux-aarch64/
+# Fetched TFLite-Micro source (ADR-031 pin, issue #185): downloaded by
+# scripts/fetch-tflite-micro.mjs, never committed (ADR-027 spirit).
+third_party/tflite-micro/
 
 # studio-backend runtime state (ADR-036): SQLite store + artifacts
 apps/studio-backend/.venv/

@@ -16,18 +16,15 @@ capabilities; `load()` returns a clear "runtime not linked" error and
 
 ## Next step (follow-up, not this commit)
 
-Integrate the pinned TFLite-Micro runtime:
+Integrate the pinned TFLite-Micro runtime (the fetch landed in slice 1,
+issue #185 — `node scripts/fetch-tflite-micro.mjs` drops the pinned source
+tree at `third_party/tflite-micro` and `okay_nabu.tflite` into `../assets/`):
 
-1. Vendor `tensorflow/tflite-micro` (pinned commit) into
-   `third_party/tflite-micro` (ADR-037 pristine-import pattern) with the
-   upstream build flags (armcc/armclang or the TFLM cmake options).
-2. Wire the interpreter under `WAKE_SDK_MICROWAKEWORD_HAS_RUNTIME`: load
+1. Wire the interpreter under `WAKE_SDK_MICROWAKEWORD_HAS_RUNTIME`: load
    `<model_dir>/microwakeword.tflite`, run one inference per 10 ms frame,
    map the streaming output to the `[0,1]` posterior.
-3. Asset recipe (ADR-027): int8 tflite fetched via `scripts/fetch-artifact.mjs`
+2. Asset recipe (ADR-027): int8 tflite fetched via `scripts/fetch-artifact.mjs`
    (issue #185 acceptance).
-4. L1 test: tiny int8 model → finite posterior (native build).
+3. L1 test: tiny int8 model → finite posterior (native build).
 
-Why not in this commit: TFLite-Micro is a large pinned dependency with its
-own build system; the architecture milestone (core + harness + profiles +
-bindings) is validated first, per ADR-040 §6 sequencing.
+Slice 1 (fetch + pins) is done; the interpreter integration above is slice 2.
