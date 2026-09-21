@@ -152,18 +152,7 @@ export function UiSelect({ value, options, groups, onChange, disabled, placehold
         <SelectPrimitive.Content className={SELECT_CLS.content} position="popper" sideOffset={4}>
           <SelectPrimitive.Viewport>
             {options.map((opt) => (
-              <SelectPrimitive.Item
-                key={opt.value}
-                value={opt.value}
-                disabled={opt.disabled}
-                title={opt.title}
-                className={SELECT_CLS.item}
-              >
-                <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
-                <SelectPrimitive.ItemIndicator className="ml-2 inline-flex text-brand-11">
-                  <Check className="h-3.5 w-3.5" />
-                </SelectPrimitive.ItemIndicator>
-              </SelectPrimitive.Item>
+              <UiSelectItem key={opt.value} option={opt} />
             ))}
             {(groups ?? []).map((group) => (
               <SelectPrimitive.Group key={group.label}>
@@ -171,18 +160,7 @@ export function UiSelect({ value, options, groups, onChange, disabled, placehold
                   {group.label}
                 </SelectPrimitive.Label>
                 {group.options.map((opt) => (
-                  <SelectPrimitive.Item
-                    key={opt.value}
-                    value={opt.value}
-                    disabled={opt.disabled}
-                    title={opt.title}
-                    className={SELECT_CLS.item}
-                  >
-                    <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
-                    <SelectPrimitive.ItemIndicator className="ml-2 inline-flex text-brand-11">
-                      <Check className="h-3.5 w-3.5" />
-                    </SelectPrimitive.ItemIndicator>
-                  </SelectPrimitive.Item>
+                  <UiSelectItem key={opt.value} option={opt} />
                 ))}
               </SelectPrimitive.Group>
             ))}
@@ -190,6 +168,23 @@ export function UiSelect({ value, options, groups, onChange, disabled, placehold
         </SelectPrimitive.Content>
       </SelectPrimitive.Portal>
     </SelectPrimitive.Root>
+  )
+}
+
+/** One dropdown entry (shared by top-level options and grouped options). */
+function UiSelectItem({ option }: { option: UiSelectOption }) {
+  return (
+    <SelectPrimitive.Item
+      value={option.value}
+      disabled={option.disabled}
+      title={option.title}
+      className={SELECT_CLS.item}
+    >
+      <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
+      <SelectPrimitive.ItemIndicator className="ml-2 inline-flex text-brand-11">
+        <Check className="h-3.5 w-3.5" />
+      </SelectPrimitive.ItemIndicator>
+    </SelectPrimitive.Item>
   )
 }
 
