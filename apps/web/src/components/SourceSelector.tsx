@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { MicSourceConfig } from '@wake-studio/module-afe-graph'
 import { Button, Card, Checkbox } from '@radix-ui/themes'
+import { UiSelect } from '@wake-studio/module-kit'
 import {
   enumerateMicDevices,
   hasDeviceLabels,
@@ -95,19 +96,22 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
     <Card className="flex flex-wrap items-center gap-x-5 gap-y-3 !p-4">
       <label className="flex items-center gap-2 text-sm">
         <span className="text-ink-2">{t('Input device')}</span>
-        <select
+        <UiSelect
           value={value.deviceId ?? ''}
           disabled={disabled || devices.length === 0}
-          onChange={(e) => onChange({ ...value, deviceId: e.target.value || undefined })}
-          className="max-w-72 truncate rounded bg-surface-3 px-2.5 py-1 text-sm text-ink-1"
-        >
-          {devices.length === 0 && <option value="">{t('Default device')}</option>}
-          {devices.map((d) => (
-            <option key={d.deviceId} value={d.deviceId}>
-              {d.label || `Microphone (${d.deviceId.slice(0, 8)}…)`}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => onChange({ ...value, deviceId: v || undefined })}
+          ariaLabel={t('Input device')}
+          placeholder={t('Default device')}
+          className="max-w-72"
+          options={
+            devices.length === 0
+              ? [{ value: '', label: t('Default device') }]
+              : devices.map((d) => ({
+                  value: d.deviceId,
+                  label: d.label || `Microphone (${d.deviceId.slice(0, 8)}…)`,
+                }))
+          }
+        />
       </label>
 
       {devices.length > 0 && !permissionGranted && (
@@ -151,17 +155,18 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
         />
         <label className="flex items-center gap-2 text-xs">
           <span className="text-ink-2">{t('Channels')}</span>
-          <select
-            value={value.channelCount ?? 1}
+          <UiSelect
+            value={String(value.channelCount ?? 1)}
             disabled={disabled}
-            onChange={(e) =>
-              onChange({ ...value, channelCount: Number(e.target.value) as 1 | 2 })
+            onChange={(v) =>
+              onChange({ ...value, channelCount: Number(v) as 1 | 2 })
             }
-            className="rounded bg-surface-3 px-1.5 py-0.5 text-xs text-ink-1"
-          >
-            <option value={1}>{t('Mono')}</option>
-            <option value={2}>{t('Stereo')}</option>
-          </select>
+            ariaLabel={t('Channels')}
+            options={[
+              { value: '1', label: t('Mono') },
+              { value: '2', label: t('Stereo') },
+            ]}
+          />
         </label>
       </div>
 

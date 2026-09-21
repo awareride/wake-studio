@@ -22,6 +22,7 @@ export type {
   UiNumberProps,
   UiSelectProps,
   UiSelectOption,
+  UiSelectGroup,
   UiToggleProps,
   UiButtonProps,
   UiButtonVariant,

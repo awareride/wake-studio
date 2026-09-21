@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { enableKws } from './helpers'
+import { enableKws, selectRadixOption } from './helpers'
 
 /**
  * Model-source editor - L3 browser test (issue: model selection).
@@ -23,17 +23,22 @@ test('Model source editor renders registry candidates and custom URL input', asy
   await expect(melSelect).toBeVisible()
 
   // The built-in registry candidates are available (registry is local JSON).
-  await expect(melSelect.locator('option[value="melspectrogram"]')).toHaveCount(1)
+  // Radix renders options in a portal on open (role "option").
+  await melSelect.click()
+  await expect(page.getByRole('option', { name: /melspectrogram/ })).toBeVisible()
+  await page.keyboard.press('Escape')
   const classifierSelect = page.getByRole('combobox', {
     name: /Wake-word classifier/,
   })
   await expect(classifierSelect).toBeVisible()
   // hey-buddy is the default classifier; the openwakeword demo classifiers
   // are also candidates if they were registered.
-  await expect(classifierSelect.locator('option[value="hey-buddy"]')).toHaveCount(1)
+  await classifierSelect.click()
+  await expect(page.getByRole('option', { name: /hey-buddy/ })).toBeVisible()
+  await page.keyboard.press('Escape')
 
   // Choosing "Custom URL…" reveals the URL input.
-  await melSelect.selectOption('custom')
+  await selectRadixOption(page, /Mel front-end/, /Custom URL/)
   const urlInput = page.getByPlaceholder(/https:\/\/… or \/modules\/…/)
   await expect(urlInput).toBeVisible()
 
@@ -59,16 +64,18 @@ test('local file import stores a saved model and it appears in the editor', asyn
   // The demo classifiers vendored in the module assets are now registry
   // entries too (issue: classifier must list all pretrained models in
   // packages/modules/kws/openwakeword/assets).
+  await classifierSelect.click()
   await expect(
-    classifierSelect.locator('option[value="openwakeword-alexa"]'),
-  ).toHaveCount(1)
+    page.getByRole('option', { name: /openwakeword-alexa/ }),
+  ).toBeVisible()
   await expect(
-    classifierSelect.locator('option[value="openwakeword-hey-jarvis"]'),
-  ).toHaveCount(1)
+    page.getByRole('option', { name: /openwakeword-hey-jarvis/ }),
+  ).toBeVisible()
+  await page.keyboard.press('Escape')
 
   // Import a local .onnx file via the hidden file input. The browser allows
   // setInputFiles on a hidden input.
-  const fileInput = classifierSelect.locator('xpath=ancestor::div[contains(@class,"space-y-1")]//input[@type="file"]')
+  const fileInput = page.locator('[data-testid="model-source-classifier"] input[type="file"]')
   await fileInput.setInputFiles({
     name: 'my-wakeword.onnx',
     mimeType: 'application/octet-stream',
@@ -76,8 +83,10 @@ test('local file import stores a saved model and it appears in the editor', asyn
   })
 
   // The freshly imported model is auto-selected and shows in "Saved models".
-  await expect(
-    classifierSelect.locator('option', { hasText: 'my-wakeword.onnx' }),
-  ).toHaveCount(1)
   await expect(page.getByText(/Saved: my-wakeword\.onnx/)).toBeVisible()
+  await classifierSelect.click()
+  await expect(
+    page.getByRole('option', { name: /my-wakeword\.onnx/ }),
+  ).toBeVisible()
+  await page.keyboard.press('Escape')
 })

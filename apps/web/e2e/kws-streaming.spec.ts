@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { enableKws } from './helpers'
+import { enableKws, selectBackend } from './helpers'
 
 // The exported ONNX graphs are gitignored (ADR-011) and fetched in CI; skip
 // rather than fail the suite when they are absent.
@@ -54,11 +54,8 @@ test('kws-streaming backend loads a pretrained Keyword Transformer model', async
   await page.goto('/')
   await enableKws(page)
 
-  const backendSelect = page.locator('select').filter({
-    has: page.locator('option[value="kws-streaming"]'),
-  })
-  await expect(backendSelect).toBeVisible()
-  await backendSelect.selectOption('kws-streaming')
+  await expect(page.getByRole('combobox', { name: /Backend/ })).toBeVisible()
+  await selectBackend(page, 'kws-streaming')
 
   const loadButton = page.getByRole('button', { name: /Load models/i })
   await expect(loadButton).toBeVisible()
@@ -96,10 +93,7 @@ test('driver param dropdowns render non-empty labels', async ({ page }) => {
 
   await page.goto('/')
   await enableKws(page)
-  await page
-    .locator('select')
-    .filter({ has: page.locator('option[value="kws-streaming"]') })
-    .selectOption('kws-streaming')
+  await selectBackend(page, 'kws-streaming')
 
   // The wake-word row comes from the driver spec (options: ["yes", "no", ...]).
   await expect(page.getByText('Wake word (label)')).toBeVisible()

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { enableKws } from './helpers'
+import { enableKws, selectBackend } from './helpers'
 
 // The openwakeword onnx assets are gitignored (ADR-011) and copied into the
 // module assets dir by hand from the upstream release; in CI they are absent
@@ -53,11 +53,8 @@ test('openwakeword backend loads in the browser (worker registration works)', as
   await enableKws(page)
 
   // The default backend is openwakeword; make sure the select shows it.
-  const backendSelect = page.locator('select').filter({
-    has: page.locator('option[value="openwakeword"]'),
-  })
-  await expect(backendSelect).toBeVisible()
-  await backendSelect.selectOption('openwakeword')
+  await expect(page.getByRole('combobox', { name: /Backend/ })).toBeVisible()
+  await selectBackend(page, 'openwakeword')
 
   const loadButton = page.getByRole('button', { name: /Load models/i })
   await expect(loadButton).toBeVisible()
@@ -83,10 +80,7 @@ test('reload after stop re-boots the backend (worker recreate)', async ({ page }
 
   await enableKws(page)
 
-  const backendSelect = page.locator('select').filter({
-    has: page.locator('option[value="openwakeword"]'),
-  })
-  await backendSelect.selectOption('openwakeword')
+  await selectBackend(page, 'openwakeword')
 
   // First load -> ready.
   await page.getByRole('button', { name: /Load models/i }).click()
