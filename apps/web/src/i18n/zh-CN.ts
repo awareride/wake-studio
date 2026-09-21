@@ -6,6 +6,9 @@
  * - Technical identifiers (backend ids like `openwakeword`, protocol names,
  *   file formats, units) stay in English inside the translated text.
  * - Missing keys fall back to English (partial coverage is safe).
+ * - Count/name fragments (e.g. `clips: '个片段'`, `total: '共'`) are designed
+ *   for template-literal concatenation (`${n} ${t('clips')}` renders "5 个片段").
+ *   Keep fragment entries as pure affixes with no unbalanced punctuation.
  */
 
 export const ZH_CN: Record<string, string> = {
@@ -740,7 +743,7 @@ export const ZH_CN: Record<string, string> = {
   'Endpoint URL': '端点 URL',
   'Must start with http(s)://': '必须以 http(s):// 开头',
   'leave empty for read-only (health/jobs/logs are open)': '留空则为只读（health/jobs/logs 开放）',
-  The: '“',
+  The: '',
   kind: '类型',
   "is detected automatically from the service's": '由服务的',
   'the Colab launcher reports': 'Colab 启动器会报告',
@@ -758,7 +761,7 @@ export const ZH_CN: Record<string, string> = {
   token: '令牌',
   'and paste them into': '并粘贴到',
   'the kind (short-term) is detected automatically. The runtime is ephemeral: after a reconnect, re-run the last cell for a fresh URL (jobs checkpoint/resume across drops).': '——类型（短期）会自动识别。运行时是临时的：重连后重新运行最后一个单元格即可获得新的 URL（任务在断连之间会 checkpoint/恢复）。',
-  'Jobs on': '任务（',
+  'Jobs on': '任务 —',
   Refresh: '刷新',
   'Loading jobs…': '正在加载任务……',
   'No jobs on this backend yet — start one from the Training view.': '该后端上还没有任务——请从训练视图启动一个。',

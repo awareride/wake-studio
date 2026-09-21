@@ -26,11 +26,12 @@ import type { Env, R2Object, R2Range } from './r2-types'
 export const ASSET_CACHE_CONTROL = 'public, max-age=0, must-revalidate'
 
 /**
- * Fallback extension -> MIME map for objects uploaded without HTTP metadata.
- * Keep in sync with the map in `scripts/publish-r2.mjs` (which always sets the
- * content type on upload; this is the defensive fallback).
+ * Extension -> MIME map for objects uploaded without HTTP metadata.
+ * Exported for the publish/serve sync test. Keep in sync with the map in
+ * `scripts/publish-r2.mjs` (which always sets the content type on upload;
+ * this is the defensive fallback).
  */
-const CONTENT_TYPES: Readonly<Record<string, string>> = {
+export const CONTENT_TYPES: Readonly<Record<string, string>> = {
   '.onnx': 'application/octet-stream',
   '.data': 'application/octet-stream',
   '.tflite': 'application/octet-stream',
@@ -91,6 +92,7 @@ function objectHeaders(object: R2Object, contentLength?: number): Headers {
 
 /** Resolve R2's returned range union to an absolute `{ start, length }`. */
 function resolveRange(range: R2Range, size: number): { start: number; length: number } {
+  if (size === 0) return { start: 0, length: 0 }
   if ('suffix' in range) {
     const length = Math.min(range.suffix, size)
     return { start: size - length, length }
@@ -129,9 +131,19 @@ export async function serveAsset(
   if (key === null) return notFound()
 
   // HEAD: metadata only (registry probes use HEAD for size/availability).
+  // The R2 `head()` binding takes no conditional options, so evaluate
+  // `If-None-Match` here against the object's ETag (GET relies on R2's
+  // native `onlyIf` passthrough instead).
   if (request.method === 'HEAD') {
     const head = await env.RUNTIME_ASSETS.head(key)
     if (head === null) return notFound()
+    const ifNoneMatch = request.headers.get('if-none-match')
+    if (ifNoneMatch && ifNoneMatch.split(',').map((s) => s.trim()).includes(head.httpEtag)) {
+      return new Response(null, {
+        status: 304,
+        headers: objectHeaders(head),
+      })
+    }
     return new Response(null, {
       status: 200,
       headers: objectHeaders(head, head.size),
@@ -155,7 +167,10 @@ export async function serveAsset(
   if (object.range) {
     const { start, length } = resolveRange(object.range, object.size)
     contentLength = length
-    contentRange = `bytes ${start}-${start + length - 1}/${object.size}`
+    // Skip content-range for empty slices (avoids `bytes 0--1/0`).
+    if (length > 0) {
+      contentRange = `bytes ${start}-${start + length - 1}/${object.size}`
+    }
   }
   const headers = objectHeaders(object, contentLength)
   if (contentRange) headers.set('content-range', contentRange)
