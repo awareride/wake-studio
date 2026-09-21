@@ -1,0 +1,327 @@
+/*
+ * L1 tests for the plix driver contract (issue #188).
+ *
+ * Without WAKE_SDK_PLIX_HAS_RUNTIME the driver must still create and
+ * register, load() must fail loudly (runtime not linked), and
+ * process_frame() must stay in warmup (-1) — never crash, never fabricate
+ * a score.
+ *
+ * With the runtime + a model dir (WAKE_PLIX_MODEL_DIR, set by CI): load()
+ * opens the encoder session by file path (external .data resolves), the
+ * [1,1,64,100] contract is verified, and frames stay in warmup until the
+ * slice-2 frontend lands.
+ */
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <string>
+#include "doctest/doctest.h"
+#include "wake/kws_backend.h"
+
+extern "C" const wake_kws_backend_ops_t wake_kws_plix_ops;
+
+#if defined(WAKE_SDK_PLIX_HAS_RUNTIME) && !defined(_WIN32)
+#include <unistd.h>
+#endif
+
+#if defined(WAKE_SDK_PLIX_HAS_RUNTIME) && !defined(_WIN32)
+/* Stage a hermetic test bundle (model files + constant-unit prototype)
+ * into a fresh tmpdir so the shared staged assets stay pristine. */
+static int plix_stage_bundle(const char *src_dir, char *dir, size_t cap) {
+  char template_path[256];
+  static const char *files[] = {
+      "plixkws-small.onnx",
+      "plixkws-small.onnx.data",
+      NULL,
+  };
+  size_t i;
+  snprintf(template_path, sizeof(template_path), "/tmp/plix-l1-XXXXXX");
+  if (mkdtemp(template_path) == NULL) {
+    return 0;
+  }
+  snprintf(dir, cap, "%s", template_path);
+  for (i = 0; files[i] != NULL; i++) {
+    char src_path[1024], dst_path[1024], buf[65536];
+    size_t n;
+    FILE *src = NULL, *dst = NULL;
+    snprintf(src_path, sizeof(src_path), "%s/%s", src_dir, files[i]);
+    snprintf(dst_path, sizeof(dst_path), "%s/%s", dir, files[i]);
+    src = fopen(src_path, "rb");
+    if (src == NULL) {
+      return 0;
+    }
+    dst = fopen(dst_path, "wb");
+    if (dst == NULL) {
+      fclose(src);
+      return 0;
+    }
+    while ((n = fread(buf, 1, sizeof(buf), src)) > 0) {
+      if (fwrite(buf, 1, n, dst) != n) {
+        fclose(src);
+        fclose(dst);
+        return 0;
+      }
+    }
+    fclose(src);
+    fclose(dst);
+  }
+  /* Constant unit-norm prototype (1/sqrt(1280)): exercises the full load
+   * + score path deterministically without enrolled speech. */
+  {
+    char dst_path[1024];
+    FILE *dst = NULL;
+    snprintf(dst_path, sizeof(dst_path), "%s/plix_prototype.json", dir);
+    dst = fopen(dst_path, "w");
+    if (dst == NULL) {
+      return 0;
+    }
+    fputs("{\"vector\": [", dst);
+    for (i = 0; i < 1280; i++) {
+      fprintf(dst, "%s0.0279508497", i > 0 ? ", " : "");
+    }
+    fputs("]}", dst);
+    fclose(dst);
+  }
+  return 1;
+}
+#endif
+
+TEST_CASE("plix driver: creates, registers, warmup contract") {
+  wake_kws_config_t cfg = WAKE_KWS_CONFIG_DEFAULT;
+  const wake_kws_backend_ops_t *ops = &wake_kws_plix_ops;
+  CHECK(std::string(ops->id) == "plixkws");
+
+  void *impl = ops->create(&cfg);
+  REQUIRE(impl != nullptr);
+
+#if !defined(WAKE_SDK_PLIX_HAS_RUNTIME)
+  /* no runtime in this build (default) -> load must fail loudly */
+  wake_model_bundle_t models;
+  models.model_dir = "/nonexistent";
+  CHECK(ops->load(impl, &models, &cfg) != 0);
+#endif
+
+#if defined(WAKE_SDK_PLIX_HAS_RUNTIME)
+  const char *dir = std::getenv("WAKE_PLIX_MODEL_DIR");
+#if defined(WAKE_PLIX_MODEL_DIR)
+  if (dir == nullptr || *dir == '\0') {
+    dir = WAKE_PLIX_MODEL_DIR;
+  }
+#endif
+  if (dir == nullptr || *dir == '\0') {
+    MESSAGE("WAKE_PLIX_MODEL_DIR unset - skipping load assertions (CI "
+            "stages plixkws-small.onnx + .data)");
+    ops->destroy(impl);
+    return;
+  }
+  /* Stage a hermetic bundle (model files + constant-unit prototype) so the
+   * shared staged assets stay pristine. */
+  char bundle[256];
+  if (!plix_stage_bundle(dir, bundle, sizeof(bundle))) {
+    MESSAGE("bundle staging failed - skipping load assertions");
+    ops->destroy(impl);
+    return;
+  }
+  wake_model_bundle_t models;
+  models.model_dir = bundle;
+  REQUIRE(ops->load(impl, &models, &cfg) == 0);
+
+  /* 3 s of 440 Hz sine: warmup (window fill) yields -1, then every hop
+   * produces a finite [0,1] posterior against the constant prototype. */
+  {
+    int16_t frame[160];
+    double phase = 0.0;
+    int saw_score = 0;
+    for (size_t t = 0; t < 48000 / 160; ++t) {
+      for (size_t i = 0; i < 160; i++) {
+        phase += 1.0 / 16000.0;
+        frame[i] =
+            (int16_t)(0.3 * 32767.0 * sin(2.0 * 3.141592653589793 * 440.0 * phase));
+      }
+      const float s = ops->process_frame(impl, frame, 160);
+      if (s >= 0.0f) {
+        saw_score = 1;
+        CHECK(std::isfinite(s));
+        CHECK(s >= 0.0f);
+        CHECK(s <= 1.0f);
+      }
+    }
+    CHECK(saw_score == 1);
+  }
+
+  /* Silence gates to exactly 0 (no encoder run, no false trigger). */
+  {
+    int16_t quiet[160] = {0};
+    int saw_zero = 0;
+    for (size_t t = 0; t < 16000 / 160; ++t) {
+      const float s = ops->process_frame(impl, quiet, 160);
+      if (s >= 0.0f) {
+        CHECK(s == 0.0f);
+        saw_zero = 1;
+      }
+    }
+    CHECK(saw_zero == 1);
+  }
+
+  /* Reset returns to warmup; the session stays loaded. */
+  ops->reset(impl);
+  {
+    int16_t frame[160] = {0};
+    CHECK(ops->process_frame(impl, frame, 160) == -1.0f);
+  }
+
+  ops->destroy(impl);
+  return;
+#endif
+
+  /* warmup: -1 with no runtime — never a fabricated score */
+  int16_t frame[160] = {0};
+  CHECK(ops->process_frame(impl, frame, 160) == -1.0f);
+
+  ops->reset(impl);
+  ops->destroy(impl);
+}
+
+/* L1 mel parity fixtures (issue #188, slice 2a).
+ * Generated from the repo dsp package itself (conformance-locked):
+ *   sine440/twoTone 17000-sample clips -> melSpectrogram() with PLIX
+ *   params (win400/hop160/fft1024/64mel/60-7800Hz, raw magnitude).
+ * Frames {0,50,103} x 64 bins. Tolerance 1e-3 abs (measured worst
+ * C-vs-TS diff 1.6e-5: float kissfft vs double fft.js noise floor). */
+static const float kExp_sine440_0[64] = {
+    0.03156357259, 0.04712926224, 0.05855517462, 0.08300271630, 0.09896302968, 0.2403436601, 0.3722510636, 1.261451125,
+    3.933478117, 54.44351196, 132.1945953, 66.12207794, 5.439581394, 0.9177244902, 0.3385174274, 0.1614712328,
+    0.09623154253, 0.06482687593, 0.03747705743, 0.02828229964, 0.01827316731, 0.01287198719, 0.008937859908, 0.008013953455,
+    0.005892330781, 0.004129246809, 0.003581728088, 0.003051035572, 0.002396030119, 0.001786212204, 0.001422443078, 0.001162757515,
+    0.001080356305, 0.0008594773244, 0.0006783271092, 0.0006166859530, 0.0004880092456, 0.0004247843171, 0.0003770075855, 0.0003006989136,
+    0.0002523669391, 0.0002208186925, 0.0001917974150, 0.0001620818221, 0.0001392165868, 0.0001251119684, 0.0001072326486, 0.00009547791706,
+    0.00007830841059, 0.00006977951853, 0.00005993675222, 0.00005309427070, 0.00004671754868, 0.00004097725832, 0.00003700839443, 0.00003223810927,
+    0.00003026697232, 0.00002634704651, 0.00002393461364, 0.00002247108569, 0.00001957992572, 0.00001856814197, 0.00001845908082, 0.00001949893158,
+};
+static const float kExp_sine440_50[64] = {
+    0.03156357259, 0.04712926224, 0.05855517462, 0.08300271630, 0.09896302968, 0.2403436601, 0.3722510636, 1.261451125,
+    3.933478117, 54.44351196, 132.1945953, 66.12207794, 5.439581394, 0.9177244902, 0.3385174274, 0.1614712328,
+    0.09623154253, 0.06482687593, 0.03747705743, 0.02828229964, 0.01827316731, 0.01287198719, 0.008937859908, 0.008013953455,
+    0.005892330781, 0.004129246809, 0.003581728088, 0.003051035572, 0.002396030119, 0.001786212204, 0.001422443078, 0.001162757515,
+    0.001080356305, 0.0008594773244, 0.0006783271092, 0.0006166859530, 0.0004880092456, 0.0004247843171, 0.0003770075855, 0.0003006989136,
+    0.0002523669391, 0.0002208186925, 0.0001917974150, 0.0001620818221, 0.0001392165868, 0.0001251119684, 0.0001072326486, 0.00009547791706,
+    0.00007830841059, 0.00006977951853, 0.00005993675222, 0.00005309427070, 0.00004671754868, 0.00004097725832, 0.00003700839443, 0.00003223810927,
+    0.00003026697232, 0.00002634704651, 0.00002393461364, 0.00002247108569, 0.00001957992572, 0.00001856814197, 0.00001845908082, 0.00001949893158,
+};
+static const float kExp_sine440_103[64] = {
+    0.01775243320, 0.03193214163, 0.04606396705, 0.07222212106, 0.09098108858, 0.2303343266, 0.3650395870, 1.253961563,
+    3.928467274, 54.44168091, 132.1954041, 66.12258148, 5.443572044, 0.9211241007, 0.3414019346, 0.1640663147,
+    0.09865954518, 0.06723937392, 0.03949481249, 0.03031120077, 0.01998392120, 0.01440084912, 0.01022661012, 0.009404373355,
+    0.007111332379, 0.005132231861, 0.004580621608, 0.004036727361, 0.003277891316, 0.002534144558, 0.002087409608, 0.001767593436,
+    0.001701074420, 0.001404678682, 0.001153049292, 0.001087152748, 0.0008948195027, 0.0008089087787, 0.0007451290730, 0.0006192487781,
+    0.0005408913130, 0.0004892926663, 0.0004399460158, 0.0003882579913, 0.0003472437966, 0.0003220265498, 0.0002861631219, 0.0002641103056,
+    0.0002236213040, 0.0002045441506, 0.0001863088983, 0.0001691966172, 0.0001504575775, 0.0001339504961, 0.0001203031934, 0.0001065284523,
+    0.00009379220865, 0.00008177568816, 0.00007006029045, 0.00006156122254, 0.00005119472917, 0.00004033018922, 0.00003132389247, 0.00002083785694,
+};
+static const float kExp_twoTone_0[64] = {
+    0.02728416212, 0.04039985687, 0.04963529110, 0.06950263679, 0.08202949166, 0.1970004886, 0.3023222089, 1.015879512,
+    3.152910948, 43.55677414, 105.7559128, 52.89213943, 4.322470188, 0.6887003779, 0.1977984011, 0.05602920428,
+    0.3339053392, 2.083420992, 43.33105850, 93.21810913, 19.16840363, 0.8854230642, 0.2289824039, 0.1143611595,
+    0.05560540035, 0.02914116345, 0.02065739781, 0.01473213639, 0.01009055693, 0.006730644964, 0.004939606879, 0.003762780223,
+    0.003298365278, 0.002493665554, 0.001883178367, 0.001651722123, 0.001266264706, 0.001070581260, 0.0009271080489, 0.0007239662227,
+    0.0005971508799, 0.0005129088531, 0.0004374109849, 0.0003676068736, 0.0003134292492, 0.0002776247566, 0.0002343835658, 0.0002083398285,
+    0.0001697826228, 0.0001488696435, 0.0001303495374, 0.0001142310794, 0.00009877794946, 0.00008660802996, 0.00007672052743, 0.00006745497376,
+    0.00006029565702, 0.00005283959035, 0.00004749179061, 0.00004444931619, 0.00004072191950, 0.00003842186197, 0.00003702384492, 0.00003534997813,
+};
+static const float kExp_twoTone_50[64] = {
+    0.02728416212, 0.04039985687, 0.04963529110, 0.06950263679, 0.08202949166, 0.1970004886, 0.3023222089, 1.015879512,
+    3.152910948, 43.55677414, 105.7559128, 52.89213943, 4.322470188, 0.6887003779, 0.1977984011, 0.05602920428,
+    0.3339053392, 2.083420992, 43.33105850, 93.21810913, 19.16840363, 0.8854230642, 0.2289824039, 0.1143611595,
+    0.05560540035, 0.02914116345, 0.02065739781, 0.01473213639, 0.01009055693, 0.006730644964, 0.004939606879, 0.003762780223,
+    0.003298365278, 0.002493665554, 0.001883178367, 0.001651722123, 0.001266264706, 0.001070581260, 0.0009271080489, 0.0007239662227,
+    0.0005971508799, 0.0005129088531, 0.0004374109849, 0.0003676068736, 0.0003134292492, 0.0002776247566, 0.0002343835658, 0.0002083398285,
+    0.0001697826228, 0.0001488696435, 0.0001303495374, 0.0001142310794, 0.00009877794946, 0.00008660802996, 0.00007672052743, 0.00006745497376,
+    0.00006029565702, 0.00005283959035, 0.00004749179061, 0.00004444931619, 0.00004072191950, 0.00003842186197, 0.00003702384492, 0.00003534997813,
+};
+static const float kExp_twoTone_103[64] = {
+    0.01362784207, 0.02513457462, 0.03671472147, 0.05787045881, 0.07301662862, 0.1848851889, 0.2927982509, 1.004552007,
+    3.144179344, 43.55377197, 105.7564697, 52.89643097, 4.346489429, 0.7250285149, 0.2632309496, 0.1734664142,
+    0.3973758221, 2.119305134, 43.33908463, 93.21833038, 19.16150665, 0.8793079257, 0.2249604464, 0.1110113338,
+    0.05337121710, 0.02775369585, 0.01961143874, 0.01400391571, 0.009653562680, 0.006513738073, 0.004849292804, 0.003762141103,
+    0.003368521808, 0.002608832205, 0.002026227769, 0.001826509251, 0.001442943118, 0.001260238816, 0.001126983436, 0.0009113060660,
+    0.0007776140119, 0.0006912551471, 0.0006101379404, 0.0005297903554, 0.0004673596413, 0.0004270978970, 0.0003744752030, 0.0003439246211,
+    0.0002891151235, 0.0002626575006, 0.0002342232474, 0.0002109508350, 0.0001879360061, 0.0001658391266, 0.0001484815730, 0.0001315062400,
+    0.0001164052373, 0.0001013202709, 0.00008726676606, 0.00007552329043, 0.00006280408707, 0.00004983781764, 0.00003869139618, 0.00002607367787,
+};
+
+#if defined(WAKE_SDK_PLIX_HAS_RUNTIME)
+
+/* C mel frontend parity (issue #188, slice 2a): plix_frontend_frame() must
+ * reproduce the dsp package's melSpectrogram() on fixed windows, and the
+ * streaming push() must emit one frame per 160-sample hop after priming. */
+
+#include "plix_frontend.h"
+
+static void plix_test_sine(float *out, size_t n, double f1, double a1,
+                            double f2, double a2) {
+  for (size_t i = 0; i < n; i++) {
+    double v = a1 * sin(2.0 * 3.14159265358979323846 * f1 * (double)i / 16000.0);
+    if (f2 > 0.0) {
+      v += a2 * sin(2.0 * 3.14159265358979323846 * f2 * (double)i / 16000.0);
+    }
+    out[i] = (float)v;
+  }
+}
+
+static void plix_check_frame(plix_frontend_t *fe, const float *audio,
+                             size_t start, const float expected[64]) {
+  float window[PLIX_FE_WINDOW_LENGTH];
+  float mel[PLIX_FE_N_MELS];
+  for (size_t i = 0; i < PLIX_FE_WINDOW_LENGTH; i++) {
+    window[i] = audio[start + i];
+  }
+  plix_frontend_frame(fe, window, mel);
+  float worst = 0.0f;
+  for (size_t m = 0; m < PLIX_FE_N_MELS; m++) {
+    float d = mel[m] > expected[m] ? mel[m] - expected[m] : expected[m] - mel[m];
+    if (d > worst) worst = d;
+  }
+  CHECK(worst < 1e-3f);
+}
+
+TEST_CASE("plix frontend: mel parity with the dsp package") {
+  plix_frontend_t fe;
+  REQUIRE(plix_frontend_init(&fe) == 0);
+
+  static float audio[17000];
+  plix_test_sine(audio, 17000, 440.0, 0.5, 0.0, 0.0);
+  plix_check_frame(&fe, audio, 0, kExp_sine440_0);
+  plix_check_frame(&fe, audio, 50 * 160, kExp_sine440_50);
+  plix_check_frame(&fe, audio, 103 * 160, kExp_sine440_103);
+
+  plix_test_sine(audio, 17000, 440.0, 0.4, 880.0, 0.3);
+  plix_check_frame(&fe, audio, 0, kExp_twoTone_0);
+  plix_check_frame(&fe, audio, 50 * 160, kExp_twoTone_50);
+  plix_check_frame(&fe, audio, 103 * 160, kExp_twoTone_103);
+
+  /* Streaming cadence: exact 160-sample pushes over 16960 samples
+   * (106 hops) emit 104 frames; the first two pushes prime the window. */
+  plix_frontend_reset(&fe);
+  plix_test_sine(audio, 17000, 440.0, 0.5, 0.0, 0.0);
+  static int16_t pcm[16960];
+  for (size_t i = 0; i < 16960; i++) {
+    float v = audio[i] * 32768.0f;
+    if (v > 32767.0f) v = 32767.0f;
+    if (v < -32768.0f) v = -32768.0f;
+    pcm[i] = (int16_t)v;
+  }
+  float mel[PLIX_FE_N_MELS];
+  int emitted = 0;
+  for (size_t o = 0; o < 16960; o += 160) {
+    int got = plix_frontend_push(&fe, pcm + o, 160, mel);
+    if (o < 320) {
+      CHECK(got == 0);
+    }
+    emitted += got;
+  }
+  CHECK(emitted == 104);
+
+  plix_frontend_free(&fe);
+}
+
+#endif /* WAKE_SDK_PLIX_HAS_RUNTIME */

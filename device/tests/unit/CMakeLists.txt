@@ -9,6 +9,7 @@ add_executable(sdk_unit_tests
   kws_streaming.test.cxx
   openwakeword.test.cxx
   sherpa.test.cxx
+  plix.test.cxx
 )
 target_link_libraries(sdk_unit_tests PRIVATE
   wake_sdk_core
@@ -16,6 +17,7 @@ target_link_libraries(sdk_unit_tests PRIVATE
   wake_afe_aec
   wake_afe_bss
   wake_kws_microwakeword
+  wake_kws_plix
   wake_kws_streaming
   wake_kws_openwakeword
   wake_kws_sherpa
@@ -71,6 +73,19 @@ if(WAKE_SDK_MICROWAKEWORD_HAS_RUNTIME)
   if(WAKE_MICROWAKEWORD_MODEL_DIR)
     target_compile_definitions(sdk_unit_tests PRIVATE
       WAKE_MICROWAKEWORD_MODEL_DIR="${WAKE_MICROWAKEWORD_MODEL_DIR}")
+  endif()
+endif()
+# The plix L1 test (issue #188) has two faces: the no-runtime contract
+# test and, when the onnxruntime is linked, a session-load test over the
+# staged encoder (plixkws-small.onnx + .data). The compile-time gate +
+# model dir must match the module's own configuration.
+if(WAKE_SDK_PLIX_HAS_RUNTIME)
+  target_compile_definitions(sdk_unit_tests PRIVATE WAKE_SDK_PLIX_HAS_RUNTIME=1)
+  set(WAKE_PLIX_MODEL_DIR "" CACHE PATH
+      "Directory holding plixkws-small.onnx + .data (L1 runtime test)")
+  if(WAKE_PLIX_MODEL_DIR)
+    target_compile_definitions(sdk_unit_tests PRIVATE
+      WAKE_PLIX_MODEL_DIR="${WAKE_PLIX_MODEL_DIR}")
   endif()
 endif()
 target_include_directories(sdk_unit_tests PRIVATE ${WAKE_REPO_ROOT}/third_party)

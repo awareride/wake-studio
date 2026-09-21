@@ -241,6 +241,55 @@ jobs:
       - name: "Run tests (real streaming-inference L1 over okay_nabu)"
         run: ctest --test-dir build --output-on-failure
 
+  app-runtime-plix:
+    name: App profile + onnxruntime (plix driver, #188)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Pinned onnxruntime prebuilt (ADR-031, shared app-class runtime):
+      # the plix driver links it and the L1 test opens the real encoder
+      # session. Fetched + sha256-verified, never committed.
+      - name: Fetch onnxruntime (pinned 1.21.0)
+        run: node scripts/fetch-onnxruntime.mjs
+
+      # The small encoder export (plixkws-small.onnx + .data) from the
+      # models-plix-v1 release (ADR-027). Best-effort like the other
+      # app-runtime jobs: an absent artifact degrades to the no-model
+      # contract test instead of failing the job.
+      - name: Fetch plix encoder assets
+        run: node scripts/fetch-artifact.mjs kws-plix || echo "plix assets fetch failed; L1 runtime test will skip"
+
+      # Stage the model files under the names the driver declares (ADR-040
+      # §4.1): plixkws-small.onnx + plixkws-small.onnx.data. The .data name
+      # is pinned inside the model (external-data reference), so both names
+      # stay verbatim.
+      - name: Stage driver model dir
+        run: |
+          mkdir -p models
+          if [ -f packages/modules/kws/plix/assets/plixkws-small.onnx ] && [ -f packages/modules/kws/plix/assets/plixkws-small.onnx.data ]; then
+            cp packages/modules/kws/plix/assets/plixkws-small.onnx models/
+            cp packages/modules/kws/plix/assets/plixkws-small.onnx.data models/
+          else
+            echo "plix assets absent; L1 runtime test will run the no-model contract only"
+          fi
+
+      - name: Configure (runtime ON)
+        run: cmake -S device -B build -DCMAKE_BUILD_TYPE=Debug -DWAKE_SDK_PROFILE=app \
+          -DWAKE_SDK_PLIX_HAS_RUNTIME=ON \
+          -DWAKE_PLIX_MODEL_DIR=$PWD/models
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Run tests (encoder session-load L1, ADR-026)
+        run: ctest --test-dir build --output-on-failure
+
   cross-mcu:
     name: Cross-compile (Cortex-M4, arm-none-eabi)
     runs-on: ubuntu-latest
