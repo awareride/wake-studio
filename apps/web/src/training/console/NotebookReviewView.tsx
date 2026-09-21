@@ -17,6 +17,7 @@ import { Button } from '@radix-ui/themes'
 import { personalizeNotebook, type EnvParam } from '@wake-studio/module-training'
 import { cn } from '../../components/cn'
 import { IconChevronLeft } from '../../components/icons'
+import { useT } from '../../i18n'
 import './notebook-review.css'
 
 export interface NotebookReviewViewProps {
@@ -89,6 +90,7 @@ export function NotebookReviewView({
   onBack,
   personalize,
 }: NotebookReviewViewProps) {
+  const t = useT()
   const [html, setHtml] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [collapsedAll, setCollapsedAll] = useState(false)
@@ -179,13 +181,15 @@ export function NotebookReviewView({
             size="1"
             className="shrink-0 gap-1 text-xs font-medium"
           >
-            <IconChevronLeft className="h-3.5 w-3.5" /> Back
+            <IconChevronLeft className="h-3.5 w-3.5" /> {t('Back')}
           </Button>
           <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold text-ink-1">Notebook review — {fileName}</h3>
+            <h3 className="truncate text-sm font-semibold text-ink-1">
+              {`${t('Notebook review')} — ${fileName}`}
+            </h3>
             {bakedIn.length > 0 && (
               <p className="truncate text-[11px] text-ink-3">
-                Your params are baked in: {bakedIn.join(', ')}
+                {`${t('Your params are baked in')}: ${bakedIn.join(', ')}`}
               </p>
             )}
           </div>
@@ -196,7 +200,7 @@ export function NotebookReviewView({
             onClick={() => setAll(!collapsedAll)}
             className="rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-surface-3"
           >
-            {collapsedAll ? 'Expand all' : 'Collapse all'}
+            {collapsedAll ? t('Expand all') : t('Collapse all')}
           </button>
         </div>
       </div>
@@ -215,7 +219,7 @@ export function NotebookReviewView({
         ) : html ? (
           <div dangerouslySetInnerHTML={{ __html: html }} />
         ) : (
-          <span>Loading notebook…</span>
+          <span>{t('Loading notebook…')}</span>
         )}
       </div>
     </div>

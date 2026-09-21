@@ -9,6 +9,7 @@
 
 import type { ModuleParam, ModuleAction } from '@wake-studio/contracts'
 import { UiSlider, UiNumber, UiSelect, UiToggle, UiMultiselect, UiParamRow } from './controls'
+import { uiT } from '../i18n'
 
 export interface ParamControlProps {
   param: ModuleParam
@@ -53,7 +54,7 @@ export function renderParamControl({ param, value, onChange, disabled }: ParamCo
           step={param.step ?? 0.1}
           onChange={(v) => onChange(v)}
           disabled={disabled}
-          ariaLabel={param.label}
+          ariaLabel={uiT(param.label)}
         />
       )
     case 'number':
@@ -75,7 +76,10 @@ export function renderParamControl({ param, value, onChange, disabled }: ParamCo
       // Specs written to the schema rendered BLANK entries here, because we
       // read `.label` off a string. Accept both shapes so every spec-driven
       // select works, whichever form the spec used.
-      const options = normalizeSelectOptions(param.options)
+      const options = normalizeSelectOptions(param.options).map((o) => ({
+        ...o,
+        label: uiT(o.label),
+      }))
       return (
         <UiSelect
           value={typeof value === 'string' ? value : String(param.default ?? '')}
@@ -88,7 +92,10 @@ export function renderParamControl({ param, value, onChange, disabled }: ParamCo
     case 'multiselect': {
       // Comma-joined string value ("a,b") so the job-params contract stays
       // string-valued end-to-end (ADR-039 §4.6 formats selector).
-      const options = normalizeSelectOptions(param.options)
+      const options = normalizeSelectOptions(param.options).map((o) => ({
+        ...o,
+        label: uiT(o.label),
+      }))
       return (
         <UiMultiselect
           value={typeof value === 'string' ? value : String(param.default ?? '')}
@@ -104,7 +111,7 @@ export function renderParamControl({ param, value, onChange, disabled }: ParamCo
           checked={Boolean(value ?? param.default)}
           onChange={onChange}
           disabled={disabled}
-          label={param.label}
+          label={uiT(param.label)}
         />
       )
     case 'secret':
@@ -142,7 +149,10 @@ export function renderParamRow(
   disabled?: boolean,
 ) {
   return (
-    <UiParamRow label={param.label} description={param.description}>
+    <UiParamRow
+      label={uiT(param.label)}
+      description={param.description ? uiT(param.description) : param.description}
+    >
       {renderParamControl({ param, value, onChange, disabled })}
     </UiParamRow>
   )

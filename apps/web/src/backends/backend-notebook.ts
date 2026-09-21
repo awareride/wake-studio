@@ -25,8 +25,7 @@ const MD_INTRO = `# WakeStudio · Studio-backend on Google Colab (short-term)
 This notebook starts the **WakeStudio studio-backend service** inside this
 Colab runtime and exposes it through a free **trycloudflare tunnel**, so the
 WakeStudio app can drive this runtime as a **short-term backend** — submit
-training jobs, watch live progress, pause/resume/cancel, and pull artifacts
-(ADR-023 amendment, ADR-036).
+training jobs, watch live progress, pause/resume/cancel, and pull artifacts.
 
 ## How to use it
 
@@ -95,7 +94,7 @@ else:
 import os, secrets
 
 !pip install -q "studio-backend @ git+https://github.com/awareride/wake-studio@$REVISION#subdirectory=apps/studio-backend"
-!pip install -q uv  # the service's train runner (ADR-028)
+!pip install -q uv  # the service's train runner
 
 from wake_training_service.colab_launcher import launch
 

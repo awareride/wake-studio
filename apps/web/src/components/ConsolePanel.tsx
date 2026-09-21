@@ -17,6 +17,7 @@ import { IconButton } from '@radix-ui/themes'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui'
 import { IconMenu } from './icons'
 import { useIsDesktop } from '../training/console/useIsDesktop'
+import { useT } from '../i18n'
 
 export interface ConsolePanelProps {
   /** Header title (e.g. "Training", "Backends", "Projects"). */
@@ -54,6 +55,7 @@ export function ConsolePanel({
   detailsEmpty,
 }: ConsolePanelProps) {
   const isDesktop = useIsDesktop()
+  const t = useT()
   const [railCollapsed, setRailCollapsed] = React.useState(false)
   const [drawerOpen, setDrawerOpen] = React.useState(false)
 
@@ -86,7 +88,7 @@ export function ConsolePanel({
               <IconButton
                 type="button"
                 onClick={handleRailToggle}
-                aria-label={`Toggle ${railTitle.toLowerCase()} list`}
+                aria-label={t('Toggle list') + ' · ' + railTitle}
                 variant="ghost"
                 size="1"
                 className="text-ink-3"
@@ -120,7 +122,7 @@ export function ConsolePanel({
               <IconButton
                 type="button"
                 onClick={handleRailToggle}
-                aria-label={isDesktop ? `Show ${railTitle.toLowerCase()} list` : `Open ${railTitle.toLowerCase()} list`}
+                aria-label={`${t(isDesktop ? 'Show list' : 'Open list')} · ${railTitle}`}
                 variant="ghost"
                 size="1"
                 className="text-ink-3"
@@ -142,8 +144,8 @@ export function ConsolePanel({
           centered={false}
           className="drawer-content left-0 top-0 h-screen w-[min(80vw,18rem)] max-w-[calc(100vw-2rem)] rounded-r-xl border-l border-t-0 border-r-0 border-b-0 p-0 data-[state=open]:animate-[drawer-in_180ms_ease-out] data-[state=closed]:animate-[drawer-out_160ms_ease-in]"
         >
-          <DialogTitle className="sr-only">{railTitle} list</DialogTitle>
-          <DialogDescription className="sr-only">Your {railTitle.toLowerCase()} list</DialogDescription>
+          <DialogTitle className="sr-only">{`${railTitle} · ${t('list')}`}</DialogTitle>
+          <DialogDescription className="sr-only">{`${t('Your list')} · ${railTitle}`}</DialogDescription>
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <span className="text-xs font-semibold uppercase tracking-wide text-ink-3">
               {railTitle}
@@ -151,7 +153,7 @@ export function ConsolePanel({
             <IconButton
               type="button"
               onClick={() => setDrawerOpen(false)}
-              aria-label={`Close ${railTitle.toLowerCase()} list`}
+              aria-label={`${t('Close list')} · ${railTitle}`}
               variant="ghost"
               size="1"
               className="text-ink-3"

@@ -31,6 +31,7 @@ import { ProjectsView } from "./views/ProjectsView";
 import { RnnoisePlayground } from "@wake-studio/module-rnnoise/web";
 import { useProjects } from "./projects";
 import { LiveAfeProvider, LiveKwsProvider } from "./workspace/live";
+import { useT } from "./i18n";
 
 export default function App() {
   return (
@@ -67,6 +68,19 @@ function ThemedShell() {
     <Theme appearance={resolvedTheme} accentColor={accent} grayColor="slate">
       <AppShell />
     </Theme>
+  );
+}
+
+/** Device SDK placeholder (translated copy). */
+function ComingSoonViewDS() {
+  const t = useT();
+  return (
+    <ComingSoonView
+      title={t("Device SDK")}
+      description={t(
+        "Export kits and device-side SDK tooling for your target chips arrive in Phase 4."
+      )}
+    />
   );
 }
 
@@ -124,12 +138,7 @@ function AppShell() {
               backendId={settingsBackend}
             />
           )}
-          {route === "device-sdk" && (
-            <ComingSoonView
-              title="Device SDK"
-              description="Export kits and device-side SDK tooling for your target chips arrive in Phase 4."
-            />
-          )}
+          {route === "device-sdk" && <ComingSoonViewDS />}
         </ConsoleShell>
       </LiveKwsProvider>
     </LiveAfeProvider>

@@ -24,6 +24,7 @@ import type {
 import { UiButton, UiCollapsible, UiParamRow } from './ui/controls'
 import { UiBar, UiWaveform, UiCurve } from './ui/canvas'
 import { renderParamControl } from './ui/mapper'
+import { uiT } from './i18n'
 
 // ---------------------------------------------------------------------------
 // Colab notebook seam (ADR-035)
@@ -88,7 +89,7 @@ function renderStatus(
   const v = typeof value === 'number' ? value : 0
   switch (statusDef.renderer) {
     case 'bar':
-      return <UiBar value={v} label={statusDef.label} threshold={0.5} />
+      return <UiBar value={v} label={uiT(statusDef.label)} threshold={0.5} />
     case 'waveform': {
       const data = Array.isArray(value) ? value : (value as ArrayLike<number>) ? (value as ArrayLike<number>) : []
       return <UiWaveform data={data} />
@@ -101,11 +102,11 @@ function renderStatus(
       return (
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-400" />
-          <span className="text-sm text-ink-2">{statusDef.label}</span>
+          <span className="text-sm text-ink-2">{uiT(statusDef.label)}</span>
         </div>
       )
     case 'gauge':
-      return <UiBar value={v} label={statusDef.label} height={10} threshold={0.8} />
+      return <UiBar value={v} label={uiT(statusDef.label)} height={10} threshold={0.8} />
     case 'text':
     default:
       return (
@@ -166,7 +167,7 @@ export function ModulePanel({ spec, controller, title, hideHeader, compact, sect
       {!hideHeader && (
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-ink-1">
-            {title ?? spec.meta.name}
+            {title ?? uiT(spec.meta.name)}
           </h2>
           <p className="mt-1 text-sm text-ink-2">
             {spec.meta.category} module · v{spec.meta.version} ·{' '}
@@ -181,8 +182,8 @@ export function ModulePanel({ spec, controller, title, hideHeader, compact, sect
           primary.map((param) => (
             <UiParamRow
               key={param.id}
-              label={param.label}
-              description={param.description}
+              label={uiT(param.label)}
+              description={param.description ? uiT(param.description) : undefined}
             >
               {renderParamControl({
                 param,
@@ -196,7 +197,7 @@ export function ModulePanel({ spec, controller, title, hideHeader, compact, sect
         {/* Advanced params (collapsible, ADR-024). */}
         {show('params') && advanced.length > 0 && (
           <UiCollapsible
-            label="Advanced"
+            label={uiT('Advanced')}
             open={advancedOpen}
             onOpenChange={setAdvancedOpen}
           >
@@ -204,8 +205,8 @@ export function ModulePanel({ spec, controller, title, hideHeader, compact, sect
               {advanced.map((param) => (
                 <UiParamRow
                   key={param.id}
-                  label={param.label}
-                  description={param.description}
+                  label={uiT(param.label)}
+                  description={param.description ? uiT(param.description) : param.description}
                 >
                   {renderParamControl({
                     param,
@@ -248,7 +249,7 @@ export function ModulePanel({ spec, controller, title, hideHeader, compact, sect
               className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm font-medium text-ink-1 transition-colors hover:bg-surface-3"
             >
               <span aria-hidden>☁️</span>
-              Open in Colab
+              {uiT('Open in Colab')}
             </a>
           </div>
         )}
@@ -296,7 +297,7 @@ function ActionButton({
 
   return (
     <UiButton
-      label={confirming ? 'Confirm?' : action.label}
+      label={confirming ? uiT('Confirm?') : uiT(action.label)}
       onClick={handleClick}
       variant={variant}
       disabled={disabled}

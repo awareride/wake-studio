@@ -19,6 +19,7 @@ import { cn } from '../components/cn'
 import { IconSpinner } from '../components/icons'
 import { importColabResultsZip } from './colab-import'
 import type { ColabImportResult } from './colab-import'
+import { useT } from '../i18n'
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
@@ -34,6 +35,7 @@ function errorMessage(err: unknown): string {
 }
 
 function SuccessCard({ result }: { result: ColabImportResult }) {
+  const t = useT()
   const { bundle, model } = result
   const meta = bundle.files.metadata
   const prov = bundle.files.provenance
@@ -44,47 +46,47 @@ function SuccessCard({ result }: { result: ColabImportResult }) {
   return (
     <div className="rounded-xl border border-success/30 bg-success/5 p-4">
       <div className="flex items-center gap-2 text-sm font-medium text-success">
-        <span>✓ Model imported</span>
+        <span>{t('✓ Model imported')}</span>
         <span className="text-xs font-normal text-ink-2">
-          ready for in-browser test + export
+          {t('ready for in-browser test + export')}
         </span>
       </div>
 
       <dl className="mt-3 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
         <div className="flex justify-between gap-3">
-          <dt className="text-ink-3">Wake phrase</dt>
+          <dt className="text-ink-3">{t('Wake phrase')}</dt>
           <dd className="font-medium text-ink-1">{phrase || '—'}</dd>
         </div>
         <div className="flex justify-between gap-3">
-          <dt className="text-ink-3">Job</dt>
+          <dt className="text-ink-3">{t('Job')}</dt>
           <dd className="truncate font-mono text-ink-1" title={bundle.jobId}>
             {bundle.jobId}
           </dd>
         </div>
         <div className="flex justify-between gap-3">
-          <dt className="text-ink-3">Model</dt>
+          <dt className="text-ink-3">{t('Model')}</dt>
           <dd className="font-mono text-ink-1">
             {model.name} · {formatBytes(model.sizeBytes)}
           </dd>
         </div>
         <div className="flex justify-between gap-3">
-          <dt className="text-ink-3">Backend</dt>
+          <dt className="text-ink-3">{t('Backend')}</dt>
           <dd className="font-mono text-ink-1">{meta.backend}</dd>
         </div>
         {typeof metrics?.recall === 'number' && (
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Recall</dt>
+            <dt className="text-ink-3">{t('Recall')}</dt>
             <dd className="font-mono text-ink-1">{metrics.recall.toFixed(3)}</dd>
           </div>
         )}
         {typeof metrics?.accuracy === 'number' && (
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Accuracy</dt>
+            <dt className="text-ink-3">{t('Accuracy')}</dt>
             <dd className="font-mono text-ink-1">{metrics.accuracy.toFixed(3)}</dd>
           </div>
         )}
         <div className="flex justify-between gap-3">
-          <dt className="text-ink-3">License</dt>
+          <dt className="text-ink-3">{t('License')}</dt>
           <dd
             className={cn(
               'rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
@@ -100,11 +102,14 @@ function SuccessCard({ result }: { result: ColabImportResult }) {
 
       <p className="mt-3 text-xs text-ink-2">
         {exportable
-          ? 'User-owned — the Phase 4 export license gate treats it as commercially clean.'
-          : 'Not user-owned — the export license gate will block a commercial bundle.'}{' '}
-        Open the <span className="font-medium text-ink-1">KWS detection</span> panel and press{' '}
-        <span className="font-medium text-ink-1">Load models</span> to test it in-browser
-        (the classifier role now points at this trained model).
+          ? t('User-owned — the Phase 4 export license gate treats this model as commercially clean.')
+          : t('Not user-owned — the export license gate will block a commercial bundle.')}{' '}
+        {t('Open the')} <span className="font-medium text-ink-1">{t('KWS detection')}</span>{' '}
+        {t('panel and press')}{' '}
+        <span className="font-medium text-ink-1">{t('Load models')}</span>{' '}
+        {t(
+          'to test it in-browser (the classifier role now points at this trained model).',
+        )}
       </p>
     </div>
   )
@@ -120,6 +125,7 @@ export interface ImportColabResultsProps {
 
 export function ImportColabResults({ onImported }: ImportColabResultsProps) {
   const { toast } = useToast()
+  const t = useT()
   const { kwsSources, setKwsSources } = useAppSettings()
   const inputRef = React.useRef<HTMLInputElement | null>(null)
   const [importing, setImporting] = React.useState(false)
@@ -147,8 +153,8 @@ export function ImportColabResults({ onImported }: ImportColabResultsProps) {
         setResult(reg)
         onImported?.(reg)
         toast({
-          title: 'Colab model imported',
-          description: `“${reg.bundle.files.metadata.params.wakePhrase ?? reg.bundle.jobId}” is ready to test.`,
+          title: t('Colab model imported'),
+          description: `“${reg.bundle.files.metadata.params.wakePhrase ?? reg.bundle.jobId}” ${t('is ready to test.')}`,
           variant: 'success',
         })
       } catch (err) {
@@ -157,20 +163,20 @@ export function ImportColabResults({ onImported }: ImportColabResultsProps) {
         setImporting(false)
       }
     },
-    [kwsSources, onImported, setKwsSources, toast],
+    [kwsSources, onImported, setKwsSources, toast, t],
   )
 
   return (
     <section className="space-y-3">
       <div>
-        <h3 className="text-sm font-semibold text-ink-1">Import Colab results</h3>
+        <h3 className="text-sm font-semibold text-ink-1">{t('Import Colab results')}</h3>
         <p className="mt-1 text-xs text-ink-3">
-          Pick the <code className="font-mono">wake-studio-results.zip</code> your Colab
-          notebook downloaded (open the Training panel for the module, run the
-          notebook, download the bundle). The importer validates the manifest —
+          {t('Pick the')} <code className="font-mono">wake-studio-results.zip</code>{' '}
+          {t(
+            'your Colab notebook downloaded (open the Training panel for the module, run the notebook, download the bundle). The importer validates the manifest —',
+          )}
           <code className="font-mono"> metadata.json</code> +{' '}
-          <code className="font-mono">provenance.json</code> — client-side only; no
-          WakeStudio server is involved.
+          <code className="font-mono">provenance.json</code> — {t('client-side only; no WakeStudio server is involved.')}
         </p>
       </div>
 
@@ -192,14 +198,14 @@ export function ImportColabResults({ onImported }: ImportColabResultsProps) {
           disabled={importing}
           size="2"
         >
-          {importing ? 'Importing…' : 'Import Colab results…'}
+          {importing ? t('Importing…') : t('Import Colab results…')}
         </Button>
         {importing && <IconSpinner className="h-4 w-4 text-brand-11" />}
       </div>
 
       {error && (
         <div className="rounded-xl border border-danger/40 bg-danger/5 p-4 text-sm text-danger">
-          <div className="font-medium">Import failed</div>
+          <div className="font-medium">{t('Import failed')}</div>
           <p className="mt-1 text-xs text-danger/90">{error}</p>
         </div>
       )}

@@ -17,7 +17,7 @@
       "group": "primary",
       "type": "string",
       "default": "n ǐ h ǎo j ūn g ē @你好军哥\nn ǐ h ǎo w èn w èn @你好问问\nx iǎo ài t óng x ué @小爱同学",
-      "description": "Editable text wake-word list for ASR-Decoding KWS (ADR-024). One keyword per line: spaced tokens @label (sherpa-onnx text2token; the 2025-12-20 zh-en model uses ppinyin tokens + @display label, no score/threshold suffixes). Defaults match the model test keywords."
+      "description": "Editable text wake-word list for ASR-Decoding KWS. One keyword per line: spaced tokens @label (sherpa-onnx text2token; the 2025-12-20 zh-en model uses ppinyin tokens + @display label, no score/threshold suffixes). Defaults match the model test keywords."
     },
     {
       "id": "threshold",
@@ -120,7 +120,7 @@
         "required": false
       }
     ],
-    "notes": "The wasm runtime (built by scripts/build-sherpa-kws.mjs, ADR-027) is hosted as a GitHub Release and fetched via scripts/fetch-artifact.mjs; regenerate with the build script if a new build is required."
+    "notes": "The wasm runtime (built by scripts/build-sherpa-kws.mjs) is hosted as a GitHub Release and fetched via scripts/fetch-artifact.mjs; regenerate with the build script if a new build is required."
   },
   "tests": {
     "l1": "packages/modules/kws/sherpa/tests/spec.test.ts",

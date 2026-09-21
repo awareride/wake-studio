@@ -20,6 +20,7 @@ import { cn } from '../../components/cn'
 import type { ConsoleDataset } from '../store'
 import { CLOUD_TARGETS, type CloudTarget } from '../cloud-upload'
 import type { StudioClient } from '../../training/studio-client'
+import { useT } from '../../i18n'
 
 export interface DatasetActionsProps {
   dataset: ConsoleDataset
@@ -44,6 +45,7 @@ export function DatasetActions({
   onDownload,
   onDelete,
 }: DatasetActionsProps) {
+  const t = useT()
   const isBuiltin = dataset.kind === 'builtin'
   const hasBytes =
     dataset.origin === 'local' ||
@@ -76,22 +78,22 @@ export function DatasetActions({
   return (
     <>
       <section className="rounded-xl border border-line bg-surface-2 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Actions</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Actions')}</h4>
         <div className="mt-2 flex flex-wrap gap-2">
           <Button type="button" size="1" onClick={onNew} className="font-medium">
-            New generation task
+            {t('New generation task')}
           </Button>
           <Button
             type="button"
             size="1"
             variant="soft"
             onClick={() => onTrain(dataset.id)}
-            title="Open the Training wizard with this dataset pre-picked"
+            title={t('Open the Training wizard with this dataset pre-picked')}
           >
-            Train with this
+            {t('Train with this')}
           </Button>
           <Button type="button" size="1" variant="soft" onClick={() => setUploadOpen(true)}>
-            Upload to cloud
+            {t('Upload to cloud')}
           </Button>
           <Button
             type="button"
@@ -101,11 +103,11 @@ export function DatasetActions({
             onClick={() => onCheck(dataset.id)}
             title={
               canRunBackendOps
-                ? 'Run the check-dataset quality job (clip quality, silence/duplication, voice coverage) on the studio-backend'
-                : 'Requires a connected studio-backend (backend-stored dataset)'
+                ? t('Run the check-dataset quality job (clip quality, silence/duplication, voice coverage) on the studio-backend')
+                : t('Requires a connected studio-backend (backend-stored dataset)')
             }
           >
-            Check
+            {t('Check')}
           </Button>
           {canRunBackendOps && (
             <SplitButton dataset={dataset} onSplit={onSplit} />
@@ -116,9 +118,9 @@ export function DatasetActions({
             variant="outline"
             disabled={!hasBytes || isBuiltin || busy === 'download'}
             onClick={() => void onDownload(dataset).then(() => setBusy(null)).catch(() => setBusy(null))}
-            title={isBuiltin ? 'Built-ins are immutable references — materialize them on the backend to download.' : 'Download the canonical wake-studio-dataset.zip'}
+            title={isBuiltin ? t('Built-ins are immutable references — materialize them on the backend to download.') : t('Download the canonical wake-studio-dataset.zip')}
           >
-            {busy === 'download' ? 'Downloading…' : 'Download'}
+            {busy === 'download' ? t('Downloading…') : t('Download')}
           </Button>
           <Button
             type="button"
@@ -127,16 +129,17 @@ export function DatasetActions({
             color="red"
             disabled={isBuiltin || busy === 'delete'}
             onClick={() => setDeleteOpen(true)}
-            title={isBuiltin ? 'Built-ins are immutable references and cannot be deleted.' : 'Delete this dataset'}
+            title={isBuiltin ? t('Built-ins are immutable references and cannot be deleted.') : t('Delete this dataset')}
           >
-            Delete
+            {t('Delete')}
           </Button>
         </div>
         {isBuiltin && (
           <p className="mt-2 text-[11px] leading-relaxed text-ink-3">
-            Built-ins are immutable references (
-            {dataset.note ?? 'materialized on the backend on first use'}). Use them in
-            training directly; download/delete are not applicable.
+            {t('Built-ins are immutable references (')}
+            {dataset.note ?? t('materialized on the backend on first use')}). {t(
+              'Use them in training directly; download/delete are not applicable.',
+            )}
           </p>
         )}
       </section>
@@ -144,10 +147,11 @@ export function DatasetActions({
       {/* Upload-to-cloud dialog. */}
       <Dialog open={uploadOpen} onOpenChange={(o) => !o && setUploadOpen(false)}>
         <DialogContent centered className="w-[min(92vw,26rem)] p-5">
-          <DialogTitle className="text-sm">Upload “{dataset.name}” to cloud</DialogTitle>
+          <DialogTitle className="text-sm">{`${t('Upload')} “${dataset.name}” ${t('to cloud')}`}</DialogTitle>
           <DialogDescription className="text-xs leading-relaxed text-ink-3">
-            Direct browser push of the canonical zip using your Settings cloud credentials
-            (client-side, masked, never persisted).
+            {t(
+              'Direct browser push of the canonical zip using your Settings cloud credentials (client-side, masked, never persisted).',
+            )}
           </DialogDescription>
 
           <div className="mt-3 space-y-1.5">
@@ -169,10 +173,10 @@ export function DatasetActions({
                 />
                 <span className="min-w-0">
                   <span className="flex items-center gap-2 text-sm font-medium text-ink-1">
-                    {c.label}
+                    {t(c.label)}
                     {!c.wired && (
                       <span className="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] text-ink-3">
-                        not wired browser-side
+                        {t('not wired browser-side')}
                       </span>
                     )}
                   </span>
@@ -185,7 +189,7 @@ export function DatasetActions({
           {target === 'hf' && (
             <div className="mt-3">
               <label htmlFor="hf-repo-upload" className="block text-xs font-medium text-ink-2">
-                Hugging Face repo id
+                {t('Hugging Face repo id')}
               </label>
               <input
                 id="hf-repo-upload"
@@ -195,7 +199,7 @@ export function DatasetActions({
                 className="mt-1 w-full rounded-lg border border-line bg-surface-1 px-3 py-2 font-mono text-xs text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-8"
               />
               <p className="mt-1 text-[11px] text-ink-3">
-                Token comes from Settings → Cloud storage → Hugging Face.
+                {t('Token comes from Settings → Cloud storage → Hugging Face.')}
               </p>
             </div>
           )}
@@ -208,7 +212,7 @@ export function DatasetActions({
 
           <div className="mt-4 flex justify-end gap-2">
             <Button type="button" onClick={() => setUploadOpen(false)} variant="outline" size="2" className="text-xs">
-              Keep
+              {t('Keep')}
             </Button>
             <Button
               type="button"
@@ -217,7 +221,7 @@ export function DatasetActions({
               size="2"
               className="text-xs"
             >
-              {busy === 'upload' ? 'Uploading…' : 'Upload'}
+              {busy === 'upload' ? t('Uploading…') : t('Upload')}
             </Button>
           </div>
         </DialogContent>
@@ -226,15 +230,15 @@ export function DatasetActions({
       {/* Delete confirm. */}
       <Dialog open={deleteOpen} onOpenChange={(o) => !o && setDeleteOpen(false)}>
         <DialogContent centered className="w-[min(92vw,24rem)] p-5">
-          <DialogTitle className="text-sm">Delete “{dataset.name}”?</DialogTitle>
+          <DialogTitle className="text-sm">{`${t('Delete')} “${dataset.name}”?`}</DialogTitle>
           <DialogDescription className="text-xs leading-relaxed">
             {dataset.origin === 'backend'
-              ? 'Removes the dataset from the backend store (its zip + index). Datasets that feed an existing train keep working through their copied materialization.'
-              : 'Removes this dataset from the browser-local store. This cannot be undone unless you have the zip elsewhere.'}
+              ? t('Removes the dataset from the backend store (its zip + index). Datasets that feed an existing train keep working through their copied materialization.')
+              : t('Removes this dataset from the browser-local store. This cannot be undone unless you have the zip elsewhere.')}
           </DialogDescription>
           <div className="mt-4 flex justify-end gap-2">
             <Button type="button" onClick={() => setDeleteOpen(false)} variant="outline" size="2" className="text-xs">
-              Keep
+              {t('Keep')}
             </Button>
             <Button
               type="button"
@@ -247,7 +251,7 @@ export function DatasetActions({
                 void onDelete(dataset).finally(() => setBusy(null))
               }}
             >
-              Delete
+              {t('Delete')}
             </Button>
           </div>
         </DialogContent>
@@ -269,6 +273,7 @@ function SplitButton({
   dataset: ConsoleDataset
   onSplit: (id: string, seed: number) => void
 }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [seed, setSeed] = useState('0')
   const seedNumber = Number.parseInt(seed, 10) || 0
@@ -280,19 +285,20 @@ function SplitButton({
         size="1"
         variant="soft"
         onClick={() => setOpen(true)}
-        title="Split into a fixed train/val/test partition (reproducible, no leakage) and save it as a new dataset"
+        title={t('Split into a fixed train/val/test partition (reproducible, no leakage) and save it as a new dataset')}
       >
-        Split…
+        {t('Split…')}
       </Button>
       <Dialog open={open} onOpenChange={(o) => !o && setOpen(false)}>
         <DialogContent centered className="w-[min(92vw,24rem)] p-5">
-          <DialogTitle className="text-sm">Split “{dataset.name}”</DialogTitle>
+          <DialogTitle className="text-sm">{`${t('Split')} “${dataset.name}”`}</DialogTitle>
           <DialogDescription className="text-xs leading-relaxed text-ink-3">
-            Records a fixed train/val/test partition (80/10/10) in a new dataset’s manifest.
-            Near-duplicate clips stay in one partition — evaluation never sees training data.
+            {t(
+              'Records a fixed train/val/test partition (80/10/10) in a new dataset’s manifest. Near-duplicate clips stay in one partition — evaluation never sees training data.',
+            )}
           </DialogDescription>
           <label htmlFor="split-seed" className="mt-3 block text-xs font-medium text-ink-2">
-            Reproducibility seed
+            {t('Reproducibility seed')}
           </label>
           <input
             id="split-seed"
@@ -302,11 +308,11 @@ function SplitButton({
             className="mt-1 w-full rounded-lg border border-line bg-surface-1 px-3 py-2 font-mono text-xs text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-8"
           />
           <p className="mt-1 text-[11px] text-ink-3">
-            Same dataset + seed → identical partition every time (byte-reproducible).
+            {t('Same dataset + seed → identical partition every time (byte-reproducible).')}
           </p>
           <div className="mt-4 flex justify-end gap-2">
             <Button type="button" onClick={() => setOpen(false)} variant="outline" size="2" className="text-xs">
-              Keep
+              {t('Keep')}
             </Button>
             <Button
               type="button"
@@ -317,7 +323,7 @@ function SplitButton({
                 onSplit(dataset.id, seedNumber)
               }}
             >
-              Split
+              {t('Split')}
             </Button>
           </div>
         </DialogContent>

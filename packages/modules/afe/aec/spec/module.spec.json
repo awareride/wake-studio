@@ -17,7 +17,7 @@
       "group": "primary",
       "type": "boolean",
       "default": true,
-      "description": "Passthrough for v1; WebRTC AEC3 deferred to v1.x (ADR-016)."
+      "description": "Passthrough for v1; WebRTC AEC3 deferred to v1.x."
     }
   ],
   "actions": [],

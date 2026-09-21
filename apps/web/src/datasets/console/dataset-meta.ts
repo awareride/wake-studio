@@ -42,10 +42,11 @@ export function rolesLabel(roles: LabelRole[], role: string): string {
   return ROLE_LABEL[role] ?? role
 }
 
-/** Human-readable clip count ("210 clips" / "1 clip"). */
-export function formatClips(clips: number): string {
-  if (clips <= 0) return 'no clips'
-  return `${clips} ${clips === 1 ? 'clip' : 'clips'}`
+/** Human-readable clip count ("210 clips" / "1 clip"); optional i18n. */
+export function formatClips(clips: number, t?: (s: string) => string): string {
+  const tr = t ?? ((s: string) => s)
+  if (clips <= 0) return tr('no clips')
+  return `${clips} ${tr(clips === 1 ? 'clip' : 'clips')}`
 }
 
 /** Human-readable byte size. */

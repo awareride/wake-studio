@@ -61,7 +61,7 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
         { value: 'node-per-stage', label: 'Node per stage' },
       ],
       description:
-        'AFE DSP topology (ADR-016). Single-worklet is implemented for v1; node-per-stage is a future option.',
+        'AFE DSP topology. Single-worklet is implemented for v1; node-per-stage is a future option.',
     },
     {
       id: 'vizFps',
@@ -91,7 +91,7 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
       type: 'boolean',
       default: true,
       description:
-        'Bypass AEC (passthrough for v1; WebRTC AEC3 deferred to v1.x, ADR-016).',
+        'Bypass AEC (passthrough for v1; WebRTC AEC3 deferred to v1.x).',
     },
     {
       id: 'bypass.bss',
@@ -99,7 +99,7 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
       type: 'boolean',
       default: true,
       description:
-        'Bypass BSS (single-mic passthrough for v1, ADR-016).',
+        'Bypass BSS (single-mic passthrough for v1).',
     },
     {
       id: 'bypass.ns',

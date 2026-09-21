@@ -18,7 +18,7 @@
       "type": "select",
       "default": "single-worklet",
       "options": ["single-worklet", "node-per-stage"],
-      "description": "AFE DSP topology (ADR-016). Single-worklet implemented for v1."
+      "description": "AFE DSP topology. Single-worklet implemented for v1."
     },
     {
       "id": "vizFps",
@@ -50,7 +50,7 @@
       "group": "primary",
       "type": "boolean",
       "default": true,
-      "description": "Passthrough for v1 (WebRTC AEC3 deferred to v1.x, ADR-016)."
+      "description": "Passthrough for v1; WebRTC AEC3 deferred to v1.x."
     },
     {
       "id": "bypass.bss",
@@ -58,7 +58,7 @@
       "group": "primary",
       "type": "boolean",
       "default": true,
-      "description": "Single-mic passthrough for v1 (ADR-016)."
+      "description": "Single-mic passthrough for v1."
     },
     {
       "id": "bypass.ns",

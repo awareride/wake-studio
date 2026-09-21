@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import { cn } from '../../components/cn'
 import { IconChevronRight } from '../../components/icons'
+import { useT } from '../../i18n'
 
 export interface InlineGuideProps {
   title?: string
@@ -16,10 +17,12 @@ export interface InlineGuideProps {
 }
 
 export function InlineGuide({
-  title = 'How this step works',
+  title,
   lines,
   className,
 }: InlineGuideProps) {
+  const t = useT()
+  const heading = title ?? t('How this step works')
   const [open, setOpen] = useState(false)
   if (lines.length === 0) return null
   return (
@@ -34,9 +37,9 @@ export function InlineGuide({
           className={cn('h-3.5 w-3.5 text-brand-11 transition-transform', open && 'rotate-90')}
         />
         <span className="text-[11px] font-semibold uppercase tracking-wide text-brand-11">
-          {title}
+          {heading}
         </span>
-        {!open && <span className="text-[10px] text-ink-3">click to expand</span>}
+        {!open && <span className="text-[10px] text-ink-3">{t('click to expand')}</span>}
       </button>
       {open && (
         <ul className="space-y-1 px-3 pb-2.5 pt-1">

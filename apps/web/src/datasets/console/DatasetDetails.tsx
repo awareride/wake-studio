@@ -29,6 +29,7 @@ import {
   readListenableClipBytes,
   type DatasetClipRef,
 } from '../listen'
+import { useT } from '../../i18n'
 
 export interface DatasetDetailsProps {
   dataset: ConsoleDataset
@@ -42,6 +43,7 @@ function perLabelCount(dataset: ConsoleDataset): number {
 }
 
 export function DatasetDetails({ dataset }: DatasetDetailsProps) {
+  const t = useT()
   const m = dataset.manifest
   const audio = m.audio
   const perLabel = perLabelCount(dataset)
@@ -57,7 +59,7 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
             kindBadgeClass(dataset.kind),
           )}
         >
-          {KIND_LABEL[dataset.kind] ?? dataset.kind}
+          {t(KIND_LABEL[dataset.kind] ?? dataset.kind)}
         </span>
         <span className="rounded-full bg-surface-3 px-2 py-0.5 font-mono text-[10px] text-ink-3">
           v{dataset.version}
@@ -74,32 +76,32 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
 
       {/* Manifest — audio + labels. */}
       <section className="rounded-xl border border-line bg-surface-2 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Manifest</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Manifest')}</h4>
         <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Role</dt>
+            <dt className="text-ink-3">{t('Role')}</dt>
             <dd className="font-mono text-ink-1">{rolesLabel(dataset.roles, dataset.role)}</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Clips</dt>
-            <dd className="font-mono text-ink-1">{formatClips(audio.clips)}</dd>
+            <dt className="text-ink-3">{t('Clips')}</dt>
+            <dd className="font-mono text-ink-1">{formatClips(audio.clips, t)}</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Duration</dt>
+            <dt className="text-ink-3">{t('Duration')}</dt>
             <dd className="font-mono text-ink-1">{formatDuration(audio.durationSec) || '—'}</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Sample rate</dt>
+            <dt className="text-ink-3">{t('Sample rate')}</dt>
             <dd className="font-mono text-ink-1">{audio.sampleRate} Hz</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Channels / encoding</dt>
+            <dt className="text-ink-3">{t('Channels / encoding')}</dt>
             <dd className="font-mono text-ink-1">
               {audio.channels} · {audio.encoding}
             </dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Content hash</dt>
+            <dt className="text-ink-3">{t('Content hash')}</dt>
             <dd className="truncate font-mono text-ink-1" title={m.contentHash}>
               {m.contentHash ?? '—'}
             </dd>
@@ -112,12 +114,12 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
             <table className="w-full text-left text-[11px]">
               <thead>
                 <tr className="border-b border-line text-[10px] uppercase tracking-wide text-ink-3">
-                  <th className="px-3 py-1.5 font-medium">Label</th>
-                  <th className="px-3 py-1.5 font-medium">Role</th>
-                  <th className="px-3 py-1.5 font-medium">Language</th>
-                  <th className="px-3 py-1.5 font-medium">Source</th>
-                  <th className="px-3 py-1.5 font-medium">Voices</th>
-                  <th className="px-3 py-1.5 text-right font-medium">~Clips</th>
+                  <th className="px-3 py-1.5 font-medium">{t('Label')}</th>
+                  <th className="px-3 py-1.5 font-medium">{t('Role')}</th>
+                  <th className="px-3 py-1.5 font-medium">{t('Language')}</th>
+                  <th className="px-3 py-1.5 font-medium">{t('Source')}</th>
+                  <th className="px-3 py-1.5 font-medium">{t('Voices')}</th>
+                  <th className="px-3 py-1.5 text-right font-medium">~{t('Clips')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -155,7 +157,7 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
 
         {m.recipe && (
           <div className="mt-3 text-[11px] leading-relaxed text-ink-3">
-            <span className="font-medium text-ink-2">Recipe:</span>{' '}
+            <span className="font-medium text-ink-2">{`${t('Recipe')}:`}</span>{' '}
             {m.recipe.engine}
             {m.recipe.phrases?.length ? ` · ${m.recipe.phrases.join(', ')}` : ''}
             {m.recipe.languages?.length ? ` · ${m.recipe.languages.join(', ')}` : ''}
@@ -170,7 +172,7 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
 
       {/* Provenance — the export-gate input (#210). */}
       <section className="rounded-xl border border-line bg-surface-2 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Provenance</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Provenance')}</h4>
         <ul className="mt-2 space-y-2">
           {m.provenance.map((p) => (
             <li key={p.name} className="rounded-lg border border-line bg-surface-1 px-3 py-2">
@@ -184,7 +186,7 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
                       : 'bg-amber-500/10 text-amber-700',
                   )}
                 >
-                  {p.commercialUse ? 'commercial use' : 'non-commercial'}
+                  {t(p.commercialUse ? 'commercial use' : 'non-commercial')}
                 </span>
               </div>
               <div className="mt-1 text-[11px] text-ink-3">
@@ -198,8 +200,9 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
               </div>
               {!p.commercialUse && (
                 <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
-                  A model trained on this dataset inherits the restriction — the export gate
-                  blocks commercial bundles (#210).
+                  {t(
+                    'A model trained on this dataset inherits the restriction — the export gate blocks commercial bundles (#210).',
+                  )}
                 </p>
               )}
             </li>
@@ -209,16 +212,16 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
 
       {/* Storage. */}
       <section className="rounded-xl border border-line bg-surface-2 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Storage</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Storage')}</h4>
         <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Backend</dt>
+            <dt className="text-ink-3">{t('Backend')}</dt>
             <dd className="truncate font-mono text-ink-1" title={m.storage?.backend}>
-              {m.storage?.backend ?? (dataset.origin === 'local' ? 'browser-local' : '—')}
+              {m.storage?.backend ?? (dataset.origin === 'local' ? t('browser-local') : '—')}
             </dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Cloud</dt>
+            <dt className="text-ink-3">{t('Cloud')}</dt>
             <dd className="truncate font-mono text-ink-1" title={m.storage?.cloud}>
               {m.storage?.cloud ?? dataset.cloud ?? '—'}
             </dd>
@@ -232,11 +235,11 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
             </div>
           )}
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Size</dt>
+            <dt className="text-ink-3">{t('Size')}</dt>
             <dd className="font-mono text-ink-1">{formatBytes(dataset.sizeBytes) || '—'}</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Created</dt>
+            <dt className="text-ink-3">{t('Created')}</dt>
             <dd className="font-mono text-ink-1">
               {dataset.createdAtMs ? new Date(dataset.createdAtMs).toLocaleString() : '—'}
             </dd>
@@ -248,7 +251,7 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
           + warnings travel in the manifest (recorded by the check job); the
           full report (per-label stats) is the job's health NDJSON + artifact. */}
       <section className="rounded-xl border border-line bg-surface-2 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Quality report</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Quality report')}</h4>
 
         {m.quality ? (
           <div className="mt-2 space-y-2.5">
@@ -263,17 +266,17 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
                       : 'bg-red-500/10 text-red-600',
                 )}
               >
-                {m.quality.verdict}
+                {t(m.quality.verdict)}
               </span>
               <span className="text-[11px] text-ink-3">
                 {m.quality.checkedAtSec
-                  ? `checked ${new Date(m.quality.checkedAtSec * 1000).toLocaleString()}`
-                  : 'checked on the studio-backend'}
+                  ? `${t('checked')} ${new Date(m.quality.checkedAtSec * 1000).toLocaleString()}`
+                  : t('checked on the studio-backend')}
               </span>
             </div>
 
             {m.quality.warnings.length === 0 && (
-              <p className="text-[11px] text-ink-3">No quality warnings — the dataset looks clean.</p>
+              <p className="text-[11px] text-ink-3">{t('No quality warnings — the dataset looks clean.')}</p>
             )}
             {m.quality.warnings.length > 0 && (
               <ul className="space-y-1.5">
@@ -302,19 +305,19 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
           <>
             <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
               <div className="flex justify-between gap-3">
-                <dt className="text-ink-3">Role coverage</dt>
+                <dt className="text-ink-3">{t('Role coverage')}</dt>
                 <dd className="font-mono text-ink-1">
                   {dataset.roles.length ? dataset.roles.join(' / ') : '—'}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-ink-3">Wake-word (positive) labels</dt>
+                <dt className="text-ink-3">{t('Wake-word (positive) labels')}</dt>
                 <dd className="font-mono text-ink-1">
-                  {dataset.roles.includes('positive') ? 'yes' : 'no'}
+                  {t(dataset.roles.includes('positive') ? 'yes' : 'no')}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-ink-3">Unknowns / noise coverage</dt>
+                <dt className="text-ink-3">{t('Unknowns / noise coverage')}</dt>
                 <dd className="font-mono text-ink-1">
                   {[dataset.roles.includes('unknown') && 'unknowns', dataset.roles.includes('noise') && 'noise']
                     .filter(Boolean)
@@ -322,14 +325,14 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-ink-3">Commercial use</dt>
-                <dd className="font-mono text-ink-1">{dataset.commercialUse ? 'yes' : 'no'}</dd>
+                <dt className="text-ink-3">{t('Commercial use')}</dt>
+                <dd className="font-mono text-ink-1">{t(dataset.commercialUse ? 'yes' : 'no')}</dd>
               </div>
             </dl>
             <p className="mt-3 text-[11px] leading-relaxed text-ink-3">
-              This manifest-level summary is rendered today. Run a <span className="font-medium text-ink-2">Check</span> on the
-              studio-backend (Actions) to produce the full health report — per-label clip quality,
-              silence/duplicate detection, sample-rate drift, label balance, voice coverage.
+              {t(
+                'This manifest-level summary is rendered today. Run a Check on the studio-backend (Actions) to produce the full health report — per-label clip quality, silence/duplicate detection, sample-rate drift, label balance, voice coverage.',
+              )}
             </p>
           </>
         )}
@@ -338,13 +341,13 @@ export function DatasetDetails({ dataset }: DatasetDetailsProps) {
         {m.split && (
           <div className="mt-3 rounded-lg border border-line bg-surface-1 px-3 py-2.5">
             <div className="flex items-center gap-2 text-[11px]">
-              <span className="font-medium text-ink-2">Reproducible split</span>
+              <span className="font-medium text-ink-2">{t('Reproducible split')}</span>
               <span className="font-mono text-[10px] text-ink-3">seed {m.split.seed}</span>
             </div>
             <div className="mt-1.5 flex flex-wrap gap-3 text-[11px]">
-              <span className="text-ink-2">train <b className="font-mono text-ink-1">{m.split.train.length}</b></span>
-              <span className="text-ink-2">val <b className="font-mono text-ink-1">{m.split.val.length}</b></span>
-              <span className="text-ink-2">test <b className="font-mono text-ink-1">{m.split.test.length}</b></span>
+              <span className="text-ink-2">{`${t('train')} `}<b className="font-mono text-ink-1">{m.split.train.length}</b></span>
+              <span className="text-ink-2">{`${t('val')} `}<b className="font-mono text-ink-1">{m.split.val.length}</b></span>
+              <span className="text-ink-2">{`${t('test')} `}<b className="font-mono text-ink-1">{m.split.test.length}</b></span>
             </div>
           </div>
         )}
@@ -369,6 +372,7 @@ const MAX_CLIPS_PER_LABEL = 100
  * alive at a time and revoked on switch/stop/unmount.
  */
 function ListenSection({ dataset }: { dataset: ConsoleDataset }) {
+  const t = useT()
   const [clips, setClips] = useState<DatasetClipRef[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [label, setLabel] = useState<string | null>(null)
@@ -440,7 +444,7 @@ function ListenSection({ dataset }: { dataset: ConsoleDataset }) {
         audio.onended = () => stop()
         audio.onerror = () => {
           stop()
-          setError('Could not play this clip.')
+          setError(t('Could not play this clip.'))
         }
         setError(null)
         setPlaying(path)
@@ -450,7 +454,7 @@ function ListenSection({ dataset }: { dataset: ConsoleDataset }) {
         setPlaying(null)
       }
     },
-    [playing, dataset, stop],
+    [playing, dataset, stop, t],
   )
 
   const byLabel = useMemo(() => {
@@ -467,14 +471,14 @@ function ListenSection({ dataset }: { dataset: ConsoleDataset }) {
 
   return (
     <section className="rounded-xl border border-line bg-surface-2 p-4">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Listen</h4>
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Listen')}</h4>
 
       {error && <p className="mt-2 text-[11px] text-red-600">{error}</p>}
       {!error && clips === null && (
-        <p className="mt-2 text-[11px] text-ink-3">Reading clips from the archive tail…</p>
+        <p className="mt-2 text-[11px] text-ink-3">{t('Reading clips from the archive tail…')}</p>
       )}
       {!error && clips?.length === 0 && (
-        <p className="mt-2 text-[11px] text-ink-3">No audio clips in this dataset.</p>
+        <p className="mt-2 text-[11px] text-ink-3">{t('No audio clips in this dataset.')}</p>
       )}
 
       {byLabel.length > 0 && (
@@ -514,7 +518,7 @@ function ListenSection({ dataset }: { dataset: ConsoleDataset }) {
                 <button
                   type="button"
                   onClick={() => void play(clip.path)}
-                  aria-label={playing === clip.path ? `Stop ${clip.name}` : `Play ${clip.name}`}
+                  aria-label={playing === clip.path ? `${t('Stop')} ${clip.name}` : `${t('Play')} ${clip.name}`}
                   className={cn(
                     'shrink-0 rounded-md border px-2 py-0.5 text-[11px] transition-colors',
                     playing === clip.path
@@ -522,19 +526,19 @@ function ListenSection({ dataset }: { dataset: ConsoleDataset }) {
                       : 'border-line bg-surface-2 text-ink-1 hover:border-brand-7',
                   )}
                 >
-                  {playing === clip.path ? '■ stop' : '▶ play'}
+                  {playing === clip.path ? `■ ${t('stop')}` : `▶ ${t('play')}`}
                 </button>
               </li>
             ))}
           </ol>
           {activeClips.length > MAX_CLIPS_PER_LABEL && (
             <p className="text-[10px] text-ink-3">
-              …and {activeClips.length - MAX_CLIPS_PER_LABEL} more clips in “{labelName(label ?? '')}”.
+              {`${t('…and')} ${activeClips.length - MAX_CLIPS_PER_LABEL} ${t('more clips in')} “${labelName(label ?? '')}”.`}
             </p>
           )}
 
           <p className="text-[10px] leading-relaxed text-ink-3">
-            Playback reads a single clip on demand — never the whole archive (§8.3).
+            {t('Playback reads a single clip on demand — never the whole archive (§8.3).')}
           </p>
         </div>
       )}

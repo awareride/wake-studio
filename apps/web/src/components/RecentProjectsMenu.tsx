@@ -19,22 +19,27 @@ import {
 import { NewProjectDialog } from './NewProjectDialog'
 import { Button } from '@radix-ui/themes'
 import { ChevronDownIcon, ListBulletIcon } from '@radix-ui/react-icons'
+import { useT } from '../i18n'
 
-/** Relative "updated …" caption for the recent-projects menu. */
-function formatUpdated(ms: number): string {
+/**
+ * Relative "updated …" caption for the recent-projects menu.
+ * Pre-translated per relative phrase (the interpolation suffix stays numeric).
+ */
+function formatUpdated(ms: number, t: (s: string) => string): string {
   const diff = Date.now() - ms
-  if (diff < 60_000) return 'updated just now'
-  if (diff < 3_600_000) return `updated ${Math.floor(diff / 60_000)}m ago`
-  if (diff < 86_400_000) return `updated ${Math.floor(diff / 3_600_000)}h ago`
-  return `updated ${new Date(ms).toLocaleDateString()}`
+  if (diff < 60_000) return t('updated just now')
+  if (diff < 3_600_000) return `${t('updated')} ${Math.floor(diff / 60_000)} ${t('min ago')}`
+  if (diff < 86_400_000) return `${t('updated')} ${Math.floor(diff / 3_600_000)} ${t('h ago')}`
+  return `${t('updated')} ${new Date(ms).toLocaleDateString()}`
 }
 
 export function RecentProjectsMenu() {
   const { projects, current, selectProject } = useProjects()
+  const t = useT()
   const [createOpen, setCreateOpen] = React.useState(false)
 
   const recent = projects.slice(0, 5)
-  const label = current?.name ?? 'No project selected'
+  const label = current?.name ?? t('No project selected')
 
   const openProject = (id: string) => {
     selectProject(id)
@@ -51,7 +56,7 @@ export function RecentProjectsMenu() {
             variant="outline"
             size="2"
             className="max-w-48 gap-1.5 font-medium"
-            title="Recent projects"
+            title={t('Recent projects')}
           >
             <ListBulletIcon className="h-3.5 w-3.5 shrink-0 text-ink-3" />
             <span className="truncate">{label}</span>
@@ -60,14 +65,14 @@ export function RecentProjectsMenu() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-60">
           {recent.length === 0 && (
-            <div className="px-2.5 py-2 text-xs text-ink-3">No projects yet</div>
+            <div className="px-2.5 py-2 text-xs text-ink-3">{t('No projects yet')}</div>
           )}
           {recent.map((p) => (
             <DropdownMenuItem key={p.id} onSelect={() => openProject(p.id)}>
               <span className="flex flex-1 flex-col">
                 <span className="truncate text-sm text-ink-1">{p.name}</span>
                 <span className="text-[10px] text-ink-3">
-                  {formatUpdated(p.updatedAtMs)}
+                  {formatUpdated(p.updatedAtMs, t)}
                 </span>
               </span>
               {current?.id === p.id && (
@@ -77,7 +82,7 @@ export function RecentProjectsMenu() {
           ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => setCreateOpen(true)}>
-            <span className="text-brand-11">+ New project…</span>
+            <span className="text-brand-11">+ {t('New project…')}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

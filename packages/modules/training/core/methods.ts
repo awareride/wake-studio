@@ -45,13 +45,13 @@ export const TRAIN_METHODS: Record<TrainMethodId, TrainMethod> = {
     id: 'colab',
     label: 'Google Colab',
     blurb:
-      'Free GPU under your Google account (ADR-023). Run the module-owned notebook in your own Colab session, then bring results back in the train details pane — paste the Cloudflare tunnel URL the notebook prints (ADR-023 amendment, issue #106), or download the results zip and submit it. The URL is generated at run time, not here.',
+      'Free GPU under your Google account. Run the module-owned notebook in your own Colab session, then bring results back in the train details pane — paste the Cloudflare tunnel URL the notebook prints (issue #106), or download the results zip and submit it. The URL is generated at run time, not here.',
   },
   'studio-backend': {
     id: 'studio-backend',
     label: 'Studio-backend',
     blurb:
-      'A backend of your choice runs the train script (ADR-005/013/036): the WakeStudio studio-backend (uv / direct subprocess, ADR-028) or a backend you created in the app. The next step picks which backend — the train then runs there with live status.',
+      'A backend of your choice runs the train script: the WakeStudio studio-backend (uv / direct subprocess) or a backend you created in the app. The next step picks which backend — the train then runs there with live status.',
   },
   ci: {
     id: 'ci',

@@ -9,6 +9,7 @@
  */
 
 import { cn } from '../../components/cn'
+import { useT } from '../../i18n'
 import type { ConsoleDataset } from '../store'
 import {
   KIND_LABEL,
@@ -26,10 +27,11 @@ export interface DatasetListProps {
 }
 
 export function DatasetList({ datasets, selectedId, onSelect, loading }: DatasetListProps) {
+  const t = useT()
   if (loading && datasets.length === 0) {
     return (
       <div className="px-4 py-6 text-xs leading-relaxed text-ink-3">
-        Loading datasets…
+        {t('Loading datasets…')}
       </div>
     )
   }
@@ -37,8 +39,7 @@ export function DatasetList({ datasets, selectedId, onSelect, loading }: Dataset
   if (datasets.length === 0) {
     return (
       <div className="px-4 py-6 text-xs leading-relaxed text-ink-3">
-        No datasets yet. Press <span className="font-medium text-ink-2">New</span> (the wizard
-        wand) to generate one with a TTS engine — built-ins and generated datasets land here.
+        {t('No datasets yet. Press')} <span className="font-medium text-ink-2">{t('New')}</span>{t(' (the wizard wand) to generate one with a TTS engine — built-ins and generated datasets land here.')}
       </div>
     )
   }
@@ -67,7 +68,7 @@ export function DatasetList({ datasets, selectedId, onSelect, loading }: Dataset
                     kindBadgeClass(d.kind),
                   )}
                 >
-                  {KIND_LABEL[d.kind] ?? d.kind}
+                  {t(KIND_LABEL[d.kind] ?? d.kind)}
                 </span>
                 {d.cloud && (
                   <span className="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-3">
@@ -76,7 +77,7 @@ export function DatasetList({ datasets, selectedId, onSelect, loading }: Dataset
                 )}
                 {!d.available && (
                   <span className="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] text-ink-3">
-                    not hosted yet
+                    {t('not hosted yet')}
                   </span>
                 )}
               </div>
@@ -88,7 +89,7 @@ export function DatasetList({ datasets, selectedId, onSelect, loading }: Dataset
                 <span aria-hidden>·</span>
                 <span>v{d.version}</span>
                 <span aria-hidden>·</span>
-                <span>{formatClips(d.clips)}</span>
+                <span>{formatClips(d.clips, t)}</span>
                 {d.sizeBytes !== undefined && (
                   <>
                     <span aria-hidden>·</span>

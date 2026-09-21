@@ -25,6 +25,7 @@ import { PersistenceStageToggle } from './PersistenceStageToggle'
 import type { SourceState, SourceActions } from '../workspace/useSourceConfig'
 import type { WorkspaceConfig } from '../workspace/types'
 import type { ParamValue } from './UnifiedConfigPanel'
+import { useT } from '../i18n'
 
 // ---------------------------------------------------------------------------
 // Shared flat shell
@@ -49,6 +50,7 @@ export function StageModuleShell({
   /** Flat sections, each rendered as a divider-separated block. */
   children?: React.ReactNode
 }) {
+  const t = useT()
   return (
     <div className="overflow-hidden rounded-xl border border-line bg-surface-2">
       <div
@@ -70,7 +72,7 @@ export function StageModuleShell({
         {onToggle && (
           <Button
             onClick={onToggle}
-            aria-label={`${title} toggle`}
+            aria-label={`${title} ${t('toggle')}`}
             aria-pressed={enabled}
             variant={enabled ? 'soft' : 'ghost'}
             color={enabled ? 'green' : 'gray'}
@@ -78,7 +80,7 @@ export function StageModuleShell({
             radius="full"
             className="px-3 text-[10px] font-bold uppercase tracking-widest"
           >
-            {enabled ? 'On' : 'Off'}
+            {enabled ? t('On') : t('Off')}
           </Button>
         )}
       </div>
@@ -128,6 +130,7 @@ export function SourcePanel({
   persistence: WorkspaceConfig['persistence']
   setPersistence: (next: WorkspaceConfig['persistence']) => void
 }) {
+  const t = useT()
   const params = describeParameters().filter((p) => GLOBAL_PARAM_IDS.includes(p.id))
   const [vizFps, setVizFps] = React.useState(projCfg?.vizFps ?? 30)
   const values: Record<string, ParamValue> = {
@@ -157,27 +160,27 @@ export function SourcePanel({
     <StageModuleShell
       color="#64748b"
       number="1"
-      title="Source"
-      note="input feed, raw persistence and AFE-wide settings"
+      title={t('Source')}
+      note={t('input feed, raw persistence and AFE-wide settings')}
       enabled
     >
       <StageSection>
-        <SectionLabel>Persistence</SectionLabel>
+        <SectionLabel>{t('Persistence')}</SectionLabel>
         <PersistenceStageToggle
           stageId="raw"
-          label="Persist raw input (captures the mic/file stream)"
+          label={t('Persist raw input (captures the mic/file stream)')}
           config={persistence}
           onChange={setPersistence}
         />
       </StageSection>
       <StageSection>
-        <SectionLabel>Source</SectionLabel>
+        <SectionLabel>{t('Source')}</SectionLabel>
         <SourceConfigSection source={source} actions={actions} disabled={running} />
       </StageSection>
       <StageSection>
         <SectionLabel>AFE</SectionLabel>
         <p className="mb-2 text-xs text-ink-3">
-          Pipeline-wide settings for the whole AEC → BSS → NS chain.
+          {t('Pipeline-wide settings for the whole AEC → BSS → NS chain.')}
         </p>
         <div className="divide-y divide-line">
           {params.map((desc) => (
@@ -246,19 +249,20 @@ export function NsPanel({
   persistence: WorkspaceConfig['persistence']
   setPersistence: (next: WorkspaceConfig['persistence']) => void
 }) {
+  const t = useT()
   return (
     <StageModulePanel
       id="ns"
       color="#38bdf8"
       number="4"
       title="NS · RNNoise noise suppression"
-      note="The only real DSP core in v1 — AEC/BSS are passthrough until the real engines land (ADR-016)."
+      note="The only real DSP core in v1 — AEC/BSS are passthrough until the real engines land."
       bypassed={bypassed}
       onToggleBypass={onToggleBypass}
       persistence={
         <PersistenceStageToggle
           stageId="ns"
-          label="Persist NS output (denoised audio)"
+          label={t('Persist NS output (denoised audio)')}
           config={persistence}
           onChange={setPersistence}
         />

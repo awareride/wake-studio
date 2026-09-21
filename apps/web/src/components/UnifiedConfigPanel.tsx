@@ -15,6 +15,7 @@ import type { ModuleParam } from '@wake-studio/contracts'
 import { renderParamRow, UiCollapsible } from '@wake-studio/module-kit'
 import type { ParameterDescriptor } from '@wake-studio/module-afe-graph'
 import { cn } from '../components/cn'
+import { useT } from '../i18n'
 
 export type ParamValue = string | number | boolean
 
@@ -61,15 +62,23 @@ export function ParamRows({
   onParamChange: (id: string, value: ParamValue) => void
   disabled?: boolean
 }) {
+  const t = useT()
   return (
     <div className="divide-y divide-line">
       {ids.map((id) => {
         const desc = params.find((p) => p.id === id)
         if (!desc) return null
+        // Labels/descriptions are translated at this render seam so spec
+        // files stay English (the en strings are the dictionary keys).
         return (
           <div key={desc.id}>
             {renderParamRow(
-              toModuleParam(desc),
+              toModuleParam({
+                ...desc,
+                label: t(desc.label),
+                description: t(desc.description),
+                options: desc.options?.map((o) => ({ ...o, label: t(o.label) })),
+              }),
               values[desc.id] ?? desc.default,
               (v: unknown) => onParamChange(desc.id, v as ParamValue),
               disabled,
@@ -94,6 +103,8 @@ export function UnifiedConfigPanel({
   const primaryIds = params.map((p) => p.id).filter((id) => !advancedIds.includes(id))
   const advanced = params.filter((p) => advancedIds.includes(p.id))
 
+  const t = useT()
+  const tAdvanced = t('Advanced')
   return (
     <div className={cn('rounded-xl border border-line bg-surface-2 p-5', className)}>
       {title && <h3 className="mb-1 text-sm font-semibold text-ink-1">{title}</h3>}
@@ -107,7 +118,7 @@ export function UnifiedConfigPanel({
       />
       {advanced.length > 0 && (
         <div className="mt-3 border-t border-line pt-2">
-          <UiCollapsible label="Advanced">
+          <UiCollapsible label={tAdvanced}>
             <div className="pt-2">
               <ParamRows
                 ids={advanced.map((p) => p.id)}

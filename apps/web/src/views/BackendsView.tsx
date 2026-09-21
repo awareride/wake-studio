@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, TextField } from '@radix-ui/themes'
 import { useAppSettings } from '../settings'
+import { useT } from '../i18n'
 import { createStudioClient } from '../training/studio-client'
 import type { StudioJob } from '../training/studio-client'
 import type { ManagedBackend, ManagedBackendStatus } from '../backends/types'
@@ -68,6 +69,7 @@ function BackendEditor({
   onSave: (input: EditorInput) => void
   onCancel: () => void
 }) {
+  const t = useT()
   const [name, setName] = useState(initial.name)
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl)
   const [token, setToken] = useState(initial.token)
@@ -80,23 +82,23 @@ function BackendEditor({
       <div className="flex shrink-0 items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-ink-1">
-            {mode === 'new' ? 'New backend' : 'Edit backend'}
+            {mode === 'new' ? t('New backend') : t('Edit backend')}
           </h3>
           <p className="mt-0.5 text-xs text-ink-3">
             {mode === 'new'
-              ? 'Endpoint URL + access token of a studio-backend (long-term server or a short-term Colab tunnel). The kind is detected from /health — no need to pick it.'
-              : 'Update the endpoint, token or name.'}
+              ? t('Endpoint URL + access token of a studio-backend (long-term server or a short-term Colab tunnel). The kind is detected from /health — no need to pick it.')
+              : t('Update the endpoint, token or name.')}
           </p>
         </div>
         <Button type="button" onClick={onCancel} variant="outline" size="1" className="text-xs">
-          Cancel
+          {t('Cancel')}
         </Button>
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
         <div className="mx-auto w-full max-w-2xl space-y-4 rounded-xl border border-line bg-surface-2 p-4">
           <label className="block space-y-1">
-            <span className="block text-xs font-medium text-ink-2">Name</span>
+            <span className="block text-xs font-medium text-ink-2">{t('Name')}</span>
             <TextField.Root
               size="2"
               className="w-full"
@@ -106,7 +108,7 @@ function BackendEditor({
             />
           </label>
           <label className="block space-y-1">
-            <span className="block text-xs font-medium text-ink-2">Endpoint URL</span>
+            <span className="block text-xs font-medium text-ink-2">{t('Endpoint URL')}</span>
             <TextField.Root
               size="2"
               className="w-full"
@@ -115,14 +117,14 @@ function BackendEditor({
               placeholder="http://127.0.0.1:4824  ·  https://xxxx.trycloudflare.com"
             />
             {baseUrl !== '' && !urlValid && (
-              <span className="block text-[11px] text-danger">Must start with http(s)://</span>
+              <span className="block text-[11px] text-danger">{t('Must start with http(s)://')}</span>
             )}
           </label>
           <label className="block space-y-1">
             <span className="block text-xs font-medium text-ink-2">
-              Access token{' '}
+              {t('Access token')}{' '}
               <span className="font-normal text-ink-3">
-                (optional; for job mutations, ADR-036 §5)
+                {t('(optional; for job mutations)')}
               </span>
             </span>
             <TextField.Root
@@ -131,13 +133,14 @@ function BackendEditor({
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="leave empty for read-only (health/jobs/logs are open)"
+              placeholder={t('leave empty for read-only (health/jobs/logs are open)')}
             />
           </label>
           <p className="text-[11px] leading-relaxed text-ink-3">
-            The <span className="font-medium text-ink-2">kind</span> (long-term / short-term) is
-            detected automatically from the service's{' '}
-            <code className="font-mono">/health</code> — the Colab launcher reports{' '}
+            {t('The')} <span className="font-medium text-ink-2">{t('kind')}</span>{' '}
+            ({t('long-term')} / {t('short-term')}){' '}
+            {t("is detected automatically from the service's")}{' '}
+            <code className="font-mono">/health</code> — {t('the Colab launcher reports')}{' '}
             <code className="font-mono">instance: short-term</code>.
           </p>
         </div>
@@ -147,7 +150,7 @@ function BackendEditor({
       <div className="shrink-0 space-y-2 border-t border-line pt-4">
         <div className="flex items-center justify-end gap-2">
           <Button type="button" onClick={onCancel} variant="outline" size="2">
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             type="button"
@@ -155,7 +158,7 @@ function BackendEditor({
             disabled={!valid}
             size="2"
           >
-            {mode === 'new' ? 'Add' : 'Save'}
+            {mode === 'new' ? t('Add') : t('Save')}
           </Button>
         </div>
       </div>
@@ -188,19 +191,21 @@ function ColabGuide({
   onBack: () => void
   onPreview: () => void
 }) {
+  const t = useT()
   return (
     <div className="flex h-[calc(100dvh-7.5rem)] min-h-[24rem] flex-col gap-6">
       {/* Top bar: only Back (plus the title). */}
       <div className="flex shrink-0 items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-ink-1">Free on Google Colab</h3>
+          <h3 className="text-base font-semibold text-ink-1">{t('Free on Google Colab')}</h3>
           <p className="mt-0.5 text-xs text-ink-3">
-            A short-term studio-backend on a free Colab runtime behind a trycloudflare tunnel
-            (ADR-023 amendment) — no server, no keys, only your Google account.
+            {t(
+              'A short-term studio-backend on a free Colab runtime behind a trycloudflare tunnel — no server, no keys, only your Google account.',
+            )}
           </p>
         </div>
         <Button type="button" variant="outline" size="1" onClick={onBack}>
-          Back
+          {t('Back')}
         </Button>
       </div>
 
@@ -216,15 +221,15 @@ function ColabGuide({
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-3 font-mono text-[10px] text-ink-3">
                   {i + 1}
                 </span>
-                <h4 className="text-sm font-semibold text-ink-1">{s.title}</h4>
+                <h4 className="text-sm font-semibold text-ink-1">{t(s.title)}</h4>
               </div>
-              <p className="mt-2 flex-1 text-xs leading-relaxed text-ink-2">{s.detail}</p>
+              <p className="mt-2 flex-1 text-xs leading-relaxed text-ink-2">{t(s.detail)}</p>
               {i === 0 && (
                 <div className="mt-3 flex min-h-9 items-center gap-2 border-t border-line pt-2">
                   {blobUrl && (
                     <Button type="button" size="1" asChild className="flex-1">
                       <a href={blobUrl} download={BACKEND_NOTEBOOK_FILENAME}>
-                        Download
+                        {t('Download')}
                       </a>
                     </Button>
                   )}
@@ -235,7 +240,7 @@ function ColabGuide({
                     onClick={onPreview}
                     className="flex-1"
                   >
-                    Review
+                    {t('Review')}
                   </Button>
                 </div>
               )}
@@ -243,7 +248,7 @@ function ColabGuide({
                 <div className="mt-3 flex min-h-9 items-center border-t border-line pt-2">
                   <Button type="button" size="1" asChild className="w-full">
                     <a href="https://colab.research.google.com" target="_blank" rel="noreferrer">
-                      Open Google Colab
+                      {t('Open Google Colab')}
                     </a>
                   </Button>
                 </div>
@@ -251,8 +256,8 @@ function ColabGuide({
               {i === 2 && (
                 <div className="mt-3 flex min-h-9 items-center border-t border-line pt-2">
                   <p className="text-[10px] leading-4 text-ink-3">
-                    Then press <span className="font-medium text-ink-2">Run all</span> and copy
-                    the URL + token.
+                    {t('Then press')} <span className="font-medium text-ink-2">{t('Run all')}</span>{' '}
+                    {t('and copy the URL + token.')}
                   </p>
                 </div>
               )}
@@ -262,12 +267,11 @@ function ColabGuide({
 
         {/* "Then" note. */}
         <p className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs leading-relaxed text-ink-2">
-          Then, in Colab: <span className="font-medium text-ink-1">Runtime → Run all</span>, copy
-          the printed <span className="font-medium text-ink-1">URL</span> and{' '}
-          <span className="font-medium text-ink-1">token</span>, and paste them into{' '}
-          <span className="font-medium text-ink-1">Backends → New</span> — the kind (short-term)
-          is detected automatically. The runtime is ephemeral: after a reconnect, re-run the last
-          cell for a fresh URL (jobs checkpoint/resume across drops).
+          {t('Then, in Colab:')} <span className="font-medium text-ink-1">{t('Runtime → Run all')}</span>,{' '}
+          {t('copy the printed')} <span className="font-medium text-ink-1">URL</span> {t('and')}{' '}
+          <span className="font-medium text-ink-1">{t('token')}</span>, {t('and paste them into')}{' '}
+          <span className="font-medium text-ink-1">Backends → New</span> —{' '}
+          {t('the kind (short-term) is detected automatically. The runtime is ephemeral: after a reconnect, re-run the last cell for a fresh URL (jobs checkpoint/resume across drops).')}
         </p>
       </div>
     </div>
@@ -275,6 +279,7 @@ function ColabGuide({
 }
 
 function BackendDetail({ backend }: { backend: ManagedBackend }) {
+  const t = useT()
   const [jobs, setJobs] = useState<StudioJob[] | null>(null)
   const [logs, setLogs] = useState<{ jobId: string; lines: string[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -314,10 +319,10 @@ function BackendDetail({ backend }: { backend: ManagedBackend }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-          Jobs on {backend.name}
+          {`${t('Jobs on')} ${backend.name}`}
         </h4>
         <Button type="button" size="1" variant="ghost" onClick={() => void loadJobs()}>
-          Refresh
+          {t('Refresh')}
         </Button>
       </div>
 
@@ -328,10 +333,10 @@ function BackendDetail({ backend }: { backend: ManagedBackend }) {
       )}
 
       {jobs === null ? (
-        <p className="text-xs text-ink-3">Loading jobs…</p>
+        <p className="text-xs text-ink-3">{t('Loading jobs…')}</p>
       ) : jobs.length === 0 ? (
         <p className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-3">
-          No jobs on this backend yet — start one from the Training view.
+          {t('No jobs on this backend yet — start one from the Training view.')}
         </p>
       ) : (
         <ul className="space-y-1.5">
@@ -361,7 +366,7 @@ function BackendDetail({ backend }: { backend: ManagedBackend }) {
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1 truncate font-mono text-ink-1">{j.id}</span>
-                <span className="text-[10px] uppercase tracking-wide text-ink-3">{j.status}</span>
+                <span className="text-[10px] uppercase tracking-wide text-ink-3">{t(j.status)}</span>
                 {typeof j.progress === 'number' && (
                   <span className="font-mono text-[10px] text-ink-3">
                     {Math.round(j.progress * 100)}%
@@ -376,10 +381,10 @@ function BackendDetail({ backend }: { backend: ManagedBackend }) {
       {logs && (
         <div className="space-y-1.5">
           <h5 className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">
-            Logs · {logs.jobId}
+            {`${t('Logs')} · ${logs.jobId}`}
           </h5>
           <pre className="max-h-56 overflow-auto rounded-lg border border-line bg-surface-1 px-3 py-2 font-mono text-[10px] leading-relaxed text-ink-2">
-            {logs.lines.length ? logs.lines.join('\n') : '(no log lines)'}
+            {logs.lines.length ? logs.lines.join('\n') : t('(no log lines)')}
           </pre>
         </div>
       )}
@@ -389,6 +394,7 @@ function BackendDetail({ backend }: { backend: ManagedBackend }) {
 
 /** Backend basic info — shown at the top of the details pane. */
 function BackendSummary({ backend }: { backend: ManagedBackend }) {
+  const t = useT()
   return (
     <section className="rounded-xl border border-line bg-surface-2 p-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -399,7 +405,7 @@ function BackendSummary({ backend }: { backend: ManagedBackend }) {
             KIND_STYLE[backend.kind],
           )}
         >
-          {backend.kind === 'short-term' ? 'short-term' : 'long-term'}
+          {t(backend.kind === 'short-term' ? 'short-term' : 'long-term')}
         </span>
         <span
           className={cn(
@@ -407,14 +413,14 @@ function BackendSummary({ backend }: { backend: ManagedBackend }) {
             STATUS_STYLE[backend.status],
           )}
         >
-          {backend.status}
+          {t(backend.status)}
         </span>
       </div>
       <p className="mt-1 truncate font-mono text-xs text-ink-3">{backend.baseUrl}</p>
       <p className="mt-1 text-[10px] text-ink-3">
         {backend.lastSeenMs
-          ? `last seen ${new Date(backend.lastSeenMs).toLocaleString()} (auto health check every 30s)`
-          : 'not checked yet — the first health check is running'}
+          ? `${t('last seen')} ${new Date(backend.lastSeenMs).toLocaleString()} (${t('auto health check every 30s')})`
+          : t('not checked yet — the first health check is running')}
       </p>
     </section>
   )
@@ -430,6 +436,7 @@ function BackendOperations({
   onSave: (input: EditorInput) => void
   onDelete: () => void
 }) {
+  const t = useT()
   const [name, setName] = useState(backend.name)
   const [baseUrl, setBaseUrl] = useState(backend.baseUrl)
   const [token, setToken] = useState(backend.token ?? '')
@@ -457,7 +464,7 @@ function BackendOperations({
 
   return (
     <section className="rounded-xl border border-danger/25 bg-surface-2 p-4">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Operations</h4>
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Operations')}</h4>
 
       {/* Edit form — always visible (no Edit button). */}
       <div className="mt-3 space-y-3">
@@ -494,7 +501,7 @@ function BackendOperations({
         </label>
         <div className="flex items-center justify-end gap-2">
           <Button type="button" size="1" variant="ghost" disabled={!dirty} onClick={reset}>
-            Reset
+            {t('Reset')}
           </Button>
           <Button
             type="button"
@@ -502,7 +509,7 @@ function BackendOperations({
             disabled={!valid || !dirty}
             onClick={() => setConfirmSave(true)}
           >
-            Save
+            {t('Save')}
           </Button>
         </div>
       </div>
@@ -510,8 +517,9 @@ function BackendOperations({
       {/* Delete on its own line. */}
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
         <p className="text-xs text-ink-3">
-          Remove this backend. Jobs already started keep their recorded endpoint in the Training
-          list.
+          {t(
+          'Remove this backend. Jobs already started keep their recorded endpoint in the Training list.',
+        )}
         </p>
         <Button
           type="button"
@@ -521,15 +529,17 @@ function BackendOperations({
           className="shrink-0"
           onClick={onDelete}
         >
-          Delete
+          {t('Delete')}
         </Button>
       </div>
 
       <ConfirmDialog
         open={confirmSave}
-        title="Save backend changes?"
-        message="Updates name, endpoint URL and token for this backend. Jobs already started keep their recorded endpoint in the Training list."
-        confirmLabel="Save"
+        title={t('Save backend changes?')}
+        message={t(
+          'Updates name, endpoint URL and token for this backend. Jobs already started keep their recorded endpoint in the Training list.',
+        )}
+        confirmLabel={t('Save')}
         onConfirm={() => {
           onSave({ name: name.trim(), baseUrl: baseUrl.trim(), token: token.trim() })
           setConfirmSave(false)
@@ -557,6 +567,7 @@ function modeFromHash(): BackendsViewMode {
 
 export function BackendsView() {
   const { backends, upsertBackend, removeBackend } = useAppSettings()
+  const t = useT()
   const [view, setView] = useState<BackendsViewMode>(modeFromHash)
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     rememberedSelection('backends'),
@@ -696,8 +707,10 @@ export function BackendsView() {
   return (
     <>
       <ConsolePanel
-        title="Backends"
-        description="Your studio-backend endpoints for the Studio-backend train method (ADR-036). Health is checked automatically; kind (long-term / short-term) is detected from the service. Jobs and logs here are read-only — train and control jobs from the Training view."
+        title={t('Backends')}
+        description={t(
+          'Your studio-backend endpoints for the Studio-backend train method. Health is checked automatically; kind (long-term / short-term) is detected from the service. Jobs and logs here are read-only — train and control jobs from the Training view.',
+        )}
         actions={
           <>
             <Button
@@ -708,7 +721,7 @@ export function BackendsView() {
                 window.location.hash = `#${BACKENDS_HASH_PREFIX}/colab`
               }}
             >
-              Free On Google Colab
+              {t('Free On Google Colab')}
             </Button>
             <Button
               type="button"
@@ -717,11 +730,11 @@ export function BackendsView() {
                 window.location.hash = `#${BACKENDS_HASH_PREFIX}/new`
               }}
             >
-              New
+              {t('New')}
             </Button>
           </>
         }
-        railTitle="Backends"
+        railTitle={t('Backends')}
         railCount={backends.length}
         railActions={
           <Button
@@ -730,16 +743,16 @@ export function BackendsView() {
             variant="ghost"
             onClick={() => void runHealthChecks()}
           >
-            Check health
+            {t('Check health')}
           </Button>
         }
         rail={(close) => (
           <ul className="space-y-1 px-2 pb-4">
             {backends.length === 0 && (
               <li className="rounded-lg border border-dashed border-line px-3 py-3 text-xs text-ink-3">
-                No backends yet — press <span className="font-medium text-ink-1">New</span> to add
-                one, or <span className="font-medium text-ink-1">Free On Google Colab</span> for
-                a short-term runtime.
+                {t('No backends yet — press')} <span className="font-medium text-ink-1">{t('New')}</span>{' '}
+                {t('to add one, or')} <span className="font-medium text-ink-1">{t('Free On Google Colab')}</span>{' '}
+                {t('for a short-term runtime.')}
               </li>
             )}
             {backends.map((b) => (
@@ -767,7 +780,7 @@ export function BackendsView() {
                         STATUS_STYLE[b.status],
                       )}
                     >
-                      {b.status}
+                      {t(b.status)}
                     </span>
                     <span
                       className={cn(
@@ -775,7 +788,7 @@ export function BackendsView() {
                         KIND_STYLE[b.kind],
                       )}
                     >
-                      {b.kind === 'short-term' ? 'short-term' : 'long-term'}
+                      {t(b.kind === 'short-term' ? 'short-term' : 'long-term')}
                     </span>
                   </div>
                   <div className="mt-1 truncate text-xs font-medium text-ink-1">{b.name}</div>
@@ -802,12 +815,13 @@ export function BackendsView() {
         }
         detailsEmpty={
           <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
-            <p className="text-sm font-medium text-ink-1">No backend selected</p>
+            <p className="text-sm font-medium text-ink-1">{t('No backend selected')}</p>
             <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
-              Pick a backend from the left to see its jobs and logs (read-only). Use{' '}
-              <span className="font-medium text-ink-2">New</span> to add an endpoint, or{' '}
-              <span className="font-medium text-ink-2">Free On Google Colab</span> to generate a
-              short-term runtime notebook.
+              {t('Pick a backend from the left to see its jobs and logs (read-only). Use')}{' '}
+              <span className="font-medium text-ink-2">{t('New')}</span>{' '}
+              {t('to add an endpoint, or')}{' '}
+              <span className="font-medium text-ink-2">{t('Free On Google Colab')}</span>{' '}
+              {t('to generate a short-term runtime notebook.')}
             </p>
           </div>
         }
@@ -815,9 +829,11 @@ export function BackendsView() {
 
       <ConfirmDialog
         open={confirmDelete !== null}
-        title="Delete this backend?"
-        message="Removes it from the Backends menu. Jobs already started on it keep their recorded endpoint in the Training list; live tracking stops if the backend is gone."
-        confirmLabel="Delete"
+        title={t('Delete this backend?')}
+        message={t(
+          'Removes it from the Backends menu. Jobs already started on it keep their recorded endpoint in the Training list; live tracking stops if the backend is gone.',
+        )}
+        confirmLabel={t('Delete')}
         onConfirm={() => {
           if (confirmDelete) {
             removeBackend(confirmDelete)

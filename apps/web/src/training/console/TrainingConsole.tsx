@@ -40,6 +40,7 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { fetchTrainableModules, type TrainableModule } from '../train-modules'
 import { createStudioClient, type StudioJobPatch } from '../studio-client'
 import type { ColabImportResult } from '../colab-import'
+import { useT } from '../../i18n'
 
 type View =
   | { kind: 'empty' }
@@ -48,6 +49,7 @@ type View =
 
 export function TrainingConsole() {
   const { platform, backends, kwsSources, setKwsSources } = useAppSettings()
+  const t = useT()
 
   // The Datasets store lives on the studio-backend (GET /datasets, #206); the
   // wizard's datasets[] picker uses the first configured managed backend.
@@ -406,8 +408,10 @@ export function TrainingConsole() {
         />
       ) : (
         <ConsolePanel
-          title="Training"
-          description="Train a custom model end to end: pick a trainable module, configure it, choose a train method (Colab / Studio-backend / CI), then review the run. Training never runs in the browser (ADR-013)."
+          title={t('Training')}
+          description={t(
+            'Train a custom model end to end: pick a trainable module, configure it, choose a train method (Colab / Studio-backend / CI), then review the run. Training never runs in the browser.',
+          )}
           actions={
             <Button
               type="button"
@@ -421,10 +425,10 @@ export function TrainingConsole() {
               className="shrink-0 gap-1.5 font-semibold"
             >
               <IconWand className="h-4 w-4" />
-              New
+              {t('New')}
             </Button>
           }
-          railTitle="Trains"
+          railTitle={t('Trains')}
           railCount={jobs.length}
           rail={(close) => (
             <TrainList
@@ -459,22 +463,23 @@ export function TrainingConsole() {
               </>
             ) : modulesError ? (
               <div className="rounded-xl border border-danger/40 bg-danger/5 p-4 text-xs text-danger">
-                Could not load the trainable-modules catalog: {modulesError}
+                {t('Could not load the trainable-modules catalog:')}{modulesError}
               </div>
             ) : null
           }
           detailsEmpty={
             view.kind === 'details' ? (
               <div className="rounded-xl border border-line bg-surface-2 p-6 text-sm text-ink-2">
-                This train is no longer in the list (deleted?). Pick another from the rail.
+                {t('This train is no longer in the list (deleted?). Pick another from the rail.')}
               </div>
             ) : (
               <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
-                <p className="text-sm font-medium text-ink-1">No train selected</p>
+                <p className="text-sm font-medium text-ink-1">{t('No train selected')}</p>
                 <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-3">
-                  Press <span className="font-medium text-ink-2">New</span> (the wizard wand) to
-                  pick a trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure
-                  it, choose a train method, and confirm. Past trains stay in the left rail.
+                  {t('Press')} <span className="font-medium text-ink-2">{t('New')}</span>{' '}
+                  {t(
+                    '(the wizard wand) to pick a trainable module (KWS openwakeword, KWS streaming, RNNoise…), configure it, choose a train method, and confirm. Past trains stay in the left rail.',
+                  )}
                 </p>
               </div>
             )
@@ -485,9 +490,9 @@ export function TrainingConsole() {
       {/* Leaving mid-wizard via another menu (issue #105). */}
       <ConfirmDialog
         open={confirmNav !== null}
-        title="Leave without saving this train?"
-        message="You have progress in the New-train wizard. Leaving now discards it."
-        confirmLabel="Leave anyway"
+        title={t('Leave without saving this train?')}
+        message={t('You have progress in the New-train wizard. Leaving now discards it.')}
+        confirmLabel={t('Leave anyway')}
         onConfirm={() => {
           if (confirmNav) {
             navGuardRef.current = true

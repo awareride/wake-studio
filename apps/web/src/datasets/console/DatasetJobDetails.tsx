@@ -17,6 +17,7 @@ import type { StudioJob } from '../../training/studio-client'
 import { STATUS_STYLE } from '../../training/console/StatusChip'
 import { ConfirmDialog } from '../../training/console/ConfirmDialog'
 import type { DatasetJob, DatasetJobKind } from '../jobs'
+import { useT } from '../../i18n'
 
 export const JOB_KIND_TITLE: Record<DatasetJobKind, string> = {
   generate: 'Generation job',
@@ -38,6 +39,7 @@ function formatTime(ms: number | undefined): string {
 }
 
 export function DatasetJobDetails({ job, onLiveUpdate, onDelete }: DatasetJobDetailsProps) {
+  const t = useT()
   const { platform, backends } = useAppSettings()
   const [logsOpen, setLogsOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -74,14 +76,14 @@ export function DatasetJobDetails({ job, onLiveUpdate, onDelete }: DatasetJobDet
     <div className="space-y-5">
       {/* Header. */}
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-base font-semibold text-ink-1">{JOB_KIND_TITLE[job.kind]}</h3>
+        <h3 className="text-base font-semibold text-ink-1">{t(JOB_KIND_TITLE[job.kind])}</h3>
         <span
           className={cn(
             'rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
             STATUS_STYLE[status],
           )}
         >
-          {status}
+          {t(status)}
         </span>
         <span className="rounded-full bg-surface-3 px-2 py-0.5 font-mono text-[10px] text-ink-3">
           {job.moduleId}
@@ -96,21 +98,21 @@ export function DatasetJobDetails({ job, onLiveUpdate, onDelete }: DatasetJobDet
 
       {/* Status. */}
       <section className="rounded-xl border border-line bg-surface-2 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Status</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Status')}</h4>
         <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Started</dt>
+            <dt className="text-ink-3">{t('Started')}</dt>
             <dd className="font-mono text-ink-1">{formatTime(job.startedAtMs)}</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Finished</dt>
+            <dt className="text-ink-3">{t('Finished')}</dt>
             <dd className="font-mono text-ink-1">
               {formatTime(job.finishedAtMs ?? live?.finishedAtMs ?? undefined)}
             </dd>
           </div>
           {job.resultDatasetId && (
             <div className="flex justify-between gap-3 sm:col-span-2">
-              <dt className="text-ink-3">Dataset</dt>
+              <dt className="text-ink-3">{t('Dataset')}</dt>
               <dd className="truncate font-mono text-ink-1" title={job.resultDatasetId}>
                 {job.resultDatasetId}
               </dd>
@@ -118,7 +120,7 @@ export function DatasetJobDetails({ job, onLiveUpdate, onDelete }: DatasetJobDet
           )}
           {error && (
             <div className="flex justify-between gap-3 sm:col-span-2">
-              <dt className="text-ink-3">Error</dt>
+              <dt className="text-ink-3">{t('Error')}</dt>
               <dd className="font-mono text-danger">{error}</dd>
             </div>
           )}
@@ -130,13 +132,13 @@ export function DatasetJobDetails({ job, onLiveUpdate, onDelete }: DatasetJobDet
         <section className="space-y-3 rounded-xl border border-line bg-surface-2 p-4">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-              {job.executor === 'backend' ? 'Live progress' : 'Browser progress'}
+              {job.executor === 'backend' ? t('Live progress') : t('Browser progress')}
             </h4>
             <span className="flex items-center gap-2 text-[10px] text-ink-3">
               {isActiveStatus(status) && <IconSpinner className="h-3 w-3 text-brand-11" />}
               {job.executor === 'backend' && mode !== 'idle' && (
                 <span className="rounded-full bg-surface-3 px-2 py-0.5 font-mono">
-                  {mode === 'sse' ? 'SSE' : 'polling'}
+                  {mode === 'sse' ? 'SSE' : t('polling')}
                 </span>
               )}
             </span>
@@ -144,7 +146,7 @@ export function DatasetJobDetails({ job, onLiveUpdate, onDelete }: DatasetJobDet
           {typeof progress === 'number' && (
             <div className="space-y-1">
               <div className="flex justify-between text-[11px] text-ink-3">
-                <span>Progress</span>
+                <span>{t('Progress')}</span>
                 <span className="font-mono">{Math.round(progress * 100)}%</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-surface-3">
@@ -163,7 +165,7 @@ export function DatasetJobDetails({ job, onLiveUpdate, onDelete }: DatasetJobDet
                 onClick={() => setLogsOpen((o) => !o)}
                 className="flex w-full items-center justify-between px-3 py-2 text-left text-[11px] font-medium text-ink-2"
               >
-                <span>Log ({logs.length} lines)</span>
+                <span>{`${t('Log')} (${logs.length} ${t('lines')})`}</span>
                 <span aria-hidden>{logsOpen ? '−' : '+'}</span>
               </button>
               {logsOpen && (
@@ -179,7 +181,7 @@ export function DatasetJobDetails({ job, onLiveUpdate, onDelete }: DatasetJobDet
             <div className="flex flex-wrap gap-2">
               {(status === 'running' || status === 'queued' || status === 'paused') && (
                 <Button type="button" size="1" variant="soft" color="red" onClick={actions.cancel}>
-                  Cancel
+                  {t('Cancel')}
                 </Button>
               )}
             </div>
@@ -189,7 +191,7 @@ export function DatasetJobDetails({ job, onLiveUpdate, onDelete }: DatasetJobDet
 
       {/* Params review. */}
       <section className="rounded-xl border border-line bg-surface-2 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Inputs</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Inputs')}</h4>
         <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
           {summary.map(([k, v]) => (
             <div key={k} className="flex justify-between gap-3">
@@ -204,11 +206,12 @@ export function DatasetJobDetails({ job, onLiveUpdate, onDelete }: DatasetJobDet
 
       {/* Operations. */}
       <section className="rounded-xl border border-danger/25 bg-surface-2 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Operations</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Operations')}</h4>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-ink-3">
-            Remove this job from the rail. For a backend job this also cancels/deletes it on the
-            studio-backend; generated datasets already persisted are not affected.
+            {t(
+              'Remove this job from the rail. For a backend job this also cancels/deletes it on the studio-backend; generated datasets already persisted are not affected.',
+            )}
           </p>
           <Button
             type="button"
@@ -218,20 +221,20 @@ export function DatasetJobDetails({ job, onLiveUpdate, onDelete }: DatasetJobDet
             size="1"
             className="text-xs"
           >
-            Delete
+            {t('Delete')}
           </Button>
         </div>
       </section>
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete this job?"
+        title={t('Delete this job?')}
         message={
           tracked
-            ? 'This deletes the job on the studio-backend and removes it from the rail.'
-            : 'This removes the job from the rail. Any dataset it generated stays in the local store.'
+            ? t('This deletes the job on the studio-backend and removes it from the rail.')
+            : t('This removes the job from the rail. Any dataset it generated stays in the local store.')
         }
-        confirmLabel="Delete"
+        confirmLabel={t('Delete')}
         onConfirm={() => {
           setConfirmDelete(false)
           void actions.delete().finally(() => onDelete(job.id))

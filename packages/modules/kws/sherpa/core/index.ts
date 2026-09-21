@@ -22,7 +22,7 @@ registerKwsBackend({
   category: 'asr-decoding',
   create: () => new SherpaOnnxKwsBackend(),
   browserFeasible: true,
-  availabilityNote: 'Inference only - prebuilt transducer model (ADR-020)',
+  availabilityNote: 'Inference only - prebuilt transducer model',
   // The driver's own spec (ADR-025): hosts render its params (keywords,
   // threshold) from the registry instead of hard-coding per-backend cases.
   spec: sherpaSpec as unknown as ModuleSpec,

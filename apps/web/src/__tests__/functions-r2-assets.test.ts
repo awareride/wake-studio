@@ -6,8 +6,12 @@
  */
 
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   ASSET_CACHE_CONTROL,
+  CONTENT_TYPES,
   contentTypeFor,
   objectKey,
   serveAsset,
@@ -46,10 +50,21 @@ function fakeBucket(files: Record<string, FakeFile>): R2BucketLike {
       if (!file) return null
 
       const raw = options?.range?.get('range')
-      const match = raw ? /^bytes=(\d+)-(\d*)$/.exec(raw) : null
-      if (match) {
-        const offset = Number(match[1])
-        const end = match[2] ? Number(match[2]) : file.text.length - 1
+      const closed = raw ? /^bytes=(\d+)-(\d*)$/.exec(raw) : null
+      const suffix = raw ? /^bytes=-(\d+)$/.exec(raw) : null
+      if (suffix) {
+        const n = Number(suffix[1])
+        const start = Math.max(0, file.text.length - n)
+        const slice = file.text.slice(start)
+        return {
+          ...meta(key, file),
+          range: { suffix: n },
+          body: new Blob([slice]).stream(),
+        }
+      }
+      if (closed) {
+        const offset = Number(closed[1])
+        const end = closed[2] ? Number(closed[2]) : file.text.length - 1
         const slice = file.text.slice(offset, end + 1)
         return {
           ...meta(key, file),
@@ -213,5 +228,76 @@ describe('serveAsset', () => {
     expect(res.status).toBe(304)
     expect(res.headers.get('etag')).toBe(ETAG)
     expect(await res.text()).toBe('')
+  })
+
+  it('serves an open-ended range as 206 with content-range', async () => {
+    const res = await serveAsset(
+      new Request('https://wake-studio.test/modules/kws/sherpa/assets/a.wasm', {
+        headers: { range: 'bytes=7-' },
+      }),
+      env,
+      'modules',
+      ['kws', 'sherpa', 'assets', 'a.wasm'],
+    )
+    expect(res.status).toBe(206)
+    expect(res.headers.get('content-range')).toBe('bytes 7-9/10')
+    expect(await res.text()).toBe('789')
+  })
+
+  it('serves a suffix range as 206 with content-range', async () => {
+    const res = await serveAsset(
+      new Request('https://wake-studio.test/modules/kws/sherpa/assets/a.wasm', {
+        headers: { range: 'bytes=-4' },
+      }),
+      env,
+      'modules',
+      ['kws', 'sherpa', 'assets', 'a.wasm'],
+    )
+    expect(res.status).toBe(206)
+    expect(res.headers.get('content-range')).toBe('bytes 6-9/10')
+    expect(await res.text()).toBe('6789')
+  })
+
+  it('answers conditional HEAD with 304 when the ETag matches', async () => {
+    const res = await serveAsset(
+      new Request('https://wake-studio.test/ort/x.wasm', {
+        method: 'HEAD',
+        headers: { 'if-none-match': ETAG },
+      }),
+      { RUNTIME_ASSETS: fakeBucket({ 'ort/x.wasm': { text: 'abcd' } }) },
+      'ort',
+      ['x.wasm'],
+    )
+    expect(res.status).toBe(304)
+    expect(res.headers.get('etag')).toBe(ETAG)
+    expect(await res.text()).toBe('')
+  })
+
+  it('answers conditional HEAD with 200 when the ETag differs', async () => {
+    const res = await serveAsset(
+      new Request('https://wake-studio.test/ort/x.wasm', {
+        method: 'HEAD',
+        headers: { 'if-none-match': '"other-etag"' },
+      }),
+      { RUNTIME_ASSETS: fakeBucket({ 'ort/x.wasm': { text: 'abcd' } }) },
+      'ort',
+      ['x.wasm'],
+    )
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-length')).toBe('4')
+  })
+})
+
+describe('publish/serve MIME map sync', () => {
+  it('CONTENT_TYPES matches scripts/publish-r2.mjs', () => {
+    const here = dirname(fileURLToPath(import.meta.url))
+    const script = readFileSync(
+      join(here, '..', '..', '..', '..', 'scripts', 'publish-r2.mjs'),
+      'utf8',
+    )
+    const pairs = [...script.matchAll(/'(\.[a-z0-9]+)'\s*:\s*'([^']+)'/g)]
+    expect(pairs.length).toBeGreaterThan(0)
+    const scriptMap = Object.fromEntries(pairs.map((m) => [m[1], m[2]]))
+    expect(scriptMap).toEqual({ ...CONTENT_TYPES })
   })
 })

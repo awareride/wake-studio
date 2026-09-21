@@ -11,6 +11,7 @@ import { memo, useEffect, useRef } from 'react'
 import { Button } from '@radix-ui/themes'
 import type { StageFrameData } from '@wake-studio/module-afe-graph'
 import { WebGLSpectrogram } from '../spectrogram/WebGLSpectrogram'
+import { useT } from '../../i18n'
 
 /** A stage node id that carries per-stage metrics (AEC/BSS/NS today). */
 export type VizStageId = 'aec' | 'bss' | 'ns'
@@ -36,6 +37,7 @@ export const StagePanel = memo(function StagePanel({
   isBypassed,
   onToggleBypass,
 }: StagePanelProps) {
+  const t = useT()
   return (
     <div className="flex h-full flex-col rounded-xl border border-line bg-surface-2 p-5">
       <div className="mb-3 flex items-center justify-between">
@@ -52,7 +54,7 @@ export const StagePanel = memo(function StagePanel({
           size="1"
           className="px-2 text-[10px] font-medium uppercase"
         >
-          {isBypassed ? 'Bypassed' : 'Active'}
+          {isBypassed ? t('Bypassed') : t('Active')}
         </Button>
       </div>
 
@@ -66,7 +68,7 @@ export const StagePanel = memo(function StagePanel({
 
       {/* Level - always rendered for stable card height */}
       <div className="flex items-center gap-2 text-xs whitespace-nowrap">
-        <span className="w-12 shrink-0 text-ink-3">Level</span>
+        <span className="w-12 shrink-0 text-ink-3">{t('Level')}</span>
         <div className="flex-1">
           <LevelBar db={data?.levelDb ?? -60} />
         </div>
@@ -81,18 +83,18 @@ export const StagePanel = memo(function StagePanel({
           fills them later without touching this UI. */}
       {id === 'aec' && (
         <StageMetricRow
-          label="Echo red."
+          label={t('Echo red.')}
           value={data?.metrics?.erleDb}
           unit="dB"
-          placeholder={isBypassed ? 'passthrough' : '—'}
+          placeholder={isBypassed ? t('passthrough') : '—'}
         />
       )}
       {id === 'bss' && (
         <StageMetricRow
-          label="Separ."
+          label={t('Separ.')}
           value={data?.metrics?.siSdrDb}
           unit="dB"
-          placeholder={isBypassed ? 'passthrough' : '—'}
+          placeholder={isBypassed ? t('passthrough') : '—'}
         />
       )}
       {id === 'ns' && (
@@ -113,7 +115,7 @@ export const StagePanel = memo(function StagePanel({
           the three cards stay information-aligned. Rendered with the WebGL
           Spectro-style renderer (ADR-032). */}
       <div className="mt-2">
-        <div className="mb-1 text-xs text-ink-3">Spectrum</div>
+        <div className="mb-1 text-xs text-ink-3">{t('Spectrum')}</div>
         <WebGLSpectrogram data={data?.spectrogram} />
       </div>
     </div>

@@ -18,6 +18,7 @@ import { useLogEntries } from '../log'
 import { Button, SegmentedControl, Tabs } from '@radix-ui/themes'
 import { cn } from '../components/cn'
 import { useToast } from '../components/toast'
+import { useT } from '../i18n'
 
 const LEVEL_STYLES: Record<LogLevel, string> = {
   info: 'text-ink-2',
@@ -38,6 +39,7 @@ function formatTime(at: number): string {
 
 export function SessionConsoleView() {
   const { toast } = useToast()
+  const t = useT()
   const entries = useLogEntries()
   const [levelFilter, setLevelFilter] = React.useState<'all' | LogLevel>('all')
   const [view, setView] = React.useState<'log' | 'triggers'>('log')
@@ -51,15 +53,15 @@ export function SessionConsoleView() {
 
   const handleClear = () => {
     clearLog()
-    toast({ title: 'Session log cleared' })
+    toast({ title: t('Session log cleared') })
   }
 
   const handleExportCsv = () => {
     const csv = triggersToCsv(triggers)
     downloadCsv(`wake-studio-triggers-${Date.now()}.csv`, csv)
     toast({
-      title: 'Triggers exported',
-      description: `${triggers.length} trigger(s) → CSV`,
+      title: t('Triggers exported'),
+      description: `${triggers.length} ${t('trigger(s)')} → CSV`,
     })
   }
 
@@ -67,10 +69,11 @@ export function SessionConsoleView() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-ink-1">Session Console</h2>
+          <h2 className="text-lg font-semibold text-ink-1">{t('Session Console')}</h2>
           <p className="mt-1 text-sm text-ink-2">
-            Live event log + wake-word trigger history. Events are captured
-            app-wide (Phase 4).
+            {t(
+              'Live event log + wake-word trigger history. Events are captured app-wide (Phase 4).',
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -79,14 +82,14 @@ export function SessionConsoleView() {
             variant="outline"
             size="2"
           >
-            Clear
+            {t('Clear')}
           </Button>
           <Button
             onClick={handleExportCsv}
             disabled={triggers.length === 0}
             size="2"
           >
-            Export triggers CSV
+            {t('Export triggers CSV')}
           </Button>
         </div>
       </div>
@@ -97,8 +100,8 @@ export function SessionConsoleView() {
         onValueChange={(v) => setView(v as 'log' | 'triggers')}
       >
         <Tabs.List size="1" className="w-fit">
-          <Tabs.Trigger value="log">Event log</Tabs.Trigger>
-          <Tabs.Trigger value="triggers">Triggers ({triggers.length})</Tabs.Trigger>
+          <Tabs.Trigger value="log">{t('Event log')}</Tabs.Trigger>
+          <Tabs.Trigger value="triggers">{t('Triggers')} ({triggers.length})</Tabs.Trigger>
         </Tabs.List>
 
         <Tabs.Content value="log" className="space-y-2 pt-3">
@@ -110,7 +113,7 @@ export function SessionConsoleView() {
           >
             {(['all', 'info', 'warn', 'error'] as const).map((l) => (
               <SegmentedControl.Item key={l} value={l}>
-                {l === 'all' ? 'All' : l}
+                {l === 'all' ? t('All') : l}
               </SegmentedControl.Item>
             ))}
           </SegmentedControl.Root>
@@ -118,7 +121,7 @@ export function SessionConsoleView() {
           {/* Log list */}
           <div className="max-h-[60vh] overflow-y-auto rounded-xl border border-line bg-surface-2 font-mono text-xs">
             {filtered.length === 0 ? (
-              <div className="p-6 text-center text-ink-3">No events yet.</div>
+              <div className="p-6 text-center text-ink-3">{t('No events yet.')}</div>
             ) : (
               <ul className="divide-y divide-line">
                 {filtered.map((e) => (
@@ -148,15 +151,15 @@ export function SessionConsoleView() {
           <div className="overflow-hidden rounded-xl border border-line bg-surface-2">
             {triggers.length === 0 ? (
               <div className="p-6 text-center text-sm text-ink-3">
-                No triggers yet — run detection and say the wake word.
+                {t('No triggers yet — run detection and say the wake word.')}
               </div>
             ) : (
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-line bg-surface-3 text-xs uppercase tracking-wide text-ink-3">
                   <tr>
-                    <th className="px-3 py-2">Time</th>
-                    <th className="px-3 py-2">Wake word</th>
-                    <th className="px-3 py-2">Peak score</th>
+                    <th className="px-3 py-2">{t('Time')}</th>
+                    <th className="px-3 py-2">{t('Wake word')}</th>
+                    <th className="px-3 py-2">{t('Peak score')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">

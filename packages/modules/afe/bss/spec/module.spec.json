@@ -17,7 +17,7 @@
       "group": "primary",
       "type": "boolean",
       "default": true,
-      "description": "Single-mic passthrough for v1 (ADR-016)."
+      "description": "Single-mic passthrough for v1."
     }
   ],
   "actions": [],

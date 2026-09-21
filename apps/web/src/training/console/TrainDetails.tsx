@@ -36,6 +36,7 @@ import { NotebookReviewView } from './NotebookReviewView'
 import { TRAIN_REVIEW_HASH_PREFIX, trainReviewJobFromHash } from '../../router'
 import { StatusChip } from './StatusChip'
 import { trainInputFile } from './train-files'
+import { useT } from '../../i18n'
 
 export interface TrainDetailsProps {
   job: HistoryJob
@@ -71,6 +72,7 @@ export function TrainDetails({
   onAutoImported,
   onDelete,
 }: TrainDetailsProps) {
+  const t = useT()
   const { platform, backends } = useAppSettings()
   const module = findTrainableModule(modules, job.moduleId)
   const exportable = job.license === 'user-owned'
@@ -239,7 +241,7 @@ export function TrainDetails({
     <div className="space-y-5">
       {/* Header. */}
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-base font-semibold text-ink-1">“{job.phrase || 'Train'}”</h3>
+        <h3 className="text-base font-semibold text-ink-1">“{job.phrase || t('Train')}”</h3>
         <StatusChip status={job.status} />
         <span className="rounded-full bg-surface-3 px-2 py-0.5 font-mono text-[10px] text-ink-3">
           {job.moduleId}
@@ -254,19 +256,19 @@ export function TrainDetails({
 
       {/* Status. */}
       <section className="rounded-xl border border-line bg-surface-2 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Status</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Status')}</h4>
         <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Started</dt>
+            <dt className="text-ink-3">{t('Started')}</dt>
             <dd className="font-mono text-ink-1">{formatTime(job.startedAtMs)}</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-ink-3">Finished</dt>
+            <dt className="text-ink-3">{t('Finished')}</dt>
             <dd className="font-mono text-ink-1">{formatTime(job.finishedAtMs)}</dd>
           </div>
           {job.error && (
             <div className="flex justify-between gap-3 sm:col-span-2">
-              <dt className="text-ink-3">Error</dt>
+              <dt className="text-ink-3">{t('Error')}</dt>
               <dd className="font-mono text-danger">{job.error}</dd>
             </div>
           )}
@@ -278,17 +280,17 @@ export function TrainDetails({
         <section className="space-y-3 rounded-xl border border-line bg-surface-2 p-4">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-              Live status
+              {t('Live status')}
             </h4>
             <span className="rounded-full bg-surface-3 px-2 py-0.5 font-mono text-[10px] text-ink-3">
-              {mode === 'sse' ? 'SSE' : mode === 'polling' ? 'polling' : 'idle'}
+              {mode === 'sse' ? 'SSE' : mode === 'polling' ? t('polling') : t('idle')}
             </span>
           </div>
 
           {typeof progress === 'number' && (
             <div className="space-y-1">
               <div className="flex justify-between text-[11px] text-ink-3">
-                <span>Progress</span>
+                <span>{t('Progress')}</span>
                 <span className="font-mono">{Math.round(progress * 100)}%</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-surface-3">
@@ -315,13 +317,13 @@ export function TrainDetails({
 
           {live?.checkpoint && (
             <p className="truncate font-mono text-[11px] text-ink-3" title={live.checkpoint}>
-              checkpoint: {live.checkpoint}
+              {`${t('checkpoint')}: ${live.checkpoint}`}
             </p>
           )}
 
           {liveArtifacts.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] text-ink-3">Artifacts:</span>
+              <span className="text-[11px] text-ink-3">{`${t('Artifacts')}:`}</span>
               {liveArtifacts.map((name) => (
                 <a
                   key={name}
@@ -346,19 +348,19 @@ export function TrainDetails({
             <div className="flex flex-wrap gap-2">
               {job.status === 'running' && (
                 <Button type="button" size="1" variant="outline" onClick={actions.pause}>
-                  Pause
+                  {t('Pause')}
                 </Button>
               )}
               {job.status === 'paused' && (
                 <Button type="button" size="1" variant="outline" onClick={actions.resume}>
-                  Resume
+                  {t('Resume')}
                 </Button>
               )}
               {(job.status === 'running' ||
                 job.status === 'queued' ||
                 job.status === 'paused') && (
                 <Button type="button" size="1" variant="soft" color="red" onClick={actions.cancel}>
-                  Cancel
+                  {t('Cancel')}
                 </Button>
               )}
             </div>
@@ -368,10 +370,10 @@ export function TrainDetails({
           {!isActiveStatus(job.status) && (
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" size="1" variant="soft" onClick={onRetry}>
-                Retry
+                {t('Retry')}
               </Button>
               <span className="text-[11px] text-ink-3">
-                Re-submits the same config as a fresh run.
+                {t('Re-submits the same config as a fresh run.')}
               </span>
             </div>
           )}
@@ -384,7 +386,7 @@ export function TrainDetails({
                 onClick={() => setLogsOpen((o) => !o)}
                 className="flex w-full items-center justify-between px-3 py-2 text-left text-[11px] font-medium text-ink-2"
               >
-                <span>Log ({job.logTail?.length} lines)</span>
+                <span>{`${t('Log')} (${job.logTail?.length} ${t('lines')})`}</span>
                 <span aria-hidden>{logsOpen ? '−' : '+'}</span>
               </button>
               {logsOpen && (
@@ -399,7 +401,7 @@ export function TrainDetails({
 
       {/* Results. */}
       <section className="rounded-xl border border-line bg-surface-2 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Results</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Results')}</h4>
         {job.status === 'succeeded' ? (
           <>
             {/* Auto-pull state + manual fallback for a finished tracked job
@@ -409,23 +411,22 @@ export function TrainDetails({
                 {pulling ? (
                   <span className="flex items-center gap-2">
                     <IconSpinner className="h-3.5 w-3.5 text-brand-11" />
-                    Pulling {resultZipName} from the backend and importing the
-                    trained model…
+                    {`${t('Pulling')} ${resultZipName} ${t('from the backend and importing the trained model…')}`}
                   </span>
                 ) : (
                   <>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-ink-3">
-                        {resultZipName} is on the backend.
+                        {`${resultZipName} ${t('is on the backend.')}`}
                       </span>
                       {!job.artifactRef && (
                         <Button
                           type="button"
                           size="1"
                           onClick={doPull}
-                          title="Fetch the results from the backend and register the trained model"
+                          title={t('Fetch the results from the backend and register the trained model')}
                         >
-                          Import
+                          {t('Import')}
                         </Button>
                       )}
                       <Button
@@ -434,22 +435,21 @@ export function TrainDetails({
                         variant="outline"
                         onClick={downloadArtifact}
                         disabled={downloading}
-                        title="Save the raw results zip to disk"
+                        title={t('Save the raw results zip to disk')}
                       >
-                        {downloading ? 'Downloading…' : 'Download'}
+                        {downloading ? t('Downloading…') : t('Download')}
                       </Button>
                       {job.artifactRef && (
                         <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-600">
-                          ✓ imported
+                          {t('✓ imported')}
                         </span>
                       )}
                     </div>
                     <p className="mt-1 text-[11px] text-ink-3">
-                      <span className="font-medium text-ink-2">Import</span>{' '}
-                      registers the trained model in your library (in-browser
-                      test + export);{' '}
-                      <span className="font-medium text-ink-2">Download</span>{' '}
-                      saves the raw zip.
+                      <span className="font-medium text-ink-2">{t('Import')}</span>{' '}
+                      {t('registers the trained model in your library (in-browser test + export);')}{' '}
+                      <span className="font-medium text-ink-2">{t('Download')}</span>{' '}
+                      {t('saves the raw zip.')}
                     </p>
                   </>
                 )}
@@ -463,26 +463,26 @@ export function TrainDetails({
             <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
               {typeof metrics.recall === 'number' && (
                 <div className="flex justify-between gap-3">
-                  <dt className="text-ink-3">Recall</dt>
+                  <dt className="text-ink-3">{t('Recall')}</dt>
                   <dd className="font-mono text-ink-1">{metrics.recall.toFixed(3)}</dd>
                 </div>
               )}
               {typeof metrics.accuracy === 'number' && (
                 <div className="flex justify-between gap-3">
-                  <dt className="text-ink-3">Accuracy</dt>
+                  <dt className="text-ink-3">{t('Accuracy')}</dt>
                   <dd className="font-mono text-ink-1">{metrics.accuracy.toFixed(3)}</dd>
                 </div>
               )}
               {job.artifactRef && (
                 <div className="flex justify-between gap-3 sm:col-span-2">
-                  <dt className="text-ink-3">Artifact</dt>
+                  <dt className="text-ink-3">{t('Artifact')}</dt>
                   <dd className="truncate font-mono text-ink-1" title={job.artifactRef}>
                     {job.artifactRef}
                   </dd>
                 </div>
               )}
               <div className="flex justify-between gap-3 sm:col-span-2">
-                <dt className="text-ink-3">License</dt>
+                <dt className="text-ink-3">{t('License')}</dt>
                 <dd
                   className={cn(
                     'rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
@@ -497,26 +497,28 @@ export function TrainDetails({
             </dl>
             <p className="mt-3 text-xs leading-relaxed text-ink-2">
               {exportable
-                ? 'User-owned — the Phase 4 export license gate treats this model as commercially clean.'
+                ? t('User-owned — the Phase 4 export license gate treats this model as commercially clean.')
                 : job.license
-                  ? `Not user-owned (${job.license}) — a commercial export will be blocked.`
-                  : 'Provenance not recorded for this job.'}{' '}
-              Open the <span className="font-medium text-ink-1">KWS detection</span> panel and
-              press <span className="font-medium text-ink-1">Load models</span> to test the model
-              in-browser, then export a bundle in the Model library.
+                  ? `${t('Not user-owned')} (${job.license}) — ${t('a commercial export will be blocked.')}`
+                  : t('Provenance not recorded for this job.')}{' '}
+              {t('Open the')} <span className="font-medium text-ink-1">{t('KWS detection')}</span>{' '}
+              {t('panel and press')} <span className="font-medium text-ink-1">{t('Load models')}</span>{' '}
+              {t('to test the model in-browser, then export a bundle in the Model library.')}
             </p>
           </>
         ) : (
           <p className="mt-2 text-xs leading-relaxed text-ink-2">
-            No results yet{job.status === 'queued' ? ' — the train is queued' : ''}. Results
-            appear here once the train finishes{tracked ? ' and the artifact is pulled' : ' and the bundle is imported'}.
+            {t('No results yet')}{job.status === 'queued' ? ` ${t('— the train is queued')}` : ''}.{' '}
+            {tracked
+              ? t('Results appear here once the train finishes and the artifact is pulled.')
+              : t('Results appear here once the train finishes and the bundle is imported.')}
           </p>
         )}
       </section>
 
       {/* Notifications / messages for this train (issue #105). */}
       <section className="rounded-xl border border-line bg-surface-2 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Notifications</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Notifications')}</h4>
         <ul className="mt-2 space-y-1.5">
           {messages.map((m, i) => (
             <li key={i} className="flex items-start gap-2 text-xs text-ink-2">
@@ -542,16 +544,16 @@ export function TrainDetails({
 
       {/* Inputs review: the file that trains (the .ipynb for Colab). */}
       <section className="space-y-3">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">Inputs review</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">{t('Inputs review')}</h4>
         {file ? (
           <FileReviewCard
-            title={file.title}
+            title={t(file.title)}
             fileName={file.fileName}
             kind={file.kind}
             rawUrl={file.rawUrl}
             openUrl={file.openUrl}
-            openLabel={file.openLabel}
-            description={file.description}
+            openLabel={file.openLabel ? t(file.openLabel) : undefined}
+            description={file.description ? t(file.description) : undefined}
             onReview={() => {
               // The review is its own history entry (issue #136): browser back
               // returns to the train details.
@@ -563,8 +565,8 @@ export function TrainDetails({
         ) : (
           <div className="rounded-xl border border-line bg-surface-2 p-4 text-xs text-ink-3">
             {module
-              ? 'This module declares no train input file to review.'
-              : `Trainable-module catalog unavailable for “${job.moduleId}” (could not load train-modules.json).`}
+              ? t('This module declares no train input file to review.')
+              : `${t('Trainable-module catalog unavailable for')} “${job.moduleId}” (${t('could not load train-modules.json')}).`}
           </div>
         )}
       </section>
@@ -573,7 +575,7 @@ export function TrainDetails({
       {isColab && (
         <section className="space-y-3 rounded-xl border border-line bg-surface-2 p-4">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-            {needsImport ? 'Run & import' : 'Re-import'}
+            {needsImport ? t('Run & import') : t('Re-import')}
           </h4>
 
           {/* Colab connection: the tunnel URL is generated when the notebook
@@ -583,8 +585,8 @@ export function TrainDetails({
               htmlFor={`tunnel-${job.id}`}
               className="block text-xs font-medium text-ink-2"
             >
-              Colab tunnel URL{' '}
-              <span className="font-normal text-ink-3">(generated when the notebook runs)</span>
+              {t('Colab tunnel URL')}{' '}
+              <span className="font-normal text-ink-3">{t('(generated when the notebook runs)')}</span>
             </label>
             <input
               id={`tunnel-${job.id}`}
@@ -595,17 +597,16 @@ export function TrainDetails({
               className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-xs text-ink-1 outline-none placeholder:text-ink-3 focus:border-brand-8"
             />
             <p className="text-[11px] leading-relaxed text-ink-3">
-              The notebook prints this URL while running (cloudflared, ADR-023 amendment). With
-              it, WakeStudio submits the job to the tunnel and tracks status live (issue #122).
-              Auto-detect: if you set a Cloudflare API key in Settings, the notebook writes the
-              URL into the results bundle and it is picked up on import.
+              {t(
+                'The notebook prints this URL while running (cloudflared). With it, WakeStudio submits the job to the tunnel and tracks status live (issue #122). Auto-detect: if you set a Cloudflare API key in Settings, the notebook writes the URL into the results bundle and it is picked up on import.',
+              )}
             </p>
           </div>
 
           {/* Connect (or retry): submit this job to the tunnel server. */}
           {job.tunnelUrl && !job.submitted && (
             <Button type="button" size="1" onClick={onConnectColab}>
-              {job.error ? 'Retry — connect to tunnel' : 'Connect to tunnel & submit'}
+              {job.error ? t('Retry — connect to tunnel') : t('Connect to tunnel & submit')}
             </Button>
           )}
 
@@ -613,22 +614,23 @@ export function TrainDetails({
           {job.tunnelUrl ? (
             <p className="rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-[11px] leading-relaxed text-success">
               {job.submitted
-                ? '✓ Connected — status is tracked live (SSE, polling fallback) and results can be pulled.'
-                : 'Tunnel URL set — press “Connect to tunnel & submit” to start tracking this run.'}
+                ? t('✓ Connected — status is tracked live (SSE, polling fallback) and results can be pulled.')
+                : t('Tunnel URL set — press “Connect to tunnel & submit” to start tracking this run.')}
             </p>
           ) : (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] leading-relaxed text-amber-700">
-              No tunnel URL — WakeStudio cannot trace this Colab run's status. Finish the
-              train manually: download{' '}
-              <code className="font-mono">wake-studio-results.zip</code> from Colab and
-              submit it below.
+              {t(
+                "No tunnel URL — WakeStudio cannot trace this Colab run's status. Finish the train manually: download",
+              )}{' '}
+              <code className="font-mono">wake-studio-results.zip</code>{' '}
+              {t('from Colab and submit it below.')}
             </p>
           )}
 
           <p className="text-xs leading-relaxed text-ink-2">
             {needsImport
-              ? 'Run the notebook in Colab (free GPU, your Google account), download wake-studio-results.zip, and import it below — this train\'s results update here.'
-              : 'This train was already imported. You can import an updated bundle below if you retrained.'}
+              ? t('Run the notebook in Colab (free GPU, your Google account), download wake-studio-results.zip, and import it below — this train\'s results update here.')
+              : t('This train was already imported. You can import an updated bundle below if you retrained.')}
           </p>
           <div className="mt-1">
             <ImportColabResults onImported={onImported} />
@@ -642,8 +644,8 @@ export function TrainDetails({
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-ink-3">
             {tracked
-              ? 'Remove this train from the list and delete the job on the backend (its artifacts are removed there too). The imported model stays in your model library.'
-              : 'Remove this train from the list. The imported model stays in your model library.'}
+              ? t('Remove this train from the list and delete the job on the backend (its artifacts are removed there too). The imported model stays in your model library.')
+              : t('Remove this train from the list. The imported model stays in your model library.')}
           </p>
           <Button
             type="button"
@@ -653,20 +655,20 @@ export function TrainDetails({
             size="1"
             className="text-xs"
           >
-            Delete
+            {t('Delete')}
           </Button>
         </div>
       </section>
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete this train?"
+        title={t('Delete this train?')}
         message={
           tracked
-            ? 'This deletes the job and its artifacts on the studio-backend and removes the train from your list (IndexedDB).'
-            : 'This removes the train from your list (IndexedDB). The imported model in your model library is not affected.'
+            ? t('This deletes the job and its artifacts on the studio-backend and removes the train from your list (IndexedDB).')
+            : t('This removes the train from your list (IndexedDB). The imported model in your model library is not affected.')
         }
-        confirmLabel="Delete"
+        confirmLabel={t('Delete')}
         onConfirm={() => {
           setConfirmDelete(false)
           // Best-effort backend delete; the local history entry always goes.

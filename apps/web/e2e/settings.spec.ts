@@ -10,6 +10,21 @@ import { test, expect } from '@playwright/test'
  * save-to-apply theme, secret password inputs, module settings save.
  */
 
+// Aria-labels are locale-dependent (translated via the i18n seam); pin the
+// app locale to English so selectors stay stable.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      const raw = localStorage.getItem('wake-studio:settings:platform')
+      const obj = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
+      obj.locale = 'en'
+      localStorage.setItem('wake-studio:settings:platform', JSON.stringify(obj))
+    } catch {
+      /* ignore */
+    }
+  })
+})
+
 test('settings sub-routes render section content', async ({ page }) => {
   // General is the default settings landing.
   await page.goto('/#/settings/general')
@@ -59,7 +74,7 @@ test('clicking a sub-item highlights only that item, not the Settings parent', a
   await expect(
     page
       .locator('aside')
-      .getByRole('button', { name: /Settings menu/ }),
+      .getByRole('button', { name: /Settings · (collapsed|expanded)/ }),
   ).not.toHaveAttribute('aria-current', 'page')
 })
 
@@ -162,7 +177,7 @@ test('mobile drawer positions correctly and expands Settings sub-menu', async ({
   expect(geo!.h).toBe(geo!.vh)
 
   // Settings expands inside the drawer and the sub-items render.
-  await drawer.getByRole('button', { name: /Settings menu/ }).click()
+  await drawer.getByRole('button', { name: /Settings · (collapsed|expanded)/ }).click()
   await expect(
     drawer.getByRole('button', { name: 'General' }),
   ).toBeVisible()

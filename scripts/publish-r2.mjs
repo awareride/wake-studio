@@ -240,6 +240,20 @@ async function main() {
     )
   }
 
+  // Fail loudly on a partial set: publishing modules without the ORT runtime
+  // (or vice versa) would deploy an app whose lazy loads 404 at runtime.
+  const hasModules = entries.some((e) => e.key.startsWith('modules/'))
+  const hasOrt = entries.some((e) => e.key.startsWith('ort/'))
+  if (!hasModules || !hasOrt) {
+    const missing = [!hasModules && 'modules/*', !hasOrt && 'ort/*']
+      .filter(Boolean)
+      .join(' and ')
+    die(
+      `partial asset set — missing ${missing} (found ${entries.length} objects). ` +
+        'Run `pnpm fetch:all` first (and `pnpm install` for the onnxruntime-web runtime)',
+    )
+  }
+
   const totalBytes = entries.reduce((n, e) => n + e.size, 0)
   console.log(
     `[publish-r2] ${entries.length} objects -> bucket "${bucket}" (${formatBytes(totalBytes)})`,

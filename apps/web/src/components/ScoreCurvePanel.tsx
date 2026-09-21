@@ -9,9 +9,11 @@
 import { useEffect, useRef } from 'react'
 import { drawScoreCurve } from './viz/ScoreCurve'
 import { useLiveKws } from '../workspace/live'
+import { useT } from '../i18n'
 
 export function ScoreCurvePanel({ running }: { running: boolean }) {
   const { historyRef, threshold, words } = useLiveKws()
+  const t = useT()
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -38,7 +40,7 @@ export function ScoreCurvePanel({ running }: { running: boolean }) {
   return (
     <div className="rounded-xl border border-line bg-surface-2 p-5">
       <div className="mb-2 flex items-center justify-between text-xs text-ink-3">
-        <span>Score curve (raw + smoothed + threshold)</span>
+        <span>{t('Score curve (raw + smoothed + threshold)')}</span>
         <span className="font-mono">
           {last ? `score: ${last.smoothedScore.toFixed(3)}` : ''}
         </span>

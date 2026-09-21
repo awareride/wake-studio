@@ -12,6 +12,7 @@ import { FileSourcePanel } from './FileSourcePanel'
 import { Button, SegmentedControl } from '@radix-ui/themes'
 import { FileIcon } from '@radix-ui/react-icons'
 import type { SourceState, SourceActions } from '../workspace/useSourceConfig'
+import { useT } from '../i18n'
 
 interface Props {
   /** Working source draft; `dirty`/`kindChanged` tell how it differs from the saved one. */
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function SourceConfigSection({ source, actions, disabled }: Props) {
+  const t = useT()
   return (
     <div className="space-y-3">
       <SegmentedControl.Root
@@ -36,24 +38,24 @@ export function SourceConfigSection({ source, actions, disabled }: Props) {
             <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
             <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8" />
           </svg>
-          Microphone
+          {t('Microphone')}
         </SegmentedControl.Item>
         <SegmentedControl.Item value="file">
           <FileIcon className="inline-block h-4 w-4" />
-          Audio files
+          {t('Audio files')}
         </SegmentedControl.Item>
       </SegmentedControl.Root>
       {source.dirty && (
         <div className="flex flex-wrap items-center gap-2">
           <Button size="1" onClick={actions.apply}>
             {source.kindChanged
-              ? `Use ${source.kind === 'file' ? 'audio files' : 'microphone'} as source`
-              : 'Apply source changes'}
+              ? t(source.kind === 'file' ? 'Use audio files as source' : 'Use microphone as source')
+              : t('Apply source changes')}
           </Button>
           <span className="text-[11px] text-ink-3">
             {disabled
-              ? 'Applies on the next Start'
-              : 'Not saved yet — press Apply to make it the project source.'}
+              ? t('Applies on the next Start')
+              : t('Not saved yet — press Apply to make it the project source.')}
           </span>
         </div>
       )}

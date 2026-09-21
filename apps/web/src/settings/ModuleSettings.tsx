@@ -10,6 +10,7 @@
 
 import * as React from 'react'
 import { renderParamRow } from '@wake-studio/module-kit'
+import { useT } from '../i18n'
 import { getBackendRegistry } from '@wake-studio/module-kws-engine'
 import type { ModuleParam } from '@wake-studio/contracts'
 import { mergeModuleDefaults } from './storage'
@@ -56,6 +57,7 @@ export function ModuleSettingsSection({
   /** Driver to keep focused (from the sidebar Settings -> driver). */
   focusBackendId?: string
 }) {
+  const tr = useT()
   const drivers = React.useMemo(() => getSpecDrivers(), [])
 
   // Scroll the focused driver card into view once.
@@ -69,8 +71,7 @@ export function ModuleSettingsSection({
   if (drivers.length === 0) {
     return (
       <p className="text-sm text-ink-3">
-        No module settings yet — drivers that carry a spec appear here
-        automatically.
+        {tr('No module settings yet — drivers that carry a spec appear here automatically.')}
       </p>
     )
   }
@@ -92,16 +93,17 @@ export function ModuleSettingsSection({
             )}
           >
             <h3 className="mb-1 text-sm font-semibold text-ink-1">
-              {driver.label}
+              {tr(driver.label)}
               {focused && (
                 <span className="ml-2 rounded bg-brand-9/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-11">
-                  active
+                  {tr('active')}
                 </span>
               )}
             </h3>
             <p className="mb-3 text-xs text-ink-3">
-              Params from the driver module spec (ADR-025). Changes apply on
-              Save; per-project overrides live in the project snapshot.
+              {tr(
+                'Params from the driver module spec. Changes apply on Save; per-project overrides live in the project snapshot.',
+              )}
             </p>
             <div className="divide-y divide-line">
               {driver.params.map((param) => (

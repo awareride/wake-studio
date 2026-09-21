@@ -43,7 +43,7 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
         { value: 'pocketsphinx', label: 'PocketSphinx (pending)' },
       ],
       description:
-        'Pluggable KWS backend (ADR-020). Only openwakeword is browser-feasible in v1; the others are registered for the device SDK (ADR-021) and later phases.',
+        'Pluggable KWS backend. Only openwakeword is browser-feasible in v1; the others are registered for the device SDK and later phases.',
     },
     {
       id: 'threshold',
@@ -116,7 +116,7 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
         { value: 'wasm', label: 'WASM (universal)' },
       ],
       description:
-        'WebGPU first with WASM fallback (ADR-018). Override here if needed.',
+        'WebGPU first with WASM fallback. Override here if needed.',
     },
   ]
 }
