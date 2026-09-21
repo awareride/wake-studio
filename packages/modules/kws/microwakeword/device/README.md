@@ -34,9 +34,10 @@ compiles, registers, and warmups — see the L1 contract face):
 Slices 1 (fetch + pins) and 2 (driver + L1) are done and verified
 host-side. Remaining for #185 acceptance:
 
-1. **CI job** (`device.yml`, following the `app-runtime-*` pattern): fetch
-   runtime + model, configure with `-DWAKE_SDK_MICROWAKEWORD_HAS_RUNTIME=ON`
-   + `-DWAKE_MICROWAKEWORD_MODEL_DIR`, build, run ctest. (No cmake on the
+1. **CI job** (`device.yml` `app-runtime-microwakeword`, following the
+   `app-runtime-*` pattern): fetch runtime + model, configure with
+   `-DWAKE_SDK_MICROWAKEWORD_HAS_RUNTIME=ON` +
+   `-DWAKE_MICROWAKEWORD_MODEL_DIR`, build, run ctest. (No cmake on the
    dev machine — the CMake file is reviewed but CI-proven only.)
 2. **Trigger-clip validation:** the L1 asserts finite posteriors on
    non-target audio; a real "okay nabu" clip asserting an actual trigger

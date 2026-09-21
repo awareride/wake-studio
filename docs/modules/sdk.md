@@ -221,7 +221,7 @@ warmup (`-1`). The bundle generator picks the runtime-ON configuration.
 
 | Driver (issue) | Module `device/` | Runtime | Gate option |
 |---|---|---|---|
-| microwakeword (#185) | `kws/microwakeword/device/` | TFLite-Micro (pinned, `third_party/tflite-micro`) | `WAKE_SDK_MICROWAKEWORD_HAS_RUNTIME` |
+| microwakeword (#185) | `kws/microwakeword/device/` | TFLite-Micro source (pinned `0ee39f5`, `third_party/tflite-micro`, fetched) + flatbuffers/gemmlowp/ruy/kissfft support libs (MODULE.bazel pins) | `WAKE_SDK_MICROWAKEWORD_HAS_RUNTIME` |
 | openwakeword (#192) | `kws/openwakeword/device/` | onnxruntime C API (pinned 1.21.0, `third_party/onnxruntime`, fetched prebuilt) | `WAKE_SDK_OPENWAKEWORD_HAS_RUNTIME` |
 | kws-streaming (#194) | `kws/streaming/device/` | onnxruntime C API (same pinned dep as openwakeword) | `WAKE_SDK_KWS_STREAMING_HAS_RUNTIME` |
 | sherpa-onnx-kws (#193) | `kws/sherpa/device/` | sherpa-onnx C API (pinned v1.13.6, `third_party/sherpa-onnx`, fetched prebuilt; bundles its own onnxruntime) | `WAKE_SDK_SHERPA_HAS_RUNTIME` |
