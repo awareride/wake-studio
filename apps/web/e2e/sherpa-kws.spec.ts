@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { enableKws } from './helpers'
+import { enableKws, selectBackend } from './helpers'
 
 // The ~53 MB wasm is gitignored (ADR-011) and fetched in CI; skip the spec
 // when it is absent (e.g. a fetch failure) rather than fail the suite.
@@ -46,11 +46,8 @@ test('sherpa-onnx-kws backend loads (wasm boots + spotter created)', async ({
   await enableKws(page)
 
   // Pick the sherpa-onnx-kws backend before loading (now in the top controls).
-  const backendSelect = page.locator('select').filter({
-    has: page.locator('option[value="sherpa-onnx-kws"]'),
-  })
-  await expect(backendSelect).toBeVisible()
-  await backendSelect.selectOption('sherpa-onnx-kws')
+  await expect(page.getByRole('combobox', { name: /Backend/ })).toBeVisible()
+  await selectBackend(page, 'sherpa-onnx-kws')
 
   // The sherpa driver is a list-kind provisioning backend (ADR-033): the
   // Engine card shows its list-load action ('Load with keyword list') instead

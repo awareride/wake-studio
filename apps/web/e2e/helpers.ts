@@ -15,3 +15,28 @@ export async function enableKws(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'KWS config' }).click()
   await expect(page.getByText('KWS detection')).toBeVisible()
 }
+
+/**
+ * Pick an entry in a Radix select (UiSelect, role "combobox").
+ *
+ * All hand-written <select> elements were replaced with the Radix selector,
+ * so e2e must open the trigger and click the portal option instead of
+ * selectOption(). The trigger is found by its accessible name (aria-label).
+ */
+export async function selectRadixOption(
+  page: Page,
+  triggerName: string | RegExp,
+  optionName: string | RegExp,
+): Promise<void> {
+  const trigger = page.getByRole('combobox', { name: triggerName })
+  await expect(trigger).toBeVisible()
+  await trigger.click()
+  const option = page.getByRole('option', { name: optionName })
+  await expect(option).toBeVisible()
+  await option.click()
+}
+
+/** Pick a KWS backend in the KWS panel's backend selector. */
+export async function selectBackend(page: Page, backendId: string): Promise<void> {
+  await selectRadixOption(page, /Backend/, new RegExp(backendId))
+}

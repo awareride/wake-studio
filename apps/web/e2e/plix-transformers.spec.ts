@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { enableKws } from './helpers'
+import { enableKws, selectBackend } from './helpers'
 
 // The plix onnx assets are gitignored (ADR-011); skip when absent (like the
 // other kws specs) so CI does not fail on a bare checkout.
@@ -46,11 +46,8 @@ test('plixkws transformers runtime loads the encoder in the browser (#48)', asyn
   await page.goto('/')
   await enableKws(page)
 
-  const backendSelect = page
-    .locator('select')
-    .filter({ has: page.locator('option[value="plixkws"]') })
-  await expect(backendSelect).toBeVisible()
-  await backendSelect.selectOption('plixkws')
+  await expect(page.getByRole('combobox', { name: /Backend/ })).toBeVisible()
+  await selectBackend(page, 'plixkws')
 
   // Switch the driver's runtime param (Radix select) to Transformers.js.
   const runtimeCombobox = page.locator('[role="combobox"]', {

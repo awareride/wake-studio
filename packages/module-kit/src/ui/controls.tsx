@@ -105,25 +105,44 @@ export function UiNumber({ value, min, max, step = 1, unit, onChange, disabled }
 export interface UiSelectOption {
   value: string
   label: string
+  /** Disabled entries render but cannot be chosen (e.g. infeasible backends). */
+  disabled?: boolean
+  /** Native tooltip (e.g. a license / size note for model candidates). */
+  title?: string
+}
+
+export interface UiSelectGroup {
+  /** Group heading (rendered via Select.Group + Label). */
+  label: string
+  options: ReadonlyArray<UiSelectOption>
 }
 
 export interface UiSelectProps {
   value: string
   options: ReadonlyArray<UiSelectOption>
+  /** Optional grouped entries (rendered after `options`, e.g. saved models). */
+  groups?: ReadonlyArray<UiSelectGroup>
   onChange: (value: string) => void
   disabled?: boolean
   placeholder?: string
+  /** Accessible name for the trigger (e2e: getByRole('combobox', { name })). */
+  ariaLabel?: string
+  /** Extra trigger classes (e.g. width / truncation for long device names). */
+  className?: string
 }
 
 /** Radix select (single). */
-export function UiSelect({ value, options, onChange, disabled, placeholder = 'Select…' }: UiSelectProps) {
+export function UiSelect({ value, options, groups, onChange, disabled, placeholder = 'Select…', ariaLabel, className }: UiSelectProps) {
   return (
     <SelectPrimitive.Root
       value={value}
       onValueChange={onChange}
       disabled={disabled}
     >
-      <SelectPrimitive.Trigger className={cn(SELECT_CLS.trigger, disabled && 'opacity-40')}>
+      <SelectPrimitive.Trigger
+        aria-label={ariaLabel}
+        className={cn(SELECT_CLS.trigger, disabled && 'opacity-40', className)}
+      >
         <SelectPrimitive.Value placeholder={placeholder} />
         <SelectPrimitive.Icon className="text-ink-3">
           <ChevronDown className="h-3.5 w-3.5" />
@@ -133,12 +152,39 @@ export function UiSelect({ value, options, onChange, disabled, placeholder = 'Se
         <SelectPrimitive.Content className={SELECT_CLS.content} position="popper" sideOffset={4}>
           <SelectPrimitive.Viewport>
             {options.map((opt) => (
-              <SelectPrimitive.Item key={opt.value} value={opt.value} className={SELECT_CLS.item}>
+              <SelectPrimitive.Item
+                key={opt.value}
+                value={opt.value}
+                disabled={opt.disabled}
+                title={opt.title}
+                className={SELECT_CLS.item}
+              >
                 <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
                 <SelectPrimitive.ItemIndicator className="ml-2 inline-flex text-brand-11">
                   <Check className="h-3.5 w-3.5" />
                 </SelectPrimitive.ItemIndicator>
               </SelectPrimitive.Item>
+            ))}
+            {(groups ?? []).map((group) => (
+              <SelectPrimitive.Group key={group.label}>
+                <SelectPrimitive.Label className="px-2.5 py-1 text-[11px] font-medium uppercase tracking-widest text-ink-3">
+                  {group.label}
+                </SelectPrimitive.Label>
+                {group.options.map((opt) => (
+                  <SelectPrimitive.Item
+                    key={opt.value}
+                    value={opt.value}
+                    disabled={opt.disabled}
+                    title={opt.title}
+                    className={SELECT_CLS.item}
+                  >
+                    <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
+                    <SelectPrimitive.ItemIndicator className="ml-2 inline-flex text-brand-11">
+                      <Check className="h-3.5 w-3.5" />
+                    </SelectPrimitive.ItemIndicator>
+                  </SelectPrimitive.Item>
+                ))}
+              </SelectPrimitive.Group>
             ))}
           </SelectPrimitive.Viewport>
         </SelectPrimitive.Content>

@@ -9,6 +9,7 @@
 
 import * as React from 'react'
 import { Button, TextField } from '@radix-ui/themes'
+import { UiSelect } from '@wake-studio/module-kit'
 import { useProjects, PROJECT_DOMAINS } from '../projects'
 import type { ProjectDomain } from '../projects'
 import {
@@ -79,17 +80,17 @@ export function NewProjectDialog({ open, onOpenChange }: Props) {
           </label>
           <label className="block text-sm">
             <span className="text-ink-2">{t('Domain')}</span>
-            <select
-              value={draft.domain}
-              onChange={(e) => setDraft((d) => ({ ...d, domain: e.target.value as ProjectDomain }))}
-              className="mt-1 w-full rounded-md border border-line bg-surface-3 px-2.5 py-1.5 text-sm text-ink-1 outline-none focus-visible:ring-2 focus-visible:ring-brand-8"
-            >
-              {PROJECT_DOMAINS.map((d) => (
-                <option key={d.value} value={d.value}>
-                  {t(d.label)}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <UiSelect
+                value={draft.domain}
+                onChange={(v) => setDraft((d) => ({ ...d, domain: v as ProjectDomain }))}
+                ariaLabel={t('Domain')}
+                options={PROJECT_DOMAINS.map((d) => ({
+                  value: d.value,
+                  label: t(d.label),
+                }))}
+              />
+            </div>
           </label>
           <label className="block text-sm">
             <span className="text-ink-2">{t('Target chip (optional)')}</span>

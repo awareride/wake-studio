@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { enableKws } from './helpers'
+import { enableKws, selectBackend } from './helpers'
 
 // The plix onnx assets are gitignored (ADR-011); skip when absent (like the
 // sherpa/openwakeword specs) so CI does not fail on a bare checkout.
@@ -44,11 +44,8 @@ test('plixkws encoder loads in the browser (worker registration works)', async (
   await enableKws(page)
 
   // Switch to the plixkws backend.
-  const backendSelect = page.locator('select').filter({
-    has: page.locator('option[value="plixkws"]'),
-  })
-  await expect(backendSelect).toBeVisible()
-  await backendSelect.selectOption('plixkws')
+  await expect(page.getByRole('combobox', { name: /Backend/ })).toBeVisible()
+  await selectBackend(page, 'plixkws')
 
   // The plix driver config panel renders the encoder variant + runtime
   // (Radix selects, exposed as comboboxes). The default variant is now
@@ -82,10 +79,7 @@ test('switching backend after a load re-boots with the new backend', async ({ pa
   // Switch to plixkws -> the Few-Shot load button appears; loading the PLiX
   // encoder must boot the plix path (previously the stale openwakeword worker
   // survived the switch and the encoder never loaded).
-  const backendSelect = page.locator('select').filter({
-    has: page.locator('option[value="plixkws"]'),
-  })
-  await backendSelect.selectOption('plixkws')
+  await selectBackend(page, 'plixkws')
   const loadEncoder = page.getByRole('button', { name: /Load PLiX encoder/i })
   await expect(loadEncoder).toBeVisible()
   await loadEncoder.click()

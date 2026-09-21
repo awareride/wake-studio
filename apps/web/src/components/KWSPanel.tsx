@@ -39,7 +39,7 @@ import {
   modelSourcesForRole,
 } from '../workspace/kws-config'
 import { ParamRows, type ParamValue } from './UnifiedConfigPanel'
-import { UiMultiselect } from '@wake-studio/module-kit'
+import { UiMultiselect, UiSelect } from '@wake-studio/module-kit'
 import { drawScoreCurve } from './viz/ScoreCurve'
 import { useProjectStageConfig } from '../projects'
 import { useLiveKws } from '../workspace/live'
@@ -983,20 +983,19 @@ export const KWSPanel = memo(function KWSPanel({
       <div className="flex flex-wrap items-center gap-4 whitespace-nowrap">
         <label className="flex items-center gap-2 text-sm">
           <span className="text-ink-2">{t('Backend')}</span>
-          <select
+          <UiSelect
             value={config.backend}
             disabled={status === 'loading' || running || detecting}
-            onChange={(e) =>
-              updateConfig({ backend: e.target.value as KWSConfig['backend'] })
+            onChange={(v) =>
+              updateConfig({ backend: v as KWSConfig['backend'] })
             }
-            className="truncate rounded bg-surface-3 px-2 py-1 text-ink-2"
-          >
-            {getBackendRegistry().map((r) => (
-              <option key={r.id} value={r.id} disabled={!r.browserFeasible}>
-                {r.id}
-              </option>
-            ))}
-          </select>
+            ariaLabel={t('Backend')}
+            options={getBackendRegistry().map((r) => ({
+              value: r.id,
+              label: r.id,
+              disabled: !r.browserFeasible,
+            }))}
+          />
         </label>
 
         {error && <span className="text-sm text-danger">{error}</span>}
@@ -1197,13 +1196,12 @@ export const KWSPanel = memo(function KWSPanel({
                         ?.url ?? ''
                     : ''
                 return (
-                  <div key={role} className="space-y-1">
+                  <div key={role} className="space-y-1" data-testid={`model-source-${role}`}>
                     <label className="flex items-center gap-2 text-xs">
                       <span className="w-36 shrink-0 text-ink-2">{t(label)}</span>
-                      <select
+                      <UiSelect
                         value={selected ?? fallbackId}
-                        onChange={(e) => {
-                          const v = e.target.value
+                        onChange={(v) => {
                           if (v.startsWith('user:')) {
                             void handleSelectUserModel(role, v.slice(5))
                           } else {
@@ -1211,28 +1209,32 @@ export const KWSPanel = memo(function KWSPanel({
                           }
                         }}
                         disabled={status === 'loading' || running}
-                        className="truncate rounded bg-surface-3 px-2 py-1 text-ink-2"
-                      >
-                        {options.length === 0 && (
-                          <option value={fallbackId}>{`${t('Built-in')} (${fallbackId})`}</option>
-                        )}
-                        {options.map((o) => (
-                          <option key={o.id} value={o.id} title={o.note ? t(o.note) : undefined}>
-                            {t(o.label)}
-                          </option>
-                        ))}
-                        {roleUserModels.length > 0 && (
-                          <optgroup label={t('Saved models')}>
-                            {roleUserModels.map((m) => (
-                              <option key={m.id} value={`user:${m.id}`}>
-                                {m.name} ({m.sizeBytes / 1024 / 1024 > 1
-                                  ? (m.sizeBytes / 1024 / 1024).toFixed(1) + ' MB'
-                                  : Math.round(m.sizeBytes / 1024) + ' KB'})
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </select>
+                        ariaLabel={t(label)}
+                        options={
+                          options.length === 0
+                            ? [{ value: fallbackId, label: `${t('Built-in')} (${fallbackId})` }]
+                            : options.map((o) => ({
+                                value: o.id,
+                                label: t(o.label),
+                                title: o.note ? t(o.note) : undefined,
+                              }))
+                        }
+                        groups={
+                          roleUserModels.length > 0
+                            ? [
+                                {
+                                  label: t('Saved models'),
+                                  options: roleUserModels.map((m) => ({
+                                    value: `user:${m.id}`,
+                                    label: `${m.name} (${m.sizeBytes / 1024 / 1024 > 1
+                                      ? (m.sizeBytes / 1024 / 1024).toFixed(1) + ' MB'
+                                      : Math.round(m.sizeBytes / 1024) + ' KB'})`,
+                                  })),
+                                },
+                              ]
+                            : undefined
+                        }
+                      />
                     </label>
                     {isCustom && (
                       <input
