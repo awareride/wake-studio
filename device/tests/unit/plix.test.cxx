@@ -12,12 +12,79 @@
  * slice-2 frontend lands.
  */
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <string>
 #include "doctest/doctest.h"
 #include "wake/kws_backend.h"
 
 extern "C" const wake_kws_backend_ops_t wake_kws_plix_ops;
+
+#if defined(WAKE_SDK_PLIX_HAS_RUNTIME) && !defined(_WIN32)
+#include <unistd.h>
+#endif
+
+#if defined(WAKE_SDK_PLIX_HAS_RUNTIME) && !defined(_WIN32)
+/* Stage a hermetic test bundle (model files + constant-unit prototype)
+ * into a fresh tmpdir so the shared staged assets stay pristine. */
+static int plix_stage_bundle(const char *src_dir, char *dir, size_t cap) {
+  char template_path[256];
+  static const char *files[] = {
+      "plixkws-small.onnx",
+      "plixkws-small.onnx.data",
+      NULL,
+  };
+  size_t i;
+  snprintf(template_path, sizeof(template_path), "/tmp/plix-l1-XXXXXX");
+  if (mkdtemp(template_path) == NULL) {
+    return 0;
+  }
+  snprintf(dir, cap, "%s", template_path);
+  for (i = 0; files[i] != NULL; i++) {
+    char src_path[1024], dst_path[1024], buf[65536];
+    size_t n;
+    FILE *src = NULL, *dst = NULL;
+    snprintf(src_path, sizeof(src_path), "%s/%s", src_dir, files[i]);
+    snprintf(dst_path, sizeof(dst_path), "%s/%s", dir, files[i]);
+    src = fopen(src_path, "rb");
+    if (src == NULL) {
+      return 0;
+    }
+    dst = fopen(dst_path, "wb");
+    if (dst == NULL) {
+      fclose(src);
+      return 0;
+    }
+    while ((n = fread(buf, 1, sizeof(buf), src)) > 0) {
+      if (fwrite(buf, 1, n, dst) != n) {
+        fclose(src);
+        fclose(dst);
+        return 0;
+      }
+    }
+    fclose(src);
+    fclose(dst);
+  }
+  /* Constant unit-norm prototype (1/sqrt(1280)): exercises the full load
+   * + score path deterministically without enrolled speech. */
+  {
+    char dst_path[1024];
+    FILE *dst = NULL;
+    snprintf(dst_path, sizeof(dst_path), "%s/plix_prototype.json", dir);
+    dst = fopen(dst_path, "w");
+    if (dst == NULL) {
+      return 0;
+    }
+    fputs("{\"vector\": [", dst);
+    for (i = 0; i < 1280; i++) {
+      fprintf(dst, "%s0.0279508497", i > 0 ? ", " : "");
+    }
+    fputs("]}", dst);
+    fclose(dst);
+  }
+  return 1;
+}
+#endif
 
 TEST_CASE("plix driver: creates, registers, warmup contract") {
   wake_kws_config_t cfg = WAKE_KWS_CONFIG_DEFAULT;
@@ -47,12 +114,67 @@ TEST_CASE("plix driver: creates, registers, warmup contract") {
     ops->destroy(impl);
     return;
   }
+  /* Stage a hermetic bundle (model files + constant-unit prototype) so the
+   * shared staged assets stay pristine. */
+  char bundle[256];
+  if (!plix_stage_bundle(dir, bundle, sizeof(bundle))) {
+    MESSAGE("bundle staging failed - skipping load assertions");
+    ops->destroy(impl);
+    return;
+  }
   wake_model_bundle_t models;
-  models.model_dir = dir;
-  CHECK(ops->load(impl, &models, &cfg) == 0);
+  models.model_dir = bundle;
+  REQUIRE(ops->load(impl, &models, &cfg) == 0);
+
+  /* 3 s of 440 Hz sine: warmup (window fill) yields -1, then every hop
+   * produces a finite [0,1] posterior against the constant prototype. */
+  {
+    int16_t frame[160];
+    double phase = 0.0;
+    int saw_score = 0;
+    for (size_t t = 0; t < 48000 / 160; ++t) {
+      for (size_t i = 0; i < 160; i++) {
+        phase += 1.0 / 16000.0;
+        frame[i] =
+            (int16_t)(0.3 * 32767.0 * sin(2.0 * 3.141592653589793 * 440.0 * phase));
+      }
+      const float s = ops->process_frame(impl, frame, 160);
+      if (s >= 0.0f) {
+        saw_score = 1;
+        CHECK(std::isfinite(s));
+        CHECK(s >= 0.0f);
+        CHECK(s <= 1.0f);
+      }
+    }
+    CHECK(saw_score == 1);
+  }
+
+  /* Silence gates to exactly 0 (no encoder run, no false trigger). */
+  {
+    int16_t quiet[160] = {0};
+    int saw_zero = 0;
+    for (size_t t = 0; t < 16000 / 160; ++t) {
+      const float s = ops->process_frame(impl, quiet, 160);
+      if (s >= 0.0f) {
+        CHECK(s == 0.0f);
+        saw_zero = 1;
+      }
+    }
+    CHECK(saw_zero == 1);
+  }
+
+  /* Reset returns to warmup; the session stays loaded. */
+  ops->reset(impl);
+  {
+    int16_t frame[160] = {0};
+    CHECK(ops->process_frame(impl, frame, 160) == -1.0f);
+  }
+
+  ops->destroy(impl);
+  return;
 #endif
 
-  /* warmup: -1 until the slice-2 frontend lands — never a fabricated score */
+  /* warmup: -1 with no runtime — never a fabricated score */
   int16_t frame[160] = {0};
   CHECK(ops->process_frame(impl, frame, 160) == -1.0f);
 

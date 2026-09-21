@@ -7,27 +7,40 @@ through the shared onnxruntime C API (pinned 1.21.0 — the same runtime as
 openwakeword #192 / kws-streaming #194); the prototype vector rides the
 bundle config, not a model file (#188).
 
-## Current state (slice 1, issue #188)
+## Current state (slices 1–2, issue #188)
 
-The encoder session ships (`wake_kws_plix_ops`): create / load
-(`plixkws-small.onnx` + colocated `plixkws-small.onnx.data`, dims verified
-`[1,1,64,100]` float32) / destroy, plus the CMake target and the
-runtime-gating option `WAKE_SDK_PLIX_HAS_RUNTIME` (default OFF).
+The full detection loop ships (`wake_kws_plix_ops`) behind
+`WAKE_SDK_PLIX_HAS_RUNTIME` (default OFF; the OFF build still compiles,
+registers, and warmups — see the L1 contract face):
 
-`process_frame()` stays in warmup (`-1`) until slice 2 — scoring needs the
-C mel frontend, which does not exist yet.
+- **Encoder session:** `plixkws-small.onnx` opened by file path (external
+  `.data` resolves), `[1,1,64,100]` float32 contract verified, output name
+  prefers `embeddings` (browser parity).
+- **Frontend:** C99 mel port (`plix_frontend.c`, no heap after init):
+  Hann-400, FFT-1024 (kissfft), Slaney-64 60–7800 Hz, raw magnitude
+  (the graph logs internally). Parity locked by L1 fixtures generated from
+  the dsp package itself (worst measured diff 1.6e-5, tol 1e-3) plus the
+  exact emit cadence (104 frames per 16960 samples).
+- **Detection loop** (`core/backend.ts` parity): 1.5 s ring, 80 ms hop with
+  zero-order hold, silence gate at −45 dBFS (score 0, no invoke), mel over
+  the oldest 16240 samples (= first 100 frames, `fitFrames`-head parity),
+  L2-normalized prototype distance `1/(1+d²)` (+ 2-class negative softmax).
+- **Prototype:** provisional sidecar `<model_dir>/plix_prototype.json`
+  (`{"vector":[...1280...], "negativeVector":[...]}`) until the bundle
+  generator (#189) designs the config file; strict parser, required at
+  load (Few-Shot has no default word).
+- **L1:** contract face + frontend parity + staged-bundle inference
+  (finite `[0,1]` posteriors on sine, exact-0 silence gate, warmup after
+  reset). Scoring math verified host-side against independent
+  recomputation (bit-exact).
 
 ## Next steps (follow-ups, not this commit)
 
-1. **C mel frontend (slice 2):** 16 kHz audio → 64-bin raw-magnitude mel,
-   win 400 / hop 160 / n_fft 1024, 60–7800 Hz, fit to 100 frames
-   (`packages/modules/kws/plix/encoders/plix-frontend.ts` contract — the
-   graph logs internally, so the frontend must stay raw magnitude).
-2. **Prototype scoring (slice 2/3):** L2-normalize, squared distance,
-   `1/(1+d2)` (+ optional 2-class softmax with the negative prototype),
-   silence gate at −45 dBFS, 80 ms hop, 1.5 s window
-   (`core/backend.ts` contract); prototype vector from the bundle config
-   (`docs/modules/sdk.md` §4.3).
+1. **Trigger-word validation:** L1 uses a constant prototype; a real
+   enrolled clip asserting an actual trigger needs recorded speech
+   (same gap as #185's trigger clip).
+2. **Bundle generator (#189)** absorbs the prototype sidecar into the
+   designed config file.
 
 Fetch the runtime + model with:
 
