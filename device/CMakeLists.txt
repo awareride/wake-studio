@@ -45,6 +45,10 @@ add_subdirectory(
   ${CMAKE_BINARY_DIR}/modules/kws/sherpa
 )
 add_subdirectory(
+  ../packages/modules/kws/plix/device
+  ${CMAKE_BINARY_DIR}/modules/kws/plix
+)
+add_subdirectory(
   ../packages/modules/afe/rnnoise/device
   ${CMAKE_BINARY_DIR}/modules/afe/rnnoise
 )

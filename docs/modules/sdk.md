@@ -225,6 +225,7 @@ warmup (`-1`). The bundle generator picks the runtime-ON configuration.
 | openwakeword (#192) | `kws/openwakeword/device/` | onnxruntime C API (pinned 1.21.0, `third_party/onnxruntime`, fetched prebuilt) | `WAKE_SDK_OPENWAKEWORD_HAS_RUNTIME` |
 | kws-streaming (#194) | `kws/streaming/device/` | onnxruntime C API (same pinned dep as openwakeword) | `WAKE_SDK_KWS_STREAMING_HAS_RUNTIME` |
 | sherpa-onnx-kws (#193) | `kws/sherpa/device/` | sherpa-onnx C API (pinned v1.13.6, `third_party/sherpa-onnx`, fetched prebuilt; bundles its own onnxruntime) | `WAKE_SDK_SHERPA_HAS_RUNTIME` |
+| plixkws (#188) | `kws/plix/device/` | onnxruntime C API (same pinned 1.21.0 dep as openwakeword) | `WAKE_SDK_PLIX_HAS_RUNTIME` |
 
 **onnxruntime (shared app-class runtime).** Two drivers share the pinned
 onnxruntime C API: openwakeword (mel → embedding → classifier, a byte-for-byte
