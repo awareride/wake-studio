@@ -60,5 +60,18 @@ if(WAKE_SDK_SHERPA_HAS_RUNTIME)
       WAKE_SHERPA_MODEL_DIR="${WAKE_SHERPA_MODEL_DIR}")
   endif()
 endif()
+# The microwakeword L1 test (issue #185) has two faces: the no-runtime
+# contract test and, when TFLite-Micro is linked, a real-inference test over
+# okay_nabu staged as microwakeword.tflite. The compile-time gate + model dir
+# must match the module's own configuration.
+if(WAKE_SDK_MICROWAKEWORD_HAS_RUNTIME)
+  target_compile_definitions(sdk_unit_tests PRIVATE WAKE_SDK_MICROWAKEWORD_HAS_RUNTIME=1)
+  set(WAKE_MICROWAKEWORD_MODEL_DIR "" CACHE PATH
+      "Directory holding microwakeword.tflite (L1 runtime test)")
+  if(WAKE_MICROWAKEWORD_MODEL_DIR)
+    target_compile_definitions(sdk_unit_tests PRIVATE
+      WAKE_MICROWAKEWORD_MODEL_DIR="${WAKE_MICROWAKEWORD_MODEL_DIR}")
+  endif()
+endif()
 target_include_directories(sdk_unit_tests PRIVATE ${WAKE_REPO_ROOT}/third_party)
 add_test(NAME sdk_unit COMMAND sdk_unit_tests)

@@ -205,6 +205,42 @@ jobs:
       - name: "Run tests (real transducer L1: trigger clip hits, silence does not)"
         run: ctest --test-dir build --output-on-failure
 
+  app-runtime-microwakeword:
+    name: App profile + TFLite-Micro (microwakeword driver, #185)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Pinned TFLite-Micro source + support libs (TFLM MODULE.bazel pins,
+      # issue #185): the driver compiles a curated source subset, and the L1
+      # test runs real streaming inference over okay_nabu. Fetched +
+      # sha256-verified by one script, never committed.
+      - name: Fetch TFLite-Micro + support libs + demo model
+        run: node scripts/fetch-tflite-micro.mjs
+
+      # Stage the model under the name the driver declares (ADR-040 §4.1):
+      # microwakeword.tflite.
+      - name: Stage driver model dir
+        run: |
+          mkdir -p models
+          cp packages/modules/kws/microwakeword/assets/okay_nabu.tflite models/microwakeword.tflite
+
+      - name: Configure (runtime ON)
+        run: cmake -S device -B build -DCMAKE_BUILD_TYPE=Debug -DWAKE_SDK_PROFILE=app \
+          -DWAKE_SDK_MICROWAKEWORD_HAS_RUNTIME=ON \
+          -DWAKE_MICROWAKEWORD_MODEL_DIR=$PWD/models
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: "Run tests (real streaming-inference L1 over okay_nabu)"
+        run: ctest --test-dir build --output-on-failure
+
   cross-mcu:
     name: Cross-compile (Cortex-M4, arm-none-eabi)
     runs-on: ubuntu-latest

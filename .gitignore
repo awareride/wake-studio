@@ -73,6 +73,17 @@ third_party/onnxruntime/osx-universal2/
 third_party/sherpa-onnx/linux-x64/
 third_party/sherpa-onnx/osx-arm64/
 third_party/sherpa-onnx/linux-aarch64/
+# Fetched TFLite-Micro source (ADR-031 pin, issue #185): downloaded by
+# scripts/fetch-tflite-micro.mjs, never committed (ADR-027 spirit).
+third_party/tflite-micro/
+# Fetched flatbuffers headers (TFLM MODULE.bazel pin 25.9.23): same script.
+third_party/flatbuffers/
+# Fetched gemmlowp fixedpoint headers (TFLM MODULE.bazel pin fda83bdc): same script.
+third_party/gemmlowp/
+# Fetched ruy profiler headers (TFLM MODULE.bazel pin 54774a7a): same script.
+third_party/ruy/
+# Fetched kissfft sources (TFLM MODULE.bazel tag v130): same script.
+third_party/kissfft/
 
 # studio-backend runtime state (ADR-036): SQLite store + artifacts
 apps/studio-backend/.venv/
