@@ -216,6 +216,7 @@ describe('generateDeviceBundle (#189)', () => {
       composition.indexOf('&wake_afe_ns_ops'),
     )
     expect(composition).toContain('wake_sdk_register_kws_backend(sdk, &wake_kws_openwakeword_ops)')
+    expect(composition.endsWith('}\n}\n')).toBe(true)
 
     expect(first.files['afe.conf']).toContain('bypass = true')
     expect(first.files['afe.conf']).toContain('threshold = 0.5')

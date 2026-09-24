@@ -363,6 +363,7 @@ ${externs.join('\n')}
 void wake_sdk_compose(wake_sdk_t *sdk) {
 ${registrations.join('\n')}
 }
+}
 `
 }
 
