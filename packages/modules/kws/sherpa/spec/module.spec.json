@@ -74,6 +74,25 @@
     "cloud": {
       "workflowRef": ".github/workflows/build.yaml",
       "artifact": "sherpa-onnx-kws-wasm"
+    },
+    "device": {
+      "sdkModule": "@wake-studio/sdk-kws",
+      "targets": ["raspberry-pi", "linux", "macos"],
+      "sourceDir": "packages/modules/kws/sherpa/device",
+      "cmakeTarget": "wake_kws_sherpa",
+      "supportedProfiles": ["app"],
+      "registration": {
+        "kind": "kws-backend",
+        "id": "sherpa-onnx-kws",
+        "symbol": "wake_kws_sherpa_ops"
+      },
+      "modelFiles": [
+        "encoder.onnx",
+        "decoder.onnx",
+        "joiner.onnx",
+        "tokens.txt",
+        "keywords.txt"
+      ]
     }
   },
   "build": {

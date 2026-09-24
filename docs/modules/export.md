@@ -1,11 +1,11 @@
 # Export — Module Specification
 
-- **Status:** Draft (docs-first for #189; review before implementation)
+- **Status:** Pilot (generator core implemented for #189; binary staging/ZIP remains #41)
 - **Owner:** WakeStudio team
 - **Plan phase:** Phase 4 (ADR-021; epic #31)
-- **Related ADRs:** ADR-009 (license policy), ADR-011 (asset licensing amendment), ADR-019 (target matrix), ADR-021 (device-side SDK), ADR-025 (module platform), ADR-027 (build artifacts), ADR-040 (SDK core)
+- **Related ADRs:** ADR-009 (license policy), ADR-011 (asset licensing amendment), ADR-019 (target matrix), ADR-021 (device-side SDK), ADR-025 (module platform), ADR-027 (build artifacts), ADR-040 (SDK core), ADR-047 (device metadata in module specs)
 - **Depends on (modules):** SDK (bundle contract, `docs/modules/sdk.md` §9), KWS (per-backend drivers + model files), AFE (portable stages + config)
-- **Last updated:** 2026-09-21
+- **Last updated:** 2026-09-24
 
 ## 1. Purpose
 
@@ -51,7 +51,43 @@ blocks non-commercial models from commercial exports.
 
 ## 4. Public API & types
 
-### 4.1 Bundle layout (from `docs/modules/sdk.md` §9)
+### 4.1 Generator API
+
+The generator is a pure capability in `@wake-studio/module-kit` (ADR-025): it
+accepts selected `ModuleSpec` objects and returns a deterministic map of
+bundle-relative UTF-8 files. It performs no filesystem writes and imports no ZIP
+library, so #41 can stage model bytes and wrap the same file map in a browser
+ZIP without coupling browser concerns to the text generator.
+
+```ts
+export interface BundleGeneratorInput {
+  profile: 'mcu' | 'app'
+  kwsBackendId: string
+  afeStageIds?: readonly string[]
+  labels: readonly string[]
+  qualityThresholds: { farThreshold: number; frrThreshold: number }
+  specs: readonly ModuleSpec[]
+}
+
+export interface GeneratedBundle {
+  profile: 'mcu' | 'app'
+  kwsBackendId: string
+  labels: readonly string[]
+  qualityThresholds: { farThreshold: number; frrThreshold: number }
+  modules: readonly GeneratedBundleModule[]
+  files: Readonly<Record<string, string>>
+}
+```
+
+Exactly one KWS backend is selected. AFE stages are optional and always emitted
+in ADR-001 order (AEC → BSS → NS), independent of caller order. Invalid module
+metadata, duplicate registrations, profile mismatches, invalid quality limits,
+and empty/duplicate labels fail with a typed `BundleGenerationError` before any
+file is returned. FAR/FRR limits are explicit caller input: a module may later
+publish recommended defaults in `runtime.device.thresholds`, but the generator
+never invents product acceptance thresholds.
+
+### 4.2 Bundle layout (from `docs/modules/sdk.md` §9)
 
 Every emitted bundle is a directory with this shape:
 
@@ -60,23 +96,22 @@ Every emitted bundle is a directory with this shape:
 ├── models/               # driver-declared model files (ADR-040 §4.1: the
 │                         # driver reads names it declared from model_dir)
 ├── labels.json           # keyword labels for the bundled model
-├── afe.conf              # AFE graph config (same keys as module.spec.json params)
+├── afe.conf              # generated profile/backend + module-spec defaults
 ├── CMakeLists.txt        # generated target list (core + selected module device/ dirs)
-├── composition_root.c    # generated root: one registration line per module (ADR-040 §3)
+├── composition_root.cxx  # generated root: one registration line per module (ADR-040 §3)
 ├── demo/                 # runnable demo (target-idiomatic: .py / .c / .kt / .swift)
-├── test/                 # FAR/FRR script (see §4.3)
+├── test/                 # generated composition-root test + FAR/FRR script (§4.4)
 ├── README.md             # generated: build + run + hardware notes
-└── LICENSES.md           # aggregated per-module declarations (see §4.2)
+└── LICENSES.md           # aggregated per-module declarations (see §4.3)
 ```
 
-### 4.2 License aggregation and gate verdict
+### 4.3 License aggregation and gate verdict
 
-Each module declares its licenses in `meta.license` (spec) and its
-module-owned `LICENSES.md`. The generator concatenates them into the bundle
-`LICENSES.md` (one section per module; declarations are read from the specs
-at generation time, never hand-copied, so the bundle cannot drift from the
-sources). The gate (#42)
-evaluates the bundle *before* assembly:
+Each module declares its license in `meta.license`. The generator emits one
+section per selected module into the bundle `LICENSES.md`, with the module id,
+version, name, and declaration copied directly from the spec at generation time.
+There is no parallel per-module license manifest to drift. The gate (#42)
+evaluates the complete model/runtime set before commercial assembly:
 
 ```ts
 export interface LicenseGateVerdict {
@@ -89,21 +124,26 @@ export interface LicenseGateVerdict {
 A bundle containing a CC BY-NC-SA model with `commercialUse: true` is
 blocked; the UI offers training a clean replacement (Phase 5) instead.
 
-### 4.3 FAR/FRR test script contract
+### 4.4 FAR/FRR test script contract
 
-Each bundle ships `test/` with a script that, given positive and negative
-audio sets, reports false-accept and false-reject rates in a fixed shape:
+Each bundle ships `test/` with a generated composition-root test plus a script
+that, given positive and negative audio sets, reports false-accept and
+false-reject rates in a fixed shape:
 
 ```
 test/
-├── far_frr.sh            # or target-idiomatic equivalent
-└── README.md             # how to point it at audio sets
+├── composition_root_test.cxx # verifies every emitted registration link + id
+├── far_frr.sh                # host POSIX harness; target adapters may wrap it
+└── README.md                 # runner + audio-set contract
 ```
 
 - Inputs: `--positives <dir> --negatives <dir> --config <afe.conf>`.
+- `WAKE_FAR_FRR_RUNNER` points to a target-appropriate executable that receives
+  `<wav> --config <path>` and returns 0 for trigger, 1 for no trigger.
 - Output (stdout): `FAR=<x> FRR=<y> N_POS=<n> N_NEG=<m>` plus per-file lines.
-- Exit code: 0 when both rates are under the bundle's declared thresholds
-  (emitted into the script header from the spec defaults), 1 otherwise.
+- Exit code: 0 when both rates are under the explicit `qualityThresholds`
+  passed to the generator, 1 when a limit is exceeded, and 2 for invalid
+  input/runner failures.
 
 ## 5. Data flow / sequence
 
@@ -111,12 +151,15 @@ Happy path (Studio export flow):
 
 1. User picks (target profile, KWS backend, AFE mode, model) in the export UI.
 2. Generator reads the selected modules' `module.spec.json`: `params`
-   defaults → `afe.conf`; `meta` + module `LICENSES.md` → license set;
+   defaults → `afe.conf`; `meta.license` → generated license sections;
    `runtime.device` → CMake target list + composition-root lines.
 3. License gate evaluates (#42 verdict). Blocked → stop with reasons.
-4. Generator emits the bundle directory (§4.1), resolving model files from
-   the module `assets/` recipes (fetched artifacts, never committed).
-5. Client-side `.zip` assembly (#41) packages the directory for download.
+4. Generator emits the deterministic build/config/license/test file map
+   (§4.1) and the exact model basenames declared by `runtime.device.modelFiles`.
+5. #41 stages model bytes from the owning module's fetched artifact or trained
+   result, enables the selected runtime options, assembles the client-side ZIP,
+   and packages the SDK/module source trees consumed by the generated CMake
+   project.
 6. Validation: the emitted project builds natively (host profile) in CI and
    the composition-root test passes (#189 criterion); on-hardware runs are
    golden-path acceptance only (Cortex-M triggers; Pi bundle runs + triggers).
@@ -128,14 +171,15 @@ Happy path (Studio export flow):
 | `targetProfile` | `app` | `mcu` \| `app` | Selects SDK profile macros, heap/threading model (ADR-040 §4). |
 | `kwsBackend` | — | driver id (`rms`, `plixkws`, `openwakeword`, `kws-streaming`, `sherpa-onnx-kws`, `microwakeword`) | Must be registered for the profile (capabilities query). |
 | `afeMode` | spec defaults | per-stage params | Keys come from each stage's `module.spec.json` `params` — one schema, two worlds. |
-| `farThreshold` / `frrThreshold` | backend-specific | [0,1] | Emitted into the `test/` script header; script exits 1 above either. |
+| `qualityThresholds.farThreshold` / `frrThreshold` | required explicit generator input | [0,1] | Product acceptance limits emitted into `test/far_frr.sh`; never inferred from a trigger threshold. |
 
 ## 7. Error model & failure modes
 
 - Gate-blocked export: hard stop with per-module reasons (never a warning
   the user can click through for commercial use).
-- Missing model files at generation time: fail with the module's fetch
-  recipe pointer (ADR-027), never emit a bundle with dangling model paths.
+- Missing model files while staging the final bundle: fail with the selected
+  module's fetch/provenance pointer (ADR-027), never emit a ZIP with dangling
+  model paths. The pure #189 generator emits the required-name manifest first.
 - Unknown backend id / profile mismatch: fail before emitting (the
   capabilities query is the source of truth for what a profile supports).
 - Runtime-gated drivers (no `-DHAS_RUNTIME=ON` build): allowed in the
@@ -153,12 +197,15 @@ Happy path (Studio export flow):
 
 ## 9. Testing strategy
 
-- **Generator unit (L1):** fixture specs → assert emitted CMakeLists target
-  list, composition-root lines, config defaults, LICENSES sections, and the
-  FAR/FRR script header thresholds.
-- **Emitted-project build (CI, #189 criterion):** generate the host-profile
-  project from the real specs, build natively, run its composition-root
-  test — the L2-style boot test for exports.
+- **Generator unit (L1):** fixture specs → assert deterministic output, emitted
+  CMake target list, canonical AFE order, composition-root lines, config
+  defaults/secret redaction, LICENSES sections, model manifest, and FAR/FRR
+  thresholds. The generated shell is parsed with `sh -n`.
+- **Emitted-project build (native CI, #189 criterion):** generate the
+  host-profile project from the real AEC/BSS/RNNoise/openWakeWord specs, build
+  it, and run the generated composition-root CTest. The test runs automatically
+  in the native CI image (which provides CMake) and reports skipped in shells
+  without CMake rather than hiding a build failure when CMake is present.
 - **License gate (L1 + CI):** matrix of (model license × commercial flag) →
   verdict; the CC BY-NC-SA × commercial case must block (#42 acceptance).
 - **FAR/FRR script:** runs against the repo's trigger-clip / ambient
@@ -170,24 +217,29 @@ Happy path (Studio export flow):
 - No credentials are bundled into exported artifacts (ADR-013 security note).
 - Mic audio stays on-device in exported deployments; the `test/` script
   processes local audio sets only.
-- Licenses travel with every bundle (§4.2); the gate decision is recorded
+- Licenses travel with every bundle (§4.3); the gate decision is recorded
   in the bundle `README.md`.
 
 ## 11. Open questions
 
-- `[Q-EXP-1]` The `runtime.device` schema section today only carries
-  `sdkModule` + `targets` — the generator additionally needs the CMake
-  target name, the ops symbol, the driver-declared model file names, and
-  the module's license declarations in machine-readable form. Extend
-  `runtime.device` (schema + backfill all `device/`-owning specs) or keep
-  a sidecar? Must be resolved before #189 slice 1.
-- `[Q-EXP-2]` Client-side `.zip` mechanics (#41): JSZip streaming for
-  large model files, progress UI, and base-path behavior (ADR-012) are
-  TBD — #41's body could not be loaded during drafting (API flakes); sync
-  with it before generator slice 2.
 - `[Q-EXP-3]` FAR/FRR fixture corpus: which trigger clips + ambient sets
   ship as the canonical fixture, and where do they live (release-hosted
   per ADR-027, or in-repo samples)?
+
+### Resolved during #189
+
+- `[Q-EXP-1]` **Resolved by ADR-047:** extend `runtime.device` with
+  `sourceDir`, `cmakeTarget`, `supportedProfiles`, registration kind/id/symbol,
+  and model filenames; optional `thresholds` may later carry a module's
+  recommended FAR/FRR defaults. Existing device-capable specs are backfilled;
+  `meta.license` remains the single module-license declaration.
+  micro-wake-word currently has a device implementation but no
+  `module.spec.json`; it cannot be selected by the spec-driven generator until
+  #185 supplies that module contract.
+- `[Q-EXP-2]` **Scoped to #41:** the generator returns a deterministic text file
+  map. Binary model staging, streaming/progress behavior for large ZIPs,
+  runtime option enablement, and browser download integration remain the client
+  ZIP task, not generator-core concerns.
 
 ## 12. References
 
@@ -196,7 +248,8 @@ Happy path (Studio export flow):
 - `docs/roadmap.md` §Phase 4 (export kits, license gate).
 - ADRs: ADR-009/011 (license policy), ADR-019 (target matrix), ADR-021
   (device-side SDK), ADR-025 (module platform), ADR-027 (artifacts),
-  ADR-040 (SDK core/profiles/composition root).
+  ADR-040 (SDK core/profiles/composition root), ADR-047 (device metadata in
+  module specs).
 - Issues: #31 (Phase 4 epic), #41 (bundle layout / client-side zip),
   #42 (license gate), #189 (bundle generator).
 - `LICENSES.md` (license matrix); `docs/module-spec.md` (spec platform);
@@ -206,4 +259,5 @@ Happy path (Studio export flow):
 
 | Date | Change | Author |
 |---|---|---|
+| 2026-09-24 | #189 generator core: pure file-map API, structured `runtime.device` (ADR-047), real-spec emitted-project test, license/config/test generation. | WakeStudio team |
 | 2026-09-21 | Initial draft (docs-first for #189). | WakeStudio team |

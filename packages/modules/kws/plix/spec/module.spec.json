@@ -74,6 +74,23 @@
     "cloud": {
       "workflowRef": ".github/workflows/build.yaml",
       "artifact": "plixkws-onnx"
+    },
+    "device": {
+      "sdkModule": "@wake-studio/sdk-kws",
+      "targets": ["raspberry-pi", "linux", "macos"],
+      "sourceDir": "packages/modules/kws/plix/device",
+      "cmakeTarget": "wake_kws_plix",
+      "supportedProfiles": ["app"],
+      "registration": {
+        "kind": "kws-backend",
+        "id": "plixkws",
+        "symbol": "wake_kws_plix_ops"
+      },
+      "modelFiles": [
+        "plixkws-small.onnx",
+        "plixkws-small.onnx.data",
+        "plix_prototype.json"
+      ]
     }
   },
   "build": {

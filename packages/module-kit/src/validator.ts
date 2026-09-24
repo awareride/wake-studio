@@ -65,6 +65,44 @@ export function validateModuleSpec(raw: unknown): SpecValidationResult {
   if (spec.playground && !spec.playground.route?.startsWith('/'))
     errors.push('playground.route must start with "/"')
 
+  if (spec.runtime?.device) {
+    const device = spec.runtime.device
+    if (typeof device.sourceDir !== 'string' ||
+      !/^packages\/modules\/[a-z0-9-]+\/[a-z0-9-]+\/device$/.test(device.sourceDir)) {
+      errors.push('runtime.device.sourceDir must be a repo-relative packages/modules/*/*/device path')
+    }
+    if (typeof device.cmakeTarget !== 'string' ||
+      !/^[A-Za-z_][A-Za-z0-9_]*$/.test(device.cmakeTarget)) {
+      errors.push(`runtime.device.cmakeTarget is invalid: ${device.cmakeTarget}`)
+    }
+    if (!Array.isArray(device.supportedProfiles) || !device.supportedProfiles.length)
+      errors.push('runtime.device.supportedProfiles must be non-empty')
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(device.registration?.symbol ?? ''))
+      errors.push('runtime.device.registration.symbol is invalid')
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(device.registration?.id ?? ''))
+      errors.push('runtime.device.registration.id is invalid')
+    if (!['afe-stage', 'kws-backend'].includes(device.registration?.kind))
+      errors.push('runtime.device.registration.kind must be afe-stage|kws-backend')
+    if (device.modelFiles != null && !Array.isArray(device.modelFiles)) {
+      errors.push('runtime.device.modelFiles must be an array')
+    }
+    const modelFiles = Array.isArray(device.modelFiles) ? device.modelFiles : []
+    if (new Set(modelFiles).size !== modelFiles.length)
+      errors.push('runtime.device.modelFiles must be unique')
+    for (const modelFile of modelFiles) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(modelFile) || modelFile.includes('..'))
+        errors.push(`runtime.device.modelFiles contains a non-bundle filename: ${modelFile}`)
+    }
+    const thresholds = device.thresholds
+    if (thresholds != null && (
+      typeof thresholds !== 'object' ||
+      thresholds.farThreshold < 0 || thresholds.farThreshold > 1 ||
+      thresholds.frrThreshold < 0 || thresholds.frrThreshold > 1
+    )) {
+      errors.push('runtime.device.thresholds must be within [0,1]')
+    }
+  }
+
   if (spec.train) {
     const hasSource = Boolean(
       spec.train.entry || spec.train.script || spec.train.notebook || spec.train.notebookLocal,

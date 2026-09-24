@@ -31,7 +31,19 @@
     }
   ],
   "runtime": {
-    "web": { "engine": "AecStage" }
+    "web": { "engine": "AecStage" },
+    "device": {
+      "sdkModule": "@wake-studio/sdk-afe",
+      "targets": ["cortex-m", "raspberry-pi", "linux", "macos", "windows"],
+      "sourceDir": "packages/modules/afe/aec/device",
+      "cmakeTarget": "wake_afe_aec",
+      "supportedProfiles": ["mcu", "app"],
+      "registration": {
+        "kind": "afe-stage",
+        "id": "aec",
+        "symbol": "wake_afe_aec_ops"
+      }
+    }
   },
   "tests": {
     "l1": "packages/modules/afe/aec/tests/stage.test.ts",
