@@ -89,9 +89,17 @@ below is filled in **and** the referenced deliverables exist.
       "workflowRef": ".github/workflows/build-rnnoise-wasm.yml",
       "artifact": "rnnoise-wasm"
     },
-    "device": {                       // device SDK glue, if applicable (ADR-021)
+    "device": {                       // device SDK build/link metadata (ADR-047)
       "sdkModule": "@wake-studio/sdk-afe",
-      "targets": ["arm-cortex-m4", "esp32-s3"]
+      "targets": ["cortex-m", "raspberry-pi", "linux"],
+      "sourceDir": "packages/modules/afe/rnnoise/device",
+      "cmakeTarget": "wake_afe_rnnoise",
+      "supportedProfiles": ["mcu", "app"],
+      "registration": {
+        "kind": "afe-stage",          // afe-stage | kws-backend
+        "id": "ns",
+        "symbol": "wake_afe_ns_ops"
+      }
     }
   },
 
@@ -133,6 +141,22 @@ below is filled in **and** the referenced deliverables exist.
   }
 }
 ```
+
+### 2.1 Device runtime metadata (ADR-047)
+
+A device-capable module declares its complete build/link contract under
+`runtime.device`; the export generator does not keep a second sidecar manifest.
+
+- `sourceDir`: repo-relative module-owned `device/` directory.
+- `cmakeTarget`: the library target added to a selected bundle.
+- `supportedProfiles`: `mcu`, `app`, or both.
+- `registration`: the C ops kind, runtime id, and exported registration symbol.
+- `modelFiles`: driver-declared basenames expected under a bundle's `models/`.
+- `thresholds`: optional recommended FAR/FRR defaults; callers still supply
+  product acceptance limits explicitly to the generator.
+
+`meta.license` remains the canonical module license declaration; generated
+`LICENSES.md` sections are derived from it rather than copied from a second file.
 
 ## 3. Panel generation rules
 

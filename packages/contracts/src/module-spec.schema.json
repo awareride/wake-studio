@@ -317,17 +317,111 @@
         },
         "device": {
           "type": "object",
+          "description": "Device SDK build/link metadata consumed by the bundle generator (#189, ADR-047).",
+          "required": [
+            "sourceDir",
+            "cmakeTarget",
+            "supportedProfiles",
+            "registration"
+          ],
           "properties": {
             "sdkModule": {
-              "type": "string"
+              "type": "string",
+              "description": "Legacy logical SDK package hint retained for existing consumers."
             },
             "targets": {
               "type": "array",
+              "description": "Human-readable target names supported by this module.",
               "items": {
-                "type": "string"
-              }
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "sourceDir": {
+              "type": "string",
+              "description": "Repo-relative module-owned device/ directory containing CMakeLists.txt.",
+              "pattern": "^packages/modules/[a-z0-9-]+/[a-z0-9-]+/device$"
+            },
+            "cmakeTarget": {
+              "type": "string",
+              "description": "CMake library target linked by the generated composition root.",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            },
+            "supportedProfiles": {
+              "type": "array",
+              "description": "SDK profiles this module can be linked into.",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "mcu",
+                  "app"
+                ]
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "registration": {
+              "type": "object",
+              "description": "Link-time registration emitted into the generated composition root.",
+              "required": [
+                "kind",
+                "id",
+                "symbol"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "afe-stage",
+                    "kws-backend"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "description": "Runtime id exposed by the C ops struct.",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+                },
+                "symbol": {
+                  "type": "string",
+                  "description": "Exported C ops symbol.",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                }
+              },
+              "additionalProperties": false
+            },
+            "modelFiles": {
+              "type": "array",
+              "description": "Driver-declared filenames expected under the bundle models/ directory.",
+              "items": {
+                "type": "string",
+                "pattern": "^(?!.*\\.\\.)[A-Za-z0-9][A-Za-z0-9._-]*$"
+              },
+              "uniqueItems": true
+            },
+            "thresholds": {
+              "type": "object",
+              "description": "FAR/FRR limits emitted into the generated test/far_frr.sh harness.",
+              "required": [
+                "farThreshold",
+                "frrThreshold"
+              ],
+              "properties": {
+                "farThreshold": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "frrThreshold": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "additionalProperties": false
             }
-          }
+          },
+          "additionalProperties": false
         }
       }
     },

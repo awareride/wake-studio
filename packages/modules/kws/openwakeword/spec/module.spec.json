@@ -45,6 +45,23 @@
     "web": {
       "engine": "OpenWakeWordBackend",
       "worker": true
+    },
+    "device": {
+      "sdkModule": "@wake-studio/sdk-kws",
+      "targets": ["raspberry-pi", "linux", "macos"],
+      "sourceDir": "packages/modules/kws/openwakeword/device",
+      "cmakeTarget": "wake_kws_openwakeword",
+      "supportedProfiles": ["app"],
+      "registration": {
+        "kind": "kws-backend",
+        "id": "openwakeword",
+        "symbol": "wake_kws_openwakeword_ops"
+      },
+      "modelFiles": [
+        "melspectrogram.onnx",
+        "embedding_model.onnx",
+        "classifier.onnx"
+      ]
     }
   },
   "train": {

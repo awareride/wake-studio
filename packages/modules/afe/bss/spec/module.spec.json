@@ -31,7 +31,19 @@
     }
   ],
   "runtime": {
-    "web": { "engine": "BssStage" }
+    "web": { "engine": "BssStage" },
+    "device": {
+      "sdkModule": "@wake-studio/sdk-afe",
+      "targets": ["cortex-m", "raspberry-pi", "linux", "macos", "windows"],
+      "sourceDir": "packages/modules/afe/bss/device",
+      "cmakeTarget": "wake_afe_bss",
+      "supportedProfiles": ["mcu", "app"],
+      "registration": {
+        "kind": "afe-stage",
+        "id": "bss",
+        "symbol": "wake_afe_bss_ops"
+      }
+    }
   },
   "tests": {
     "l1": "packages/modules/afe/bss/tests/stage.test.ts",

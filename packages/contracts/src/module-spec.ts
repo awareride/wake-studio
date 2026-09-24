@@ -72,6 +72,44 @@ export interface ModuleStatus {
   refreshMs?: number
 }
 
+export type DeviceProfile = 'mcu' | 'app'
+export type DeviceRegistrationKind = 'afe-stage' | 'kws-backend'
+
+/** Link-time registration metadata consumed by the bundle generator (#189). */
+export interface DeviceRegistration {
+  kind: DeviceRegistrationKind
+  /** Runtime id exposed by the C ops struct (for example `openwakeword`). */
+  id: string
+  /** Exported C ops symbol (for example `wake_kws_openwakeword_ops`). */
+  symbol: string
+}
+
+export interface DeviceQualityThresholds {
+  /** Maximum accepted false-accept rate in [0,1]. */
+  farThreshold: number
+  /** Maximum accepted false-reject rate in [0,1]. */
+  frrThreshold: number
+}
+
+/** Device metadata is a single source of truth in `module.spec.json` (ADR-047). */
+export interface ModuleDeviceRuntime {
+  /** Legacy logical SDK package hint; retained for existing consumers. */
+  sdkModule?: string
+  /** Human-readable target names supported by this module. */
+  targets?: string[]
+  /** Repo-relative module-owned CMake directory. */
+  sourceDir: string
+  /** CMake library target emitted into a selected bundle. */
+  cmakeTarget: string
+  /** SDK profiles this module can be linked into. */
+  supportedProfiles: DeviceProfile[]
+  registration: DeviceRegistration
+  /** Driver-declared filenames expected under the bundle `models/` directory. */
+  modelFiles?: string[]
+  /** FAR/FRR acceptance thresholds emitted into the bundle test harness. */
+  thresholds?: DeviceQualityThresholds
+}
+
 /** Runtime shape for each target world. */
 export interface ModuleRuntime {
   web?: {
@@ -88,10 +126,7 @@ export interface ModuleRuntime {
     workflowRef: string
     artifact?: string
   }
-  device?: {
-    sdkModule?: string
-    targets?: string[]
-  }
+  device?: ModuleDeviceRuntime
 }
 
 /** How many distinct wake words the trainer handles (docs/modules/data-sources.md §6). */

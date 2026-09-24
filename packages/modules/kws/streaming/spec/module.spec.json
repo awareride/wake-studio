@@ -113,6 +113,22 @@
     "cloud": {
       "workflowRef": ".github/workflows/build.yaml",
       "artifact": "kws-streaming-onnx"
+    },
+    "device": {
+      "sdkModule": "@wake-studio/sdk-kws",
+      "targets": ["raspberry-pi", "linux", "macos"],
+      "sourceDir": "packages/modules/kws/streaming/device",
+      "cmakeTarget": "wake_kws_streaming",
+      "supportedProfiles": ["app"],
+      "registration": {
+        "kind": "kws-backend",
+        "id": "kws-streaming",
+        "symbol": "wake_kws_streaming_ops"
+      },
+      "modelFiles": [
+        "model.onnx",
+        "manifest.json"
+      ]
     }
   },
   "train": {

@@ -71,7 +71,15 @@
     },
     "device": {
       "sdkModule": "@wake-studio/sdk-afe",
-      "targets": ["arm-cortex-m4"]
+      "targets": ["cortex-m", "raspberry-pi", "linux", "macos", "windows"],
+      "sourceDir": "packages/modules/afe/rnnoise/device",
+      "cmakeTarget": "wake_afe_rnnoise",
+      "supportedProfiles": ["mcu", "app"],
+      "registration": {
+        "kind": "afe-stage",
+        "id": "ns",
+        "symbol": "wake_afe_ns_ops"
+      }
     }
   },
   "train": {

@@ -1680,3 +1680,51 @@ applied per this log and may be overridden._
     static host stay on `bundled`.
   - Asset publishing is idempotent and additive — objects removed from a module
     are not deleted from the bucket; prune manually if that ever matters.
+
+## ADR-047 — Device build/link metadata lives in `module.spec.json` (no device sidecar)
+
+- **Status:** Accepted (2026-09-24)
+- **Origin:** Q-EXP-1 in `docs/modules/export.md` / issue #189. The first export
+  contract draft showed that `runtime.device` carried only `sdkModule` and
+  `targets`, while the generator also needed the module-owned CMake directory,
+  target name, link-time registration kind/id/symbol, driver-read model
+  filenames, supported SDK profiles, and FAR/FRR thresholds.
+- **Decision:**
+  1. **Extend `runtime.device`; do not add a per-module device sidecar.** A
+     device-capable module declares `sourceDir`, `cmakeTarget`,
+     `supportedProfiles`, `registration {kind,id,symbol}`, optional
+     `modelFiles`, and optional `thresholds`. The JSON Schema and shared
+     `ModuleSpec` contract are the authority for both validation and tooling.
+  2. **`meta.license` remains the single module-license declaration.** Generated
+     `LICENSES.md` sections are derived from the selected specs; a second
+     module-local license manifest is not introduced.
+  3. **The #189 generator is pure.** The spec-driven core in `@wake-studio/module-kit`
+     returns a deterministic map of bundle-relative UTF-8 files. It does not
+     perform filesystem writes or depend on a ZIP implementation. FAR/FRR
+     acceptance limits are required explicit generator input; the generator
+     never invents them from a trigger threshold. `runtime.device.thresholds`
+     may later carry a module's explicitly labeled recommended defaults.
+  4. **Binary/runtime packaging remains #41.** Model-byte resolution, fetching,
+     runtime option enablement, SDK/module source staging, progress reporting,
+     and browser ZIP assembly consume the generator's required-file manifest in
+     the separate client ZIP task. #42 remains responsible for the commercial
+     license verdict.
+- **Rationale:** `module.spec.json` is already the single shared fact source
+  (ADR-025/040). A sidecar would duplicate module identity, version, and license
+  context and allow the generator to compile a target whose spec and device
+  manifest disagree. A pure file-map API is independently testable, keeps
+  browser download concerns out of the native build contract, and still gives
+  #41 a deterministic integration seam.
+- **Consequences:**
+  - `packages/contracts` exposes typed device metadata and validates the CMake
+    and registration identifiers; `module-kit` validates the same contract
+    before generation and rejects profile/selection mismatches.
+  - All existing specs that own a `device/` tree are backfilled: AEC, BSS,
+    RNNoise, openWakeWord, kws-streaming, sherpa-onnx, and PLiX.
+  - micro-wake-word currently has a device implementation but no
+    `module.spec.json`; it is intentionally not selectable by the generator
+    until its #185 module contract is completed.
+  - The generated host project has a native composition-root CTest. CI runs it
+    with CMake; shells without CMake report that integration test as skipped.
+  - `docs/module-spec.md` and `docs/modules/export.md` document the expanded
+    device block and the #41/#42 boundaries.
