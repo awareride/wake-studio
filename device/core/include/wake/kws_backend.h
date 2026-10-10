@@ -31,13 +31,21 @@ typedef struct wake_kws_config {
   float threshold;                /* smoothed score must be >= this   (0.5) */
   unsigned min_duration_ms;       /* sustained above threshold (ms)    (300) */
   unsigned smoothing_window_frames; /* sliding max-pool window size    (5) */
-  int vad_gate_enabled;           /* gate inference on VAD             (1) */
+  int vad_gate_enabled;           /* gate trigger publication on VAD   (1) */
   float vad_threshold;            /* gate when vadProbability < this   (0.3) */
   unsigned cooldown_ms;           /* min gap between triggers (ms)    (2000) */
+  /* --- onset-safe VAD trigger gate (ADR-018; fail-open, never drop) -------
+   * The gate never skips inference and never feeds a stale score to the
+   * detector (issue: stale-score false trigger after silence). It only
+   * delays *publication* of a borderline trigger, bounded by
+   * `vad_hold_max_ms`. */
+  float vad_high_confidence;      /* score >= this always publishes    (0.9) */
+  unsigned vad_hold_max_ms;       /* max hold of a borderline trigger  (150) */
+  unsigned vad_close_ms;          /* non-speech before the gate closes (300) */
 } wake_kws_config_t;
 
 #define WAKE_KWS_CONFIG_DEFAULT \
-  { 0.5f, 300u, 5u, 1, 0.3f, 2000u }
+  { 0.5f, 300u, 5u, 1, 0.3f, 2000u, 0.9f, 150u, 300u }
 
 /* Opaque backend instance (created by the driver's create op). */
 typedef struct wake_kws_backend wake_kws_backend_t;

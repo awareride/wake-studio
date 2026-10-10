@@ -20,9 +20,9 @@ extern "C" {
 /* One score sample emitted per frame — mirrors the browser KWSScoreSample. */
 typedef struct wake_score_sample {
   double captured_at_ms;
-  float raw_score;      /* model posterior [0,1] (0 when VAD-gated) */
+  float raw_score;      /* model posterior [0,1] (always computed) */
   float smoothed_score; /* sliding-window max */
-  int triggered;
+  int triggered;        /* 1 if a trigger was published this frame */
   float vad_probability;
 } wake_score_sample_t;
 
@@ -45,9 +45,14 @@ void wake_pipeline_destroy(wake_pipeline_t *p);
  * Feed one 10 ms frame (160 samples @ 16 kHz) at the given time (ms —
  * caller-provided clock, e.g. frame_index * 10).
  *
- * VAD-gated frames skip inference and do not push into the smoother window
- * (max-pooling keeps the recent peak, browser parity). Fills `out` (may be
- * NULL) and, when a trigger fires, `out_trigger`. Returns 0 on success.
+ * Inference and score smoothing always run. The VAD gate is onset-safe and
+ * fail-open: it can only *delay publication* of a borderline trigger, for at
+ * most `vad_hold_max_ms`; a score >= `vad_high_confidence` always publishes,
+ * and a graph without a VAD-capable stage never suppresses anything. It never
+ * skips inference and never reuses a stale windowed score.
+ *
+ * Fills `out` (may be NULL) and, when a trigger is published,
+ * `out_trigger`. Returns 0 on success.
  */
 int wake_pipeline_process(wake_pipeline_t *p, int16_t *frames, size_t n,
                           double now_ms, wake_score_sample_t *out,

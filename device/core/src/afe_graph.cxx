@@ -106,6 +106,18 @@ int wake_afe_graph_process(wake_afe_graph_t *g, int16_t *frames, size_t n,
   return 0;
 }
 
+int wake_afe_graph_has_vad(const wake_afe_graph_t *g) {
+  if (g == nullptr) {
+    return 0;
+  }
+  for (unsigned i = 0; i < g->count; ++i) {
+    if (g->ops[i]->provides_vad != 0) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 void wake_afe_graph_reset(wake_afe_graph_t *g) {
   for (unsigned i = 0; i < g->count; ++i) {
     g->ops[i]->reset(g->impls[i]);

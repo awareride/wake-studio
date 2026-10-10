@@ -22,9 +22,16 @@ extern "C" {
 
 /*
  * One AFE stage (module-owned). A stage processes one 10 ms frame
- * (160 samples @ 16 kHz) in place. `vad_out` may be NULL; a stage that
- * carries VAD (e.g. the RNNoise NS stage) writes its probability [0,1]
- * there — the graph keeps the last non-NULL value for the detection loop.
+ * (160 samples @ 16 kHz) in place. `vad_out` may be NULL; a stage whose
+ * `provides_vad` is non-zero (e.g. the RNNoise NS stage) writes its
+ * probability [0,1] there — the graph keeps the last non-zero value for the
+ * detection loop and reports whether ANY stage provides VAD, so the trigger
+ * gate can fail open instead of suppressing triggers on a VAD-less graph.
+ *
+ * NOTE (issue #241 B4): this contract is single-channel by construction —
+ * there is no channel count and no far-end reference input, so AEC3/BSS
+ * cannot drop in unchanged. Widening it is tracked separately; do not read
+ * `frames` as interleaved multi-channel here.
  */
 typedef struct wake_afe_stage_ops {
   const char *id;   /* 'aec' | 'bss' | 'ns' */
@@ -33,6 +40,7 @@ typedef struct wake_afe_stage_ops {
   void (*destroy)(void *impl);
   int (*process)(void *impl, int16_t *frames, size_t n, float *vad_out);
   void (*reset)(void *impl);
+  int provides_vad; /* non-zero when `process` writes a VAD probability */
 } wake_afe_stage_ops_t;
 
 /* --- stage registry (composition root registers what the build ships) ------ */
@@ -68,6 +76,13 @@ int wake_afe_graph_process(wake_afe_graph_t *g, int16_t *frames, size_t n,
 
 /** Reset every stage (e.g. on stop). */
 void wake_afe_graph_reset(wake_afe_graph_t *g);
+
+/**
+ * Whether any appended stage declares `provides_vad`. The detection loop uses
+ * this to fail open: on a VAD-less graph the trigger gate must never
+ * suppress publication.
+ */
+int wake_afe_graph_has_vad(const wake_afe_graph_t *g);
 
 #ifdef __cplusplus
 } /* extern "C" */
