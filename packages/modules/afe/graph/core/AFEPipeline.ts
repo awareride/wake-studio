@@ -20,6 +20,7 @@ import type {
   StageState,
 } from './types'
 import { validateStageParams } from './validate-params'
+import { evaluateQualification, type QualificationResult } from './qualify'
 import { DEFAULT_CONFIG, INTERNAL_SAMPLE_RATE } from './defaults'
 import { describeParameters } from './defaults'
 import type { MainMessage, WorkletMessage } from './types'
@@ -47,6 +48,8 @@ export class AFEPipeline {
   private _bypass = { aec: true, bss: true, ns: false }
   /** Per-stage runtime params (issue #243), sent to the worklet on change. */
   private _stageParams: StageParamsByKind = {}
+  /** Capture/array qualification verdict (issue #246); null until reported. */
+  private _qualification: QualificationResult | null = null
   private _running = false
   private _latencyMs = 0
 
@@ -197,6 +200,8 @@ export class AFEPipeline {
     this._stream = null
     this._ctx = null
     this._running = false
+    // A new capture must be re-qualified (#246); the old verdict is stale.
+    this._qualification = null
   }
 
   // ---- stage control ----
@@ -224,6 +229,23 @@ export class AFEPipeline {
     validateStageParams(kind, params)
     this._stageParams = { ...this._stageParams, [kind]: { ...params } }
     this._sendConfig()
+  }
+
+  /**
+   * Capture / array qualification verdict (issue #246).
+   *
+   * `null` until the worklet has observed enough frames. Until a verdict is
+   * `qualified`, spatial processing must stay disabled and the pipeline uses
+   * mono passthrough — a stereo-looking stream is not evidence of two
+   * independent microphones.
+   */
+  getCaptureQualification(): QualificationResult | null {
+    return this._qualification
+  }
+
+  /** Whether a spatial AFE stage may be enabled right now. */
+  isSpatialSupported(): boolean {
+    return this._qualification?.spatialSupported === true
   }
 
   /** Current runtime parameters for one stage (empty when none were set). */
@@ -324,6 +346,20 @@ export class AFEPipeline {
       case 'ready':
         this._sendConfig()
         break
+
+      case 'capture-report': {
+        // Judge what the OS actually delivered, not what was requested (#246).
+        this._qualification = evaluateQualification({
+          requestedChannels: this._config.channels,
+          observedChannels: msg.observedChannels,
+          sampleRate: msg.sampleRate,
+          framesObserved: msg.framesObserved,
+          maxPairCorrelation: msg.maxPairCorrelation,
+          clipped: msg.clipped,
+          energyRatio: msg.energyRatio,
+        })
+        break
+      }
 
       case 'frame':
         for (const f of msg.frames) {

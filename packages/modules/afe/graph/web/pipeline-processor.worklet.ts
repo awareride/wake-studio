@@ -25,6 +25,7 @@ import { BssStage } from '@wake-studio/module-afe-bss'
 import { loadRnnoiseStage } from '@wake-studio/module-rnnoise/web/loader'
 
 import type { AFEStage } from '@wake-studio/contracts'
+import { ChannelProbe, MIN_OBSERVATION_FRAMES } from '../core/qualify'
 import type {
   AFEStageKind,
   MainMessage,
@@ -53,6 +54,15 @@ class PipelineProcessor extends AudioWorkletProcessor {
   // Stage modules, driven through the AFEStage interface.
   private _aec: AecStage
   private _bss: BssStage
+  /**
+   * Capture/array qualification probe (issue #246).
+   *
+   * Fed from the REAL `inputs[0]` channel arrays on every frame, so the verdict
+   * reflects what the OS actually delivered rather than what was requested.
+   * Allocation-free: `ChannelProbe` keeps running sums only.
+   */
+  private _probe = new ChannelProbe()
+  private _reportedCapture = false
   private _ns: ReturnType<typeof loadRnnoiseStage> | null = null
 
   // Circular buffer (LCM(128, 480) = 1920 samples).
@@ -110,6 +120,26 @@ class PipelineProcessor extends AudioWorkletProcessor {
     }
 
     this._post({ type: 'ready' })
+  }
+
+  /**
+   * Post the capture/array qualification report once the observation window is
+   * long enough (#246). Reported at most once per run; the main thread turns it
+   * into a `qualified | degraded | unsupported` verdict.
+   */
+  private _maybeReportCapture(): void {
+    if (this._reportedCapture) return
+    if (this._probe.frames < MIN_OBSERVATION_FRAMES) return
+    this._reportedCapture = true
+    this._post({
+      type: 'capture-report',
+      observedChannels: this._probe.channels,
+      sampleRate,
+      framesObserved: this._probe.frames,
+      maxPairCorrelation: this._probe.correlation,
+      clipped: this._probe.clipped,
+      energyRatio: this._probe.energyRatio,
+    })
   }
 
   /**
@@ -193,6 +223,12 @@ class PipelineProcessor extends AudioWorkletProcessor {
     const inData = inputs[0]?.[0]
     const outData = outputs[0]?.[0]
     if (!inData) return true
+
+    // --- 0. Observe the channels that actually arrived (#246) -------------
+    // Note we feed the real channel arrays and use their real length below;
+    // nothing here assumes the usual 128-frame quantum.
+    this._probe.observe(inputs[0])
+    this._maybeReportCapture()
 
     // --- 1. Append raw input to the circular buffer ---
     this._buffer.set(inData, this._inputLength)
