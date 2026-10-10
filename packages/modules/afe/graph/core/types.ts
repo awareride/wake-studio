@@ -167,6 +167,22 @@ export interface StageState {
 /** Messages sent from the worklet to the main thread. */
 export type WorkletMessage =
   | { type: 'ready' }
+  | {
+      /**
+       * Capture/array qualification report (issue #246).
+       *
+       * Sent once the observation window has accumulated enough frames. It
+       * describes what the OS **actually delivered** (`observedChannels` from
+       * `inputs[0].length`), not what was requested.
+       */
+      type: 'capture-report'
+      observedChannels: number
+      sampleRate: number
+      framesObserved: number
+      maxPairCorrelation: number
+      clipped: boolean
+      energyRatio: number
+    }
   | { type: 'frame'; frames: StageFrameData[] }
   | { type: 'output'; samples: Float32Array; capturedAtMs: number; vad: number }
   | { type: 'recorded'; raw: Float32Array; processed: Float32Array; sampleRate: number }

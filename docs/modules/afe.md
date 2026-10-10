@@ -258,6 +258,38 @@ module.spec.json params[]
 - Currently NS (`strength`, `denoiseEnabled`) is the only stage with real params;
   AEC/BSS declare `bypass` only (both are passthrough for v1, ADR-016).
 
+### 6.2 Capture / array qualification (issue #246)
+
+A stereo-looking stream is **not** evidence that two independent microphones
+reached the processor: a track can report 2 channels after the OS has downmixed
+to mono, duplicated one channel, or reordered them. Any of those silently
+destroys spatial processing (a delay-and-sum beamformer fed a duplicated channel
+collapses back to a pass-through) while the UI implies an array that is not there.
+
+The worklet therefore feeds every frame's **real `inputs[0]` channel arrays**
+into `ChannelProbe` (running sums only — no allocation in the audio thread) and,
+after `MIN_OBSERVATION_FRAMES`, posts a `capture-report`. The main thread turns
+it into a tri-state verdict via `evaluateQualification()`:
+
+| Verdict | Meaning | Spatial processing |
+|---|---|---|
+| `qualified` | ≥2 channels delivered, independent content, levels balanced, no clipping | may be enabled |
+| `degraded` | weak evidence (too few frames, clipping, high correlation, dead channel) | **not** enabled |
+| `unsupported` | <2 channels delivered, or channels are duplicates of each other | **not** enabled |
+
+- `AFEPipeline.getCaptureQualification()` returns the verdict (`null` until
+  reported); `isSpatialSupported()` is the boolean gate #245 will consume when
+  the configuration-driven geometry lands.
+- The verdict is reset on `stop()` — a new capture must be re-qualified.
+- **It fails safe**: anything not provably independent stays unsupported and the
+  pipeline uses mono passthrough.
+- **Honest limit:** this detects channel count, duplicated/downmixed channels,
+  energy imbalance and clipping. It cannot *prove* two channels are physically
+  distinct microphones — that needs a calibrated capture or a listening test — so
+  `qualified` means "no disqualifying signature found", not "verified hardware".
+- A 2-element array still cannot give 360° uniform directivity (ADR-048 §7), so
+  a spatial stage must also state its target sector explicitly.
+
 **Not yet in place** (same issue, later slice): the workspace stage panels are
 still hand-written rather than spec-driven, and param values are not yet
 persisted with the project model.

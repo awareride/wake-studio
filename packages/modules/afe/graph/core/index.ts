@@ -10,6 +10,18 @@ export {
   defaultStageParams,
   validateStageParams,
 } from './validate-params'
+export {
+  ChannelProbe,
+  DUPLICATE_CORRELATION,
+  ENERGY_IMBALANCE_RATIO,
+  MIN_OBSERVATION_FRAMES,
+  evaluateQualification,
+} from './qualify'
+export type {
+  CaptureReport,
+  QualificationLevel,
+  QualificationResult,
+} from './qualify'
 export { DEFAULT_CONFIG, describeParameters } from './defaults'
 export {
   INTERNAL_SAMPLE_RATE,
