@@ -1,9 +1,9 @@
 # AFE (Audio Front-End) - Module Specification
 
-- **Status:** Accepted (human review complete; ADR-016/017/029)
+- **Status:** Accepted (human review complete; ADR-016/017/029; component selection per ADR-048)
 - **Owner:** WakeStudio team
 - **Plan phase:** Phase 1 (AFE); module-migration §6.2 (per-stage modules)
-- **Related ADRs:** ADR-001 (pipeline stages AEC -> BSS -> NS -> KWS), ADR-003 (vendor vs portable AFE), ADR-016 (AFE Phase 1 design decisions), ADR-017 (per-component config panel), ADR-029 (per-stage modules)
+- **Related ADRs:** ADR-001 (pipeline stages AEC -> BSS -> NS -> KWS), ADR-003 (vendor vs portable AFE), ADR-016 (AFE Phase 1 design decisions), ADR-017 (per-component config panel), ADR-029 (per-stage modules), ADR-048 (AFE component selection: coexisting options, explicitly selected; amends ADR-016/018)
 - **Depends on (modules):** none (capture is the source of the audio graph); the graph module depends on the aec/bss/rnnoise stage modules
 - **Last updated:** 2026-08-05
 

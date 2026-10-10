@@ -1728,3 +1728,169 @@ applied per this log and may be overridden._
     with CMake; shells without CMake report that integration test as skipped.
   - `docs/module-spec.md` and `docs/modules/export.md` document the expanded
     device block and the #41/#42 boundaries.
+
+## ADR-048 — AFE components are a multi-option, explicitly selected set (no single primary stack)
+
+- **Status:** Accepted (2026-10-10)
+- **Origin:** Issue #240 (open-source AFE component evaluation) and its four
+  research comments of 2026-09-24 — an initial survey plus AEC, VAD and
+  BSS/beamforming addenda that corrected and retracted parts of it. Human
+  review 2026-10-10. Amends ADR-016 (browser AEC/BSS passthrough, AEC3
+  reference-capture constraints) and ADR-018 (VAD gating semantics).
+- **Supersedes in part:** the "recommended primary + fallback stack" framing of
+  the #240 initial summary, and its "WebRTC APM beamformer" BSS
+  recommendation (see retraction below).
+- **Decision:**
+  1. **Multi-option coexistence is the AFE selection principle.** No stage type
+     (AEC / BSS / NS / VAD) gets a single product-wide primary with fallbacks.
+     Each ships as a **set of coexisting implementations**, and the user
+     selects one explicitly per project and target; the choice is recorded in
+     the project spec and flows into the exported bundle. Rationale: the real
+     optimum genuinely differs per target (Cortex-M vs app-class vs browser),
+     a forced default hides that trade-off, and a default would privilege an
+     option whose licence is still unresolved (item 8). "Recommended" survives
+     only as documentation, never as an implicit default.
+  2. **Candidate sets per stage type** (not ranked defaults):
+     - *AEC*: browser-managed `getUserMedia` `echoCancellation`; native WebRTC
+       AEC3/APM behind an opaque C ABI, pinned to an auditable BSD snapshot
+       plus the WebRTC patent grant; SpeexDSP AEC as the smallest linear
+       last resort; ESP-SR AEC on fixed Espressif targets only.
+     - *BSS*: our own staged implementation — calibrated one/two-microphone
+       fixed fractional-delay delay-and-sum as the universal ship-quality
+       baseline (native/WASM/MCU from one source), then DOA-steered
+       delay-and-sum, then MVDR/GSC for app-class or calibrated larger arrays,
+       then a bounded experimental online AuxIVA/IVA-ISS tier for two mics
+       with explicit permutation/scale/convergence telemetry.
+     - *NS*: RNNoise (the shipped portable baseline, vendored v0.1.1; v0.2 is a
+       candidate upgrade), GTCRN as the quality/footprint challenger, DTLN as
+       the older 16 kHz MCU fallback, DeepFilterNet for app-class only.
+     - *VAD*: Silero v6.2.3 `silero_vad_16k_op15` (app/browser; licence
+       unresolved, see item 8), WebRTC VAD mode 0 (Cortex-M; BSD C, embedded
+       GMM tables, no model or runtime dependency), RNNoise VAD (the existing
+       shipped control, retained for comparison and rollback), FSMN-VAD as a
+       smaller app-class alternative.
+  3. **Retraction, recorded deliberately.** WebRTC APM is **not** a BSS or
+     beamforming provider. The current `modules/audio_processing` tree has no
+     beamformer component; the historical `nonlinear_beamformer` was a fixed
+     front-looking delay-and-sum + adaptive GSC + nonlinear postfilter (not
+     blind BSS) and was removed on 2018-06-21
+     (`db38972edaf0c2c748343e72bf64682a1351844c`). Multichannel buffer support
+     is not spatial processing. WebRTC remains the native AEC/NS/AGC aggregate.
+  4. **MCU AEC stays unresolved.** No source-complete, permissively licensed,
+     full-48 kHz nonlinear AEC with credible generic-Cortex-M resource evidence
+     was found. AEC therefore remains passthrough on the MCU tier, SpeexDSP is
+     linear-only, and LocalVQE/DTLN-aec are 16 kHz fallbacks rather than a
+     substitute for a qualified MCU AEC3 tier. No aspirational MCU AEC claim is
+     made in product copy.
+  5. **Aggregate AFE providers are a capability, not a decomposition.** APM and
+     ESP-SR expose aggregate behaviour; their internals must not be presented as
+     independently pluggable, independently bypassable stages. Supporting them
+     requires an explicit `aggregate` provider capability in the module spec
+     (and the viz/bypass semantics that follow from it), not an ADR-016-style
+     assumption that every stage is separately addressable.
+  6. **The VAD trigger gate is onset-safe and fail-open** (extends ADR-018).
+     Inference and score smoothing always run; the gate may only delay
+     *publication* of a borderline trigger, for at most `vad_hold_max_ms`; a
+     score at or above `vad_high_confidence` always publishes; the gate stays
+     open for `vad_close_ms` after the last speech frame (hysteresis, so
+     inter-word gaps are not clipped); and a graph with no VAD-capable stage
+     disables gating rather than suppressing triggers. A gate may never skip
+     inference and may never feed a stale windowed score to the detector.
+  7. **Capability vocabulary and naming discipline.** Spatial processing
+     declares exactly one of `fixed_delay_and_sum`, `doa_steered`, `mvdr_gsc`,
+     `online_auxiva`. Delay-and-sum, DOA steering, MVDR/GSC and geometric
+     separation must **not** be labelled blind source separation. A two-element
+     array cannot provide uniform 360° directivity, so the target sector is
+     always explicit.
+  8. **Licence posture is part of the selection, and unresolved licences block
+     commercial bundles.** Two findings are recorded as unresolved, not as
+     approvals: (a) the Silero repository `LICENSE` is MIT while the README
+     badge alt text reads `CC BY-NC 4.0` — treated as a documentation defect
+     requiring legal confirmation of the exact artefact, and Silero is
+     therefore **not** a recommended default; the pinned artefact is
+     `silero_vad_16k_op15.onnx`, 1,289,603 bytes, SHA-256
+     `7ed98ddbad84ccac4cd0aeb3099049280713df825c610a8ed34543318f1b2c49`,
+     512 samples / 32 ms at 16 kHz, and the ~1.8 MB Silero model bundled by
+     openWakeWord carries a placeholder SHA in the model registry and is not
+     equivalent without replacement/provenance work. (b) ESP-SR ships public
+     headers and precompiled target libraries including
+     `libesp_audio_front_end.a`; the top-level MIT file does not by itself
+     establish redistribution rights for those binaries, so ESP-SR is a
+     fixed-vendor target candidate requiring explicit Espressif rights and
+     provenance, not a source-complete portable provider. `LICENSES.md` must
+     carry both.
+  9. **Benchmark policy.** Primary gates are objective and KWS-linked:
+     segmental SNR plus KWS FRR/FAR plus onset retention for NS; angular SIR,
+     DRR, SI-SDR and off-axis speech loss for BSS; far-end ERLE, double-talk
+     near-end SI-SDR/distortion, residual echo, convergence after a path change,
+     clipping, delay and RTF for AEC; precision/recall, onset latency at
+     50/100/200 ms, wake-word clip recall and resulting FAR reduction for VAD.
+     PESQ/STOI/DNSMOS are secondary diagnostics and never the gate. Every stage
+     is evaluated before/after with the same frozen KWS model.
+  10. **Release invariants.** Zero high-confidence KWS events may be lost by
+      gating, and every held borderline event must be emitted within a hard
+      200 ms maximum.
+  11. **Spatial processing is gated on capture qualification.** A stereo-looking
+      stream is not evidence of two independent microphones; the array
+      qualification gate must pass before any spatial stage is enabled,
+      otherwise the pipeline degrades to mono pass-through and says so.
+  12. **Exclusions, with reasons.** TenVAD (Apache-2.0 plus non-compete,
+      application and end-user conditions — incompatible with product policy);
+      Sortformer diarization (hundreds of MB and seconds of buffering — wrong
+      task and scale for a KWS gate); Ambiq soundKIT (no clearly redistributable
+      pretrained VAD weights found); openWakeWord pretrained weights
+      (CC BY-NC-SA — never commercial bundle material); microWakeWord (a KWS
+      model, not a general VAD substitute); ODAS (MIT and real-time, but GCC-PHAT
+      localization plus geometric separation, suited to 4+ microphone Linux
+      arrays rather than generic 1–2 mic browser/MCU use, and published CPU
+      figures cover localization, not end-to-end separation);
+      `tonarino/webrtc-audio-processing` (convenient, but its wrapper licence
+      and bundled freedesktop submodule licence are separate — usable only after
+      dependency-level review, with a pinned upstream BSD/patent snapshot as the
+      safer native baseline); SSPRL real-time IVA (MIT file but an embedded guide
+      requesting author consent, last activity 2021 — research reference only);
+      stale 2023 `webrtcaec3.js` (reference/PoC only).
+  13. **pyroomacoustics (MIT) and ssspy (Apache-2.0) are test-only oracles.**
+      They are offline simulation/reference environments and are never runtime
+      dependencies of an exported bundle. They generate deterministic fixtures
+      (RIRs, paired AEC material) for the benchmark harness, with pinned
+      revisions, hashes and provenance recorded.
+  14. **Watch-list, not rejected.** `sonora`, `aec3-rs`, `decibri-aec`,
+      `LocalVQE`, UL-UNAS and FireRedVAD Stream stay on the watch-list: none has
+      browser deadline / WASM-heap / acoustic qualification, and a Rust-to-WASM
+      candidate additionally lacks a stable C ABI. They may be evaluated during
+      a spike; none may be presented as production-ready.
+- **Rationale:** The evaluation was initially framed as "recommend one primary
+  stack per profile", and its own addenda then retracted part of that answer
+  (item 3) and moved a default (item 8). Committing to a single primary stack
+  would encode a conclusion the evidence does not support, and would silently
+  privilege an artefact with an unresolved licence. Treating the candidate sets
+  as coexisting, explicitly selected options keeps the architecture genuinely
+  pluggable (ADR-016's intent) while making the selection and its licence
+  posture visible and reviewable. It also matches the product principle already
+  in the roadmap: WakeStudio selects, integrates, hardens and packages
+  open-source components rather than inventing or endorsing one of them.
+- **Consequences:**
+  - Explicit selection requires a working parameter/selection path to the
+    runtime; without it the choice is cosmetic. Tracked in #243.
+  - Multi-channel and far-end reference geometry, plus the browser/device
+    internal sample-rate divergence, must be fixed before AEC3 or any BSS can be
+    attached. Tracked in #245 (configuration-driven geometry; single-mic stays
+    the zero-cost degenerate case).
+  - Spatial stages cannot be enabled on an unqualified capture. Tracked in
+    #246.
+  - Objective quality evidence requires the corpus and metrics runner.
+    Tracked in #247, whose acceptance criteria require that the harness fails
+    on a known-bad build.
+  - The AEC spike (pinned upstream AEC3 behind an opaque C ABI —
+    `create/configure/reset/destroy`, `set_stream_delay_ms`, `process_render`,
+    `process_capture`, `get_metrics`) is authorised in principle but needs its
+    own issue; it must compare upstream C++, the Rust/WASM candidates, SpeexDSP
+    and the learned fallbacks on one corpus, gating first on no NaNs, no
+    corruption and no deadline misses.
+  - `LICENSES.md` must record the Silero licence discrepancy and the ESP-SR
+    prebuilt-binary rights question before any commercial export; #42's license
+    gate is the enforcement point.
+  - #240's research comments contain mutually superseding statements. This ADR
+    is the consolidated, authoritative statement of the conclusions; the
+    comments are the working record.
