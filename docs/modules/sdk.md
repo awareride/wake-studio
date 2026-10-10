@@ -168,6 +168,56 @@ graph rate. The browser already runs its AFE chain at 48 kHz internally and
 downsamples before the KWS; moving the device graph itself to 48 kHz is
 #245 slice B and is not done here.
 
+### 4.2.2 Declared geometry: arrays and far-end reference (issue #245 slice B)
+
+A stage no longer receives "a frame". It receives a `wake_afe_frame_t`:
+
+```c
+typedef struct wake_afe_frame {
+  int16_t **channels;       /* planar mic channels */
+  uint16_t channel_count;   /* 1 = single mic (the default) */
+  int16_t **reference;      /* planar far-end render channels, may be NULL */
+  uint16_t reference_count; /* 0 when there is no reference */
+  size_t frame_samples;
+} wake_afe_frame_t;
+```
+
+and declares what it needs and produces:
+
+```c
+uint16_t input_channels;     /* mic channels consumed */
+uint16_t output_channels;    /* channels produced */
+uint16_t reference_channels; /* far-end channels consumed (0 = none) */
+```
+
+- **Single-mic is the degenerate case, not a special path.** A 1/1/0 stage is
+  driven with no conversion and no allocation; `wake_afe_graph_process()`
+  remains a mono convenience wrapper so every existing caller (demo, Python
+  binding, drivers, tests) is unchanged. `wake_afe_graph_process_frame()` is the
+  entry point for a declared geometry.
+- **The graph validates geometry per frame.** A stage never sees fewer mic
+  channels than it declared, and a stage declaring `reference_channels > 0` is
+  **refused** when the capture provides no far-end reference. That is the
+  structural reason an AEC stage can only run on a capture that actually has one.
+- `wake_afe_graph_append` rejects a stage declaring zero input or output
+  channels, or more reference channels than `WAKE_AFE_MAX_CHANNELS`.
+- A stage declaring `input_channels > 1` is **spatial**, and may only run on a
+  qualified capture (#246): the graph serves the geometry, the caller decides
+  whether the capture earned it.
+- Converted audio is allocated per stage, one plane per mic channel and per
+  reference channel, sized from the declared geometry -- so a mono stage allocates
+  exactly one plane.
+- **Capability naming** follows ADR-048 §7: a stage declares one of
+  `fixed_delay_and_sum`, `doa_steered`, `mvdr_gsc`, `online_auxiva`, and
+  delay-and-sum / DOA steering / MVDR / geometric separation must never be
+  labelled blind source separation.
+
+Today every shipped stage declares 1/1/0 (AEC, BSS, NS): AEC and BSS are still
+passthrough for v1 (ADR-016). What this slice delivers is the **structural
+capability** — an AEC or BSS implementation can now be attached without changing
+the graph, the pipeline, or the bindings. Choosing and qualifying an
+implementation is #249.
+
 Why this matters: the previous arrangement was an implicit, per-stage, untested
 assumption — each stage hand-rolled its own conversion, and one of them got it
 wrong in a way that made digital silence cross the trigger threshold (#240 B2,
