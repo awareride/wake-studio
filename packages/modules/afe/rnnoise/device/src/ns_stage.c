@@ -85,11 +85,19 @@ static void ns_destroy(void *v) {
 }
 
 /*
- * `frames` holds exactly NS_FRAME samples at 48 kHz (guaranteed by the graph,
- * which converts and buffers). Output is written back to the same buffer.
+ * NS is mono: it declares 1 input channel and consumes channel 0 (#245 slice B).
+ * The graph has already converted this frame to NS_SAMPLE_RATE, so `in` carries
+ * exactly NS_FRAME samples. Output goes back into the same channel.
  */
-static int ns_process(void *v, int16_t *frames, size_t n, float *vad_out) {
+static int ns_process(void *v, const wake_afe_frame_t *in,
+                      wake_afe_frame_t *out, float *vad_out) {
   ns_impl_t *impl = (ns_impl_t *)v;
+  if (in == NULL || out == NULL || in->channels == NULL ||
+      out->channels == NULL || in->channel_count == 0u) {
+    return 1;
+  }
+  int16_t *frames = in->channels[0];
+  const size_t n = in->frame_samples;
 
   if (impl->denoise_enabled && n == NS_FRAME) {
     for (unsigned i = 0; i < NS_FRAME; ++i) {
@@ -119,4 +127,6 @@ static void ns_reset(void *v) {
 
 const wake_afe_stage_ops_t wake_afe_ns_ops = {
     "ns", "RNNoise noise suppression + VAD", ns_create, ns_destroy, ns_process,
-    ns_reset, 1 /* provides_vad */, NS_SAMPLE_RATE, NS_FRAME};
+    ns_reset, 1 /* provides_vad */, NS_SAMPLE_RATE, NS_FRAME,
+    /* Declared geometry (#245 slice B): mono in and out, no reference. */
+    1, 1, 0};
