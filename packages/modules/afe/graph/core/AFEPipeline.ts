@@ -9,13 +9,17 @@
 import type {
   AFEConfig,
   AFEOutputFrame,
+  AFEStageKind,
+  AFEStageParams,
   FileSourceConfig,
   MicSourceConfig,
   PipelineSource,
   RecordedClip,
   StageFrameData,
+  StageParamsByKind,
   StageState,
 } from './types'
+import { validateStageParams } from './validate-params'
 import { DEFAULT_CONFIG, INTERNAL_SAMPLE_RATE } from './defaults'
 import { describeParameters } from './defaults'
 import type { MainMessage, WorkletMessage } from './types'
@@ -41,6 +45,8 @@ export class AFEPipeline {
 
   private _config: AFEConfig = { ...DEFAULT_CONFIG }
   private _bypass = { aec: true, bss: true, ns: false }
+  /** Per-stage runtime params (issue #243), sent to the worklet on change. */
+  private _stageParams: StageParamsByKind = {}
   private _running = false
   private _latencyMs = 0
 
@@ -206,6 +212,25 @@ export class AFEPipeline {
     return (this._bypass as Record<string, boolean>)[stageId] ?? false
   }
 
+  /**
+   * Set runtime parameters for one stage (issue #243).
+   *
+   * Values are validated against the module spec's `params` before delivery:
+   * unknown keys and out-of-range values are rejected with an error instead of
+   * being silently dropped, so a dead control is visible rather than inert.
+   * The stage ids here are the AFE stage kinds (`aec` / `bss` / `ns`).
+   */
+  setStageParams(kind: AFEStageKind, params: AFEStageParams): void {
+    validateStageParams(kind, params)
+    this._stageParams = { ...this._stageParams, [kind]: { ...params } }
+    this._sendConfig()
+  }
+
+  /** Current runtime parameters for one stage (empty when none were set). */
+  getStageParams(kind: AFEStageKind): AFEStageParams {
+    return { ...(this._stageParams[kind] ?? {}) }
+  }
+
   // ---- subscriptions ----
 
   onFrame(cb: FrameCallback): () => void {
@@ -288,6 +313,9 @@ export class AFEPipeline {
       type: 'config',
       bypass: { ...this._bypass },
       vizFps: this._config.vizFps,
+      stageParams: Object.keys(this._stageParams).length
+        ? (this._stageParams as StageParamsByKind)
+        : undefined,
     })
   }
 

@@ -35,6 +35,7 @@ export type {
   ParamValidation,
   StatusRenderer,
   AFEStage,
+  AFEStageParams,
   AFEStageResult,
   AFEStageKind,
 } from './module-spec'

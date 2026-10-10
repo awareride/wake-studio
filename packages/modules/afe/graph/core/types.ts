@@ -12,6 +12,16 @@
 /** A named AFE stage in the fixed pipeline (ADR-001). */
 export type AFEStageKind = 'aec' | 'bss' | 'ns'
 
+/**
+ * Runtime parameter values for one stage, keyed by the param id declared in
+ * that module's `module.spec.json` (issue #243). Only scalar JSON values cross
+ * the AudioWorklet boundary.
+ */
+export type AFEStageParams = Record<string, number | boolean | string>
+
+/** Per-stage runtime parameters, keyed by stage kind. */
+export type StageParamsByKind = Partial<Record<AFEStageKind, AFEStageParams>>
+
 /** AFE topology: how the stage DSP cores are wired (ADR-016). */
 export type AFETopology = 'single-worklet' | 'node-per-stage'
 
@@ -181,6 +191,16 @@ export type MainMessage =
       type: 'config'
       bypass: { aec: boolean; bss: boolean; ns: boolean }
       vizFps: number
+      /**
+       * Per-stage runtime parameters (issue #243), keyed by stage id and then
+       * by the param id declared in that module's `module.spec.json`.
+       *
+       * Full state, not a patch: the worklet keeps no per-stage param state,
+       * so a `config` message always describes the complete desired
+       * configuration. `bypass` stays a first-class field because the worklet
+       * applies it every frame, outside the stage objects.
+       */
+      stageParams?: Partial<Record<AFEStageKind, AFEStageParams>>
     }
   | { type: 'absource'; source: 'raw' | 'processed' }
   | {
