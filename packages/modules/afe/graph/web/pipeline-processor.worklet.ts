@@ -24,7 +24,14 @@ import { AecStage } from '@wake-studio/module-afe-aec'
 import { BssStage } from '@wake-studio/module-afe-bss'
 import { loadRnnoiseStage } from '@wake-studio/module-rnnoise/web/loader'
 
-import type { MainMessage, StageFrameData, WorkletMessage } from '../core/types'
+import type { AFEStage } from '@wake-studio/contracts'
+import type {
+  AFEStageKind,
+  MainMessage,
+  StageFrameData,
+  StageParamsByKind,
+  WorkletMessage,
+} from '../core/types'
 import {
   CIRCULAR_BUFFER_SIZE,
   INTERNAL_SAMPLE_RATE,
@@ -105,11 +112,37 @@ class PipelineProcessor extends AudioWorkletProcessor {
     this._post({ type: 'ready' })
   }
 
+  /**
+   * Apply per-stage runtime parameters (issue #243).
+   *
+   * Deliberately permissive: the main thread already validated these against
+   * each module's `module.spec.json` (`validateStageParams`), and a throw in an
+   * audio callback would tear down the AudioWorklet. An unknown stage or a stage
+   * without a `configure` seam is ignored rather than fatal.
+   */
+  private _applyStageParams(stageParams: StageParamsByKind | undefined): void {
+    if (!stageParams) return
+    const apply = (kind: AFEStageKind, stage: AFEStage | null): void => {
+      const params = stageParams[kind]
+      if (!params || !stage) return
+      if (typeof stage.configure !== 'function') return
+      try {
+        stage.configure(params)
+      } catch (err) {
+        this._post({ type: 'error', message: `AFE ${kind} params rejected: ${String(err)}` })
+      }
+    }
+    apply('aec', this._aec)
+    apply('bss', this._bss)
+    apply('ns', this._ns)
+  }
+
   private _handleMessage(msg: MainMessage): void {
     switch (msg.type) {
       case 'config':
         this._bypass = msg.bypass
         this._vizInterval = 1 / msg.vizFps
+        this._applyStageParams(msg.stageParams)
         break
       case 'absource':
         this._abSource = msg.source

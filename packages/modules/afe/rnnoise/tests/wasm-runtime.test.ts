@@ -122,3 +122,59 @@ describe('RNNoise strength (wet/dry mix)', () => {
     }
   })
 })
+
+/*
+ * Issue #243: the spec params must reach the engine through the stage's
+ * `configure` seam, not just exist in a control. These assertions read the
+ * engine's config back, which is what the audio path actually uses.
+ */
+describe('RnnoiseNsStage.configure (issue #243 param delivery)', () => {
+  it('delivers strength and denoiseEnabled from the stage configure seam', async () => {
+    const { RnnoiseNsStage } = await import('../core/afe-stage')
+    const wasm = createRNNWasmModuleSync()
+    const stage = new RnnoiseNsStage(wasm)
+
+    // Defaults come from the engine.
+    expect(stage.engineConfig.strength).toBe(1)
+
+    stage.configure({ strength: 0.35, denoiseEnabled: false })
+    expect(stage.engineConfig.strength).toBe(0.35)
+    expect(stage.engineConfig.denoiseEnabled).toBe(false)
+
+    stage.configure({ strength: 0.9 })
+    expect(stage.engineConfig.strength).toBe(0.9)
+    expect(stage.engineConfig.denoiseEnabled).toBe(false) // untouched keys survive
+  })
+
+  it('ignores unknown keys and non-matching types (no throw in the audio thread)', async () => {
+    const { RnnoiseNsStage } = await import('../core/afe-stage')
+    const stage = new RnnoiseNsStage(createRNNWasmModuleSync())
+
+    expect(() => stage.configure({ unknownKey: 42 })).not.toThrow()
+    expect(() => stage.configure({ strength: 'loud' } as never)).not.toThrow()
+    expect(() => stage.configure({})).not.toThrow()
+    // The wrongly typed value was ignored, not coerced.
+    expect(stage.engineConfig.strength).toBe(1)
+  })
+
+  it('changes the processed audio, i.e. the value is not cosmetic', async () => {
+    const { RnnoiseNsStage } = await import('../core/afe-stage')
+    const wasm = createRNNWasmModuleSync()
+
+    const full = new RnnoiseNsStage(wasm)
+    full.configure({ strength: 1 })
+    const dry = new RnnoiseNsStage(wasm)
+    dry.configure({ strength: 0 })
+
+    const frameA = sineFrame(440, 0.5)
+    const frameB = sineFrame(440, 0.5)
+    full.process(frameA)
+    dry.process(frameB)
+
+    let maxDiff = 0
+    for (let i = 0; i < RNNOISE_FRAME_SIZE; i++) {
+      maxDiff = Math.max(maxDiff, Math.abs(frameA[i] - frameB[i]))
+    }
+    expect(maxDiff).toBeGreaterThan(1e-4)
+  })
+})

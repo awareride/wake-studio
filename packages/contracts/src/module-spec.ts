@@ -395,6 +395,14 @@ export interface AFEStageResult {
   levelDb: number
 }
 
+/**
+ * Runtime parameter values for one stage, keyed by the param id declared in
+ * `module.spec.json`. Only scalar JSON values cross the AudioWorklet boundary
+ * (worklets cannot receive functions or class instances), so a param whose
+ * value is not a scalar cannot be delivered this way.
+ */
+export type AFEStageParams = Record<string, number | boolean | string>
+
 /** A single AFE stage module's headless engine (usable in any JS env). */
 export interface AFEStage {
   readonly kind: AFEStageKind
@@ -402,4 +410,13 @@ export interface AFEStage {
   process(frame: Float32Array): AFEStageResult
   /** Reset internal state (e.g. on stop/record). */
   reset(): void
+  /**
+   * Apply runtime parameters (issue #243).
+   *
+   * Optional: a stage that has nothing configurable omits it. Implementations
+   * MUST ignore unknown keys and MUST clamp/validate values rather than
+   * throwing — a bad value must not tear down the audio thread. Validation
+   * against the module spec happens on the main thread before delivery.
+   */
+  configure?(params: AFEStageParams): void
 }

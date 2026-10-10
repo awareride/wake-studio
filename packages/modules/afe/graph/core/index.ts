@@ -5,6 +5,11 @@
  */
 
 export { AFEPipeline } from './AFEPipeline'
+export {
+  AFEParamError,
+  defaultStageParams,
+  validateStageParams,
+} from './validate-params'
 export { DEFAULT_CONFIG, describeParameters } from './defaults'
 export {
   INTERNAL_SAMPLE_RATE,
@@ -16,6 +21,7 @@ export type {
   AFEConfig,
   AFEOutputFrame,
   AFEStageKind,
+  AFEStageParams,
   AFETopology,
   FileSourceConfig,
   FrameConfig,
@@ -25,6 +31,7 @@ export type {
   RecordedClip,
   SpectrogramData,
   StageFrameData,
+  StageParamsByKind,
   StageState,
   StageStatus,
 } from './types'

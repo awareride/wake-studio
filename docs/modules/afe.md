@@ -5,7 +5,7 @@
 - **Plan phase:** Phase 1 (AFE); module-migration §6.2 (per-stage modules)
 - **Related ADRs:** ADR-001 (pipeline stages AEC -> BSS -> NS -> KWS), ADR-003 (vendor vs portable AFE), ADR-016 (AFE Phase 1 design decisions), ADR-017 (per-component config panel), ADR-029 (per-stage modules), ADR-048 (AFE component selection: coexisting options, explicitly selected; amends ADR-016/018)
 - **Depends on (modules):** none (capture is the source of the audio graph); the graph module depends on the aec/bss/rnnoise stage modules
-- **Last updated:** 2026-08-05
+- **Last updated:** 2026-10-10
 
 ## 0. Module layout (ADR-029)
 
@@ -223,6 +223,44 @@ controls generically.
 | `internalSampleRate` | 48000 | fixed | AFE DSP runs at the AudioContext rate (48 kHz; RNNoise-native). |
 | `outputSampleRate` | 16000 | fixed | KWS output is 16 kHz mono, resampled at the output boundary (ADR-001). |
 | `latencyBudgetMs` | 150 | - | End-to-end capture -> display target (R5). |
+
+### 6.1 Per-stage runtime parameters (issue #243)
+
+Parameters declared in a **stage module's** `module.spec.json` (`params[]`, minus
+the `bypass` pseudo-param, which is a first-class config field) are delivered to
+the running engine. Before #243 they were rendered in generated panels but never
+reached the audio thread, so every such control was inert.
+
+Delivery path:
+
+```
+module.spec.json params[]
+  -> AFEPipeline.setStageParams(kind, params)   // main thread
+  -> validateStageParams(kind, params)          // spec-checked, throws on problems
+  -> MainMessage { type: 'config', stageParams }
+  -> worklet _applyStageParams()                // permissively applied
+  -> stage.configure(params)                    // AFEStage seam (optional)
+  -> engine.setConfig(patch)                    // e.g. RNNoise
+```
+
+- **Contract:** `AFEStage.configure?(params)` is optional (a stage with nothing
+  configurable omits it). `bypass` stays a separate first-class field because the
+  worklet applies it every frame, outside the stage objects.
+- **Validation is on the main thread**, against the spec: unknown keys, wrong
+  types and out-of-range values throw `AFEParamError` instead of being silently
+  dropped. A control that quietly does nothing is worse than a visible error.
+- **The worklet stays permissive**: stages ignore unknown keys and clamp values.
+  Throwing inside an AudioWorklet callback would tear down the audio thread, so
+  the two behaviours are deliberately different.
+- `defaultStageParams(kind)` returns the spec defaults for a stage, ready to send.
+- Only scalar JSON values can cross the boundary; a non-scalar param is rejected
+  at validation time.
+- Currently NS (`strength`, `denoiseEnabled`) is the only stage with real params;
+  AEC/BSS declare `bypass` only (both are passthrough for v1, ADR-016).
+
+**Not yet in place** (same issue, later slice): the workspace stage panels are
+still hand-written rather than spec-driven, and param values are not yet
+persisted with the project model.
 | `vizFps` | 30 | 15-60 | Throttle for visualization frame emission. |
 | `waveformPoints` | 128 | - | Downsampled points per waveform display. |
 | `spectrumBins` | 65 | - | Magnitude bins for the spectrogram. |
