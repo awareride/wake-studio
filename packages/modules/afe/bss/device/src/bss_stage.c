@@ -20,4 +20,6 @@ static void bss_reset(void *impl) { (void)impl; }
 
 const wake_afe_stage_ops_t wake_afe_bss_ops = {
     "bss", "BSS (passthrough v1)", bss_create, bss_destroy, bss_process,
-    bss_reset, 0 /* provides_vad */};
+    bss_reset, 0 /* provides_vad */,
+    /* Declared rate = the graph's own (#245): no conversion, no cost. */
+    WAKE_AFE_GRAPH_SAMPLE_RATE_HZ, WAKE_AFE_GRAPH_FRAME_SAMPLES};

@@ -5,6 +5,7 @@ add_library(wake_sdk_core STATIC
   src/detection.cxx
   src/afe_graph.cxx
   src/pipeline.cxx
+  src/resample.cxx
 )
 target_include_directories(wake_sdk_core
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include

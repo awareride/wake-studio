@@ -212,11 +212,13 @@ TEST_CASE("no trigger from a stale score after the audio goes silent") {
   CHECK(triggers >= 1);
   const int after_burst = triggers;
 
-  /* 3. silence again for 2 s. The resampling filters and RNNoise's own
-   * look-ahead may still deliver the tail of the burst for a frame or two,
-   * which is real (delayed) audio, not a stale score. What must never happen
-   * is the retained peak re-firing: once the pipeline has settled, silence
-   * must produce no triggers at all. */
+  /* 3. silence again for 2 s. Real, delayed audio still arrives after the burst
+   * ends: RNNoise processes a 480-sample frame, and the core's rate conversion
+   * adds its own small group delay (#245 slice A). With min-duration and
+   * cooldown pinned to 0, every tail frame above threshold counts as a trigger,
+   * so the bound is stated in frames of tail latency rather than an arbitrary
+   * number. What must never happen is the retained peak re-firing: once the
+   * pipeline has settled, silence must produce no triggers at all. */
   int settled_triggers = 0;
   for (int f = 0; f < 200; ++f, ++frame_index) {
     int16_t frame[160] = {0};
@@ -229,7 +231,7 @@ TEST_CASE("no trigger from a stale score after the audio goes silent") {
     }
   }
   CHECK(settled_triggers == 0);
-  CHECK(triggers <= after_burst + 2); /* bounded filter/model tail only */
+  CHECK(triggers <= after_burst + 5); /* bounded frame/filter tail only */
 
   wake_pipeline_destroy(pipe);
 }

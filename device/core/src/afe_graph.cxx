@@ -6,8 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <new>
+#include <stdint.h>
 
 #include "internal.h"
+#include "wake/resample.h"
 
 /* --- stage registry on the SDK instance ------------------------------------ */
 
@@ -47,9 +49,24 @@ const wake_afe_stage_ops_t *wake_sdk_stage_by_id(const wake_sdk_t *sdk,
 
 /* --- per-pipeline graph ----------------------------------------------------- */
 
+/*
+ * Per-stage runtime state. A stage whose declared rate matches the graph needs
+ * no conversion and pays nothing; one that differs gets a pair of core
+ * resamplers (issue #245).
+ */
+#define WAKE_AFE_MAX_STAGE_FRAME (WAKE_AFE_GRAPH_FRAME_SAMPLES * 8u)
+
+struct wake_afe_stage_slot {
+  const wake_afe_stage_ops_t *ops;
+  void *impl;
+  wake_resampler_t *up;   /* graph rate -> stage rate (NULL when not needed) */
+  wake_resampler_t *down; /* stage rate -> graph rate (NULL when not needed) */
+  uint32_t stage_frame;   /* samples handed to the stage per frame */
+  int16_t stage_buf[WAKE_AFE_MAX_STAGE_FRAME];
+};
+
 struct wake_afe_graph {
-  const wake_afe_stage_ops_t *ops[WAKE_SDK_MAX_STAGES];
-  void *impls[WAKE_SDK_MAX_STAGES];
+  wake_afe_stage_slot slots[WAKE_SDK_MAX_STAGES];
   unsigned count;
 };
 
@@ -66,7 +83,9 @@ void wake_afe_graph_destroy(wake_afe_graph_t *g) {
     return;
   }
   for (unsigned i = 0; i < g->count; ++i) {
-    g->ops[i]->destroy(g->impls[i]);
+    wake_resampler_destroy(g->slots[i].up);
+    wake_resampler_destroy(g->slots[i].down);
+    g->slots[i].ops->destroy(g->slots[i].impl);
   }
   free(g);
 }
@@ -78,12 +97,52 @@ int wake_afe_graph_append(wake_afe_graph_t *g, const wake_afe_stage_ops_t *ops) 
   if (g->count >= WAKE_SDK_MAX_STAGES) {
     return 1;
   }
+
+  /* Validate the declared rate BEFORE creating anything (#245). A stage we
+   * cannot drive correctly is rejected at registration, never silently
+   * mis-fed -- that failure mode is what #240 B2 was. */
+  const uint32_t rate = ops->sample_rate_hz;
+  const uint32_t frame = ops->frame_samples;
+  if (rate == 0u || frame == 0u) {
+    return 1; /* must declare its rate */
+  }
+  if (rate % WAKE_AFE_GRAPH_SAMPLE_RATE_HZ != 0u &&
+      WAKE_AFE_GRAPH_SAMPLE_RATE_HZ % rate != 0u) {
+    return 1; /* non-integer rate ratio */
+  }
+  /* Same frame duration at the stage's rate, exactly. */
+  if ((uint64_t)frame * WAKE_AFE_GRAPH_SAMPLE_RATE_HZ !=
+      (uint64_t)WAKE_AFE_GRAPH_FRAME_SAMPLES * rate) {
+    return 1;
+  }
+  if (frame > WAKE_AFE_MAX_STAGE_FRAME) {
+    return 1;
+  }
+
   void *impl = ops->create();
   if (impl == nullptr) {
     return 1;
   }
-  g->ops[g->count] = ops;
-  g->impls[g->count] = impl;
+
+  wake_afe_stage_slot *slot = &g->slots[g->count];
+  slot->ops = ops;
+  slot->impl = impl;
+  slot->stage_frame = frame;
+  slot->up = nullptr;
+  slot->down = nullptr;
+  if (rate != WAKE_AFE_GRAPH_SAMPLE_RATE_HZ) {
+    slot->up = wake_resampler_create(WAKE_AFE_GRAPH_SAMPLE_RATE_HZ, rate);
+    slot->down = wake_resampler_create(rate, WAKE_AFE_GRAPH_SAMPLE_RATE_HZ);
+    if (slot->up == nullptr || slot->down == nullptr) {
+      /* Unreachable given the checks above, but never leave a half-built slot. */
+      wake_resampler_destroy(slot->up);
+      wake_resampler_destroy(slot->down);
+      slot->up = nullptr;
+      slot->down = nullptr;
+      ops->destroy(impl);
+      return 1;
+    }
+  }
   g->count += 1;
   return 0;
 }
@@ -92,9 +151,35 @@ int wake_afe_graph_process(wake_afe_graph_t *g, int16_t *frames, size_t n,
                            float *vad_out) {
   float vad = 0.0f;
   for (unsigned i = 0; i < g->count; ++i) {
+    wake_afe_stage_slot *slot = &g->slots[i];
+    int16_t *stage_in = frames;
+    size_t stage_n = n;
+
+    if (slot->up != nullptr) {
+      /* Convert this graph frame up to the stage's declared rate (#245). */
+      size_t up_n = 0;
+      if (wake_resampler_process(slot->up, frames, n, slot->stage_buf, &up_n) !=
+              0 ||
+          up_n != (size_t)slot->stage_frame) {
+        return 1;
+      }
+      stage_in = slot->stage_buf;
+      stage_n = up_n;
+    }
+
     float stage_vad = 0.0f;
-    if (g->ops[i]->process(g->impls[i], frames, n, &stage_vad) != 0) {
+    if (slot->ops->process(slot->impl, stage_in, stage_n, &stage_vad) != 0) {
       return 1;
+    }
+
+    if (slot->down != nullptr) {
+      /* Convert the processed frame back to the graph rate, in place. */
+      size_t down_n = 0;
+      if (wake_resampler_process(slot->down, stage_in, stage_n, frames,
+                                 &down_n) != 0 ||
+          down_n != n) {
+        return 1;
+      }
     }
     if (stage_vad > 0.0f) {
       vad = stage_vad;
@@ -111,7 +196,7 @@ int wake_afe_graph_has_vad(const wake_afe_graph_t *g) {
     return 0;
   }
   for (unsigned i = 0; i < g->count; ++i) {
-    if (g->ops[i]->provides_vad != 0) {
+    if (g->slots[i].ops->provides_vad != 0) {
       return 1;
     }
   }
@@ -119,7 +204,12 @@ int wake_afe_graph_has_vad(const wake_afe_graph_t *g) {
 }
 
 void wake_afe_graph_reset(wake_afe_graph_t *g) {
+  if (g == nullptr) {
+    return;
+  }
   for (unsigned i = 0; i < g->count; ++i) {
-    g->ops[i]->reset(g->impls[i]);
+    wake_resampler_reset(g->slots[i].up);
+    wake_resampler_reset(g->slots[i].down);
+    g->slots[i].ops->reset(g->slots[i].impl);
   }
 }
