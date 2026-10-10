@@ -5,7 +5,7 @@
 > (Issues + the `WakeStudio Delivery` project, org `awareride`) — this doc
 > keeps the static vision, phase history, and pointers; it never holds live
 > status.
-> Owner: WakeStudio team · Updated: 2026-08-20 (Phase 4 SDK core + app-class device drivers shipped)
+> Owner: WakeStudio team · Updated: 2026-09-24 (Phase 4: SDK core, all five device drivers, and the spec-driven bundle generator shipped)
 > Companions: `docs/architecture.md` (durable architecture), `DECISIONS.md`
 > (ADR log), `LICENSES.md` (license matrix), `docs/modules/*.md` (module
 > specs), `CONTRIBUTING.md` (working agreements + issue/project model).
@@ -101,7 +101,7 @@ The durable architecture lives in `docs/architecture.md`; the ADR log in
 | **openWakeWord** (`dscripka/openWakeWord`) | Traditional | Apache-2.0 code; CC BY-NC-SA pre-trained models (demo-only) | App-class (Pi, desktop, mobile, browser) | ✅ browser + ✅ device driver (`kws/openwakeword/device/`, #192) |
 | **sherpa-onnx KWS** (`k2-fsa/sherpa-onnx`) | ASR Decoding | Apache-2.0 | App-class + MCU; real KWS transducer, compiled WASM in-browser | ✅ browser + ✅ device driver (`kws/sherpa/device/`, #193) |
 | **PLiX Few-Shot** (`aaqibsaeed/plixkws`) | Few-Shot | Apache-2.0 | App-class, enrollment-based (prototype-distance, ADR-002); onnx + transformers runtimes | ✅ `packages/modules/kws/plix/` |
-| **micro-wake-word** (`OHF-Voice/micro-wake-word`) | Traditional | Apache-2.0 | MCU (Cortex-M, ESP32) via TFLite-Micro | ⏳ Phase 4/5 |
+| **micro-wake-word** (`OHF-Voice/micro-wake-word`) | Traditional | Apache-2.0 | MCU (Cortex-M, ESP32) via TFLite-Micro | ✅ device driver (`kws/microwakeword/device/`, #185) |
 | **PocketSphinx** (`cmusphinx/pocketsphinx`) | Traditional (lightweight alt) | BSD-style | MCU-class and above, lightweight alternative | ⏳ Deferred to v1.x (ADR-043) |
 
 AFE components (ADR-016): AEC = passthrough for v1 (WebRTC/SpeexDSP in
@@ -196,13 +196,16 @@ real on every PR (PRs #82/#84/#85/#86):
 > (In Progress) with sub-issues #37–#42 and implementation slices #179–#189
 > in the `WakeStudio Delivery` project.
 > Docs-first: `docs/modules/sdk.md` (Draft v2, landed with ADR-040) +
-> `docs/modules/export.md` (still to write before bundle generation).
-> Status (2026-08-20): SDK core shipped (ADR-040, slices #179–#184 closed,
+> `docs/modules/export.md` (landed 2026-09-24 with the #189 generator).
+> Status (2026-09-24): SDK core shipped (ADR-040, slices #179–#184,
 > PR #191); app-class device drivers shipped for openwakeword (#192),
-> kws-streaming (#194) and sherpa (#193) (PRs #196/#197/#198); Cortex-M
-> cross-compile CI landed (#186). Remaining: microwakeword driver (#185),
-> Pi Python binding (#187), plix driver (#188), bundle generator (#189),
-> license gate (#42).
+> kws-streaming (#194), sherpa (#193) (PRs #196/#197/#198) and plix (#188,
+> PR #236); MCU driver shipped for micro-wakeword (#185, PR #235); Cortex-M
+> cross-compile CI landed (#186); Raspberry Pi Python binding shipped (#187,
+> PR #237); spec-driven bundle generator shipped (#189, PRs #238/#239,
+> ADR-047 — generator core only). Remaining: client-side ZIP assembly with
+> binary/model staging (#41), license gate (#42), per-target language
+> bindings (#39).
 
 1. **SDK core (C/C++, `packages/sdk` + `device/`):** portable core
    (`KWSBackend` interface ADR-020, portable AFE ADR-003/016, audio I/O +
@@ -298,9 +301,10 @@ ADR-026 (L3 = merge-gate), Q13 (#35) → ADR-040 (native-first SDK CI), Q14
 (#36) → ADR-041 (onnxruntime-web wasm vendored now via P0-4), Q12 (#34) →
 ADR-043 (PocketSphinx deferred to v1.x).
 
-**Next actions** (from the board): finish Phase 4 SDK — microwakeword driver
-(#185), Raspberry Pi Python binding (#187), plix driver (#188), bundle
-generator (#189); then license gate (#42).
+**Next actions** (from the board): close out the remaining Phase 4 items —
+client-side ZIP assembly / binary staging (#41), license gate (#42), per-target
+language bindings (#39) — and the real-Pi validation tracked under #38. See the
+board for live status; this list is a pointer, not state.
 
 ## 8. Risks & mitigations
 
