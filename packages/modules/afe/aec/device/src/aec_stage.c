@@ -21,4 +21,6 @@ static void aec_reset(void *impl) { (void)impl; }
 
 const wake_afe_stage_ops_t wake_afe_aec_ops = {
     "aec", "AEC (passthrough v1)", aec_create, aec_destroy, aec_process,
-    aec_reset, 0 /* provides_vad */};
+    aec_reset, 0 /* provides_vad */,
+    /* Declared rate = the graph's own (#245): no conversion, no cost. */
+    WAKE_AFE_GRAPH_SAMPLE_RATE_HZ, WAKE_AFE_GRAPH_FRAME_SAMPLES};

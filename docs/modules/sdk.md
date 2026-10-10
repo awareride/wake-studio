@@ -5,7 +5,7 @@
 - **Plan phase:** Phase 4 (reshaped by ADR-021; epic #31)
 - **Related ADRs:** ADR-019 (target matrix), ADR-020 (pluggable KWS backends), ADR-021 (device-side SDK), ADR-003/016 (AFE), ADR-024 (KWS decoupling), ADR-025 (module platform), ADR-034 (composition roots), ADR-040 (core language / placement / profiles / CI)
 - **Depends on (modules):** KWS (`KWSBackend` interface), AFE (RNNoise/WebRTC cores), Export (bundle generation)
-- **Last updated:** 2026-09-24
+- **Last updated:** 2026-10-10
 
 ## 1. Purpose
 
@@ -136,16 +136,43 @@ composition root appends in that order. AEC/BSS are passthrough for v1
 denoises and **carries the VAD probability** (browser parity — the browser
 derives VAD from the same RNNoise engine).
 
-RNNoise is a **48 kHz / 480-sample** model, while the device AFE graph runs at
-16 kHz / 160-sample frames. The stage therefore owns the rate conversion: one
-graph frame is interpolated x3 to 480 samples @ 48 kHz, passed to the model,
-then low-pass filtered and decimated back to 160 samples @ 16 kHz (polyphase
-interpolator with carried filter history; ~2 ms total group delay). This
-mirrors the browser, which runs its AFE chain at 48 kHz internally
-(`internalSampleRate`, docs/modules/afe.md §4) and downsamples before the KWS.
-Passing 16 kHz audio to the 48 kHz model is a correctness bug, not a quality
-trade-off — it made digital silence leave the stage above the trigger
-threshold and made the VAD report speech on silence.
+### 4.2.1 Declared sample rate (issue #245 slice A)
+
+Every AFE stage now **declares** the rate its DSP runs at, in
+`wake_afe_stage_ops_t`:
+
+```c
+uint32_t sample_rate_hz; /* rate the stage DSP runs at */
+uint32_t frame_samples;  /* samples per frame at that rate */
+```
+
+- The graph owns the conversion. A stage declaring the graph rate
+  (`WAKE_AFE_GRAPH_SAMPLE_RATE_HZ` / `WAKE_AFE_GRAPH_FRAME_SAMPLES`) is called
+  directly and pays nothing; a stage declaring another rate is fed a converted,
+  frame-sized buffer and its output is converted back in place.
+- `wake_afe_graph_append` **rejects** a stage it cannot drive correctly: an
+  undeclared rate, a non-integer rate ratio, or a frame whose duration differs
+  from the graph's. A stage that cannot be driven right is refused at
+  registration instead of being silently mis-fed.
+- Conversion lives in `wake/resample.h` (core): integer ratios only, streaming
+  with filter history, upsampling by polyphase interpolation and downsampling by
+  an anti-alias FIR. Non-integer rates (44.1 kHz and friends) are refused rather
+  than approximated.
+- The decimator history is **primed**, so every call is 1:1 from the first
+  frame — a frame-oriented caller never has to absorb a short warm-up block.
+  The cost is a constant delay of under 1 ms, on top of RNNoise's own
+  480-sample frame.
+
+Today RNNoise declares `48000 / 480` (it is 48 kHz-only) and AEC/BSS declare the
+graph rate. The browser already runs its AFE chain at 48 kHz internally and
+downsamples before the KWS; moving the device graph itself to 48 kHz is
+#245 slice B and is not done here.
+
+Why this matters: the previous arrangement was an implicit, per-stage, untested
+assumption — each stage hand-rolled its own conversion, and one of them got it
+wrong in a way that made digital silence cross the trigger threshold (#240 B2,
+fixed in #244). A declared, validated, centrally tested rate makes that class of
+bug structural rather than accidental.
 
 ### 4.3 Capabilities & config
 

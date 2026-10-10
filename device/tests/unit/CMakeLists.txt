@@ -4,6 +4,7 @@ add_executable(sdk_unit_tests
   detection.test.cxx
   registry.test.cxx
   afe_graph.test.cxx
+  resample.test.cxx
   rnnoise.test.cxx
   microwakeword.test.cxx
   kws_streaming.test.cxx
