@@ -56,3 +56,69 @@ describe('RNNoise wasm runtime (L2, Node)', () => {
     engine.destroy()
   })
 })
+
+/*
+ * `strength` is a wet/dry mix (RNNoise has no native strength parameter).
+ * It used to be stored and never read, so the panel slider did nothing.
+ */
+describe('RNNoise strength (wet/dry mix)', () => {
+  function run(strength: number, denoiseEnabled = true): Float32Array {
+    const wasm = createRNNWasmModuleSync()
+    const engine = new RnnoiseModule(wasm, { strength, denoiseEnabled })
+    const frame = sineFrame(440, 0.5)
+    engine.processFrame(frame)
+    engine.destroy()
+    return frame
+  }
+
+  it('leaves the frame untouched at strength 0 (bypass)', () => {
+    const out = run(0)
+    const original = sineFrame(440, 0.5)
+    for (let i = 0; i < RNNOISE_FRAME_SIZE; i++) {
+      expect(out[i]).toBeCloseTo(original[i], 6)
+    }
+  })
+
+  it('applies full denoising at strength 1', () => {
+    const full = run(1)
+    const original = sineFrame(440, 0.5)
+    // The dry path must not be identical at full strength.
+    expect(full.some((v, i) => Math.abs(v - original[i]) > 1e-6)).toBe(true)
+  })
+
+  it('interpolates monotonically between dry and wet', () => {
+    const dry = run(0)
+    const half = run(0.5)
+    const wet = run(1)
+    const orig = sineFrame(440, 0.5)
+    for (let i = 0; i < RNNOISE_FRAME_SIZE; i++) {
+      const dryErr = Math.abs(dry[i] - orig[i])
+      const wetErr = Math.abs(wet[i] - orig[i])
+      const halfErr = Math.abs(half[i] - orig[i])
+      // A 0.5 mix sits between the two, within the span of their errors.
+      expect(halfErr).toBeLessThanOrEqual(Math.max(dryErr, wetErr) + 1e-6)
+      expect(halfErr).toBeGreaterThanOrEqual(Math.min(dryErr, wetErr) - 1e-6)
+    }
+  })
+
+  it('never modifies the frame when denoising is disabled', () => {
+    const out = run(1, false)
+    const original = sineFrame(440, 0.5)
+    for (let i = 0; i < RNNOISE_FRAME_SIZE; i++) {
+      expect(out[i]).toBe(original[i])
+    }
+  })
+
+  it('clamps out-of-range strength values', () => {
+    const over = run(5)
+    const wet = run(1)
+    for (let i = 0; i < RNNOISE_FRAME_SIZE; i++) {
+      expect(over[i]).toBeCloseTo(wet[i], 6)
+    }
+    const under = run(-3)
+    const dry = run(0)
+    for (let i = 0; i < RNNOISE_FRAME_SIZE; i++) {
+      expect(under[i]).toBeCloseTo(dry[i], 6)
+    }
+  })
+})
