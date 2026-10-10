@@ -8,6 +8,7 @@
 #include <new>
 
 #include "wake/afe_graph.h"
+#include "wake/resample.h"
 
 struct wake_pipeline {
   wake_afe_graph_t *graph;
@@ -16,6 +17,10 @@ struct wake_pipeline {
   wake_score_smoother_t *smoother;
   wake_trigger_detector_t *trigger;
   wake_vad_gate_t *gate;
+  /* AFE-internal rate -> KWS boundary rate (#245 slice C). One conversion for the
+   * whole pipeline, instead of every 48 kHz stage converting for itself. */
+  wake_resampler_t *boundary;
+  int16_t kws_frame[WAKE_SDK_KWS_FRAME_SAMPLES];
   /* A trigger the detector accepted while the VAD gate was closed. It is
    * published as soon as the gate opens or the hold window expires. */
   wake_trigger_event_t pending;
@@ -77,6 +82,13 @@ wake_pipeline_t *wake_pipeline_create(wake_sdk_t *sdk, const char *backend_id,
     return nullptr;
   }
 
+  /* One boundary resampler: 48 kHz AFE -> 16 kHz KWS. */
+  p->boundary = wake_resampler_create(WAKE_AFE_GRAPH_SAMPLE_RATE_HZ, 16000u);
+  if (p->boundary == nullptr) {
+    wake_pipeline_destroy(p);
+    return nullptr;
+  }
+
   p->smoother = wake_score_smoother_create(p->cfg.smoothing_window_frames);
   p->trigger = wake_trigger_detector_create(&p->cfg, p->backend_ops->label);
   p->gate = wake_vad_gate_create(&p->cfg);
@@ -100,6 +112,7 @@ void wake_pipeline_destroy(wake_pipeline_t *p) {
   wake_score_smoother_destroy(p->smoother);
   wake_trigger_detector_destroy(p->trigger);
   wake_vad_gate_destroy(p->gate);
+  wake_resampler_destroy(p->boundary);
   free(p);
 }
 
@@ -111,11 +124,25 @@ int wake_pipeline_process(wake_pipeline_t *p, int16_t *frames, size_t n,
     return 1;
   }
 
+  /* Downsample once at the KWS boundary so backends keep their 160 @ 16 kHz
+   * contract untouched (#245 slice C). */
+  if (n != WAKE_AFE_GRAPH_FRAME_SAMPLES) {
+    return 1; /* wrong frame size for the AFE-internal rate: refuse loudly */
+  }
+  size_t produced = 0;
+  if (wake_resampler_process(p->boundary, frames, n, p->kws_frame, &produced) !=
+          0 ||
+      produced != WAKE_SDK_KWS_FRAME_SAMPLES) {
+    return 1;
+  }
+  int16_t *const kws = p->kws_frame;
+  const size_t kws_n = produced;
+
   /* Inference and smoothing ALWAYS run. The VAD gate only decides whether a
    * trigger may be *published* — it never skips inference and never feeds a
    * stale windowed score to the detector (that caused false triggers from a
    * retained peak after silence). */
-  const float raw = p->backend_ops->process_frame(p->backend_impl, frames, n);
+  const float raw = p->backend_ops->process_frame(p->backend_impl, kws, kws_n);
   const float smooth = wake_score_smoother_push(p->smoother, raw);
 
   const wake_vad_decision_t decision = wake_vad_gate_step(
@@ -159,6 +186,7 @@ int wake_pipeline_process(wake_pipeline_t *p, int16_t *frames, size_t n,
 
 void wake_pipeline_reset(wake_pipeline_t *p) {
   wake_afe_graph_reset(p->graph);
+  wake_resampler_reset(p->boundary);
   if (p->backend_ops != nullptr && p->backend_impl != nullptr) {
     p->backend_ops->reset(p->backend_impl);
   }

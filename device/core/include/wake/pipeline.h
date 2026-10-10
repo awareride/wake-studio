@@ -42,8 +42,13 @@ wake_pipeline_t *wake_pipeline_create(wake_sdk_t *sdk, const char *backend_id,
 void wake_pipeline_destroy(wake_pipeline_t *p);
 
 /**
- * Feed one 10 ms frame (160 samples @ 16 kHz) at the given time (ms —
- * caller-provided clock, e.g. frame_index * 10).
+ * Feed one 10 ms frame at the AFE-internal rate
+ * (WAKE_AFE_GRAPH_FRAME_SAMPLES @ WAKE_AFE_GRAPH_SAMPLE_RATE_HZ -- 480 @ 48 kHz)
+ * at the given time (ms -- caller-provided clock, e.g. frame_index * 10).
+ *
+ * The AFE graph runs at the internal rate; the pipeline downsamples once at the
+ * KWS boundary, so backends keep receiving 160 samples @ 16 kHz and every driver
+ * is unchanged (#245 slice C).
  *
  * Inference and score smoothing always run. The VAD gate is onset-safe and
  * fail-open: it can only *delay publication* of a borderline trigger, for at

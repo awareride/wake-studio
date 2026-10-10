@@ -67,19 +67,24 @@ TEST_CASE("composition root registers the host module set") {
   wake_sdk_destroy(sdk);
 }
 
+/* The AFE-internal rate (#245 slice C): the pipeline is fed 480 @ 48 kHz and
+ * downsamples once at the KWS boundary. */
+#define PIPE_FRAME 480
+#define PIPE_RATE 48000.0
+
 /* Feed n_frames of a tone (amp 0..1, 440 Hz); returns trigger count. */
 static int feed_tone(wake_pipeline_t *pipe, float amp, int n_frames,
                      wake_trigger_event_t *first_ev) {
   int triggers = 0;
   for (int f = 0; f < n_frames; ++f) {
-    int16_t frame[160];
-    for (int i = 0; i < 160; ++i) {
-      double t = (double)(f * 160 + i) / 16000.0;
+    int16_t frame[PIPE_FRAME];
+    for (int i = 0; i < PIPE_FRAME; ++i) {
+      double t = (double)(f * PIPE_FRAME + i) / PIPE_RATE;
       frame[i] = (int16_t)(amp * 32767.0 * std::sin(2.0 * kPi * 440.0 * t));
     }
     wake_score_sample_t out;
     wake_trigger_event_t ev;
-    CHECK(wake_pipeline_process(pipe, frame, 160, (double)(f * 10), &out,
+    CHECK(wake_pipeline_process(pipe, frame, PIPE_FRAME, (double)(f * 10), &out,
                                 &ev) == 0);
     if (out.triggered) {
       if (triggers == 0 && first_ev) *first_ev = ev;
@@ -90,12 +95,12 @@ static int feed_tone(wake_pipeline_t *pipe, float amp, int n_frames,
 }
 
 static int feed_silence(wake_pipeline_t *pipe, int n_frames) {
-  int16_t frame[160] = {0};
+  int16_t frame[PIPE_FRAME] = {0};
   int triggers = 0;
   for (int f = 0; f < n_frames; ++f) {
     wake_score_sample_t out;
     wake_trigger_event_t ev;
-    CHECK(wake_pipeline_process(pipe, frame, 160, (double)(f * 10), &out,
+    CHECK(wake_pipeline_process(pipe, frame, PIPE_FRAME, (double)(f * 10), &out,
                                 &ev) == 0);
     triggers += out.triggered ? 1 : 0;
   }
@@ -189,9 +194,9 @@ TEST_CASE("no trigger from a stale score after the audio goes silent") {
 
   /* 1. silence: nothing */
   for (int f = 0; f < 100; ++f, ++frame_index) {
-    int16_t frame[160] = {0};
+    int16_t frame[PIPE_FRAME] = {0};
     wake_score_sample_t out;
-    CHECK(wake_pipeline_process(pipe, frame, 160, frame_index * 10.0, &out,
+    CHECK(wake_pipeline_process(pipe, frame, PIPE_FRAME, frame_index * 10.0, &out,
                                 &ev) == 0);
     triggers += out.triggered ? 1 : 0;
   }
@@ -199,13 +204,13 @@ TEST_CASE("no trigger from a stale score after the audio goes silent") {
 
   /* 2. loud burst: at least one trigger */
   for (int f = 0; f < 30; ++f, ++frame_index) {
-    int16_t frame[160];
-    for (int i = 0; i < 160; ++i) {
-      double t = (double)((frame_index * 160) + i) / 16000.0;
+    int16_t frame[PIPE_FRAME];
+    for (int i = 0; i < PIPE_FRAME; ++i) {
+      double t = (double)((frame_index * PIPE_FRAME) + i) / PIPE_RATE;
       frame[i] = (int16_t)(0.3 * 32767.0 * std::sin(2.0 * kPi * 440.0 * t));
     }
     wake_score_sample_t out;
-    CHECK(wake_pipeline_process(pipe, frame, 160, frame_index * 10.0, &out,
+    CHECK(wake_pipeline_process(pipe, frame, PIPE_FRAME, frame_index * 10.0, &out,
                                 &ev) == 0);
     triggers += out.triggered ? 1 : 0;
   }
@@ -221,9 +226,9 @@ TEST_CASE("no trigger from a stale score after the audio goes silent") {
    * pipeline has settled, silence must produce no triggers at all. */
   int settled_triggers = 0;
   for (int f = 0; f < 200; ++f, ++frame_index) {
-    int16_t frame[160] = {0};
+    int16_t frame[PIPE_FRAME] = {0};
     wake_score_sample_t out;
-    CHECK(wake_pipeline_process(pipe, frame, 160, frame_index * 10.0, &out,
+    CHECK(wake_pipeline_process(pipe, frame, PIPE_FRAME, frame_index * 10.0, &out,
                                 &ev) == 0);
     triggers += out.triggered ? 1 : 0;
     if (f >= 100) {
@@ -232,6 +237,64 @@ TEST_CASE("no trigger from a stale score after the audio goes silent") {
   }
   CHECK(settled_triggers == 0);
   CHECK(triggers <= after_burst + 5); /* bounded frame/filter tail only */
+
+  wake_pipeline_destroy(pipe);
+}
+
+/*
+ * #245 slice C: the AFE-internal rate is 48 kHz and the KWS boundary is 16 kHz.
+ * A frame sized for the old contract must be REFUSED, not silently passed
+ * through -- otherwise every stage becomes a no-op and the audio leaves the
+ * chain unprocessed with no error anywhere.
+ */
+TEST_CASE("pipeline refuses a frame sized for the old 16 kHz AFE rate") {
+  wake_kws_config_t cfg = WAKE_KWS_CONFIG_DEFAULT;
+  cfg.vad_gate_enabled = 0;
+
+  wake_pipeline_t *pipe = compose(&cfg);
+  REQUIRE(pipe != nullptr);
+
+  int16_t legacy[160] = {0};
+  wake_score_sample_t out{};
+  wake_trigger_event_t ev{};
+  CHECK(wake_pipeline_process(pipe, legacy, 160, 0.0, &out, &ev) == 1);
+
+  // And the correct frame size is accepted, with the backend still seeing 16 kHz.
+  int16_t frame[PIPE_FRAME] = {0};
+  CHECK(wake_pipeline_process(pipe, frame, PIPE_FRAME, 0.0, &out, &ev) == 0);
+
+  wake_pipeline_destroy(pipe);
+}
+
+TEST_CASE("the KWS backend still receives 160 samples at 16 kHz") {
+  /* The boundary conversion is the point: a 48 kHz AFE frame must not change
+   * any driver's contract. The RMS reference backend scales by RMS, so a
+   * full-scale tone at the AFE rate must land near the same score. */
+  wake_kws_config_t cfg = WAKE_KWS_CONFIG_DEFAULT;
+  cfg.vad_gate_enabled = 0;
+  cfg.threshold = 0.0f; /* so a trigger always fires if the backend saw audio */
+
+  wake_pipeline_t *pipe = compose(&cfg);
+  REQUIRE(pipe != nullptr);
+
+  // RNNoise's own state is cold on the first frame, and its output is quiet
+  // there; steady state is what this test is about.
+  wake_score_sample_t out{};
+  wake_trigger_event_t ev{};
+  int16_t frame[PIPE_FRAME];
+  float steady = 0.0f;
+  for (int f = 0; f < 4; ++f) {
+    for (int i = 0; i < PIPE_FRAME; ++i) {
+      frame[i] = (int16_t)(8000 * std::sin(2.0 * kPi * 440.0 *
+                                           (f * PIPE_FRAME + i) / PIPE_RATE));
+    }
+    CHECK(wake_pipeline_process(pipe, frame, PIPE_FRAME, f * 10.0, &out, &ev) == 0);
+    if (f > 0) steady = out.raw_score;
+  }
+  // RMS of the downsampled 16 kHz signal matches the input's (8000 peak ->
+  // ~5657 RMS -> 0.71 against the backend's 8000 full scale).
+  CHECK(steady > 0.5f);
+  CHECK(steady < 0.9f);
 
   wake_pipeline_destroy(pipe);
 }

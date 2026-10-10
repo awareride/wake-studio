@@ -28,8 +28,18 @@ extern "C" {
  * the device rate explicit instead of implicit, and they are what a stage's
  * declared rate is validated against.
  */
-#define WAKE_AFE_GRAPH_SAMPLE_RATE_HZ 16000u
-#define WAKE_AFE_GRAPH_FRAME_SAMPLES 160u /* 10 ms */
+/*
+ * The AFE-internal rate (issue #245 slice C).
+ *
+ * 48 kHz, deliberately: this is what the browser already runs its chain at, and
+ * it is the native rate of the components we attach (RNNoise is 48 kHz-only,
+ * WebRTC AEC3/APM target 48 kHz). Keeping the device on a different internal rate
+ * is what forced per-stage conversions in the first place. The KWS boundary is
+ * unaffected -- drivers still receive 160 samples @ 16 kHz, because the pipeline
+ * downsamples once at that boundary.
+ */
+#define WAKE_AFE_GRAPH_SAMPLE_RATE_HZ 48000u
+#define WAKE_AFE_GRAPH_FRAME_SAMPLES 480u /* 10 ms */
 
 /* Upper bound on mic/reference channels the graph will carry. Static storage is
  * MCU-friendly and generous for the array sizes WakeStudio targets (#245). */

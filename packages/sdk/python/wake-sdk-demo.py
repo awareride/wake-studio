@@ -90,12 +90,28 @@ def main() -> int:
     print(f"pipeline: backend='{backend}'"
           + (f" model_dir='{model_dir}'" if model_dir else ""))
     triggered = False
-    frame = [0] * 160
+    # The input is 16 kHz but the pipeline is fed at the AFE-internal rate
+    # (#245 slice C): 480 samples @ 48 kHz. A real device captures 48 kHz
+    # directly; this demo upsamples explicitly (linear, no dependencies) so the
+    # file and the arecord path can stay at 16 kHz. The pipeline downsamples back
+    # at the KWS boundary, so the round trip is symmetric.
+    KWS_FRAME = 160
+    AFE_FRAME = 480
     pos = 0
     idx = 0
     while pos < len(samples):
-        n = min(160, len(samples) - pos)
-        frame[:n] = samples[pos:pos + n]
+        n = min(KWS_FRAME, len(samples) - pos)
+        chunk = samples[pos:pos + n]
+        chunk += [0] * (KWS_FRAME - n)
+        pos += KWS_FRAME
+        frame = [0] * AFE_FRAME
+        for i in range(KWS_FRAME):
+            a = chunk[i]
+            b = chunk[i + 1] if i + 1 < KWS_FRAME else chunk[KWS_FRAME - 1]
+            base = i * 3
+            frame[base] = a
+            frame[base + 1] = (2 * a + b) // 3
+            frame[base + 2] = (a + 2 * b) // 3
         out, ev = pipe.process(frame, idx * 10.0)
         if idx % 10 == 0:
             print(f"t={out.captured_at_ms:7.1f}ms "
