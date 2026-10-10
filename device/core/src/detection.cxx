@@ -166,3 +166,115 @@ int wake_should_gate_by_vad(float vad_probability, float vad_threshold,
   }
   return vad_probability < vad_threshold ? 1 : 0;
 }
+
+/* --- Onset-safe trigger gate (stateful, fail-open) ------------------------- */
+
+static const double kGateNever = -1e300;
+
+struct wake_vad_gate {
+  int enabled;
+  float vad_threshold;
+  float high_confidence;
+  unsigned hold_max_ms;
+  unsigned close_ms;
+  double last_speech_ms; /* last frame whose VAD reached the threshold */
+  double hold_since_ms;  /* start of the current hold window, or < 0 */
+  int open;
+};
+
+wake_vad_gate_t *wake_vad_gate_create(const wake_kws_config_t *cfg) {
+  void *mem = calloc(1, sizeof(wake_vad_gate));
+  if (mem == nullptr) {
+    return nullptr;
+  }
+  wake_vad_gate *g = new (mem) wake_vad_gate;
+  g->enabled = cfg ? cfg->vad_gate_enabled : 0;
+  g->vad_threshold = cfg ? cfg->vad_threshold : 0.3f;
+  g->high_confidence = cfg ? cfg->vad_high_confidence : 0.9f;
+  g->hold_max_ms = cfg ? cfg->vad_hold_max_ms : 150u;
+  g->close_ms = cfg ? cfg->vad_close_ms : 300u;
+  g->last_speech_ms = kGateNever;
+  g->hold_since_ms = -1.0;
+  g->open = 1;
+  return g;
+}
+
+void wake_vad_gate_destroy(wake_vad_gate_t *g) {
+  free(g);
+}
+
+void wake_vad_gate_reset(wake_vad_gate_t *g) {
+  if (g == nullptr) {
+    return;
+  }
+  g->last_speech_ms = kGateNever;
+  g->hold_since_ms = -1.0;
+  g->open = 1;
+}
+
+int wake_vad_gate_enabled(const wake_vad_gate_t *g) {
+  return g != nullptr ? g->enabled : 0;
+}
+
+int wake_vad_gate_is_open(const wake_vad_gate_t *g) {
+  return g != nullptr ? g->open : 1;
+}
+
+int wake_vad_gate_hold_expired(const wake_vad_gate_t *g, double now_ms) {
+  if (g == nullptr || g->hold_since_ms < 0.0) {
+    return 1; /* nothing held -> nothing to wait for */
+  }
+  return now_ms - g->hold_since_ms >= (double)g->hold_max_ms;
+}
+
+wake_vad_decision_t wake_vad_gate_step(wake_vad_gate_t *g, int vad_available,
+                                       float vad_probability,
+                                       float smoothed_score, double now_ms) {
+  if (g == nullptr) {
+    return WAKE_VAD_ALLOW;
+  }
+  /* Fail open: a disabled gate, or a graph without any VAD-capable stage,
+   * must never suppress a trigger. */
+  if (!g->enabled || !vad_available) {
+    g->open = 1;
+    g->hold_since_ms = -1.0;
+    return WAKE_VAD_ALLOW;
+  }
+
+  if (vad_probability >= g->vad_threshold) {
+    /* Speech (re)started: open immediately and drop any pending hold so a
+     * held trigger publishes as soon as the gate opens. */
+    g->last_speech_ms = now_ms;
+    g->open = 1;
+    g->hold_since_ms = -1.0;
+    return WAKE_VAD_ALLOW;
+  }
+
+  /* Non-speech: stay open for the close window (hysteresis) so word onsets
+   * are not clipped by the gap between words. */
+  g->open = (now_ms - g->last_speech_ms) < (double)g->close_ms;
+  if (g->open) {
+    g->hold_since_ms = -1.0;
+    return WAKE_VAD_ALLOW;
+  }
+
+  /* Gate closed. A very confident score always publishes. */
+  if (smoothed_score >= g->high_confidence) {
+    g->hold_since_ms = -1.0;
+    return WAKE_VAD_BYPASS;
+  }
+
+  /* Borderline while closed: hold, but never longer than hold_max_ms. */
+  if (g->hold_max_ms == 0u) {
+    g->hold_since_ms = -1.0;
+    return WAKE_VAD_ALLOW; /* holding disabled -> fail open */
+  }
+  if (g->hold_since_ms < 0.0) {
+    g->hold_since_ms = now_ms;
+  }
+  if (now_ms - g->hold_since_ms >= (double)g->hold_max_ms) {
+    g->hold_since_ms = -1.0;
+    return WAKE_VAD_ALLOW; /* bounded delay expired -> fail open */
+  }
+  return WAKE_VAD_HOLD;
+}

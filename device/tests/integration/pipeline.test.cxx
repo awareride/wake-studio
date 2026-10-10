@@ -162,3 +162,74 @@ TEST_CASE("pipeline cooldown blocks re-trigger bursts") {
 
   wake_pipeline_destroy(pipe);
 }
+
+/*
+ * Regression (issue #241 B1): the VAD gate used to skip inference and feed the
+ * *stale* windowed max to the trigger detector, so a retained peak could fire
+ * again after the audio had already gone silent. Inference now always runs and
+ * the gate only delays publication, so silence must never re-trigger.
+ */
+TEST_CASE("no trigger from a stale score after the audio goes silent") {
+  wake_kws_config_t cfg = WAKE_KWS_CONFIG_DEFAULT;
+  cfg.threshold = 0.5f;
+  cfg.min_duration_ms = 0;   /* no dwell requirement: isolate the stale score */
+  cfg.cooldown_ms = 0;       /* no cooldown: any repeat would be a bug */
+  cfg.smoothing_window_frames = 5;
+  cfg.vad_gate_enabled = 1;
+  cfg.vad_threshold = 0.3f;
+  cfg.vad_close_ms = 0;      /* close as soon as non-speech is seen */
+  cfg.vad_hold_max_ms = 150;
+
+  wake_pipeline_t *pipe = compose(&cfg);
+  REQUIRE(pipe != nullptr);
+
+  int triggers = 0;
+  int frame_index = 0;
+  wake_trigger_event_t ev{};
+
+  /* 1. silence: nothing */
+  for (int f = 0; f < 100; ++f, ++frame_index) {
+    int16_t frame[160] = {0};
+    wake_score_sample_t out;
+    CHECK(wake_pipeline_process(pipe, frame, 160, frame_index * 10.0, &out,
+                                &ev) == 0);
+    triggers += out.triggered ? 1 : 0;
+  }
+  CHECK(triggers == 0);
+
+  /* 2. loud burst: at least one trigger */
+  for (int f = 0; f < 30; ++f, ++frame_index) {
+    int16_t frame[160];
+    for (int i = 0; i < 160; ++i) {
+      double t = (double)((frame_index * 160) + i) / 16000.0;
+      frame[i] = (int16_t)(0.3 * 32767.0 * std::sin(2.0 * kPi * 440.0 * t));
+    }
+    wake_score_sample_t out;
+    CHECK(wake_pipeline_process(pipe, frame, 160, frame_index * 10.0, &out,
+                                &ev) == 0);
+    triggers += out.triggered ? 1 : 0;
+  }
+  CHECK(triggers >= 1);
+  const int after_burst = triggers;
+
+  /* 3. silence again for 2 s. The resampling filters and RNNoise's own
+   * look-ahead may still deliver the tail of the burst for a frame or two,
+   * which is real (delayed) audio, not a stale score. What must never happen
+   * is the retained peak re-firing: once the pipeline has settled, silence
+   * must produce no triggers at all. */
+  int settled_triggers = 0;
+  for (int f = 0; f < 200; ++f, ++frame_index) {
+    int16_t frame[160] = {0};
+    wake_score_sample_t out;
+    CHECK(wake_pipeline_process(pipe, frame, 160, frame_index * 10.0, &out,
+                                &ev) == 0);
+    triggers += out.triggered ? 1 : 0;
+    if (f >= 100) {
+      settled_triggers += out.triggered ? 1 : 0;
+    }
+  }
+  CHECK(settled_triggers == 0);
+  CHECK(triggers <= after_burst + 2); /* bounded filter/model tail only */
+
+  wake_pipeline_destroy(pipe);
+}

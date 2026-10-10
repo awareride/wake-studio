@@ -5,7 +5,7 @@
 - **Plan phase:** Phase 4 (reshaped by ADR-021; epic #31)
 - **Related ADRs:** ADR-019 (target matrix), ADR-020 (pluggable KWS backends), ADR-021 (device-side SDK), ADR-003/016 (AFE), ADR-024 (KWS decoupling), ADR-025 (module platform), ADR-034 (composition roots), ADR-040 (core language / placement / profiles / CI)
 - **Depends on (modules):** KWS (`KWSBackend` interface), AFE (RNNoise/WebRTC cores), Export (bundle generation)
-- **Last updated:** 2026-08-19
+- **Last updated:** 2026-09-24
 
 ## 1. Purpose
 
@@ -134,8 +134,18 @@ composition root appends in that order. AEC/BSS are passthrough for v1
 (ADR-016) with vendor adapter slots (WebRTC/SpeexDSP). The RNNoise NS stage
 (module `afe/rnnoise/device/`, vendored `third_party/rnnoise` v0.1.1) both
 denoises and **carries the VAD probability** (browser parity — the browser
-derives VAD from the same RNNoise engine); it slips 160-sample graph frames
-into RNNoise's 480-sample frames (30 ms latency, streaming, no sample loss).
+derives VAD from the same RNNoise engine).
+
+RNNoise is a **48 kHz / 480-sample** model, while the device AFE graph runs at
+16 kHz / 160-sample frames. The stage therefore owns the rate conversion: one
+graph frame is interpolated x3 to 480 samples @ 48 kHz, passed to the model,
+then low-pass filtered and decimated back to 160 samples @ 16 kHz (polyphase
+interpolator with carried filter history; ~2 ms total group delay). This
+mirrors the browser, which runs its AFE chain at 48 kHz internally
+(`internalSampleRate`, docs/modules/afe.md §4) and downsamples before the KWS.
+Passing 16 kHz audio to the 48 kHz model is a correctness bug, not a quality
+trade-off — it made digital silence leave the stage above the trigger
+threshold and made the VAD report speech on silence.
 
 ### 4.3 Capabilities & config
 
@@ -277,8 +287,20 @@ audio in → [adapter: capture] → [core: AFE graph 16 kHz, 10 ms frames]
 - The loop emits score/trigger events the same shape as the browser
   `KWSScoreSample` / `KWSTriggerEvent` (`wake_score_sample_t` /
   `wake_trigger_event_t`: capturedAtMs, rawScore, smoothedScore, triggered,
-  vadProbability). VAD-gated frames skip inference and do not push into the
-  smoother window (max-pooling keeps the recent peak, browser parity).
+  vadProbability).
+- The VAD gate is **onset-safe and fail-open** (`wake_vad_gate_t`,
+  ADR-018). Inference and smoothing **always** run — the gate never skips
+  inference and never feeds a stale windowed score to the detector, because a
+  retained peak could otherwise re-fire after the audio went silent. The gate
+  only delays *publication* of a borderline trigger:
+  - a score >= `vad_high_confidence` always publishes;
+  - the gate stays open for `vad_close_ms` after the last speech frame
+    (hysteresis, so inter-word gaps are not clipped);
+  - once closed, a borderline trigger is held for at most `vad_hold_max_ms`
+    and then published anyway;
+  - a graph with no VAD-capable stage (`wake_afe_graph_has_vad() == 0`, i.e.
+    no stage with `provides_vad`) fails open and never suppresses anything.
+  Defaults: high confidence 0.9, hold 150 ms, close 300 ms.
 - The host CLI demo (`device/tools/wake-sdk-demo`, `wake-sdk-demo input.wav`)
   drives this path end-to-end on the dev host: wav → AFE → RMS reference
   backend → trigger print (exit 0 on trigger, 1 otherwise).

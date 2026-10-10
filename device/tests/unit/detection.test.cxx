@@ -87,3 +87,80 @@ TEST_CASE("vad gate mirrors shouldGateByVad") {
   CHECK(wake_should_gate_by_vad(0.5f, 0.3f, 1) == 0);
   CHECK(wake_should_gate_by_vad(0.1f, 0.3f, 0) == 0);  /* disabled -> never */
 }
+
+/* --- onset-safe VAD trigger gate (issue #241 B1) --------------------------- */
+
+TEST_CASE("vad gate fails open when disabled or when no stage provides VAD") {
+  wake_kws_config_t cfg = WAKE_KWS_CONFIG_DEFAULT;
+  cfg.vad_gate_enabled = 0;
+  wake_vad_gate_t *off = wake_vad_gate_create(&cfg);
+  REQUIRE(off != nullptr);
+  CHECK(wake_vad_gate_enabled(off) == 0);
+  /* Even with vad=0 and a high score the gate never holds. */
+  CHECK(wake_vad_gate_step(off, 1, 0.0f, 0.95f, 0.0) == WAKE_VAD_ALLOW);
+  wake_vad_gate_destroy(off);
+
+  cfg.vad_gate_enabled = 1;
+  wake_vad_gate_t *g = wake_vad_gate_create(&cfg);
+  REQUIRE(g != nullptr);
+  /* vad_available == 0 (graph without a VAD-capable stage) -> fail open. */
+  CHECK(wake_vad_gate_step(g, 0, 0.0f, 0.4f, 0.0) == WAKE_VAD_ALLOW);
+  CHECK(wake_vad_gate_is_open(g) == 1);
+  wake_vad_gate_destroy(g);
+}
+
+TEST_CASE("vad gate closes only after vad_close_ms of confirmed non-speech") {
+  wake_kws_config_t cfg = WAKE_KWS_CONFIG_DEFAULT;
+  cfg.vad_close_ms = 300;
+  wake_vad_gate_t *g = wake_vad_gate_create(&cfg);
+  REQUIRE(g != nullptr);
+
+  CHECK(wake_vad_gate_step(g, 1, 0.9f, 0.1f, 0.0) == WAKE_VAD_ALLOW); /* speech */
+  /* 299 ms of non-speech: hysteresis keeps it open (onset not clipped). */
+  CHECK(wake_vad_gate_step(g, 1, 0.0f, 0.1f, 299.0) == WAKE_VAD_ALLOW);
+  CHECK(wake_vad_gate_is_open(g) == 1);
+  /* past the close window it closes. */
+  CHECK(wake_vad_gate_step(g, 1, 0.0f, 0.1f, 300.0) == WAKE_VAD_HOLD);
+  CHECK(wake_vad_gate_is_open(g) == 0);
+  /* speech reopens it immediately. */
+  CHECK(wake_vad_gate_step(g, 1, 0.9f, 0.1f, 310.0) == WAKE_VAD_ALLOW);
+  CHECK(wake_vad_gate_is_open(g) == 1);
+  wake_vad_gate_destroy(g);
+}
+
+TEST_CASE("vad gate bypasses very confident scores while closed") {
+  wake_kws_config_t cfg = WAKE_KWS_CONFIG_DEFAULT;
+  cfg.vad_close_ms = 0; /* close as soon as non-speech is seen */
+  cfg.vad_hold_max_ms = 150;
+  cfg.vad_high_confidence = 0.9f;
+  wake_vad_gate_t *g = wake_vad_gate_create(&cfg);
+  REQUIRE(g != nullptr);
+
+  /* non-speech from a never-spoken gate: closed immediately */
+  CHECK(wake_vad_gate_step(g, 1, 0.0f, 0.4f, 1000.0) == WAKE_VAD_HOLD);
+  /* high confidence must publish regardless */
+  CHECK(wake_vad_gate_step(g, 1, 0.0f, 0.95f, 1010.0) == WAKE_VAD_BYPASS);
+  /* borderline stays held until the bounded delay expires, then fails open */
+  CHECK(wake_vad_gate_step(g, 1, 0.0f, 0.5f, 1020.0) == WAKE_VAD_HOLD);
+  CHECK(wake_vad_gate_hold_expired(g, 1169.0) == 0);
+  CHECK(wake_vad_gate_hold_expired(g, 1170.0) == 1);
+  CHECK(wake_vad_gate_step(g, 1, 0.0f, 0.5f, 1170.0) == WAKE_VAD_ALLOW);
+  wake_vad_gate_destroy(g);
+}
+
+TEST_CASE("vad gate hold window is per event and never suppresses for ever") {
+  wake_kws_config_t cfg = WAKE_KWS_CONFIG_DEFAULT;
+  cfg.vad_close_ms = 0;
+  cfg.vad_hold_max_ms = 100;
+  wake_vad_gate_t *g = wake_vad_gate_create(&cfg);
+  REQUIRE(g != nullptr);
+
+  /* sustained borderline while closed: exactly one bounded delay, then open */
+  CHECK(wake_vad_gate_step(g, 1, 0.0f, 0.5f, 0.0) == WAKE_VAD_HOLD);
+  CHECK(wake_vad_gate_step(g, 1, 0.0f, 0.5f, 99.0) == WAKE_VAD_HOLD);
+  CHECK(wake_vad_gate_step(g, 1, 0.0f, 0.5f, 100.0) == WAKE_VAD_ALLOW);
+  /* a new event starts a fresh window */
+  CHECK(wake_vad_gate_step(g, 1, 0.0f, 0.5f, 110.0) == WAKE_VAD_HOLD);
+  CHECK(wake_vad_gate_step(g, 1, 0.0f, 0.5f, 210.0) == WAKE_VAD_ALLOW);
+  wake_vad_gate_destroy(g);
+}

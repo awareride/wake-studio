@@ -66,11 +66,15 @@ class KWSConfig(ctypes.Structure):
         ("vad_gate_enabled", ctypes.c_int),
         ("vad_threshold", ctypes.c_float),
         ("cooldown_ms", ctypes.c_uint),
+        # Onset-safe VAD trigger gate (must mirror wake_kws_config_t exactly).
+        ("vad_high_confidence", ctypes.c_float),
+        ("vad_hold_max_ms", ctypes.c_uint),
+        ("vad_close_ms", ctypes.c_uint),
     ]
 
     @staticmethod
     def defaults() -> "KWSConfig":
-        return KWSConfig(0.5, 300, 5, 1, 0.3, 2000)
+        return KWSConfig(0.5, 300, 5, 1, 0.3, 2000, 0.9, 150, 300)
 
 
 class ModelBundle(ctypes.Structure):

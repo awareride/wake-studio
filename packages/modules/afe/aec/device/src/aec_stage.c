@@ -21,4 +21,4 @@ static void aec_reset(void *impl) { (void)impl; }
 
 const wake_afe_stage_ops_t wake_afe_aec_ops = {
     "aec", "AEC (passthrough v1)", aec_create, aec_destroy, aec_process,
-    aec_reset};
+    aec_reset, 0 /* provides_vad */};

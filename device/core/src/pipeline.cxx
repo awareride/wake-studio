@@ -15,6 +15,11 @@ struct wake_pipeline {
   void *backend_impl;
   wake_score_smoother_t *smoother;
   wake_trigger_detector_t *trigger;
+  wake_vad_gate_t *gate;
+  /* A trigger the detector accepted while the VAD gate was closed. It is
+   * published as soon as the gate opens or the hold window expires. */
+  wake_trigger_event_t pending;
+  int pending_valid;
   wake_kws_config_t cfg;
 };
 
@@ -31,7 +36,7 @@ wake_pipeline_t *wake_pipeline_create(wake_sdk_t *sdk, const char *backend_id,
   }
   wake_pipeline *p = new (mem) wake_pipeline;
 
-  p->cfg = cfg ? *cfg : wake_kws_config_t{0.5f, 300u, 5u, 1, 0.3f, 2000u};
+  p->cfg = cfg ? *cfg : wake_kws_config_t WAKE_KWS_CONFIG_DEFAULT;
   if (p->cfg.smoothing_window_frames == 0) {
     p->cfg.smoothing_window_frames = 5;
   }
@@ -74,7 +79,9 @@ wake_pipeline_t *wake_pipeline_create(wake_sdk_t *sdk, const char *backend_id,
 
   p->smoother = wake_score_smoother_create(p->cfg.smoothing_window_frames);
   p->trigger = wake_trigger_detector_create(&p->cfg, p->backend_ops->label);
-  if (p->smoother == nullptr || p->trigger == nullptr) {
+  p->gate = wake_vad_gate_create(&p->cfg);
+  p->pending_valid = 0;
+  if (p->smoother == nullptr || p->trigger == nullptr || p->gate == nullptr) {
     wake_pipeline_destroy(p);
     return nullptr;
   }
@@ -92,6 +99,7 @@ void wake_pipeline_destroy(wake_pipeline_t *p) {
   wake_afe_graph_destroy(p->graph);
   wake_score_smoother_destroy(p->smoother);
   wake_trigger_detector_destroy(p->trigger);
+  wake_vad_gate_destroy(p->gate);
   free(p);
 }
 
@@ -103,28 +111,47 @@ int wake_pipeline_process(wake_pipeline_t *p, int16_t *frames, size_t n,
     return 1;
   }
 
-  /* VAD gate: gated frames skip inference and do not push into the smoother
-   * window (max-pooling keeps the recent peak, browser parity). */
-  const int gated =
-      wake_should_gate_by_vad(vad, p->cfg.vad_threshold, p->cfg.vad_gate_enabled);
+  /* Inference and smoothing ALWAYS run. The VAD gate only decides whether a
+   * trigger may be *published* — it never skips inference and never feeds a
+   * stale windowed score to the detector (that caused false triggers from a
+   * retained peak after silence). */
+  const float raw = p->backend_ops->process_frame(p->backend_impl, frames, n);
+  const float smooth = wake_score_smoother_push(p->smoother, raw);
 
-  float raw = 0.0f;
-  float smooth = 0.0f;
-  if (!gated) {
-    raw = p->backend_ops->process_frame(p->backend_impl, frames, n);
-    smooth = wake_score_smoother_push(p->smoother, raw);
-  } else {
-    smooth = wake_score_smoother_peek(p->smoother);
+  const wake_vad_decision_t decision = wake_vad_gate_step(
+      p->gate, wake_afe_graph_has_vad(p->graph), vad, smooth, now_ms);
+
+  wake_trigger_event_t evt;
+  memset(&evt, 0, sizeof(evt));
+  int fired = wake_trigger_detector_process(p->trigger, smooth, now_ms, &evt);
+
+  if (fired != 0 && decision == WAKE_VAD_HOLD) {
+    /* Borderline while the gate is closed: hold the event, bounded by
+     * vad_hold_max_ms. The detector has already applied cooldown, so a held
+     * event cannot double-fire. */
+    p->pending = evt;
+    p->pending_valid = 1;
+    fired = 0;
+  } else if (fired != 0) {
+    p->pending_valid = 0;
+  } else if (p->pending_valid != 0 &&
+             (decision != WAKE_VAD_HOLD ||
+              wake_vad_gate_hold_expired(p->gate, now_ms))) {
+    /* The gate opened, or the bounded delay ran out: publish now. */
+    evt = p->pending;
+    p->pending_valid = 0;
+    fired = 1;
   }
 
-  int triggered =
-      wake_trigger_detector_process(p->trigger, smooth, now_ms, out_trigger);
+  if (fired != 0 && out_trigger != nullptr) {
+    *out_trigger = evt;
+  }
 
   if (out != nullptr) {
     out->captured_at_ms = now_ms;
     out->raw_score = raw;
     out->smoothed_score = smooth;
-    out->triggered = triggered;
+    out->triggered = fired;
     out->vad_probability = vad;
   }
   return 0;
@@ -137,4 +164,6 @@ void wake_pipeline_reset(wake_pipeline_t *p) {
   }
   wake_score_smoother_reset(p->smoother);
   wake_trigger_detector_reset(p->trigger);
+  wake_vad_gate_reset(p->gate);
+  p->pending_valid = 0;
 }

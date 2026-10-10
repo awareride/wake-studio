@@ -20,7 +20,7 @@
       "min": 0,
       "max": 1,
       "step": 0.1,
-      "description": "Aggressiveness of the noise gate (vadProb threshold for denoising)."
+      "description": "Wet/dry mix between the original and the denoised signal: 0 = bypass, 1 = full RNNoise (default). RNNoise has no native strength parameter, so this is a post-blend that trades noise reduction against waveform fidelity."
     },
     {
       "id": "denoiseEnabled",
