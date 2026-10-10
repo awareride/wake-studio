@@ -98,3 +98,9 @@ apps/studio-backend/*.egg-info/
 # standard artifact bundle output (docs/modules/training.md §6)
 **/wake-studio-results/
 apps/studio-backend/src/wake_training_service/_revision.py
+
+# Local-only research notes (git-ignored by design): vendor/proprietary binary
+# analyses, scratch benchmarks, personal notes. Anything that must outlive the
+# session goes to the GitHub issue it belongs to (e.g. #240) as a comment or an
+# ADR in DECISIONS.md -- not into a commit.
+/research-local/
