@@ -164,9 +164,26 @@ uint32_t frame_samples;  /* samples per frame at that rate */
   480-sample frame.
 
 Today RNNoise declares `48000 / 480` (it is 48 kHz-only) and AEC/BSS declare the
-graph rate. The browser already runs its AFE chain at 48 kHz internally and
-downsamples before the KWS; moving the device graph itself to 48 kHz is
-#245 slice B and is not done here.
+graph rate.
+
+**The device graph now runs at that rate** (slice C): `WAKE_AFE_GRAPH_SAMPLE_RATE_HZ`
+is 48000 and `WAKE_AFE_GRAPH_FRAME_SAMPLES` is 480, matching the browser. Two
+consequences:
+
+- **RNNoise no longer needs any conversion** — its declared rate equals the
+  graph's, so the graph allocates no resampler for it at all. The MCU cost of the
+  NS stage went *down*, not up.
+- **The KWS boundary is unchanged.** The pipeline owns exactly one conversion,
+  48 kHz -> 16 kHz, and backends still receive 160 samples @ 16 kHz
+  (`WAKE_SDK_KWS_SAMPLE_RATE_HZ` / `WAKE_SDK_KWS_FRAME_SAMPLES`). No driver was
+  touched.
+
+`wake_pipeline_process` therefore takes a 480-sample frame, and a differently
+sized frame is **refused with an error** rather than accepted: feeding a
+16 kHz-sized frame to a 48 kHz graph would leave every stage a no-op, leaving
+audio unprocessed with no error anywhere — the exact failure class this work
+exists to remove. The demos convert explicitly (a real device captures 48 kHz
+directly; the demos read 16 kHz files and upsample).
 
 ### 4.2.2 Declared geometry: arrays and far-end reference (issue #245 slice B)
 

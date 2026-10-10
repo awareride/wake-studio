@@ -21,11 +21,16 @@
 #include "wake/sdk.h"
 
 #include "host/wav_reader.h"
+#include "wake/resample.h"
 
 /* the reference composition root (ADR-040 §3): one line per module */
 extern void wake_sdk_compose(wake_sdk_t *sdk);
 
-#define FRAME 160u /* 10 ms @ 16 kHz */
+/* The pipeline is fed at the AFE-internal rate (#245 slice C): 480 @
+ * 48 kHz. It downsamples once at the KWS boundary, so the wav is still read at
+ * 16 kHz and only the framing changes. */
+#define FRAME WAKE_AFE_GRAPH_FRAME_SAMPLES
+#define FRAME_RATE_HZ WAKE_AFE_GRAPH_SAMPLE_RATE_HZ
 
 static float parse_float(const char *s) { return (float)atof(s); }
 
@@ -83,15 +88,43 @@ int main(int argc, char **argv) {
     return 2;
   }
 
+  /*
+   * The wav is read at 16 kHz but the pipeline is fed at the AFE-internal rate
+   * (#245 slice C). A real device captures at 48 kHz directly; this demo
+   * converts explicitly so the file stays 16 kHz, using the same core converter
+   * the pipeline itself uses. The pipeline downsamples back to 16 kHz at the KWS
+   * boundary, so the round trip is symmetric.
+   */
+  wake_resampler_t *to_afe =
+      wake_resampler_create(WAKE_SDK_KWS_SAMPLE_RATE_HZ, WAKE_AFE_GRAPH_SAMPLE_RATE_HZ);
+  if (to_afe == NULL) {
+    fprintf(stderr, "resampler create failed\n");
+    wake_pipeline_destroy(pipe);
+    wake_sdk_destroy(sdk);
+    wake_wav_close(&wav);
+    return 2;
+  }
+
   int triggered = 0;
   int16_t frame[FRAME];
   size_t pos = 0;
   size_t frame_idx = 0;
   while (pos < wav.sample_count) {
+    /* Gather one 10 ms window at the KWS rate, then convert up. */
+    int16_t kws_frame[WAKE_SDK_KWS_FRAME_SAMPLES];
     size_t n = wav.sample_count - pos;
-    if (n > FRAME) n = FRAME;
-    for (size_t i = 0; i < n; ++i) frame[i] = wav.samples[pos + i];
-    for (size_t i = n; i < FRAME; ++i) frame[i] = 0; /* pad tail */
+    if (n > WAKE_SDK_KWS_FRAME_SAMPLES) n = WAKE_SDK_KWS_FRAME_SAMPLES;
+    for (size_t i = 0; i < n; ++i) kws_frame[i] = wav.samples[pos + i];
+    for (size_t i = n; i < WAKE_SDK_KWS_FRAME_SAMPLES; ++i) kws_frame[i] = 0;
+
+    size_t up_n = 0;
+    if (wake_resampler_process(to_afe, kws_frame, WAKE_SDK_KWS_FRAME_SAMPLES,
+                               frame, &up_n) != 0 ||
+        up_n != FRAME) {
+      fprintf(stderr, "resample failed\n");
+      break;
+    }
+    pos += WAKE_SDK_KWS_FRAME_SAMPLES;
 
     wake_score_sample_t out;
     wake_trigger_event_t ev;
@@ -112,6 +145,7 @@ int main(int argc, char **argv) {
     frame_idx += 1;
   }
 
+  wake_resampler_destroy(to_afe);
   wake_pipeline_destroy(pipe);
   wake_sdk_destroy(sdk);
   wake_wav_close(&wav);

@@ -27,6 +27,11 @@ extern "C" {
  * Device-side KWS configuration. Defaults mirror the browser engine
  * (packages/modules/kws/engine/core/defaults.ts, ADR-018).
  */
+/* The KWS boundary rate and frame size: backends always receive 160 samples @ 16
+ * kHz, regardless of the AFE-internal rate (#245 slice C). */
+#define WAKE_SDK_KWS_SAMPLE_RATE_HZ 16000u
+#define WAKE_SDK_KWS_FRAME_SAMPLES 160u /* 10 ms */
+
 typedef struct wake_kws_config {
   float threshold;                /* smoothed score must be >= this   (0.5) */
   unsigned min_duration_ms;       /* sustained above threshold (ms)    (300) */

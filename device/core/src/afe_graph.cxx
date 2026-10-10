@@ -288,6 +288,12 @@ int wake_afe_graph_process(wake_afe_graph_t *g, int16_t *frames, size_t n,
   if (g == nullptr || frames == nullptr) {
     return 1;
   }
+  /* Loud, not silent (#245 slice C). Feeding a 16 kHz-sized frame to a 48 kHz
+   * graph would leave every stage a no-op — the audio would pass through with no
+   * NS and no error, which is precisely the failure class this work removes. */
+  if (n != WAKE_AFE_GRAPH_FRAME_SAMPLES) {
+    return 1;
+  }
   int16_t *channels[1] = {frames};
   wake_afe_frame_t in;
   in.channels = channels;

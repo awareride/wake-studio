@@ -39,14 +39,14 @@ TEST_CASE("graph runs passthrough stages in order without corruption") {
   CHECK(wake_afe_graph_append(g, &wake_afe_aec_ops) == 0);
   CHECK(wake_afe_graph_append(g, &wake_afe_bss_ops) == 0);
 
-  int16_t frame[160];
-  for (int i = 0; i < 160; ++i) frame[i] = (int16_t)(i * 100 - 8000);
+  int16_t frame[WAKE_AFE_GRAPH_FRAME_SAMPLES];
+  for (int i = 0; i < WAKE_AFE_GRAPH_FRAME_SAMPLES; ++i) frame[i] = (int16_t)(i * 100 - 8000);
 
-  int16_t before[160];
+  int16_t before[WAKE_AFE_GRAPH_FRAME_SAMPLES];
   std::memcpy(before, frame, sizeof(frame));
 
   float vad = -1.0f;
-  CHECK(wake_afe_graph_process(g, frame, 160, &vad) == 0);
+  CHECK(wake_afe_graph_process(g, frame, WAKE_AFE_GRAPH_FRAME_SAMPLES, &vad) == 0);
   /* passthrough: output identical, no VAD provided -> 0 */
   CHECK(std::memcmp(frame, before, sizeof(frame)) == 0);
   CHECK(vad == doctest::Approx(0.0f));
@@ -85,9 +85,9 @@ TEST_CASE("graph propagates a stage's VAD probability") {
   CHECK(wake_afe_graph_append(g, &wake_afe_aec_ops) == 0);
   CHECK(wake_afe_graph_append(g, &fake_vad_ops) == 0);
 
-  int16_t frame[160] = {0};
+  int16_t frame[WAKE_AFE_GRAPH_FRAME_SAMPLES] = {0};
   float vad = 0.0f;
-  CHECK(wake_afe_graph_process(g, frame, 160, &vad) == 0);
+  CHECK(wake_afe_graph_process(g, frame, WAKE_AFE_GRAPH_FRAME_SAMPLES, &vad) == 0);
   CHECK(vad == doctest::Approx(0.77f));
   CHECK(fake_vad_calls == 1);
 
@@ -153,7 +153,7 @@ TEST_CASE("graph rejects a non-integer rate ratio") {
 }
 
 TEST_CASE("graph rejects a frame whose duration does not match") {
-  // 320 samples @ 48 kHz is not the same 10 ms as the graph's 160 @ 16 kHz.
+  // 320 samples @ 48 kHz is not the same 10 ms as the graph's 480 @ 48 kHz.
   static const wake_afe_stage_ops_t wrong_frame = {
       "wrong", "wrong frame", rate_probe_create, rate_probe_destroy,
       rate_probe_process, rate_probe_reset, 0, 48000u, 320u, 1, 1, 0};
@@ -173,13 +173,13 @@ TEST_CASE("graph converts a stage that declares a different rate") {
   CHECK(wake_afe_graph_append(g, &fast) == 0);
   CHECK(wake_afe_graph_has_vad(g) == 1);
 
-  int16_t frame[160];
-  for (int i = 0; i < 160; ++i) frame[i] = (int16_t)(i * 200 - 16000);
+  int16_t frame[WAKE_AFE_GRAPH_FRAME_SAMPLES];
+  for (int i = 0; i < WAKE_AFE_GRAPH_FRAME_SAMPLES; ++i) frame[i] = (int16_t)(i * 200 - 16000);
   float vad = 0.0f;
   // The stage is handed 480 samples (10 ms @ 48 kHz) for our 160-sample frame,
-  // and the graph converts back so the caller still sees exactly 160.
+  // and the graph converts back so the caller still sees exactly 160 samples.
   for (int f = 0; f < 4; ++f) {
-    CHECK(wake_afe_graph_process(g, frame, 160, &vad) == 0);
+    CHECK(wake_afe_graph_process(g, frame, WAKE_AFE_GRAPH_FRAME_SAMPLES, &vad) == 0);
   }
   CHECK(vad == doctest::Approx(0.5f));
   REQUIRE(g_last_probe != nullptr);
@@ -199,12 +199,12 @@ TEST_CASE("a stage declaring the graph rate is called directly") {
   wake_afe_graph_t *g = wake_afe_graph_create();
   REQUIRE(g != nullptr);
   CHECK(wake_afe_graph_append(g, &same) == 0);
-  int16_t frame[160] = {0};
+  int16_t frame[WAKE_AFE_GRAPH_FRAME_SAMPLES] = {0};
   float vad = 0.0f;
-  CHECK(wake_afe_graph_process(g, frame, 160, &vad) == 0);
+  CHECK(wake_afe_graph_process(g, frame, WAKE_AFE_GRAPH_FRAME_SAMPLES, &vad) == 0);
   REQUIRE(g_last_probe != nullptr);
   CHECK(g_last_probe->calls == 1);
-  CHECK(g_last_probe->last_n == 160);
+  CHECK(g_last_probe->last_n == WAKE_AFE_GRAPH_FRAME_SAMPLES);
   wake_afe_graph_destroy(g);
 }
 
@@ -268,8 +268,9 @@ TEST_CASE("a stage receives every declared channel and the reference") {
   REQUIRE(g != nullptr);
   CHECK(wake_afe_graph_append(g, &spatial) == 0);
 
-  int16_t left[160], right[160], ref[160];
-  for (int i = 0; i < 160; ++i) {
+  int16_t left[WAKE_AFE_GRAPH_FRAME_SAMPLES], right[WAKE_AFE_GRAPH_FRAME_SAMPLES],
+      ref[WAKE_AFE_GRAPH_FRAME_SAMPLES];
+  for (int i = 0; i < WAKE_AFE_GRAPH_FRAME_SAMPLES; ++i) {
     left[i] = 1000;
     right[i] = 2000;
     ref[i] = 3000;
@@ -281,7 +282,7 @@ TEST_CASE("a stage receives every declared channel and the reference") {
   in.channel_count = 2;
   in.reference = reference;
   in.reference_count = 1;
-  in.frame_samples = 160;
+  in.frame_samples = WAKE_AFE_GRAPH_FRAME_SAMPLES;
 
   float vad = -1.0f;
   CHECK(wake_afe_graph_process_frame(g, &in, &in, &vad) == 0);
@@ -289,7 +290,7 @@ TEST_CASE("a stage receives every declared channel and the reference") {
   REQUIRE(g_last_geom != nullptr);
   CHECK(g_last_geom->seen_channels == 2);
   CHECK(g_last_geom->seen_reference == 1);
-  CHECK(g_last_geom->seen_samples == 160);
+  CHECK(g_last_geom->seen_samples == WAKE_AFE_GRAPH_FRAME_SAMPLES);
   // Distinct planes, not the same buffer twice.
   CHECK(g_last_geom->first_left == 1000);
   CHECK(g_last_geom->first_right == 2000);
@@ -310,14 +311,14 @@ TEST_CASE("a stage needing more channels than delivered is refused") {
 
   // Mono capture: the graph must refuse rather than hand a spatial stage a
   // frame it cannot interpret.
-  int16_t mono[160] = {0};
+  int16_t mono[WAKE_AFE_GRAPH_FRAME_SAMPLES] = {0};
   int16_t *channels[1] = {mono};
   wake_afe_frame_t in;
   in.channels = channels;
   in.channel_count = 1;
   in.reference = nullptr;
   in.reference_count = 0;
-  in.frame_samples = 160;
+  in.frame_samples = WAKE_AFE_GRAPH_FRAME_SAMPLES;
 
   float vad = 0.0f;
   CHECK(wake_afe_graph_process_frame(g, &in, &in, &vad) == 1);
@@ -339,14 +340,14 @@ TEST_CASE("a stage needing a far-end reference is refused without one") {
   REQUIRE(g != nullptr);
   CHECK(wake_afe_graph_append(g, &aec) == 0);
 
-  int16_t mic[160] = {0};
+  int16_t mic[WAKE_AFE_GRAPH_FRAME_SAMPLES] = {0};
   int16_t *channels[1] = {mic};
   wake_afe_frame_t in;
   in.channels = channels;
   in.channel_count = 1;
   in.reference = nullptr;   /* no loudspeaker reference on this capture */
   in.reference_count = 0;
-  in.frame_samples = 160;
+  in.frame_samples = WAKE_AFE_GRAPH_FRAME_SAMPLES;
 
   float vad = 0.0f;
   CHECK(wake_afe_graph_process_frame(g, &in, &in, &vad) == 1);
@@ -376,10 +377,10 @@ TEST_CASE("mono path stays the zero-cost default for a mono stage") {
   REQUIRE(g != nullptr);
   CHECK(wake_afe_graph_append(g, &mono) == 0);
 
-  int16_t frame[160];
-  for (int i = 0; i < 160; ++i) frame[i] = (int16_t)(i * 7);
+  int16_t frame[WAKE_AFE_GRAPH_FRAME_SAMPLES];
+  for (int i = 0; i < WAKE_AFE_GRAPH_FRAME_SAMPLES; ++i) frame[i] = (int16_t)(i * 7);
   float vad = -1.0f;
-  CHECK(wake_afe_graph_process(g, frame, 160, &vad) == 0); // mono wrapper
+  CHECK(wake_afe_graph_process(g, frame, WAKE_AFE_GRAPH_FRAME_SAMPLES, &vad) == 0); // mono wrapper
   REQUIRE(g_last_geom != nullptr);
   CHECK(g_last_geom->seen_channels == 1);
   CHECK(g_last_geom->seen_reference == 0);

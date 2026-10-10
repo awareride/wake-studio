@@ -44,6 +44,13 @@ struct wake_resampler {
   float up_hist[UP_HIST];    /* oldest-first: [0] = x[-(TAPS-1)] */
   float down_hist[DOWN_HIST]; /* oldest-first */
   size_t down_fill;          /* valid entries in down_hist */
+  /*
+   * The decimator's history must be *seeded from the stream itself* on the first
+   * call. Priming with zeros instead makes the first output block read mostly
+   * silence -- measured at ~2% amplitude against a steady-state 71% -- which is
+   * an audible dropout at every stream start, not a rounding detail.
+   */
+  int seeded;
 };
 
 static void design_lowpass(float *h, unsigned n, double cutoff) {
@@ -94,13 +101,10 @@ wake_resampler_t *wake_resampler_create(uint32_t in_rate_hz,
   r->out_rate = out_rate_hz;
   r->ratio = ratio;
   r->up_mode = up;
-  /*
-   * Prime the decimator history to full width. Without this the first call
-   * emits fewer samples than its input justifies (the FIR is still filling),
-   * which would desynchronise a frame-oriented caller. Primed, every call is
-   * 1:1 from the first frame; the cost is a constant, sub-millisecond delay.
-   */
-  r->down_fill = DOWN_HIST;
+  /* Seeded on first use from the incoming samples (see `seeded`). Marked
+   * unseeded here so the first process() call establishes the history. */
+  r->down_fill = 0;
+  r->seeded = 0;
 
   if (up) {
     float proto[MAX_RATIO * UP_TAPS];
@@ -136,8 +140,9 @@ void wake_resampler_reset(wake_resampler_t *r) {
   }
   memset(r->up_hist, 0, sizeof(r->up_hist));
   memset(r->down_hist, 0, sizeof(r->down_hist));
-  /* Primed, matching creation, so the first frame after a reset is 1:1 too. */
-  r->down_fill = r->up_mode ? 0u : DOWN_HIST;
+  /* Re-seed from the stream after a reset, exactly as at creation. */
+  r->down_fill = 0;
+  r->seeded = 0;
 }
 
 size_t wake_resampler_capacity(const wake_resampler_t *r, size_t n_in) {
@@ -209,6 +214,20 @@ static size_t do_down(wake_resampler_t *r, const int16_t *in, size_t n_in,
    * history always starts at `n_out * ratio`. No counter drifts between calls,
    * so no discontinuity can appear at a block boundary.
    */
+  /* First call after create/reset: seed the history from the head of the stream
+   * so the first output block is full-length and at full amplitude. */
+  if (!r->seeded) {
+    r->seeded = 1;
+    const size_t take = n_in < DOWN_HIST ? n_in : DOWN_HIST;
+    for (size_t i = 0; i < take; ++i) {
+      r->down_hist[i] = (float)in[i];
+    }
+    for (size_t i = take; i < DOWN_HIST; ++i) {
+      r->down_hist[i] = (float)in[0]; /* degenerate, but n_in is never < 1 here */
+    }
+    r->down_fill = DOWN_HIST;
+  }
+
   const size_t hist = r->down_fill;
   const size_t total = hist + n_in;
   if (total < DOWN_TAPS) {
