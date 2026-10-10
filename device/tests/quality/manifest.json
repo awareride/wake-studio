@@ -1,0 +1,38 @@
+{
+  "$comment": "Corpus plan + provenance for the AFE quality harness (issue #247, slice A). The corpus is SYNTHETIC and derived from these parameters by device/tests/quality/corpus.cxx -- no audio is committed (ADR-027 spirit), and the generator is the artifact. pyroomacoustics / ssspy are test-only oracles (ADR-048 13) and are not required by this suite.",
+  "harness": "device/tests/quality/run_ns.cxx",
+  "sampleRateHz": 48000,
+  "frameSamples": 480,
+  "clipSeconds": 1.0,
+  "determinism": {
+    "rng": "LCG, Numerical Recipes constants (1664525 / 1013904223), 24-bit output",
+    "note": "libc rand() is implementation-defined, so it is deliberately not used. Same parameters -> identical samples on every platform, which is what lets the thresholds be gates rather than commentary."
+  },
+  "clips": [
+    { "name": "noise-pink-a", "kind": "noise",        "seed": 3001, "gate": "residual_max_db", "note": "ground truth: no signal to protect, so whatever survives is residual noise" },
+    { "name": "noise-pink-b", "kind": "noise",        "seed": 3002, "gate": "residual_max_db" },
+    { "name": "tone-440",     "kind": "tone",         "seed": 2001, "freqHz": 440,  "gate": "clean_preserve_db" },
+    { "name": "tone-1200",    "kind": "tone",         "seed": 2002, "freqHz": 1200, "gate": "clean_preserve_db" },
+    { "name": "tone-2200",    "kind": "tone",         "seed": 2003, "freqHz": 2200, "gate": "clean_preserve_db" },
+    { "name": "tone-3000",    "kind": "tone",         "seed": 2004, "freqHz": 3000, "gate": "clean_preserve_db" },
+    { "name": "reverb-500",   "kind": "reverb_tone",  "seed": 4001, "freqHz": 500,  "rt60s": 0.3, "gate": "clean_preserve_db" },
+    { "name": "reverb-700",   "kind": "reverb_tone",  "seed": 4002, "freqHz": 700,  "rt60s": 0.3, "gate": "clean_preserve_db" }
+  ],
+  "thresholds": {
+    "residual_max_db": -6.0,
+    "clean_preserve_db": [-4.0, 4.0],
+    "clean_silent_max": 0.2,
+    "$comment": "Loose enough for int16 rounding and platform drift, tight enough that a stage which is not working at all cannot pass. Verified against the known-bad control, which the harness must reject."
+  },
+  "negativeControl": {
+    "mode": "--known-bad",
+    "stage": "device/tests/quality/known_bad_stage.cxx",
+    "fault": "16 kHz audio mislabeled as 48 kHz into the 48 kHz model (#240 B2)",
+    "requirement": "must FAIL; the wrapper inverts the exit code, so a vacuous gate fails CI"
+  },
+  "baseline": {
+    "$comment": "Observed on the shipped RNNoise stage (v0.1.1, gcc, x86-64). Platform drift is expected; the gate is the threshold, not this number.",
+    "residual_db": { "noise-pink-a": -22.54, "noise-pink-b": -23.28 },
+    "clean_change_db": { "tone-440": -0.02, "tone-1200": -0.5, "tone-2200": -0.05, "tone-3000": -0.05, "reverb-500": -0.05, "reverb-700": -1.16 }
+  }
+}

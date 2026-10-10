@@ -290,7 +290,39 @@ it into a tri-state verdict via `evaluateQualification()`:
 - A 2-element array still cannot give 360° uniform directivity (ADR-048 §7), so
   a spatial stage must also state its target sector explicitly.
 
-**Not yet in place** (same issue, later slice): the workspace stage panels are
+### 6.3 Objective quality harness (issue #247, slice A)
+
+`device/tests/quality/` runs the NS stage over a **deterministic synthetic
+corpus** and gates on two metrics, both with unambiguous physics:
+
+1. **Residual on noise-only ground truth** (dB vs input energy). For a noise-only
+   input there is no signal to protect, so whatever survives *is* the residual
+   noise. Shipped baseline: −22.5 / −23.3 dB (≈93 % removed). Gate: < −6 dB.
+2. **Clean-signal preservation** (dB of energy change) on tones and a synthetic
+   reverberant tone. This is the over-suppression guard: a denoiser that improves
+   SNR by erasing the signal fails here. Baseline −1.16 … −0.02 dB. Gate: within
+   ±4 dB, and < 20 % silent frames.
+
+Segmental SNR is reported as a diagnostic only, and PESQ/STOI/DNSMOS are absent
+by policy (ADR-048 §9: diagnostics, never the gate) — an unaligned SNR number
+across a stage's latency looks authoritative without being meaningful.
+
+- **Corpus:** synthetic and derived from `manifest.json` by `corpus.cxx`. No audio
+  is committed (ADR-027 spirit); the generator *is* the artifact. `libc rand()` is
+  deliberately not used (implementation-defined), so identical parameters give
+  identical samples on every platform — which is what lets a threshold be a gate.
+  pyroomacoustics / ssspy remain test-only oracles (ADR-048 §13) and are not
+  required.
+- **The gate has teeth:** `--known-bad` runs the *pre-#244* device stage with 16 kHz
+  audio mislabeled as 48 kHz (the #240 B2 defect) and the harness **must reject
+  it**. A second test inverts that exit code, so if the thresholds ever loosen
+  until nothing can trip them, CI goes red. A quality gate that cannot fail on a
+  known-bad build is decoration.
+
+Both tests run in `ctest`, so a regression is a red build rather than a number in
+a log.
+
+**Not yet in place** (same issue, later slices): the workspace stage panels are
 still hand-written rather than spec-driven, and param values are not yet
 persisted with the project model.
 | `vizFps` | 30 | 15-60 | Throttle for visualization frame emission. |
