@@ -387,6 +387,84 @@ describe('real module specs (#189)', () => {
   })
 })
 
+describe('runtime.device.modelNotes (#259: the bundle states which variant ships)', () => {
+  const notedKws = spec({
+    id: 'kws-sherpa',
+    category: 'kws',
+    device: device(
+      'packages/modules/kws/sherpa/device',
+      'wake_kws_sherpa',
+      { kind: 'kws-backend', id: 'sherpa-onnx-kws', symbol: 'wake_kws_sherpa_ops' },
+      'app',
+      {
+        modelFiles: ['encoder.onnx', 'decoder.onnx', 'tokens.txt'],
+        modelNotes: ['`encoder.onnx`: stage the int8 encoder, not the fp32 one.'],
+      },
+    ),
+    params: [{
+      id: 'threshold',
+      label: 'Threshold',
+      group: 'primary',
+      type: 'slider',
+      default: 0.5,
+      description: 'Trigger threshold.',
+    }],
+  })
+
+  it('renders the notes under models/README.md', () => {
+    const bundle = generateDeviceBundle({
+      profile: 'app',
+      kwsBackendId: notedKws.meta.id,
+      qualityThresholds: QUALITY_THRESHOLDS,
+      labels: ['hey studio'],
+      specs: [notedKws],
+    })
+
+    const readme = bundle.files['models/README.md']
+    expect(readme).toContain('encoder.onnx')
+    expect(readme).toContain('## What to stage')
+    expect(readme).toContain('stage the int8 encoder')
+  })
+
+  it('omits the section entirely when a module declares no notes', () => {
+    const readme = generate().files['models/README.md']
+    expect(readme).toContain('melspectrogram.onnx')
+    expect(readme).not.toContain('## What to stage')
+  })
+
+  it('rejects non-array, empty and duplicate notes', () => {
+    const withDevice = (modelNotes: unknown) =>
+      spec({
+        id: 'kws-bad',
+        category: 'kws',
+        device: {
+          ...device(
+            'packages/modules/kws/bad/device',
+            'wake_kws_bad',
+            { kind: 'kws-backend', id: 'bad', symbol: 'wake_kws_bad_ops' },
+            'app',
+            { modelFiles: ['model.onnx'] },
+          ),
+          modelNotes,
+        },
+        params: [],
+      })
+
+    const attempt = (modelNotes: unknown) => () =>
+      generateDeviceBundle({
+        profile: 'app',
+        kwsBackendId: 'kws-bad',
+        qualityThresholds: QUALITY_THRESHOLDS,
+        labels: ['hey studio'],
+        specs: [withDevice(modelNotes) as never],
+      })
+
+    expect(attempt('nope')).toThrow(/modelNotes must be an array/)
+    expect(attempt([''])).toThrow(/non-empty strings/)
+    expect(attempt(['same', 'same'])).toThrow(/must be unique/)
+  })
+})
+
 describe.skipIf(!hasCmake)('real module specs (#189 emitted-project build)', () => {
   it('generates a host project from real specs, builds it, and passes composition-root ctest', () => {
     const specs = realHostSpecs()

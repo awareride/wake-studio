@@ -341,6 +341,30 @@ labels, so one driver serves every topology upstream ships, in both
 from the bundle `model_dir` under driver-declared names — no URL bag on
 device (ADR-040 §4.1).
 
+**ORT environment policy (issue #259).** All three ORT-family drivers
+(openwakeword, kws-streaming, plix) apply the same three settings, and any of
+them failing is logged and tolerated rather than fatal:
+
+- **Telemetry events off.** ORT enables them by default; `DisableTelemetryEvents`
+  makes "no data leaves the device" a property of the build, not an assumption.
+- **One intra-op and one inter-op thread.** ORT defaults intra-op threads to the
+  host core count. These models are 1.2–3.4 MB and run once per 80–100 ms hop,
+  so a core-per-thread pool is pure overhead on a device.
+- **One `OrtEnv` per loaded backend.** The bundle generator emits exactly **one**
+  KWS backend per bundle (`kwsBackendId` is singular), so a shipped bundle
+  carries one runtime; a host process that loads several ORT backends pays one
+  single-threaded env each. Do not raise the thread counts without re-measuring.
+
+Note the API name is `DisableTelemetryEvents` — `DisableTelemetryCollection`
+exists in the C++ API but **not** in the pinned C API header (ORT 1.21.0).
+
+**Model staging variants.** `runtime.device.modelNotes` in a module spec
+(ADR-047) states which concrete artifact satisfies a declared filename when
+upstream ships several. The sherpa spec uses it to require the **int8** encoder
+(4.4 MB) over the fp32 one (11.4 MB) for the declared `encoder.onnx`; the
+generator renders those notes into the bundle's `models/README.md`, so a bundle
+is self-describing about what was staged.
+
 **sherpa-onnx (ASR-Decoding).** The sherpa driver runs the same
 encoder/decoder/joiner transducer the browser wasm runs, through the native
 KeywordSpotter C API. It is **hit-based**, not a per-frame posterior:

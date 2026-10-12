@@ -7,6 +7,10 @@ through the shared onnxruntime C API (pinned 1.21.0 — the same runtime as
 openwakeword #192 / kws-streaming #194); the prototype vector rides the
 bundle config, not a model file (#188).
 
+Environment policy (issue #259, shared with the other ORT-family drivers):
+telemetry events disabled, one intra-op and one inter-op thread, one `OrtEnv`
+per loaded backend. See `docs/modules/sdk.md` §5.4.
+
 ## Current state (slices 1–2, issue #188)
 
 The full detection loop ships (`wake_kws_plix_ops`) behind

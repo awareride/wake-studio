@@ -92,6 +92,10 @@
         "joiner.onnx",
         "tokens.txt",
         "keywords.txt"
+      ],
+      "modelNotes": [
+        "`encoder.onnx`: stage the **int8** encoder from the same kws-models release (e.g. `encoder-epoch-13-avg-2-chunk-16-left-64.int8.onnx`, 4.4 MB) rather than the fp32 encoder (11.4 MB). The sherpa-onnx C API loads either transparently; measured on the pinned release, both variants detect the same keywords at the same timestamps. The `chunk` and `left` in the filename must match the decoder and joiner you stage.",
+        "`decoder.onnx` / `joiner.onnx`: stage the fp32 variants that match the encoder's chunk size."
       ]
     }
   },

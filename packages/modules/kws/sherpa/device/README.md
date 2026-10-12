@@ -46,6 +46,16 @@ The driver reads these names from the bundle's `model_dir`:
 | File | Content |
 |---|---|
 | `encoder.onnx` / `decoder.onnx` / `joiner.onnx` | the KWS transducer (chunk-16 variant, e.g. `sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20`) |
+
+**Stage the int8 encoder** (issue #259). The release ships both encoders for the
+same chunk-16 graph; `encoder.onnx` should be the **int8** one
+(4.4 MB) rather than the fp32 one (11.4 MB). The C API loads either
+transparently — measured on the pinned release, both detect the same keywords
+at the same timestamps (`LIGHT_UP` and `LOVELY_CHILD` on the upstream clips,
+RTF 0.072 → 0.070). The `chunk` and `left` numbers in the encoder filename must
+match the staged decoder and joiner. The spec declares this in
+`runtime.device.modelNotes`, so the generated bundle's `models/README.md` states
+it too.
 | `tokens.txt` | BPE token list |
 | `keywords.txt` | keyword list in sherpa phone format, one per line (`L AY1 T AH1 P @LIGHT_UP`) — spec-driven, the bundle generator emits it |
 | `trigger.wav` | a positive wake-word clip (test-only, staged by CI) |
