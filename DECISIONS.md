@@ -1894,3 +1894,95 @@ applied per this log and may be overridden._
   - #240's research comments contain mutually superseding statements. This ADR
     is the consolidated, authoritative statement of the conclusions; the
     comments are the working record.
+
+## ADR-049 — Device inference runtimes are layered per platform; ncnn is added for size-constrained app-class targets (TFLite-Micro stays on MCU)
+
+- **Status:** Proposed
+- **Origin:** measured device-runtime footprint review (2026-10-12), raised by
+  the question "onnxruntime and TFLite look heavy — could ncnn replace them?".
+  Evidence below is measured, sha256-verified against the pinned artifacts;
+  code sizes are host x86-64 `-Os` unless stated.
+- **Related:** ADR-002 (PLiX Few-Shot), ADR-019 (target matrix), ADR-020
+  (pluggable backends), ADR-021 (device SDK), ADR-024 (KWS decoupling),
+  ADR-037 (dependency pinning), ADR-040 (profiles + device CI).
+- **Measured evidence:**
+
+  | Runtime / artifact | Measured size | Notes |
+  |---|---|---|
+  | onnxruntime C API 1.21.0, `libonnxruntime.so` (linux-x64) | **19.6 MiB** | shipped already stripped, `.text` 15.3 MiB; one shared copy serves openwakeword / kws-streaming / plix |
+  | onnxruntime 1.21.0 dylib (osx-universal2) | 67.4 MB | two slices in one binary |
+  | sherpa-onnx v1.13.6 `libsherpa-onnx-c-api.so` | 4.9 MB → 4.1 MB stripped | bundles its own ORT |
+  | onnxruntime bundled inside the sherpa prebuilt | 26.4 MB → 20 MB stripped | a **second** full ORT copy, unstripped as shipped |
+  | TFLite-Micro curated build (74 TUs, 13 kernels + microfrontend) | **89.2 KiB** | + 64 KiB tensor arena (54,384 B used) + 8 KiB variable arena for the `okay_nabu` graph |
+  | RNNoise v0.1.1 vendored (7 `.c`) | **102.6 KiB**, of which **86.5 KiB is `.rodata`** | the baked NS model weights — the largest single device-side block, larger than all of TFLite-Micro |
+  | `wake_sdk_core` (6 TUs) | 6.2 KiB | |
+  | ncnn, KWS layer set (43 layers, single ISA, no GPU/OpenMP) | **651 KB** linked | ~30× smaller than ORT |
+  | ncnn, same set + memory-only loading + simplestl | 627 KB linked | further trimming buys ~24 KB |
+  | ncnn, all 110 layers, single ISA, no GPU | 1.1 MB linked | ~18× smaller than ORT, even unpruned |
+
+  Model sizes for the app tier: openwakeword 3.6 MB (mel 1.09 + embedding 1.33
+  + classifier 1.19), plix 3.43 MB (`plixkws-small.onnx` + external `.data`),
+  sherpa fp32 chunk-16 + tokens 13 MB (**upstream also ships an int8 encoder at
+  4.4 MB** vs 11.4 MB fp32; CI stages fp32 today), sherpa `en.phone` lexicon
+  3.2 MB. An app-class device bundle is therefore ~23 MB today (ORT + model) or
+  ~37 MB for sherpa; with ncnn it would be ~4 MB.
+
+- **Decision:**
+  1. **No single device inference runtime. The runtime is layered per target.**
+     - *Cortex-M:* **TFLite-Micro**, curated build, as shipped. **ncnn is not
+       an MCU candidate** — it has no Cortex-M support path (upstream targets
+       ARM Cortex-A), and its minimal build measures 627 KB, larger than
+       typical Cortex-M flash. The MCU optimisation path is **CMSIS-NN kernels
+       inside TFLM** (same model, same weights, same L1 tests), not a runtime
+       swap.
+     - *App-class, unconstrained (Pi / desktop / Linux):* **onnxruntime C API
+       1.21.0** stays, one shared copy per process across the three ORT-family
+       drivers. A bundle dominated by runtime is acceptable on these targets.
+     - *App-class, size-constrained mobile (Android / iOS):* **ncnn** is added as
+       a **second, runtime-gated driver variant**, selected per target by the
+       bundle generator. Rationale: ~30× less runtime code and a bundle
+       dropping from ~23 MB to ~4 MB.
+     - *ASR-Decoding (sherpa):* stays on **sherpa-onnx**, whose ORT dependency is
+       internal. A second ORT copy in-process is **accepted**; the bundle
+       generator must not mix sherpa with an ORT-family driver in a mobile
+       bundle.
+  2. **Pilot = plix.** Its 149-node encoder maps entirely onto core ncnn layers
+     (Conv / Mul / Sigmoid / ReduceMean / Add / Log), and its mel frontend is
+     already runtime-independent C (`plix_frontend.c`), so only the encoder
+     session is swapped.
+  3. **openwakeword follows only after the mel stage leaves onnx.** Its
+     `melspectrogram.onnx` is 29 nodes of graph-plumbing ops
+     (Constant / Unsqueeze / Cast / ReduceMax / Clip / Log) — the
+     highest-risk conversion in the set. Port the mel to C first, mirroring
+     `plix_frontend.c`.
+  4. **kws-streaming waits for an external-state asset.** Its state carry needs
+     an ncnn-side equivalent (custom layer); no such asset ships today.
+  5. **Runtime selection stays runtime-gated module plumbing**
+     (`WAKE_SDK_<X>_HAS_<RUNTIME>`), never a core edit (ADR-024). An OFF build
+     still compiles, registers and fails `load()` loudly, exactly as the ORT
+     drivers do today.
+  6. **Device/browser numerics parity is a hard gate.** The existing L1 parity
+     fixtures and tolerance extend to the ncnn variant, and FAR/FRR is
+     re-measured on device before any ncnn-backed driver is exported. The
+     ncnn variant is expected to diverge slightly from the browser's
+     onnxruntime-web path; that divergence is bounded and documented per
+     backend, not waived.
+  7. **ncnn is pinned-source and CI-compiled** — it publishes no per-platform
+     prebuilt, only a dated full-source zip. This is the same
+     fetch → verify sha256 → pin → compile pattern already used for
+     TFLite-Micro, consistent with ADR-037's no-vendoring posture.
+- **Not decided here:** runtime RAM and per-invoke CPU for the ncnn variant are
+  **unmeasured**. They are the gate for promoting the pilot beyond plix; the
+  conversion must run on device before that promotion.
+- **Consequences:**
+  - Two runtimes are maintained on app-class. The module seam keeps them
+    isolated, and neither is a core edit.
+  - A new conversion asset step (onnx → ncnn param/bin) and a new int8
+    artefact axis join the ADR-027 asset recipes.
+  - Android/iOS bindings (#39) become the first real consumers of the size
+    argument; the mobile adapters do not exist yet, so the choice lands before
+    the platform is committed.
+  - Independent of this ADR, three measured facts become follow-up work:
+    ncnn is not an MCU option; RNNoise's 86.5 KiB of baked weights is the
+    largest MCU-side consumer; and the device CI reports no ARM code sizes
+    today, so no Cortex-M footprint claim in this repo is currently measured.
