@@ -123,6 +123,49 @@ static int read_file(const char *path, void **out_data, size_t *out_size) {
   return 0;
 }
 
+#if defined(WAKE_SDK_OPENWAKEWORD_HAS_RUNTIME)
+/*
+ * Environment policy for every ORT-family driver (issue #259). Kept as one
+ * explicit block per driver so the three drivers cannot silently drift apart.
+ *
+ *  - Telemetry events are ON by default in ORT. The SDK spec says mic audio
+ *    never leaves the device; switching the anonymous event stream off makes
+ *    that a property of the build rather than an assumption.
+ *  - ORT defaults intra-op threads to the host core count. These models are
+ *    1.2-1.3 MB and run once per 80 ms chunk, so a core-per-thread pool is
+ *    pure overhead on a device: one intra-op, one inter-op thread.
+ *  - Each loaded backend owns its own OrtEnv. The bundle generator emits
+ *    exactly one KWS backend per bundle, so a shipped bundle carries one
+ *    runtime; a host process that loads several ORT backends pays one
+ *    single-threaded env each. Do not raise these without re-measuring.
+ *
+ * Both calls are advisory: a failure here is logged and the session still
+ * loads, because a runtime that refuses to tune is not a reason to reject
+ * audio.
+ */
+static void tune_ort_env(const OrtApi *api, OrtEnv *env) {
+  OrtStatus *st = api->DisableTelemetryEvents(env);
+  if (st != NULL) {
+    fprintf(stderr, "[openwakeword] DisableTelemetryEvents: %s\n",
+            api->GetErrorMessage(st));
+    api->ReleaseStatus(st);
+  }
+}
+
+static void tune_ort_options(const OrtApi *api, OrtSessionOptions *opts) {
+  OrtStatus *st = api->SetIntraOpNumThreads(opts, 1);
+  if (st == NULL) {
+    st = api->SetInterOpNumThreads(opts, 1);
+  }
+  if (st != NULL) {
+    fprintf(stderr, "[openwakeword] thread pinning: %s\n",
+            api->GetErrorMessage(st));
+    api->ReleaseStatus(st);
+  }
+}
+
+#endif /* WAKE_SDK_OPENWAKEWORD_HAS_RUNTIME */
+
 /* Create one ORT session from a model file; capture input/output names. */
 static int load_session(openwakeword_impl_t *impl, const char *path,
                         ort_session_t *sess) {
@@ -139,6 +182,7 @@ static int load_session(openwakeword_impl_t *impl, const char *path,
 
   st = api->CreateSessionOptions(&opts);
   if (st == NULL) {
+    tune_ort_options(api, opts);
     st = api->SetSessionGraphOptimizationLevel(opts, ORT_ENABLE_ALL);
   }
   if (st == NULL) {
@@ -438,6 +482,7 @@ static int openwakeword_load(void *v, const wake_model_bundle_t *models,
     api->ReleaseStatus(st);
     return 1;
   }
+  tune_ort_env(api, impl->env);
 
   char path[1024];
   snprintf(path, sizeof(path), "%s/melspectrogram.onnx", models->model_dir);

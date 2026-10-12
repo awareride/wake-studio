@@ -920,6 +920,17 @@ static int kws_streaming_load(void *v, const wake_model_bundle_t *models,
     api->ReleaseStatus(st);
     goto fail;
   }
+  /* Environment policy, shared with the other ORT-family drivers (#259):
+   * telemetry events off (they default to on), and one intra-op / one inter-op
+   * thread because these graphs are evaluated once per hop (100 ms), not in a
+   * training-shaped batch. Each backend owns its env; the bundle generator
+   * emits one KWS backend per bundle. Advisory: a failure is logged, not fatal. */
+  st = api->DisableTelemetryEvents(impl->env);
+  if (st != NULL) {
+    fprintf(stderr, "[kws-streaming] DisableTelemetryEvents: %s\n",
+            api->GetErrorMessage(st));
+    api->ReleaseStatus(st);
+  }
 
   snprintf(path, sizeof(path), "%s/model.onnx", models->model_dir);
   void *data = NULL;
@@ -930,6 +941,12 @@ static int kws_streaming_load(void *v, const wake_model_bundle_t *models,
   }
   OrtSessionOptions *opts = NULL;
   st = api->CreateSessionOptions(&opts);
+  if (st == NULL) {
+    st = api->SetIntraOpNumThreads(opts, 1);
+  }
+  if (st == NULL) {
+    st = api->SetInterOpNumThreads(opts, 1);
+  }
   if (st == NULL) st = api->SetSessionGraphOptimizationLevel(opts, ORT_ENABLE_ALL);
   if (st == NULL) {
     st = api->CreateSessionFromArray(impl->env, data, size, opts, &impl->session);

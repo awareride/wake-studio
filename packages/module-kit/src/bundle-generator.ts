@@ -212,6 +212,18 @@ function validateDeviceContract(moduleId: string, device: ModuleDeviceRuntime): 
       fail('invalid-device-contract', `${moduleId}: invalid model filename ${modelFile}`)
     }
   }
+  if (device.modelNotes != null && !Array.isArray(device.modelNotes)) {
+    fail('invalid-device-contract', `${moduleId}: runtime.device.modelNotes must be an array`)
+  }
+  const modelNotes = device.modelNotes ?? []
+  for (const note of modelNotes) {
+    if (typeof note !== 'string' || note.trim() === '') {
+      fail('invalid-device-contract', `${moduleId}: runtime.device.modelNotes entries must be non-empty strings`)
+    }
+  }
+  if (new Set(modelNotes).size !== modelNotes.length) {
+    fail('invalid-device-contract', `${moduleId}: runtime.device.modelNotes must be unique`)
+  }
   const thresholds = device.thresholds
   if (thresholds != null && (
     typeof thresholds !== 'object' ||
@@ -478,12 +490,16 @@ runner contract.
 }
 
 function renderModelReadme(kws: SelectedModule): string {
+  const notes = kws.device.modelNotes ?? []
+  const notesSection = notes.length > 0
+    ? `\n## What to stage\n\n${notes.map((note) => `- ${note}`).join('\n')}\n`
+    : ''
   return `# Required model files
 
 The selected KWS driver (\`${kws.spec.meta.id}\`) declares these filenames:
 
 ${kws.device.modelFiles?.map((file) => `- \`${file}\``).join('\n') ?? ''}
-
+${notesSection}
 The #41 packaging flow stages the selected model bytes and any pinned runtime
 under this directory. This generator slice emits metadata and build wiring only.
 `

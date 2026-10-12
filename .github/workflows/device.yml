@@ -183,16 +183,30 @@ jobs:
       # Stage the model files under the names the driver declares (ADR-040
       # §4.1): encoder/decoder/joiner.onnx, tokens.txt, keywords.txt, and a
       # positive wake-word clip for the L1 trigger test.
+      #
+      # The int8 encoder is staged, not the fp32 one (issue #259): upstream
+      # ships both for the same chunk-16 graph, and the int8 encoder is 4.4 MB
+      # against 11.4 MB fp32 — measured on the pinned kws-models release. The
+      # sherpa-onnx C API loads either transparently, so this is a pure bundle
+      # size win with no driver change. Falls back to fp32 only if a future
+      # upstream drop stops publishing the int8 variant.
       - name: Stage driver model dir
         run: |
           M=sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20
           mkdir -p models
-          cp $M/encoder-epoch-13-avg-2-chunk-16-left-64.onnx models/encoder.onnx
+          if [ -f "$M/encoder-epoch-13-avg-2-chunk-16-left-64.int8.onnx" ]; then
+            cp $M/encoder-epoch-13-avg-2-chunk-16-left-64.int8.onnx models/encoder.onnx
+            echo "staged the int8 encoder (bundle-size path, #259)"
+          else
+            cp $M/encoder-epoch-13-avg-2-chunk-16-left-64.onnx models/encoder.onnx
+            echo "::warning::int8 encoder absent; staged fp32 (#259 size win unavailable)"
+          fi
           cp $M/decoder-epoch-13-avg-2-chunk-16-left-64.onnx models/decoder.onnx
           cp $M/joiner-epoch-13-avg-2-chunk-16-left-64.onnx models/joiner.onnx
           cp $M/tokens.txt models/tokens.txt
           cp $M/test_wavs/keywords.txt models/keywords.txt
           cp $M/test_wavs/en_0.wav models/trigger.wav
+          ls -la models/
 
       - name: Configure (runtime ON)
         run: cmake -S device -B build -DCMAKE_BUILD_TYPE=Debug -DWAKE_SDK_PROFILE=app \

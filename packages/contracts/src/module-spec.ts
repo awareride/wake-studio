@@ -106,6 +106,13 @@ export interface ModuleDeviceRuntime {
   registration: DeviceRegistration
   /** Driver-declared filenames expected under the bundle `models/` directory. */
   modelFiles?: string[]
+  /**
+   * Free-form, spec-owned notes rendered into the bundle's `models/README.md`.
+   * Use it to state which concrete artifact satisfies a declared filename when
+   * upstream ships more than one variant (for example a quantized encoder),
+   * so a bundle is self-describing about what was staged.
+   */
+  modelNotes?: string[]
   /** FAR/FRR acceptance thresholds emitted into the bundle test harness. */
   thresholds?: DeviceQualityThresholds
 }

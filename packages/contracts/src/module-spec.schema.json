@@ -399,6 +399,15 @@
               },
               "uniqueItems": true
             },
+            "modelNotes": {
+              "type": "array",
+              "description": "Spec-owned notes rendered into the bundle models/README.md (for example which concrete artifact satisfies a declared filename when upstream ships several variants).",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
             "thresholds": {
               "type": "object",
               "description": "FAR/FRR limits emitted into the generated test/far_frr.sh harness.",

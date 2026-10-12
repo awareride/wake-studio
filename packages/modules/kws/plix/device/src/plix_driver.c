@@ -376,6 +376,17 @@ static int plix_load(void *v, const wake_model_bundle_t *models,
     api->ReleaseStatus(st);
     return 1;
   }
+  /* Environment policy, shared with the other ORT-family drivers (#259):
+   * telemetry events off (ORT defaults them on), one intra-op / one inter-op
+   * thread (this encoder runs once per 80 ms hop, so a core-per-thread pool is
+   * pure overhead). Each backend owns its env; the bundle generator emits one
+   * KWS backend per bundle. Advisory: a failure is logged, never fatal. */
+  st = api->DisableTelemetryEvents(impl->env);
+  if (st != NULL) {
+    fprintf(stderr, "[plix] DisableTelemetryEvents: %s\n",
+            api->GetErrorMessage(st));
+    api->ReleaseStatus(st);
+  }
 
   /* File-path load: onnxruntime resolves plixkws-small.onnx.data relative
    * to the model file. In-memory load (FromArray) cannot resolve it. */
@@ -383,6 +394,15 @@ static int plix_load(void *v, const wake_model_bundle_t *models,
   snprintf(path, sizeof(path), "%s/%s", models->model_dir, PLIX_MODEL_FILE);
   OrtSessionOptions *opts = NULL;
   st = api->CreateSessionOptions(&opts);
+  if (st == NULL) {
+    st = api->SetIntraOpNumThreads(opts, 1);
+  }
+  if (st == NULL) {
+    st = api->SetInterOpNumThreads(opts, 1);
+  }
+  if (st == NULL) {
+    st = api->SetSessionGraphOptimizationLevel(opts, ORT_ENABLE_ALL);
+  }
   if (st != NULL) {
     fprintf(stderr, "[plix] CreateSessionOptions: %s\n",
             api->GetErrorMessage(st));

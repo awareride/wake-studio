@@ -55,6 +55,10 @@ Pinned release **1.21.0** (ADR-031 style; live upstream — ADR-037 Tier 1-2,
 no source vendoring). Fetched per host into `third_party/onnxruntime/<host>`
 (gitignored):
 
+Environment policy (issue #259, shared with the other ORT-family drivers):
+telemetry events disabled, one intra-op and one inter-op thread, one `OrtEnv`
+per loaded backend. See `docs/modules/sdk.md` §5.4.
+
 ```bash
 node scripts/fetch-onnxruntime.mjs          # linux-x64 | osx-universal2
 cmake -S device -B build -DCMAKE_BUILD_TYPE=Debug -DWAKE_SDK_PROFILE=app \

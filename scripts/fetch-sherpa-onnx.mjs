@@ -10,15 +10,24 @@
  * host, verifies its sha256, and extracts it to
  * third_party/sherpa-onnx/<host> (gitignored — fetched, never committed).
  *
+ * The release tarballs are shipped **unstripped**. Since a fetched runtime
+ * only ever runs here (it is linked, never debugged), this script strips the
+ * shared libraries after the sha256 check, which is where the bundle-size win
+ * lives (issue #259): measured on linux-x64, the bundled onnxruntime goes
+ * 26.4 MB -> 20 MB and libsherpa-onnx-c-api.so 4.9 MB -> 4.1 MB. Stripping
+ * happens *after* verification so the pinned hash always describes the bytes
+ * we trust. A missing/broken `strip` is a warning, never a fetch failure.
+ *
  * Usage:
  *   node scripts/fetch-sherpa-onnx.mjs            # detect host
  *   node scripts/fetch-sherpa-onnx.mjs --force    # re-fetch even if present
+ *   node scripts/fetch-sherpa-onnx.mjs --no-strip # keep the shipped binaries
  *
  * Pinned: SHERPA_VERSION + per-platform sha256 below. When bumping, update
  * both (sha256sum of the release tarball).
  */
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
@@ -43,6 +52,60 @@ function die(msg) {
   process.exit(1)
 }
 
+function formatMb(bytes) {
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/**
+ * Strip the fetched shared libraries (issue #259). Best-effort: a host without
+ * binutils still gets a working runtime, just a larger one.
+ */
+function stripLibraries(libDir, enabled) {
+  if (!enabled) {
+    console.log('[fetch-sherpa-onnx] --no-strip: keeping the shipped binaries as-is')
+    return
+  }
+  if (!existsSync(libDir)) {
+    console.log(`[fetch-sherpa-onnx] no lib/ directory at ${libDir}; nothing to strip`)
+    return
+  }
+
+  // `strip -s` on Linux (strip debug + symbol table); `strip -x` on macOS
+  // (drop the local symbol table, keep what the linker needs).
+  const args = process.platform === 'darwin' ? ['-x'] : ['-s']
+  const targets = readdirSync(libDir)
+    .filter((name) => name.endsWith('.so') || name.endsWith('.dylib'))
+    .map((name) => join(libDir, name))
+  if (targets.length === 0) {
+    console.log(`[fetch-sherpa-onnx] no shared libraries under ${libDir}`)
+    return
+  }
+
+  let stripped = 0
+  let before = 0
+  let after = 0
+  for (const target of targets) {
+    const original = statSync(target).size
+    const res = spawnSync('strip', [...args, target], { stdio: 'ignore' })
+    if (res.error || res.status !== 0) {
+      const reason = res.error ? res.error.message : `exit ${res.status}`
+      console.warn(`[fetch-sherpa-onnx] could not strip ${target} (${reason}); keeping it as shipped`)
+      before += original
+      after += original
+      continue
+    }
+    const current = statSync(target).size
+    before += original
+    after += current
+    stripped += 1
+    console.log(`[fetch-sherpa-onnx] stripped ${target}: ${formatMb(original)} -> ${formatMb(current)}`)
+  }
+  console.log(
+    `[fetch-sherpa-onnx] strip ${stripped}/${targets.length} libraries, ` +
+      `${formatMb(before)} -> ${formatMb(after)} (${formatMb(before - after)} saved)`,
+  )
+}
+
 function detectHost() {
   const { platform, arch } = process
   if (platform === 'darwin' && (arch === 'arm64' || arch === 'x64')) {
@@ -55,6 +118,7 @@ function detectHost() {
 
 async function main() {
   const force = process.argv.includes('--force')
+  const strip = !process.argv.includes('--no-strip')
   const host = detectHost()
   const cfg = PLATFORMS[host]
   const sherpaDir = resolve(import.meta.dirname, '..', 'third_party', 'sherpa-onnx')
@@ -92,6 +156,9 @@ async function main() {
   if (tar.status !== 0) {
     die(`extraction failed (tar exit ${tar.status})`)
   }
+  // After the sha256 gate: the pinned hash describes the tarball we trust, and
+  // stripping is a local size optimization of the extracted binaries (#259).
+  stripLibraries(join(dest, 'lib'), strip)
   console.log(`[fetch-sherpa-onnx] ${host} -> ${dest} (sherpa-onnx ${VERSION})`)
 }
 
