@@ -370,8 +370,14 @@ Canvas render ~5 ms + display refresh ~16 ms.
 ## 9. Testing strategy
 
 - **Unit (Vitest):** each stage's DSP core against fixtures - e.g., RNNoise on a
-  known noisy clip asserts SNR improvement > N dB; AEC on a synthetic echo
-  asserts ERLE > N dB; resampler correctness against a reference.
+  known noisy clip asserts SNR improvement > N dB; resampler correctness against
+  a reference.
+- **Device quality harness (ctest):** `device/tests/quality` runs the objective
+  gate on the device side - `afe_quality_ns` (NS SNR) and `aec_quality` (AEC
+  ERLE / near-end SI-SDR over `wake/aec.h`), each paired with a known-bad
+  negative control that CI asserts must FAIL. The AEC far end is broadband on
+  purpose: against a periodic far end, ERLE cannot tell a correctly-aligned AEC
+  from a misaligned one, so the gate would pass while measuring nothing.
 - **Integration:** the full `pipeline-processor` worklet via `OfflineAudioContext`
   with a test file, asserting the output matches a golden fixture within tolerance.
 - **Manual / on-device:** live mic on Chrome, Firefox, Edge, and Safari
@@ -442,3 +448,4 @@ All Phase 1 open questions are resolved (ADR-016); the contract is locked.
 | 2026-07-27 | Initial draft (docs-first, pending human review). | agent |
 | 2026-07-27 | Human review: resolved Q-AFE-1..4 (ADR-016); added config panel API + per-engine frame config (ADR-017). Status -> Accepted. | agent |
 | 2026-07-27 | ADR-016 amendment: AEC3 deferred to v1.x (passthrough for v1); AFE DSP at 48 kHz (resample to 16 kHz at output); VAD from RNNoise for v1 (Silero -> Phase 2); RNNoise prebuilt WASM vendored at packages/modules/afe/rnnoise/web/vendor/. | agent |
+| 2026-10-12 | AEC evaluation harness (#249 slice A): `wake/aec.h` ABI + a conforming reference NLMS + ctest gates with a known-bad negative control. Evaluation spike only - no AEC is wired into the pipeline, and ADR-048 §4 (MCU AEC unresolved) still applies. | agent |
