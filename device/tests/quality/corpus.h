@@ -35,6 +35,44 @@ void wake_corpus_rng_seed(wake_corpus_rng_t *rng, uint32_t seed);
 /** Uniform in [-1, 1). */
 float wake_corpus_noise(wake_corpus_rng_t *rng);
 
+/* Echo clip kinds (#249): paired far-end / near-end material with a KNOWN echo
+ * path, so residual echo and ERLE are measured against ground truth. */
+typedef enum wake_corpus_echo_kind {
+  WAKE_ECHO_FAR_END_ONLY = 0, /* playback only: pure echo, no near-end */
+  WAKE_ECHO_DOUBLE_TALK = 1   /* playback + near-end speech-like signal */
+} wake_corpus_echo_kind_t;
+
+/** Parameters of the synthetic echo path. All times in samples at 48 kHz. */
+typedef struct wake_corpus_echo_path {
+  int delay_frames;  /* bulk delay before the echo path starts */
+  int path_length;   /* RIR length in samples */
+  float echo_gain;   /* attenuation of the reflected path */
+  uint32_t seed;     /* seeds the RIR realisation AND the far-end source */
+} wake_corpus_echo_path_t;
+
+/**
+ * Render a paired echo clip.
+ *
+ * `render` receives the far-end playback signal (broadband, seeded: a tone stack
+ * would be periodic, and ERLE against a periodic signal cannot distinguish a
+ * correct AEC from a misaligned one). `capture` receives the microphone signal =
+ * delayed echo + near end + self noise.
+ *
+ * `near_end_out` (may be NULL) receives the CLEAN near-end component on its own.
+ * It is the ground truth for near-end survival (SI-SDR), and the generator hands
+ * it over rather than making the caller reconstruct it: re-deriving it from a
+ * different generator mode yields the ECHO, which scores the wrong quantity and
+ * fails even a perfect AEC.
+ *
+ * The render/capture relationship is exact and reproducible, which is what makes
+ * ERLE and residual echo measurements rather than opinions.
+ */
+void wake_corpus_render_echo_pair(int16_t *render, int16_t *capture,
+                                  int16_t *near_end_out, size_t n,
+                                  wake_corpus_echo_kind_t kind,
+                                  const wake_corpus_echo_path_t *path,
+                                  float near_end_freq_hz, float noise_snr_db);
+
 /* Clip kinds the committed corpus can produce. */
 typedef enum wake_corpus_kind {
   WAKE_CORPUS_TONE = 0,      /* pure tone: pure signal, no noise */

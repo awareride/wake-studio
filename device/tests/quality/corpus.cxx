@@ -273,3 +273,114 @@ void wake_corpus_render(int16_t *out, size_t n, wake_corpus_kind_t kind,
   free(signal);
   free(noise);
 }
+
+/* --- paired echo material (#249) ------------------------------------------ */
+
+/*
+ * A far-end playback signal and the microphone signal it would produce through a
+ * known echo path. The path is a bulk delay plus a short exponentially-decaying
+ * RIR at a fixed gain, so the ground truth echo is computable and the metrics are
+ * well-posed.
+ *
+ * The far end is BROADBAND (seeded pink noise), not a tone stack. This matters
+ * more than it looks: a periodic far end correlates 0.90 with itself at a 100 ms
+ * lag, and a short FIR can "align" a periodic signal with a fractional delay.
+ * With a tone-stack far end, ERLE stayed above 15 dB even with a 20 ms delay
+ * error -- the metric could not tell a correct AEC from a misaligned one, and the
+ * known-bad negative control passed on ERLE. Broadband excitation is what makes
+ * ERLE mean "this AEC modelled the echo path" rather than "this AEC found the
+ * period of the test tone".
+ */
+void wake_corpus_render_echo_pair(int16_t *render, int16_t *capture,
+                                  int16_t *near_end_out, size_t n,
+                                  wake_corpus_echo_kind_t kind,
+                                  const wake_corpus_echo_path_t *path,
+                                  float near_end_freq_hz, float noise_snr_db) {
+  if (render == NULL || capture == NULL || n == 0 || path == NULL) {
+    return;
+  }
+
+  float *far = (float *)calloc(n, sizeof(float));
+  float *echo = (float *)calloc(n, sizeof(float));
+  float *near = (float *)calloc(n, sizeof(float));
+  if (far == NULL || echo == NULL || near == NULL) {
+    free(far);
+    free(echo);
+    free(near);
+    return;
+  }
+
+  /* Far end: seeded pink noise. Deterministic per seed, so the corpus stays
+   * bit-reproducible (corpus.h) while spanning the band an AEC must adapt in. */
+  {
+    wake_corpus_rng_t rng;
+    wake_corpus_rng_seed(&rng, path->seed ^ 0xf0f0f0f0u);
+    pink_fill(far, n, &rng, 0.92f);
+  }
+  scale_to_peak(far, n, 0.5f);
+
+  /* Echo path: RIR at a fixed gain, then a bulk delay of `delay_frames`. */
+  const size_t hn = path->path_length > 0 ? (size_t)path->path_length : 1u;
+  float *rir = (float *)calloc(hn, sizeof(float));
+  if (rir != NULL) {
+    wake_corpus_rng_t rng;
+    wake_corpus_rng_seed(&rng, path->seed);
+    const double tau = 0.0025; /* ~2.5 ms decay: a plausible small room */
+    for (size_t i = 0; i < hn; ++i) {
+      const double t = (double)i / kSampleRate;
+      rir[i] = (float)(wake_corpus_noise(&rng) * exp(-t / tau));
+    }
+    rir[0] += 1.0f; /* direct reflection dominates */
+    for (size_t i = 0; i < hn; ++i) {
+      rir[i] *= path->echo_gain;
+    }
+    convolve(far, n, rir, hn, echo);
+    free(rir);
+  }
+
+  const size_t delay =
+      path->delay_frames > 0 ? (size_t)path->delay_frames * 480u : 0u;
+
+  /*
+   * Near end, rendered as its OWN buffer and then summed into the microphone.
+   *
+   * The harness needs this exact signal to score near-end survival (SI-SDR). The
+   * previous version had the caller reconstruct it by re-running the generator in
+   * a different mode -- which silently produced the ECHO, not the near end, so
+   * the gate was scoring the wrong quantity (a perfect AEC failed it at -55 dB).
+   * Ground truth must be a thing the generator hands over, not something the
+   * caller re-derives and hopes matches.
+   */
+  if (kind == WAKE_ECHO_DOUBLE_TALK) {
+    const double t_step = 1.0 / kSampleRate;
+    for (size_t i = 0; i < n; ++i) {
+      const double t = (double)i * t_step;
+      const float f = near_end_freq_hz > 0.0f ? near_end_freq_hz : 440.0f;
+      near[i] = (float)(0.25 * sin(2.0 * M_PI * f * t));
+    }
+  }
+
+  /* Microphone: the delayed echo, plus the near-end signal when double talking. */
+  wake_corpus_rng_t rng;
+  wake_corpus_rng_seed(&rng, path->seed ^ 0x5eed5eedu);
+  for (size_t i = 0; i < n; ++i) {
+    float mic = 0.0f;
+    if (i >= delay) {
+      mic = echo[i - delay];
+    }
+    mic += near[i];
+    mic += (float)(0.02 * wake_corpus_noise(&rng)); /* mic self-noise floor */
+    capture[i] = to_i16(mic * 32767.0f);
+    if (near_end_out != NULL) {
+      near_end_out[i] = to_i16(near[i] * 32767.0f);
+    }
+  }
+  (void)noise_snr_db; /* a fixed self-noise floor is enough for slice A */
+
+  for (size_t i = 0; i < n; ++i) {
+    render[i] = to_i16(far[i] * 32767.0f);
+  }
+  free(far);
+  free(echo);
+  free(near);
+}
