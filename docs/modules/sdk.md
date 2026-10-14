@@ -5,7 +5,7 @@
 - **Plan phase:** Phase 4 (reshaped by ADR-021; epic #31)
 - **Related ADRs:** ADR-019 (target matrix), ADR-020 (pluggable KWS backends), ADR-021 (device-side SDK), ADR-003/016 (AFE), ADR-024 (KWS decoupling), ADR-025 (module platform), ADR-034 (composition roots), ADR-040 (core language / placement / profiles / CI)
 - **Depends on (modules):** KWS (`KWSBackend` interface), AFE (RNNoise/WebRTC cores), Export (bundle generation)
-- **Last updated:** 2026-10-10
+- **Last updated:** 2026-10-14
 
 ## 1. Purpose
 
@@ -228,6 +228,34 @@ uint16_t reference_channels; /* far-end channels consumed (0 = none) */
   `fixed_delay_and_sum`, `doa_steered`, `mvdr_gsc`, `online_auxiva`, and
   delay-and-sum / DOA steering / MVDR / geometric separation must never be
   labelled blind source separation.
+
+#### 4.2.3 The browser speaks the same contract (issue #245 slice D)
+
+The device contract above is not device-only: the browser AFE declares the same
+three numbers so one vocabulary describes both worlds
+(`docs/modules/afe.md` §6.4):
+
+```ts
+// packages/contracts: what a stage declares, on either platform
+interface AFEStageGeometry { inputChannels; outputChannels; referenceChannels }
+AFEStage.geometry                       // browser stage engine
+AFEStage.processFrame(channels, reference)  // optional planar entry point
+spec.afe.geometry                      // module.spec.json, JSON-schema validated
+```
+
+- The browser worklet node has **two inputs**: input 0 is the mic/file planes,
+  input 1 the far-end render signal the app actually plays, supplied as
+  `start({ reference })`. A reference declared with no node (or a node with no
+  declaration) fails loudly at `start()`.
+- The graph owns the same conversions for the same reasons: never fewer
+  channels than declared, no reference to a stage that declared one without one
+  existing, and a graph-owned downmix for a mono-declared stage.
+- The #246 qualification gate is enforced at the delivery boundary: until a
+  capture is qualified, the browser graph serves mono, so a stereo-looking
+  stream never reaches a spatial stage.
+- `tests/stage-geometry.test.ts` asserts that a stage's spec declaration and
+  its engine declaration agree, which is what keeps the three places from
+  drifting.
 
 Today every shipped stage declares 1/1/0 (AEC, BSS, NS): AEC and BSS are still
 passthrough for v1 (ADR-016). What this slice delivers is the **structural
@@ -491,3 +519,4 @@ target — this is the hard acceptance for #41.
 |---|---|---|
 | 2026-07-27 | Initial stub (ADR-021 recorded; full contract deferred to Phase 4 start). | WakeStudio team |
 | 2026-08-19 | Draft v2: module-ownership (device code inside modules, ADR-040 §2), KWSBackend C API + detection loop (Q-SDK-1 resolved), AFE stage interface, composition root, profiles + capabilities, bundle contract, testing, sequence. | WakeStudio team |
+| 2026-10-14 | §4.2.3: the browser AFE declares the same geometry as the device stage ops (issue #245 slice D) — `AFEStage.geometry`, planar `processFrame()`, `spec.afe`, two-input worklet node with a far-end reference path. | agent |

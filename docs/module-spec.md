@@ -74,6 +74,16 @@ below is filled in **and** the referenced deliverables exist.
     }
   ],
 
+  "afe": {                       // optional; afe-category stage modules only (issue #245)
+    "stageId": "ns",              // aec | bss | ns - which chain position this module is
+    "geometry": {                 // must match the stage engine's AFEStage.geometry
+      "inputChannels": 1,         // mic channels consumed; 1 = single mic (default)
+      "outputChannels": 1,        // channels produced
+      "referenceChannels": 0      // far-end channels consumed; an AEC declares 1
+    },
+    "capability": "fixed_delay_and_sum"  // optional, ADR-048 §7 vocabulary, spatial stages only
+  },
+
   "runtime": {
     "web": {
       "engine": "AFEPipeline",
