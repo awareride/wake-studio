@@ -36,7 +36,20 @@ export interface FrameConfig {
  *  panel, ADR-017). */
 export interface AFEConfig {
   topology: AFETopology
-  channels: 1 | 2
+  /**
+   * Mic channels the project declares (issue #245): 1 = single-mic
+   * passthrough, 2-4 = a declared array. The default is 1, and a mono project
+   * costs nothing extra. Bounded by `MAX_AFE_CHANNELS`; validated by
+   * `validateGeometry` rather than clamped.
+   */
+  channels: number
+  /**
+   * Far-end (render) channels available to the capture (issue #245): 0 = no
+   * reference, 1+ = a reference path exists. An AEC stage declares one, and is
+   * refused on a capture without one — the reference is structural, not a
+   * runtime toggle.
+   */
+  referenceChannels: number
   frameMs: FrameConfig
   latencyBudgetMs: number
   vizFps: number
@@ -54,12 +67,23 @@ export interface MicSourceConfig {
   echoCancellation?: boolean
   noiseSuppression?: boolean
   autoGainControl?: boolean
-  channelCount?: 1 | 2
+  channelCount?: number
   /**
    * Send the mic through to the speakers (monitor). Off by default: speaker
    * output feeds back into the mic without headphones (issue #140).
    */
   monitor?: boolean
+  /**
+   * Far-end (render) source for echo cancellation (issue #245): the node
+   * playing what the user actually hears — a media element, a demo oscillator,
+   * the app's own playback. Connected to the worklet's second input so a stage
+   * declaring `referenceChannels > 0` has a real reference to cancel.
+   *
+   * Required when `config.referenceChannels > 0` and rejected outright
+   * otherwise: a reference nobody declared is as much a misconfiguration as a
+   * declared reference that never arrives.
+   */
+  reference?: AudioNode
 }
 
 /**
@@ -74,6 +98,8 @@ export interface FileSourceConfig {
   nodes: AudioNode[]
   /** Stop / release the file sources (called on AFE stop). */
   dispose: () => void
+  /** Far-end (render) source, as in {@link MicSourceConfig.reference}. */
+  reference?: AudioNode
 }
 
 /** Union of accepted pipeline input sources (mic or file). */
@@ -207,6 +233,22 @@ export type MainMessage =
       type: 'config'
       bypass: { aec: boolean; bss: boolean; ns: boolean }
       vizFps: number
+      /**
+       * Declared capture geometry (issue #245): how many mic channels the
+       * project asks for and how many far-end reference channels it can
+       * supply. The worklet still measures what actually arrives
+       * (`inputs[0].length`) and serves stages from the delivery, never from
+       * this declaration.
+       */
+      channels?: number
+      referenceChannels?: number
+      /**
+       * Whether the running capture is qualified for spatial processing
+       * (#246). Sent as state, not inferred: until a verdict says otherwise
+       * the worklet serves mono, because a stereo-looking stream is not
+       * evidence of two independent microphones.
+       */
+      spatialSupported?: boolean
       /**
        * Per-stage runtime parameters (issue #243), keyed by stage id and then
        * by the param id declared in that module's `module.spec.json`.

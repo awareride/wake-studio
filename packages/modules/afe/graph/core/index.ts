@@ -22,6 +22,21 @@ export type {
   QualificationLevel,
   QualificationResult,
 } from './qualify'
+export {
+  AFEGeometryError,
+  MAX_AFE_CHANNELS,
+  downmixToMono,
+  planStage,
+  servedMicChannels,
+  stageGeometry,
+  validateGeometry,
+} from './geometry'
+export type {
+  DeliveredGeometry,
+  GeometryAction,
+  GeometryConfig,
+  StageGeometryPlan,
+} from './geometry'
 export { DEFAULT_CONFIG, describeParameters } from './defaults'
 export {
   INTERNAL_SAMPLE_RATE,

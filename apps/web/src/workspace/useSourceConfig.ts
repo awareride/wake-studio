@@ -54,7 +54,7 @@ function stableKey(v: unknown): string {
 export function useSourceConfig(
   wsCfg: WorkspaceConfig | undefined,
   persistWs: (patch: Partial<WorkspaceConfig>) => void,
-  fallbackChannelCount: 1 | 2,
+  fallbackChannelCount: number,
 ): SourceState &
   SourceActions & { kindChanged: boolean; dirty: boolean; appliedSource: SourceState } {
   const [mic, setMic] = React.useState<MicSourceConfig>(() => {

@@ -102,7 +102,7 @@ function makeProject(partial: Partial<WakeWordProject> = {}): WakeWordProject {
     targetWord: partial.targetWord ?? 'hey studio',
     domain: 'high-performance',
     config: {
-      afe: { topology: 'single-worklet', channels: 1, frameMs: { aec: 10, bss: 10, ns: 10 }, latencyBudgetMs: 150, vizFps: 30 },
+      afe: { topology: 'single-worklet', channels: 1, referenceChannels: 0, frameMs: { aec: 10, bss: 10, ns: 10 }, latencyBudgetMs: 150, vizFps: 30 },
       kws: { backend: 'openwakeword', threshold: 0.5, minDurationMs: 300, smoothingWindowFrames: 5, vadGateEnabled: true, vadThreshold: 0.3, cooldownMs: 2000, executionProvider: 'wasm' },
       fewShot: { threshold: 0.9, minDurationMs: 300, cooldownMs: 2000, smoothingWindowFrames: 5, vadGateEnabled: true, vadThreshold: 0.3, windowMs: 1500, hopMs: 80, useNegativePrototype: false, silenceFloorDbfs: -45 },
     },

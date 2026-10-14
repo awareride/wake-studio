@@ -21,6 +21,11 @@ import type {
 } from './types'
 import { validateStageParams } from './validate-params'
 import { evaluateQualification, type QualificationResult } from './qualify'
+import {
+  AFEGeometryError,
+  MAX_AFE_CHANNELS,
+  validateGeometry,
+} from './geometry'
 import { DEFAULT_CONFIG, INTERNAL_SAMPLE_RATE } from './defaults'
 import { describeParameters } from './defaults'
 import type { MainMessage, WorkletMessage } from './types'
@@ -43,6 +48,8 @@ export class AFEPipeline {
   private _fileNodes: AudioNode[] = []
   /** File-source dispose callback (stops the scheduler). */
   private _fileDispose: (() => void) | null = null
+  /** Far-end (render) node wired into the worklet's reference input (#245). */
+  private _referenceNode: AudioNode | null = null
 
   private _config: AFEConfig = { ...DEFAULT_CONFIG }
   private _bypass = { aec: true, bss: true, ns: false }
@@ -111,6 +118,28 @@ export class AFEPipeline {
       : null
     // Mic config (used below for getUserMedia options + monitor routing).
     const micSource = source as MicSourceConfig | undefined
+    // Far-end (render) reference, declared by either source kind (#245).
+    const reference = fileSource?.reference ?? micSource?.reference
+
+    // Declared geometry is validated before anything is started: a project
+    // asking for channels the contract cannot express, or a reference nobody
+    // declared (or a declared reference that never arrives), is a
+    // misconfiguration and fails loudly rather than degrading quietly.
+    validateGeometry(this._config)
+    if (this._config.referenceChannels > 0 && !reference) {
+      throw new AFEGeometryError(
+        'AFE config declares ' +
+          this._config.referenceChannels +
+          ' far-end reference channel(s) but start() was given no reference node; ' +
+          'an AEC stage is refused on a capture without a reference',
+      )
+    }
+    if (reference && this._config.referenceChannels === 0) {
+      throw new AFEGeometryError(
+        'AFE reference node supplied but config.referenceChannels is 0; declare the ' +
+          'reference before supplying one',
+      )
+    }
 
     if (fileSource) {
       // File source (epic #53 P3): the host already decoded + scheduled the
@@ -120,7 +149,9 @@ export class AFEPipeline {
     } else {
       // Request microphone. Browser DSP toggles + device come from the source
       // config (epic #53 P2); defaults keep the current behavior (browser DSP
-      // off so ours is the only processing, default device).
+      // off so ours is the only processing, default device). The channel count
+      // now comes from the declared geometry (issue #245), clamped to what the
+      // contract can express.
       try {
         this._stream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -128,7 +159,7 @@ export class AFEPipeline {
             echoCancellation: micSource?.echoCancellation ?? false,
             noiseSuppression: micSource?.noiseSuppression ?? false,
             autoGainControl: micSource?.autoGainControl ?? false,
-            channelCount: micSource?.channelCount ?? this._config.channels,
+            channelCount: Math.max(1, Math.min(micSource?.channelCount ?? this._config.channels, MAX_AFE_CHANNELS)),
           },
         })
       } catch {
@@ -146,7 +177,21 @@ export class AFEPipeline {
     await this._ctx.audioWorklet.addModule(workletUrl)
 
     // Wire the audio graph.
-    this._node = new AudioWorkletNode(this._ctx, 'pipeline-processor')
+    // Inputs 0 = the mic/file planes, input 1 = the far-end reference
+    // (issue #245). An unconnected reference input costs nothing and stays
+    // silent. The channel counts are explicit so a stereo capture cannot
+    // bleed into the reference plane (or the reverse) through channel-count
+    // computation; the reference plane is always one channel.
+    this._node = new AudioWorkletNode(this._ctx, 'pipeline-processor', {
+      numberOfInputs: 2,
+      channelCount: this._config.channels,
+      channelCountMode: 'explicit',
+      channelInterpretation: 'speakers',
+    })
+    if (reference) {
+      this._referenceNode = reference
+      reference.connect(this._node, 0, 1)
+    }
     if (fileSource) {
       // File source: connect each scheduled node into the worklet.
       for (const node of this._fileNodes) {
@@ -181,6 +226,17 @@ export class AFEPipeline {
 
     this._node?.disconnect()
     this._source?.disconnect()
+    // Release the far-end reference wiring (#245): disconnect this pipeline's
+    // node from the caller's reference node, which may keep playing its own
+    // audio.
+    if (this._referenceNode && this._node) {
+      try {
+        this._referenceNode.disconnect(this._node)
+      } catch {
+        // Already disconnected.
+      }
+    }
+    this._referenceNode = null
     this._stream?.getTracks().forEach((t) => t.stop())
     // Stop + release file sources (epic #53 P3).
     this._fileDispose?.()
@@ -316,7 +372,12 @@ export class AFEPipeline {
   // ---- config panel (ADR-017) ----
 
   setConfig(patch: Partial<AFEConfig>): void {
-    this._config = { ...this._config, ...patch }
+    const next = { ...this._config, ...patch }
+    // Geometry is validated here too: moving a project from mono to an array,
+    // or declaring a reference, must fail loudly on the main thread rather than
+    // be clamped or ignored by the worklet.
+    validateGeometry(next)
+    this._config = next
     this._sendConfig()
   }
 
@@ -335,6 +396,12 @@ export class AFEPipeline {
       type: 'config',
       bypass: { ...this._bypass },
       vizFps: this._config.vizFps,
+      // Declared capture geometry (issue #245). The worklet still measures
+      // what actually arrives, and serves spatial processing only once the
+      // capture is qualified (#246).
+      channels: this._config.channels,
+      referenceChannels: this._config.referenceChannels,
+      spatialSupported: this._qualification?.spatialSupported === true,
       stageParams: Object.keys(this._stageParams).length
         ? (this._stageParams as StageParamsByKind)
         : undefined,
@@ -358,6 +425,10 @@ export class AFEPipeline {
           clipped: msg.clipped,
           energyRatio: msg.energyRatio,
         })
+        // Push the verdict back into the worklet: until now it served mono
+        // (fail safe), and a qualified capture is what opens the spatial path
+        // (#245).
+        this._sendConfig()
         break
       }
 

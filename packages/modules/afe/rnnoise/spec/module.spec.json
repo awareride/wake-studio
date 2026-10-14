@@ -10,6 +10,14 @@
     "license": "BSD-3-Clause (RNNoise) + MIT (integration)",
     "status": "accepted"
   },
+  "afe": {
+    "stageId": "ns",
+    "geometry": {
+      "inputChannels": 1,
+      "outputChannels": 1,
+      "referenceChannels": 0
+    }
+  },
   "params": [
     {
       "id": "strength",

@@ -13,6 +13,23 @@
  * only the *scheduling* (circular buffer, frame assembly, viz throttling,
  * recording) - not the stage DSP.
  *
+ * **Geometry (issue #245).** A stage declares what it consumes and produces
+ * (`AFEStage.geometry`), the project declares what its capture has
+ * (`AFEConfig.channels` / `referenceChannels`), and this file serves the
+ * difference exactly as the device graph does (docs/modules/sdk.md §4.2.2):
+ * never fewer channels than declared, no reference to a stage that declared one
+ * without a reference existing, and a graph-owned downmix for a mono-declared
+ * stage on a multi-channel capture. The worklet measures what actually arrived
+ * (`inputs[0].length`) and never trusts the declaration; a capture that has not
+ * been qualified for spatial processing (#246) is served mono.
+ *
+ * Callback discipline: every buffer the audio path touches is preallocated in
+ * the constructor (mic planes, reference planes, mono scratch, stage slots).
+ * The only per-frame allocations are the few subarray views the frame loop
+ * already used before geometry existed, and the plan objects recomputed when
+ * the delivered geometry changes - at most a handful of times per run, never
+ * per frame.
+ *
  * Emits per-stage visualization data (throttled to vizFps) and 16 kHz output
  * frames (160 samples / 10 ms) for downstream KWS.
  */
@@ -26,6 +43,15 @@ import { loadRnnoiseStage } from '@wake-studio/module-rnnoise/web/loader'
 
 import type { AFEStage } from '@wake-studio/contracts'
 import { ChannelProbe, MIN_OBSERVATION_FRAMES } from '../core/qualify'
+import {
+  MAX_AFE_CHANNELS,
+  downmixToMono,
+  planStage,
+  servedMicChannels,
+  stageGeometry,
+  type GeometryAction,
+  type StageGeometryPlan,
+} from '../core/geometry'
 import type {
   AFEStageKind,
   MainMessage,
@@ -50,10 +76,35 @@ import {
 
 const PROCESSOR_NAME = 'pipeline-processor'
 
+/** One stage in the chain plus its resolved geometry slot (issue #245). */
+interface StageSlot {
+  kind: AFEStageKind
+  stage: AFEStage | null
+  /** How this stage is served for the current delivery. */
+  plan: StageGeometryPlan
+  /** Refusals are reported once, not on every frame. */
+  reported: boolean
+}
+
+function refusePlan(reason: string): StageGeometryPlan {
+  return { action: 'refuse' as GeometryAction, micChannels: 0, referenceChannels: 0, reason }
+}
+
+/**
+ * Stage overrides, used by tests to drive the geometry paths with stages that
+ * actually declare an array (no shipped stage does yet - AEC/BSS are
+ * passthrough and RNNoise is mono, ADR-016).
+ */
+export interface ProcessorStageOverrides {
+  aec?: AFEStage | null
+  bss?: AFEStage | null
+  ns?: AFEStage | null
+}
+
 class PipelineProcessor extends AudioWorkletProcessor {
   // Stage modules, driven through the AFEStage interface.
-  private _aec: AecStage
-  private _bss: BssStage
+  private _aec: AFEStage | null
+  private _bss: AFEStage | null
   /**
    * Capture/array qualification probe (issue #246).
    *
@@ -63,10 +114,50 @@ class PipelineProcessor extends AudioWorkletProcessor {
    */
   private _probe = new ChannelProbe()
   private _reportedCapture = false
-  private _ns: ReturnType<typeof loadRnnoiseStage> | null = null
+  private _ns: AFEStage | null = null
 
-  // Circular buffer (LCM(128, 480) = 1920 samples).
-  private _buffer = new Float32Array(CIRCULAR_BUFFER_SIZE)
+  // --- geometry (issue #245) -------------------------------------------------
+  /** Declared capture geometry, from the config message. */
+  private _channels = 1
+  private _referenceChannels = 0
+  /** Whether the running capture is qualified for spatial processing (#246). */
+  private _spatialSupported = false
+  /** Mic/reference planes actually served (delivery + the #246 gate). */
+  private _servedMicChannels = 1
+  private _servedRefChannels = 0
+  /** Delivered channel counts last observed in the callback. */
+  private _deliveredMic = -1
+  private _deliveredRef = -1
+
+  /**
+   * Per-channel planes, preallocated for the maximum a capture can declare
+   * (mirrors the device graph's WAKE_AFE_MAX_CHANNELS). Channel 0 IS the chain
+   * circular buffer (LCM(128, 480) = 1920 samples); the rest only exist for a
+   * spatial stage.
+   */
+  private _planes: Float32Array[] = Array.from(
+    { length: MAX_AFE_CHANNELS },
+    () => new Float32Array(CIRCULAR_BUFFER_SIZE),
+  )
+  private _refPlanes: Float32Array[] = Array.from(
+    { length: MAX_AFE_CHANNELS },
+    () => new Float32Array(CIRCULAR_BUFFER_SIZE),
+  )
+  /** Scratch plane the graph owns when it downmixes for a mono-declared stage. */
+  private _monoScratch = new Float32Array(RNNOISE_FRAME_SIZE)
+  /** Planar per-channel views, rebuilt only when the chain needs them. */
+  private _planarViews: Float32Array[] = Array.from(
+    { length: MAX_AFE_CHANNELS },
+    () => new Float32Array(0),
+  )
+
+  /** Fixed slots, in pipeline order (ADR-001). */
+  private _slots: StageSlot[] = [
+    { kind: 'aec', stage: null, plan: refusePlan('not initialised'), reported: false },
+    { kind: 'bss', stage: null, plan: refusePlan('not initialised'), reported: false },
+    { kind: 'ns', stage: null, plan: refusePlan('not initialised'), reported: false },
+  ]
+
   private _inputLength = 0
   private _denoisedLength = 0
   private _denoisedIndex = 0
@@ -100,26 +191,82 @@ class PipelineProcessor extends AudioWorkletProcessor {
   private _lastNsFrame = new Float32Array(RNNOISE_FRAME_SIZE)
   private _hasNsFrame = false
 
-  constructor() {
+  constructor(options?: AudioWorkletNodeOptions) {
     super()
+    // `options` is the browser's AudioWorkletNodeOptions; the stage overrides
+    // are a test seam so the geometry paths can be driven with a stage that
+    // actually declares an array (no shipped stage does yet - AEC/BSS are
+    // passthrough and RNNoise is mono, ADR-016).
+    const overrides = options as (AudioWorkletNodeOptions & ProcessorStageOverrides) | undefined
 
     // AEC + BSS: passthrough engines (v1).
-    this._aec = new AecStage()
-    this._bss = new BssStage()
+    this._aec = overrides && 'aec' in overrides ? (overrides.aec ?? null) : new AecStage()
+    this._bss = overrides && 'bss' in overrides ? (overrides.bss ?? null) : new BssStage()
+    this._slots[0].stage = this._aec
+    this._slots[1].stage = this._bss
 
     // NS: RNNoise, synchronously instantiated (addModule doesn't await promises).
     try {
-      this._ns = loadRnnoiseStage()
+      this._ns = overrides && 'ns' in overrides ? (overrides.ns ?? null) : loadRnnoiseStage()
+      this._slots[2].stage = this._ns
     } catch (err) {
       this._ns = null
-      this._post({ type: 'error', message: `RNNoise init failed: ${String(err)}` })
+      this._post({ type: 'error', message: 'RNNoise init failed: ' + String(err) })
     }
+
+    // Resolve the geometry slots for the default (mono, no reference) delivery.
+    this._recomputePlans()
 
     this.port.onmessage = (e: MessageEvent<MainMessage>) => {
       this._handleMessage(e.data)
     }
 
     this._post({ type: 'ready' })
+  }
+
+  /**
+   * Re-resolve how every stage is served. Called when the declared geometry or
+   * the delivered geometry changes, never per frame.
+   *
+   * The gate that matters here is #246's: a project may *declare* an array, but
+   * until the capture is qualified the graph serves mono, so a stereo-looking
+   * stream can never reach a spatial stage. The declared-but-served difference
+   * is reported once via `spatial-served`.
+   */
+  private _recomputePlans(): void {
+    const served = servedMicChannels(
+      { channels: this._channels, referenceChannels: this._referenceChannels },
+      this._spatialSupported,
+    )
+    this._servedMicChannels = Math.max(1, Math.min(served.micChannels, MAX_AFE_CHANNELS))
+    this._servedRefChannels =
+      this._referenceChannels > 0
+        ? Math.min(this._referenceChannels, Math.max(0, this._deliveredRef))
+        : 0
+
+    for (const slot of this._slots) {
+      const declared = stageGeometry(slot.stage?.geometry)
+      slot.plan = planStage(declared, {
+        micChannels: this._servedMicChannels,
+        referenceChannels: this._servedRefChannels,
+      })
+      // A planar stage with no planar entry point is not runnable: refusing is
+      // the honest answer, the same one a missing reference gets.
+      if (
+        slot.plan.action !== 'refuse' &&
+        (slot.plan.micChannels > 1 || slot.plan.referenceChannels > 0) &&
+        typeof slot.stage?.processFrame !== 'function'
+      ) {
+        slot.plan = refusePlan(
+          'stage declares ' +
+            declared.inputChannels +
+            ' mic / ' +
+            declared.referenceChannels +
+            ' reference channel(s) but implements no planar process() entry point',
+        )
+      }
+      slot.reported = false
+    }
   }
 
   /**
@@ -173,6 +320,13 @@ class PipelineProcessor extends AudioWorkletProcessor {
         this._bypass = msg.bypass
         this._vizInterval = 1 / msg.vizFps
         this._applyStageParams(msg.stageParams)
+        // Geometry is delivered as state, and the worklet re-resolves its plans
+        // here (outside the audio callback) rather than inferring anything
+        // about the capture from the declaration.
+        if (msg.channels !== undefined) this._channels = msg.channels
+        if (msg.referenceChannels !== undefined) this._referenceChannels = msg.referenceChannels
+        if (msg.spatialSupported !== undefined) this._spatialSupported = msg.spatialSupported
+        this._recomputePlans()
         break
       case 'absource':
         this._abSource = msg.source
@@ -230,27 +384,87 @@ class PipelineProcessor extends AudioWorkletProcessor {
     this._probe.observe(inputs[0])
     this._maybeReportCapture()
 
-    // --- 1. Append raw input to the circular buffer ---
-    this._buffer.set(inData, this._inputLength)
+    // The delivered geometry is measured, never assumed. A change re-resolves
+    // the stage plans (a one-off cost, outside the per-frame path).
+    const deliveredMic = inputs[0].length
+    const deliveredRef =
+      this._referenceChannels > 0 ? (inputs[1]?.length ?? 0) : 0
+    if (deliveredMic !== this._deliveredMic || deliveredRef !== this._deliveredRef) {
+      this._deliveredMic = deliveredMic
+      this._deliveredRef = deliveredRef
+      this._recomputePlans()
+    }
+
+    // --- 1. Append the served planes to the circular buffer ---------------
+    // Only the planes the graph actually serves are copied: until a capture is
+    // qualified for spatial processing, that is channel 0 and nothing else.
+    const writeAt = this._inputLength
+    for (let c = 0; c < this._servedMicChannels; c++) {
+      const plane = inputs[0][c]
+      if (!plane) break
+      this._planes[c].set(plane, writeAt)
+    }
     this._inputLength += inData.length
     // Also append to the spectrogram history (contiguous window source).
     this._specHistory.push(inData)
 
+    // Far-end reference, when the project declared one and the node has it.
+    if (this._servedRefChannels > 0) {
+      const refPlane = inputs[1]?.[0]
+      if (refPlane) this._refPlanes[0].set(refPlane, writeAt)
+    }
+
     // --- 2. Run the stage chain over 480-sample frames ---
     while (this._denoisedLength + RNNOISE_FRAME_SIZE <= this._inputLength) {
-      const frame = this._buffer.subarray(
-        this._denoisedLength,
-        this._denoisedLength + RNNOISE_FRAME_SIZE,
-      )
+      const start = this._denoisedLength
+      const end = start + RNNOISE_FRAME_SIZE
+      // The chain stream: plane 0 unless a planar or mono-downmixing stage
+      // took it over.
+      let frame = this._planes[0].subarray(start, end)
 
       // AEC -> BSS -> NS through the AFEStage interface.
       // AEC/BSS: passthrough engines for v1 (their process() is a no-op on the
       // frame, but the interface call keeps the chain honest + future-proof).
       let vad = 0
-      if (!this._bypass.aec) this._aec.process(frame)
-      if (!this._bypass.bss) this._bss.process(frame)
-      if (!this._bypass.ns && this._ns) {
-        vad = this._ns.process(frame).vadProbability
+      for (const slot of this._slots) {
+        const plan = slot.plan
+        const stage = slot.stage
+        if (plan.action === 'refuse') {
+          if (!slot.reported) {
+            slot.reported = true
+            this._post({ type: 'error', message: `AFE ${slot.kind} not run: ${plan.reason}` })
+          }
+          continue
+        }
+        if (this._bypass[slot.kind] || !stage) continue
+
+        if (plan.micChannels > 1 || plan.referenceChannels > 0) {
+          // Planar path: rebuild the per-channel views for this frame and the
+          // reference plane, then hand them to the stage.
+          for (let c = 0; c < plan.micChannels; c++) {
+            this._planarViews[c] = this._planes[c].subarray(start, end)
+          }
+          const reference =
+            plan.referenceChannels > 0
+              ? [this._refPlanes[0].subarray(start, end)]
+              : null
+          const result = stage.processFrame!(this._planarViews.slice(0, plan.micChannels), reference)
+          vad = Math.max(vad, result.vadProbability)
+          frame = this._planarViews[0]
+        } else if (plan.action === 'downmix') {
+          // A mono-declared stage on a multi-channel capture: the graph owns
+          // the conversion, exactly as the device graph does.
+          for (let c = 0; c < this._servedMicChannels; c++) {
+            this._planarViews[c] = this._planes[c].subarray(start, end)
+          }
+          downmixToMono(this._planarViews.slice(0, this._servedMicChannels), this._monoScratch)
+          const result = stage.process(this._monoScratch)
+          vad = Math.max(vad, result.vadProbability)
+          frame = this._monoScratch
+        } else {
+          const result = stage.process(frame)
+          vad = Math.max(vad, result.vadProbability)
+        }
       }
 
       // Keep a copy of the last NS frame for stable visualization
@@ -286,7 +500,7 @@ class PipelineProcessor extends AudioWorkletProcessor {
     }
 
     if (unsent >= outData.length) {
-      const chunk = this._buffer.subarray(
+      const chunk = this._planes[0].subarray(
         this._denoisedIndex,
         this._denoisedIndex + outData.length,
       )

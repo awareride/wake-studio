@@ -7,13 +7,21 @@
  * (web worklet, node, tests). No engine changes.
  */
 
-import type { AFEStage, AFEStageParams, AFEStageResult } from '@wake-studio/contracts'
+import type { AFEStage, AFEStageParams, AFEStageResult, AFEStageGeometry } from '@wake-studio/contracts'
+import { MONO_STAGE_GEOMETRY } from '@wake-studio/contracts'
 import { levelDb } from '@wake-studio/dsp'
 import { RnnoiseModule, type RnnoiseConfig } from './engine'
 import type { RnnoiseWasmModule } from './wasm-interface'
 
 export class RnnoiseNsStage implements AFEStage {
   readonly kind = 'ns' as const
+  /**
+   * Declared geometry (issue #245): RNNoise is a mono 48 kHz model, so the
+   * stage consumes and produces one channel and needs no far-end reference —
+   * the same 1/1/0 the device NS stage declares. The graph downmixes a
+   * multi-channel capture to mono before calling it.
+   */
+  readonly geometry: AFEStageGeometry = MONO_STAGE_GEOMETRY
   private _engine: RnnoiseModule
 
   constructor(wasm: RnnoiseWasmModule, config?: Partial<RnnoiseConfig>) {

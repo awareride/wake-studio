@@ -6,7 +6,8 @@
  * (WebRTC AEC3) can replace the passthrough behind the same contract.
  */
 
-import type { AFEStage, AFEStageKind, AFEStageResult } from '@wake-studio/contracts'
+import type { AFEStage, AFEStageKind, AFEStageResult, AFEStageGeometry } from '@wake-studio/contracts'
+import { MONO_STAGE_GEOMETRY } from '@wake-studio/contracts'
 import { levelDb } from '@wake-studio/dsp'
 
 export interface AecConfig {
@@ -16,6 +17,15 @@ export interface AecConfig {
 
 export class AecStage implements AFEStage {
   readonly kind: AFEStageKind = 'aec'
+  /**
+   * Declared geometry (issue #245): v1 is a passthrough, so it consumes and
+   * produces single-mic and asks for no far-end reference. A real AEC3
+   * implementation replaces the passthrough behind this same contract and
+   * declares `referenceChannels: 1`, which the graph then refuses to serve on
+   * a capture without a reference — the declaration is what makes an AEC
+   * structurally impossible to enable by accident.
+   */
+  readonly geometry: AFEStageGeometry = MONO_STAGE_GEOMETRY
   private _config: AecConfig
 
   constructor(config: Partial<AecConfig> = {}) {
