@@ -80,6 +80,12 @@ class MonoStage implements AFEStage {
   reset(): void {}
 }
 
+/** The surface of the processor the test drives (port + process callback). */
+interface Processor {
+  port: FakePort
+  process: (inputs: Float32Array[][], outputs: Float32Array[][]) => boolean
+}
+
 type ProcessorCtor = new (options?: unknown) => Processor
 
 /** The processor class the worklet module registered at import time. */
@@ -111,7 +117,7 @@ function feed(
   }
 }
 
-function postedOfType<T extends { type: string }>(p: Processor, type: string): T[] {
+function postedOfType<T>(p: Processor, type: string): T[] {
   return p.port.posted.filter((m) => (m as { type: string }).type === type) as T[]
 }
 

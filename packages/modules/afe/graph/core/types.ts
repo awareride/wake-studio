@@ -82,6 +82,14 @@ export interface MicSourceConfig {
    * Required when `config.referenceChannels > 0` and rejected outright
    * otherwise: a reference nobody declared is as much a misconfiguration as a
    * declared reference that never arrives.
+   *
+   * One honest limit of the Web Audio API: a node's `channelCount` is a single
+   * number shared by every input, so a project declaring 2+ mic channels also
+   * asks for 2 planes from the reference input. A mono render source is then
+   * duplicated rather than upmixed, and the worklet reads input 1 plane 0 — a
+   * stage declaring more than one reference channel gets planes of the same
+   * signal, which is what an echo canceller expects anyway (the far end is one
+   * signal).
    */
   reference?: AudioNode
 }
