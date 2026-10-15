@@ -5,7 +5,7 @@
 - **Plan phase:** Phase 1 (AFE); module-migration §6.2 (per-stage modules)
 - **Related ADRs:** ADR-001 (pipeline stages AEC -> BSS -> NS -> KWS), ADR-003 (vendor vs portable AFE), ADR-016 (AFE Phase 1 design decisions), ADR-017 (per-component config panel), ADR-029 (per-stage modules), ADR-048 (AFE component selection: coexisting options, explicitly selected; amends ADR-016/018)
 - **Depends on (modules):** none (capture is the source of the audio graph); the graph module depends on the aec/bss/rnnoise stage modules
-- **Last updated:** 2026-10-10
+- **Last updated:** 2026-10-14
 
 ## 0. Module layout (ADR-029)
 
@@ -115,13 +115,15 @@ export interface FrameConfig {
  *  Studio config panel (ADR-017). */
 export interface AFEConfig {
   topology: AFETopology;        // default 'single-worklet'
-  channels: 1 | 2;              // default 1 (single-mic passthrough)
+  channels: number;             // declared mic channels, 1..4; default 1 (single-mic)
+  referenceChannels: number;    // far-end reference channels, 0..4; default 0
   frameMs: FrameConfig;         // default { aec:10, bss:10, ns:10 }
   latencyBudgetMs: number;      // default 150
   vizFps: number;               // default 30
   // Stage-specific DSP params (e.g. AEC ERLE target, NS attenuation) are
   // declared via describeParameters() below.
 }
+
 
 /** Descriptor for one tunable parameter, used to build the Studio config panel
  *  (ADR-017). Every module exposes its parameters this way. */
@@ -191,12 +193,21 @@ The plan's original "each an AudioWorklet node" wording is superseded by this.
    480-sample frames are exactly 10 ms) -> `MediaStreamSource` ->
    `AudioWorkletNode('pipeline-processor')`. The worklet receives 128-sample render
    quanta at 48 kHz.
+
+   The node has **two inputs**: 0 = mic/file planes (channel count from
+   `config.channels`, explicit), 1 = the optional far-end reference (issue #245,
+   §6.4). An unconnected reference input stays silent and costs nothing.
+
 3. **Inside the worklet, per render quantum (128 samples @ 48 kHz):**
-   1. Accumulate quanta until a stage frame is full. NS (RNNoise) consumes
+   1. Observe the channels that actually arrived (`inputs[0].length`, plus
+      `inputs[1]` when a far-end reference is declared) and accumulate them
+      into the per-channel planes until a stage frame is full. NS (RNNoise) consumes
       **480-sample frames @ 48 kHz** (= 10 ms); AEC and BSS are passthrough for v1
       (ADR-016), so they copy through at the quantum level.
    2. Run the stage chain **AEC -> BSS -> NS** at 48 kHz, honoring per-stage bypass
-      (bypass = copy through). NS returns a VAD score per frame (used for the viz
+      (bypass = copy through) and each stage's declared geometry: a mono stage is
+      fed the graph's downmix, a stage needing a reference is refused without
+      one, and nothing spatial runs before the capture is qualified (#245, #246). NS returns a VAD score per frame (used for the viz
       VAD curve in v1).
    3. Resample the NS output to **16 kHz mono** for the KWS output frame (ADR-001).
    4. Compute per-stage visualization data, throttle to `vizFps`, and
@@ -216,7 +227,8 @@ controls generically.
 | Parameter | Default | Range | Notes |
 |---|---|---|---|
 | `topology` | `single-worklet` | `single-worklet` \| `node-per-stage` | AFE topology (ADR-016). single-worklet implemented first. |
-| `channels` | 1 | 1-2 | 2 only for BSS stereo input; default 1 = single-mic passthrough (ADR-016). |
+| `channels` | 1 | 1-4 | Declared mic channels (issue #245). 1 = single-mic passthrough; 2-4 = a declared array, usable only after #246 qualification. |
+| `referenceChannels` | 0 | 0-4 | Far-end reference channels (issue #245). 0 = none; >0 requires a reference node at start(). |
 | `frameMs.aec` | 10 | - | AEC frame; configurable per engine (ADR-016). AEC is passthrough for v1 (deferred to v1.x). |
 | `frameMs.bss` | 10 | - | BSS frame; configurable per engine. Passthrough for v1. |
 | `frameMs.ns` | 10 | - | NS (RNNoise) frame = 480 samples @ 48 kHz; configurable per engine (ADR-016). |
@@ -325,6 +337,74 @@ a log.
 **Not yet in place** (same issue, later slices): the workspace stage panels are
 still hand-written rather than spec-driven, and param values are not yet
 persisted with the project model.
+
+### 6.4 Declared AFE geometry in the browser (issue #245, slice D)
+
+The browser now speaks the same geometry contract the device graph has had
+since #245 slice B (`docs/modules/sdk.md` §4.2.2). A stage receives what the
+capture actually delivered and declares what it needs; the graph serves the
+difference instead of assuming a mono stream.
+
+**One geometry, three places, one test that they agree:**
+
+| Where | What | Checked by |
+|---|---|---|
+| Device ops (`wake_afe_stage_ops_t`) | `input_channels` / `output_channels` / `reference_channels` | `device/tests/unit/afe_graph.test.cxx` (graph validation) |
+| Browser stage engine | `AFEStage.geometry` (+ optional planar `processFrame()`) | `packages/modules/afe/graph/tests/stage-geometry.test.ts` |
+| Module spec | `spec.afe.geometry` (+ `capability`) | same test, against the JSON schema |
+
+**Contract.** `AFEConfig.channels` (1..4, default 1) declares the mic array and
+`AFEConfig.referenceChannels` (0..4, default 0) declares the far-end reference.
+Both are validated on the main thread (`validateGeometry`) and fail loudly
+rather than being clamped - a project that declares 5 channels, or a reference
+that never arrives, is misconfigured and says so at `start()` / `setConfig()`.
+
+**The worklet node has two inputs.** Input 0 is the mic/file planes; input 1 is
+the far-end render signal the app actually plays (a media element, a demo
+oscillator), supplied as `start({ reference })`. An unconnected reference input
+costs nothing and stays silent. Channel counts are explicit
+(`channelCountMode: 'explicit'`) so a stereo capture cannot bleed into the
+reference plane through channel-count computation.
+
+**Refusal rules, in the device graph's priority order** (`planStage`,
+`core/geometry.ts`, unit-tested):
+
+1. A stage is never fed fewer mic channels than it declared -> **refused**.
+2. A stage declaring `referenceChannels > 0` on a capture without a reference
+   -> **refused**. This is the structural reason an AEC cannot be enabled by
+   accident; it is a declaration check, not a runtime toggle.
+3. A mono-declared stage on a multi-channel capture -> the **graph downmixes**
+   (allocation-free, into a preallocated scratch plane), so single-mic is the
+   degenerate case of the same path rather than a separate code path.
+4. A planar-declared stage with no planar `processFrame()` -> **refused**.
+
+**The #246 gate is enforced at the delivery boundary, not only in the UI.** The
+qualification verdict is pushed back into the worklet with every config
+message; until it is `qualified` the graph serves mono, so a stereo-looking
+stream can never reach a spatial stage. The worklet measures what really
+arrived (`inputs[0].length`, `inputs[1]?.length`) and never trusts the
+declaration; a change in the delivered geometry re-resolves the plan once,
+outside the per-frame path.
+
+**Callback discipline.** Every plane the audio path touches is preallocated in
+the processor constructor (mic + reference planes, mono scratch, stage slots);
+plan resolution happens only when the geometry changes. The per-frame
+allocations are the subarray views the frame loop already used before geometry
+existed.
+
+**Migration.** No existing caller changes: `channels: 1` and
+`referenceChannels: 0` reproduce the previous behaviour exactly (one plane, no
+reference, no extra per-frame work), and an existing `module.spec.json` gains
+only an optional `afe` block. A module that wants array support declares
+`geometry.inputChannels > 1`, implements `processFrame()`, and adds
+`capability` from the ADR-048 §7 vocabulary (`fixed_delay_and_sum` /
+`doa_steered` / `mvdr_gsc` / `online_auxiva`) - beamformers, never blind
+source separation.
+
+**Honest limit:** declaring a geometry does not verify the hardware. A declared
+array still depends on the #246 qualification verdict, and `qualified` means
+"no disqualifying signature found" (§6.2), not "verified microphones".
+
 | `vizFps` | 30 | 15-60 | Throttle for visualization frame emission. |
 | `waveformPoints` | 128 | - | Downsampled points per waveform display. |
 | `spectrumBins` | 65 | - | Magnitude bins for the spectrogram. |
@@ -449,3 +529,4 @@ All Phase 1 open questions are resolved (ADR-016); the contract is locked.
 | 2026-07-27 | Human review: resolved Q-AFE-1..4 (ADR-016); added config panel API + per-engine frame config (ADR-017). Status -> Accepted. | agent |
 | 2026-07-27 | ADR-016 amendment: AEC3 deferred to v1.x (passthrough for v1); AFE DSP at 48 kHz (resample to 16 kHz at output); VAD from RNNoise for v1 (Silero -> Phase 2); RNNoise prebuilt WASM vendored at packages/modules/afe/rnnoise/web/vendor/. | agent |
 | 2026-10-12 | AEC evaluation harness (#249 slice A): `wake/aec.h` ABI + a conforming reference NLMS + ctest gates with a known-bad negative control. Evaluation spike only - no AEC is wired into the pipeline, and ADR-048 §4 (MCU AEC unresolved) still applies. | agent |
+| 2026-10-14 | Browser AFE geometry (#245 slice D): declared mic/reference channels, `AFEStage.geometry` + optional planar `processFrame()`, `spec.afe` block in the module-spec schema, two-input worklet node with a far-end reference path, and the #246 gate enforced at the delivery boundary. New §6.4. | agent |

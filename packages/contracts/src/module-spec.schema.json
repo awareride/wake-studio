@@ -434,8 +434,38 @@
         }
       }
     },
+    "afe": {
+      "type": "object",
+      "description": "AFE stage declaration (issue #245) — present on an afe-category stage module (aec / bss / rnnoise). The declarative twin of the stage engine's declared geometry (AFEStage.geometry on the browser, wake_afe_stage_ops_t on device): one geometry, three places, one test that they agree.",
+      "required": ["stageId", "geometry"],
+      "properties": {
+        "stageId": {
+          "type": "string",
+          "description": "Which stage of the fixed AEC -> BSS -> NS chain this module implements.",
+          "enum": ["aec", "bss", "ns"]
+        },
+        "geometry": {
+          "type": "object",
+          "description": "Declared geometry. inputChannels 1 = single mic (the degenerate case, not a special path); referenceChannels 0 = no far-end reference (an AEC stage needs one and is refused on a capture without it).",
+          "required": ["inputChannels", "outputChannels", "referenceChannels"],
+          "properties": {
+            "inputChannels": { "type": "integer", "minimum": 1, "maximum": 4 },
+            "outputChannels": { "type": "integer", "minimum": 1, "maximum": 4 },
+            "referenceChannels": { "type": "integer", "minimum": 0, "maximum": 4 }
+          },
+          "additionalProperties": false
+        },
+        "capability": {
+          "type": "string",
+          "description": "Spatial capability (ADR-048 §7) for a stage consuming >1 mic channel. Delay-and-sum / DOA steering / MVDR / geometric separation are beamformers, never blind source separation.",
+          "enum": ["fixed_delay_and_sum", "doa_steered", "mvdr_gsc", "online_auxiva"]
+        }
+      },
+      "additionalProperties": false
+    },
     "train": {
       "type": "object",
+      "description": "Training declaration (ADR-028).",
       "properties": {
         "entry": {
           "type": "string"

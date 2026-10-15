@@ -10,6 +10,14 @@
     "license": "MIT (integration)",
     "status": "proposed"
   },
+  "afe": {
+    "stageId": "bss",
+    "geometry": {
+      "inputChannels": 1,
+      "outputChannels": 1,
+      "referenceChannels": 0
+    }
+  },
   "params": [
     {
       "id": "bypass",

@@ -30,7 +30,7 @@ import { ClipsPanel } from '../components/ClipsPanel'
 import { SourcePanel, StageModulePanel, NsPanel, StageModuleShell, StageSection } from '../components/ModulePanels'
 import { useT } from '../i18n'
 import { PersistenceStageToggle } from '../components/PersistenceStageToggle'
-import type { AFEPipeline } from '@wake-studio/module-afe-graph'
+import type { AFEConfig, AFEPipeline } from '@wake-studio/module-afe-graph'
 import { useConsoleStatus } from '../status'
 import { useProjects, useProjectStageConfig } from '../projects'
 import { usePipelineRunner } from '../workspace/usePipelineRunner'
@@ -174,14 +174,14 @@ function WorkspaceInner({
   toggleKws: (v: boolean) => void
   kwsPreloadOnStart: boolean
   setKwsPreloadOnStart: (v: boolean) => void
-  fallbackChannels: 1 | 2
+  fallbackChannels: number
   runState: PipelineRunState
   onStart: () => void
   onStop: () => void
   setStatus: (patch: Partial<import('../status').ConsoleStatus>) => void
   persistWs: (patch: Partial<import('../workspace/types').WorkspaceConfig>) => void
   persistAfe: (patch: Partial<import('../projects/types').ProjectConfigSnapshot['afe']>) => void
-  afeCfg: { channels?: 1 | 2; topology?: 'single-worklet' | 'node-per-stage'; latencyBudgetMs?: number; vizFps?: number } | undefined
+  afeCfg: AFEConfig | undefined
   wsCfg: import('../workspace/types').WorkspaceConfig | undefined
   current: { id: string; name: string } | null
 }) {

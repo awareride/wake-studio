@@ -38,7 +38,11 @@ export type {
   AFEStageParams,
   AFEStageResult,
   AFEStageKind,
+  AFEStageGeometry,
+  AFESpatialCapability,
+  ModuleAFESpec,
 } from './module-spec'
+export { MONO_STAGE_GEOMETRY } from './module-spec'
 export type {
   ProvisionArtifact,
   ProvisionKind,

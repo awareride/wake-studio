@@ -6,6 +6,7 @@
  */
 
 import type { AFEConfig, ParameterDescriptor } from './types'
+import { MAX_AFE_CHANNELS } from './geometry'
 
 /** The internal AFE DSP sample rate (48 kHz so RNNoise's 480-sample frame = 10 ms). */
 export const INTERNAL_SAMPLE_RATE = 48000
@@ -40,6 +41,7 @@ function lcm(a: number, b: number): number {
 export const DEFAULT_CONFIG: AFEConfig = {
   topology: 'single-worklet',
   channels: 1,
+  referenceChannels: 0,
   frameMs: { aec: 10, bss: 10, ns: 10 },
   latencyBudgetMs: 150,
   vizFps: 30,
@@ -73,6 +75,28 @@ export function describeParameters(): ReadonlyArray<ParameterDescriptor> {
       step: 5,
       unit: 'fps',
       description: 'Throttle for visualization frame emission.',
+    },
+    {
+      id: 'channels',
+      label: 'Mic channels',
+      type: 'number',
+      default: 1,
+      min: 1,
+      max: MAX_AFE_CHANNELS,
+      step: 1,
+      description:
+        'Mic channels the project declares. 1 = single-mic passthrough (default, zero cost); 2-4 = a declared array, which a stage may only use after the capture is qualified (#246).',
+    },
+    {
+      id: 'referenceChannels',
+      label: 'Far-end reference channels',
+      type: 'number',
+      default: 0,
+      min: 0,
+      max: MAX_AFE_CHANNELS,
+      step: 1,
+      description:
+        'Far-end (render) channels supplied as an AEC reference. 0 = none (default); more than 0 requires a reference node at start() and unlocks stages that declare one (issue #245).',
     },
     {
       id: 'latencyBudgetMs',

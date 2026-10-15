@@ -338,6 +338,14 @@ export interface ModuleSpec {
   actions: ModuleAction[]
   status: ModuleStatus[]
   runtime: ModuleRuntime
+  /**
+   * AFE stage declaration (issue #245) — present on an `afe`-category stage
+   * module (aec / bss / rnnoise). It is the declarative twin of the stage's
+   * runtime geometry (`AFEStage.geometry` here, `wake_afe_stage_ops_t` on
+   * device), so a spec-vs-implementation drift is checkable rather than
+   * assumed: one geometry, three places, one test.
+   */
+  afe?: ModuleAFESpec
   train?: ModuleTrain
   /**
    * TTS engine declaration (ADR-044 §5, #205) - a module in the `data`
@@ -391,8 +399,58 @@ export interface ModuleScorecard {
 // Cross-module stage interface (ADR-025; AFE stage modules)
 // ---------------------------------------------------------------------------
 
+/**
+ * Spatial capability vocabulary for a multi-mic AFE stage (ADR-048 §7).
+ *
+ * Delay-and-sum, DOA steering and MVDR/GSC are beamformers, not blind source
+ * separation — the #240 BSS review found the two being conflated, so the
+ * vocabulary is enumerated here and nowhere else. A stage that is not spatial
+ * declares no capability.
+ */
+export type AFESpatialCapability =
+  | 'fixed_delay_and_sum'
+  | 'doa_steered'
+  | 'mvdr_gsc'
+  | 'online_auxiva'
+
+/** The `afe` block an AFE stage module declares in `module.spec.json` (#245). */
+export interface ModuleAFESpec {
+  /** Which stage of the fixed AEC -> BSS -> NS chain this module implements. */
+  stageId: AFEStageKind
+  /** Declared geometry; must match the stage engine's `AFEStage.geometry`. */
+  geometry: AFEStageGeometry
+  /** Spatial capability, when the stage consumes more than one mic channel. */
+  capability?: AFESpatialCapability
+}
+
 /** A pluggable AFE stage (AEC / BSS / NS), per the per-stage module design. */
 export type AFEStageKind = 'aec' | 'bss' | 'ns'
+
+/**
+ * Geometry an AFE stage declares: mic channels it consumes, channels it
+ * produces, and far-end (render) channels it needs (issue #245).
+ *
+ * The same three numbers the device stage ops declare
+ * (`wake_afe_stage_ops_t.input_channels` / `output_channels` /
+ * `reference_channels`, docs/modules/sdk.md §4.2.2), so a browser stage and a
+ * device stage are described with one vocabulary. Single-mic is the degenerate
+ * case (`1/1/0`), not a separate path.
+ */
+export interface AFEStageGeometry {
+  /** Mic channels consumed; 1 = single mic (the default everywhere). */
+  inputChannels: number
+  /** Channels produced. */
+  outputChannels: number
+  /** Far-end render channels consumed; 0 = no reference (an AEC needs one). */
+  referenceChannels: number
+}
+
+/** The single-mic geometry every v1 stage declares. */
+export const MONO_STAGE_GEOMETRY: AFEStageGeometry = Object.freeze({
+  inputChannels: 1,
+  outputChannels: 1,
+  referenceChannels: 0,
+})
 
 /** Result of one processed frame; stages denoise in place and report metrics. */
 export interface AFEStageResult {
@@ -413,8 +471,26 @@ export type AFEStageParams = Record<string, number | boolean | string>
 /** A single AFE stage module's headless engine (usable in any JS env). */
 export interface AFEStage {
   readonly kind: AFEStageKind
+  /**
+   * Declared geometry (issue #245). Optional: a stage that omits it is the
+   * single-mic degenerate case (`1/1/0`), which is what every v1 stage is.
+   * A stage declaring `inputChannels > 1` is **spatial** and may only run on
+   * a qualified capture (#246); a stage declaring `referenceChannels > 0`
+   * needs a far-end reference and is refused on a capture without one.
+   */
+  readonly geometry?: AFEStageGeometry
   /** Process one frame in place; returns stage metrics. */
   process(frame: Float32Array): AFEStageResult
+  /**
+   * Process one frame with an explicit geometry (issue #245).
+   *
+   * Optional, and only meaningful for a stage that declares more than one mic
+   * channel or a far-end reference: `channels` are planar mic planes and
+   * `reference` the planar far-end planes (null when the stage declares none).
+   * A mono stage keeps using {@link process} — the graph downmixes for it, the
+   * same conversion the device graph owns.
+   */
+  processFrame?(channels: Float32Array[], reference: Float32Array[] | null): AFEStageResult
   /** Reset internal state (e.g. on stop/record). */
   reset(): void
   /**
