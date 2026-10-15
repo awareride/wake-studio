@@ -120,6 +120,9 @@ export function SourcePanel({
   persistAfe,
   persistence,
   setPersistence,
+  qualification,
+  qualificationStale,
+  onRequalify,
 }: {
   source: SourceState & { dirty: boolean; kindChanged: boolean }
   actions: SourceActions
@@ -129,6 +132,10 @@ export function SourcePanel({
   persistAfe: (patch: Record<string, unknown>) => void
   persistence: WorkspaceConfig['persistence']
   setPersistence: (next: WorkspaceConfig['persistence']) => void
+  /** Capture qualification verdict (#246); `stale` marks a cached one. */
+  qualification?: import('@wake-studio/module-afe-graph').QualificationResult | null
+  qualificationStale?: boolean
+  onRequalify?: () => void
 }) {
   const t = useT()
   const params = describeParameters().filter((p) => GLOBAL_PARAM_IDS.includes(p.id))
@@ -175,7 +182,15 @@ export function SourcePanel({
       </StageSection>
       <StageSection>
         <SectionLabel>{t('Source')}</SectionLabel>
-        <SourceConfigSection source={source} actions={actions} disabled={running} />
+        <SourceConfigSection
+          source={source}
+          actions={actions}
+          disabled={running}
+          qualification={qualification}
+          running={running}
+          stale={qualificationStale}
+          onRequalify={onRequalify}
+        />
       </StageSection>
       <StageSection>
         <SectionLabel>AFE</SectionLabel>

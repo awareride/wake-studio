@@ -304,6 +304,24 @@ export class AFEPipeline {
     return this._qualification?.spatialSupported === true
   }
 
+  /**
+   * Re-run the capture qualification probe (#246).
+   *
+   * The verdict describes the capture that produced it, so it is re-measured
+   * rather than reused when the capture configuration changes (another device,
+   * another channel count). Throws when the pipeline is not running: there is
+   * no capture to qualify.
+   */
+  requalify(): void {
+    if (!this._running || !this._node) {
+      throw new Error('Pipeline is not running; there is no capture to qualify.')
+    }
+    // Drop the old verdict first so a UI reading it cannot present a stale
+    // verdict as current while the new window accumulates.
+    this._qualification = null
+    this._send({ type: 'requalify' })
+  }
+
   /** Current runtime parameters for one stage (empty when none were set). */
   getStageParams(kind: AFEStageKind): AFEStageParams {
     return { ...(this._stageParams[kind] ?? {}) }

@@ -218,7 +218,15 @@ function WorkspaceInner({
   sourceRef.current = source.appliedSource
 
   // AFE engine lifecycle (commandRef feeds the unified runner).
-  const { afeRef, running, error, commandRef } = useAfePipeline({
+  const {
+    afeRef,
+    running,
+    error,
+    commandRef,
+    qualification,
+    qualificationLive,
+    requalify,
+  } = useAfePipeline({
     sourceRef,
     onRunningChange: (r) => {
       setAfePipeline(afeRef.current)
@@ -371,6 +379,9 @@ function WorkspaceInner({
               persistAfe={persistAfe}
               persistence={persistence}
               setPersistence={setPersistence}
+              qualification={qualification}
+              qualificationStale={!qualificationLive}
+              onRequalify={requalify}
             />
           </div>
           <div className={activeTab === 'aec' ? '' : 'hidden'}>

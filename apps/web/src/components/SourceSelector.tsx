@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import type { MicSourceConfig } from '@wake-studio/module-afe-graph'
+import type { MicSourceConfig, QualificationResult } from '@wake-studio/module-afe-graph'
 import { Button, Card, Checkbox } from '@radix-ui/themes'
 import { UiSelect } from '@wake-studio/module-kit'
 import {
@@ -22,12 +22,20 @@ import {
 } from '../workspace/sources/deviceList'
 import type { MicDevice } from '../workspace/sources/deviceList'
 import { useT } from '../i18n'
+import { CaptureQualificationNote } from './CaptureQualificationNote'
 
 interface Props {
   /** Current value (from the workspace/project snapshot). */
   value: MicSourceConfig
   onChange: (next: MicSourceConfig) => void
   disabled?: boolean
+  /** Live capture qualification verdict (#246), when one is known. */
+  qualification?: QualificationResult | null
+  /** Whether the pipeline is running (the verdict is live only then). */
+  running?: boolean
+  /** True when `qualification` is a cached verdict, not the current capture. */
+  stale?: boolean
+  onRequalify?: () => void
 }
 
 function ToggleRow({
@@ -57,7 +65,15 @@ function ToggleRow({
   )
 }
 
-export function SourceSelector({ value, onChange, disabled }: Props) {
+export function SourceSelector({
+  value,
+  onChange,
+  disabled,
+  qualification = null,
+  running = false,
+  stale = false,
+  onRequalify,
+}: Props) {
   const t = useT()
   const [devices, setDevices] = useState<MicDevice[]>([])
   const [permissionGranted, setPermissionGranted] = useState(false)
@@ -169,6 +185,15 @@ export function SourceSelector({ value, onChange, disabled }: Props) {
           />
         </label>
       </div>
+
+      {(value.channelCount ?? 1) > 1 && qualification && (
+        <CaptureQualificationNote
+          qualification={qualification}
+          running={running}
+          stale={stale}
+          onRequalify={onRequalify ?? (() => {})}
+        />
+      )}
 
       <p className="w-full text-[10px] text-ink-3">
         {t(

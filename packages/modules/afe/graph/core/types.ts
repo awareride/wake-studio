@@ -270,6 +270,16 @@ export type MainMessage =
     }
   | { type: 'absource'; source: 'raw' | 'processed' }
   | {
+      /**
+       * Re-run the capture/array qualification probe (#246): the worklet
+       * discards its observation window and reports a fresh verdict once it
+       * has watched the new capture for long enough. Sent when the capture
+       * configuration changes (device, channel count) on an already-running
+       * pipeline, so the verdict always describes the current capture.
+       */
+      type: 'requalify'
+    }
+  | {
       type: 'record'
       seconds: number
       /**

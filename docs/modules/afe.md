@@ -295,6 +295,30 @@ it into a tri-state verdict via `evaluateQualification()`:
 - The verdict is reset on `stop()` — a new capture must be re-qualified.
 - **It fails safe**: anything not provably independent stays unsupported and the
   pipeline uses mono passthrough.
+- **The verdict is surfaced, not silent.** The source panel shows the tri-state
+  verdict with its reasons whenever an array is requested (`CaptureQualificationNote`,
+  rendered when the mic channel count is > 1), and spatial stages cannot be
+  enabled unless it is `qualified` - a `degraded`/`unsupported` capture falls
+  back to mono and the UI states why (issue #246 acceptance criterion 3).
+- **Cached per capture signature.** The verdict is remembered per input device +
+  requested channel count (`apps/web/src/workspace/qualificationCache.ts`), so
+  the panel can say what the last capture on this device looked like *before*
+  Start. Two deliberate limits: a cached entry is a UI convenience and is never
+  an authorization (the live probe decides while the pipeline runs, and a new
+  run re-measures), and the signature covers only what can change the answer
+  (device, channel count).
+- **Re-runnable on demand.** `AFEPipeline.requalify()` (worklet `requalify`
+  message) discards the observation window and reports a fresh verdict, so
+  re-plugging an interface or changing the channel count on a running pipeline
+  re-measures instead of reusing a stale answer. It throws when the pipeline is
+  not running: there is no capture to qualify.
+- **Callback discipline is enforced by a test.** `tests/callback-discipline.test.ts`
+  asserts the `process()` callback and `ChannelProbe.observe()` contain no
+  allocation (`new`, `.slice()`), logging, storage, network, locking or blocking
+  primitives, and that `observe()` adds no per-frame state across 100k calls.
+  The planar geometry path (issue #245) hands channels to a stage through
+  preallocated handoff arrays whose `length` is trimmed, precisely so this
+  stays true.
 - **Honest limit:** this detects channel count, duplicated/downmixed channels,
   energy imbalance and clipping. It cannot *prove* two channels are physically
   distinct microphones — that needs a calibrated capture or a listening test — so
@@ -530,3 +554,4 @@ All Phase 1 open questions are resolved (ADR-016); the contract is locked.
 | 2026-07-27 | ADR-016 amendment: AEC3 deferred to v1.x (passthrough for v1); AFE DSP at 48 kHz (resample to 16 kHz at output); VAD from RNNoise for v1 (Silero -> Phase 2); RNNoise prebuilt WASM vendored at packages/modules/afe/rnnoise/web/vendor/. | agent |
 | 2026-10-12 | AEC evaluation harness (#249 slice A): `wake/aec.h` ABI + a conforming reference NLMS + ctest gates with a known-bad negative control. Evaluation spike only - no AEC is wired into the pipeline, and ADR-048 §4 (MCU AEC unresolved) still applies. | agent |
 | 2026-10-14 | Browser AFE geometry (#245 slice D): declared mic/reference channels, `AFEStage.geometry` + optional planar `processFrame()`, `spec.afe` block in the module-spec schema, two-input worklet node with a far-end reference path, and the #246 gate enforced at the delivery boundary. New §6.4. | agent |
+| 2026-10-15 | Capture qualification made visible (#246): verdict + reasons surfaced in the source panel, per-capture caching, on-demand re-measurement, and a callback-discipline test that also fixed a per-frame `slice()` in the planar path. | agent |
