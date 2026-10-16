@@ -19,9 +19,23 @@ interface Props {
   source: SourceState & { dirty: boolean; kindChanged: boolean }
   actions: SourceActions
   disabled?: boolean
+  /** Capture qualification verdict (#246), shown when an array is requested. */
+  qualification?: import('@wake-studio/module-afe-graph').QualificationResult | null
+  running?: boolean
+  /** The shown verdict is a cached one for this device, not the live capture. */
+  stale?: boolean
+  onRequalify?: () => void
 }
 
-export function SourceConfigSection({ source, actions, disabled }: Props) {
+export function SourceConfigSection({
+  source,
+  actions,
+  disabled,
+  qualification = null,
+  running = false,
+  stale = false,
+  onRequalify,
+}: Props) {
   const t = useT()
   return (
     <div className="space-y-3">
@@ -64,6 +78,10 @@ export function SourceConfigSection({ source, actions, disabled }: Props) {
           value={source.mic}
           onChange={actions.updateMic}
           disabled={disabled}
+          qualification={qualification}
+          running={running}
+          stale={stale}
+          onRequalify={onRequalify}
         />
       ) : (
         <div className="rounded-xl border border-line bg-surface-3 p-4">

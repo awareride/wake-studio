@@ -145,11 +145,13 @@ class PipelineProcessor extends AudioWorkletProcessor {
   )
   /** Scratch plane the graph owns when it downmixes for a mono-declared stage. */
   private _monoScratch = new Float32Array(RNNOISE_FRAME_SIZE)
-  /** Planar per-channel views, rebuilt only when the chain needs them. */
-  private _planarViews: Float32Array[] = Array.from(
-    { length: MAX_AFE_CHANNELS },
-    () => new Float32Array(0),
-  )
+  /**
+   * Preallocated handoff arrays for the planar path. Only their `length` is
+   * trimmed per frame (same backing store), so the audio callback never
+   * allocates: this is what tests/callback-discipline.test.ts enforces.
+   */
+  private _handoff: Float32Array[] = new Array<Float32Array>(MAX_AFE_CHANNELS)
+  private _refHandoff: Float32Array[] = new Array<Float32Array>(MAX_AFE_CHANNELS)
 
   /** Fixed slots, in pipeline order (ADR-001). */
   private _slots: StageSlot[] = [
@@ -331,6 +333,13 @@ class PipelineProcessor extends AudioWorkletProcessor {
       case 'absource':
         this._abSource = msg.source
         break
+      case 'requalify':
+        // A new verdict must describe the NEW capture, not the old window.
+        // Allocation here is fine: this is a message handler, not the audio
+        // callback (the probe itself stays allocation-free per frame).
+        this._probe = new ChannelProbe()
+        this._reportedCapture = false
+        break
       case 'record': {
         const persist = msg.persist === true
         const total = Math.floor(msg.seconds * sampleRate)
@@ -440,24 +449,35 @@ class PipelineProcessor extends AudioWorkletProcessor {
 
         if (plan.micChannels > 1 || plan.referenceChannels > 0) {
           // Planar path: rebuild the per-channel views for this frame and the
-          // reference plane, then hand them to the stage.
+          // reference plane, then hand exactly `micChannels` planes to the
+          // stage. The handoff arrays are preallocated and only their length is
+          // trimmed, so the audio callback allocates nothing here.
+          const handoff = this._handoff
           for (let c = 0; c < plan.micChannels; c++) {
-            this._planarViews[c] = this._planes[c].subarray(start, end)
+            handoff[c] = this._planes[c].subarray(start, end)
           }
-          const reference =
-            plan.referenceChannels > 0
-              ? [this._refPlanes[0].subarray(start, end)]
-              : null
-          const result = stage.processFrame!(this._planarViews.slice(0, plan.micChannels), reference)
+          handoff.length = plan.micChannels
+          let reference: Float32Array[] | null = null
+          if (plan.referenceChannels > 0) {
+            this._refHandoff[0] = this._refPlanes[0].subarray(start, end)
+            this._refHandoff.length = plan.referenceChannels
+            reference = this._refHandoff
+          }
+          const result = stage.processFrame!(handoff, reference)
+          handoff.length = MAX_AFE_CHANNELS
+          this._refHandoff.length = MAX_AFE_CHANNELS
           vad = Math.max(vad, result.vadProbability)
-          frame = this._planarViews[0]
+          frame = handoff[0]
         } else if (plan.action === 'downmix') {
           // A mono-declared stage on a multi-channel capture: the graph owns
           // the conversion, exactly as the device graph does.
+          const handoff = this._handoff
           for (let c = 0; c < this._servedMicChannels; c++) {
-            this._planarViews[c] = this._planes[c].subarray(start, end)
+            handoff[c] = this._planes[c].subarray(start, end)
           }
-          downmixToMono(this._planarViews.slice(0, this._servedMicChannels), this._monoScratch)
+          handoff.length = this._servedMicChannels
+          downmixToMono(handoff, this._monoScratch)
+          handoff.length = MAX_AFE_CHANNELS
           const result = stage.process(this._monoScratch)
           vad = Math.max(vad, result.vadProbability)
           frame = this._monoScratch
